@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Aurelia Bay Resort - Özel Plaj Kulübü</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-tint": "#e6c364",
+                        "on-tertiary-fixed-variant": "#394859",
+                        "on-primary-fixed-variant": "#584400",
+                        "on-secondary-container": "#a8b6ca",
+                        "outline": "#99907e",
+                        "inverse-on-surface": "#2f3131",
+                        "secondary": "#bac8dc",
+                        "secondary-fixed": "#d6e4f9",
+                        "on-tertiary": "#233242",
+                        "tertiary-fixed-dim": "#b8c8dd",
+                        "surface-container-high": "#282a2b",
+                        "primary-fixed-dim": "#e6c364",
+                        "on-tertiary-fixed": "#0d1d2c",
+                        "inverse-primary": "#755b00",
+                        "surface-variant": "#333535",
+                        "secondary-fixed-dim": "#bac8dc",
+                        "on-primary-fixed": "#241a00",
+                        "tertiary-container": "#9dadc1",
+                        "outline-variant": "#4d4637",
+                        "on-primary-container": "#503d00",
+                        "surface-container-lowest": "#0c0f0f",
+                        "on-surface-variant": "#d0c5b2",
+                        "on-surface": "#e2e2e2",
+                        "surface-container-highest": "#333535",
+                        "on-secondary": "#243141",
+                        "on-error-container": "#ffdad6",
+                        "surface-bright": "#38393a",
+                        "surface": "#121414",
+                        "secondary-container": "#3a4859",
+                        "on-secondary-fixed-variant": "#3a4859",
+                        "on-secondary-fixed": "#0f1c2c",
+                        "surface-container-low": "#1a1c1c",
+                        "on-primary": "#3d2e00",
+                        "on-error": "#690005",
+                        "primary-container": "#c9a84c",
+                        "tertiary-fixed": "#d4e4f9",
+                        "surface-dim": "#121414",
+                        "inverse-surface": "#e2e2e2",
+                        "background": "#121414",
+                        "primary-fixed": "#ffe08f",
+                        "error-container": "#93000a",
+                        "on-background": "#e2e2e2",
+                        "error": "#ffb4ab",
+                        "surface-container": "#1e2020",
+                        "on-tertiary-container": "#324152",
+                        "tertiary": "#b9c8dd",
+                        "primary": "#e6c364"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "xs": "0.5rem",
+                        "xl": "4rem",
+                        "lg": "2.5rem",
+                        "unit": "4px",
+                        "container-max": "1280px",
+                        "sm": "1rem",
+                        "md": "1.5rem",
+                        "gutter": "2rem"
+                    },
+                    "fontFamily": {
+                        "display-xl": ["Plus Jakarta Sans"],
+                        "headline-sm": ["Plus Jakarta Sans"],
+                        "body-lg": ["Plus Jakarta Sans"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "label-sm": ["Plus Jakarta Sans"],
+                        "label-md": ["Plus Jakarta Sans"],
+                        "body-md": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "display-xl": ["64px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-sm": ["24px", {"lineHeight": "1.4", "fontWeight": "500"}],
+                        "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "headline-md": ["32px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                        "display-lg": ["48px", {"lineHeight": "1.2", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "label-sm": ["12px", {"lineHeight": "1", "fontWeight": "500"}],
+                        "label-md": ["14px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md text-body-md antialiased overflow-hidden selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar -->
+<nav class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-8 h-20 bg-[#1E2D3D]/60 backdrop-blur-[20px] border-b border-[#8A9BB0]/20 shadow-none">
+<!-- Brand -->
+<div class="text-2xl font-bold tracking-tighter text-[#C9A84C]">
+            LÜKS RESORT
+        </div>
+<!-- Navigation Links -->
+<div class="hidden md:flex gap-8 items-center font-['Plus_Jakarta_Sans'] text-sm tracking-wide uppercase">
+<a class="text-slate-300 hover:text-[#C9A84C] transition-colors duration-300" href="#">Gastronomi</a>
+<a class="text-slate-300 hover:text-[#C9A84C] transition-colors duration-300" href="#">Spa &amp; Sağlık</a>
+<a class="text-[#C9A84C] border-b-2 border-[#C9A84C] pb-1 scale-95 duration-200 shimmer-effect" href="#">Plaj Kulübü</a>
+<a class="text-slate-300 hover:text-[#C9A84C] transition-colors duration-300" href="#">Odalar</a>
+<a class="text-slate-300 hover:text-[#C9A84C] transition-colors duration-300" href="#">Deneyimler</a>
+</div>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-6">
+<button class="hidden lg:block bg-primary-container text-on-primary-container px-6 py-2.5 rounded-full font-label-md text-label-md hover:scale-105 transition-transform shadow-[0_0_15px_rgba(201,168,76,0.2)]">
+                Rezervasyon Yap
+            </button>
+<div class="flex gap-4 text-slate-300">
+<button class="hover:text-[#C9A84C] transition-colors"><span class="material-symbols-outlined">account_circle</span></button>
+<button class="hover:text-[#C9A84C] transition-colors"><span class="material-symbols-outlined">language</span></button>
+</div>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-20 h-[calc(100vh-80px)] z-40 flex flex-col py-6 bg-[#0D1B2A]/80 backdrop-blur-[40px] docked border-r border-[#8A9BB0]/20 shadow-2xl w-20 hover:w-64 transition-all duration-500 group overflow-hidden">
+<!-- User Profile Area (Hidden until hover for clean aesthetic, or shown icon) -->
+<div class="px-6 mb-8 flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+<div class="w-10 h-10 rounded-full bg-surface-container-high border border-primary-container/30 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">person</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Hoş Geldiniz</p>
+<p class="font-label-sm text-label-sm text-[#C9A84C]">Premium Üye</p>
+</div>
+</div>
+<!-- Navigation Tabs -->
+<nav class="flex-1 flex flex-col gap-2 px-3">
+<a class="flex items-center gap-6 px-3 py-3 bg-[#C9A84C] text-[#0D1B2A] rounded-lg shadow-[0_0_15px_rgba(201,168,76,0.4)] group-hover:translate-x-2 transition-transform font-['Plus_Jakarta_Sans'] font-medium whitespace-nowrap" href="#">
+<span class="material-symbols-outlined shrink-0" style="font-variation-settings: 'FILL' 1;">explore</span>
+<span class="opacity-0 group-hover:opacity-100 transition-opacity duration-300">Panoramik Tur</span>
+</a>
+<a class="flex items-center gap-6 px-3 py-3 text-slate-400 hover:bg-[#1E2D3D] hover:text-[#C9A84C] rounded-lg transition-colors font-['Plus_Jakarta_Sans'] font-medium whitespace-nowrap" href="#">
+<span class="material-symbols-outlined shrink-0">concierge</span>
+<span class="opacity-0 group-hover:opacity-100 transition-opacity duration-300">Hizmetler</span>
+</a>
+<a class="flex items-center gap-6 px-3 py-3 text-slate-400 hover:bg-[#1E2D3D] hover:text-[#C9A84C] rounded-lg transition-colors font-['Plus_Jakarta_Sans'] font-medium whitespace-nowrap" href="#">
+<span class="material-symbols-outlined shrink-0">restaurant</span>
+<span class="opacity-0 group-hover:opacity-100 transition-opacity duration-300">Restoranlar</span>
+</a>
+<a class="flex items-center gap-6 px-3 py-3 text-slate-400 hover:bg-[#1E2D3D] hover:text-[#C9A84C] rounded-lg transition-colors font-['Plus_Jakarta_Sans'] font-medium whitespace-nowrap" href="#">
+<span class="material-symbols-outlined shrink-0">event</span>
+<span class="opacity-0 group-hover:opacity-100 transition-opacity duration-300">Etkinlikler</span>
+</a>
+<a class="flex items-center gap-6 px-3 py-3 text-slate-400 hover:bg-[#1E2D3D] hover:text-[#C9A84C] rounded-lg transition-colors font-['Plus_Jakarta_Sans'] font-medium whitespace-nowrap mt-auto" href="#">
+<span class="material-symbols-outlined shrink-0">settings</span>
+<span class="opacity-0 group-hover:opacity-100 transition-opacity duration-300">Ayarlar</span>
+</a>
+</nav>
+<!-- CTA -->
+<div class="px-4 mt-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+<button class="w-full py-2 border border-[#C9A84C] text-[#C9A84C] rounded-lg font-label-md text-label-md hover:bg-[#C9A84C]/10 transition-colors whitespace-nowrap">
+                Destek Al
+            </button>
+</div>
+</aside>
+<!-- Main Content Area (70/30 Split) -->
+<main class="ml-20 mt-20 h-[calc(100vh-80px)] w-[calc(100vw-80px)] flex">
+<!-- Left Pane: 70% Cinematic Beach Scene -->
+<section class="w-[70%] h-full relative group">
+<!-- Background Image -->
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-1000 group-hover:scale-105" data-alt="Cinematic wide shot of a luxury private beach club at twilight, white sand, elegant wooden cabanas with glowing warm light, deep blue sea, highly detailed, photorealistic." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC07NnPGvMxzjqmSJrGDyR1kg4ne5IzxjQ7BokQcm6KHA2ZT55PoD9yLs5uZMZVaS0o4saGomnfw2c_EWEDkS5YneHif78qL-iRFhGpR4ZCatE-n_kLMoQl1CZv4ZbWiWWQMdZ1st8IqWtR_U7oUpAU3lW_YQ6Ma9bzWM85RzTnmhKRQURLwmGdYrUMxibWSgDVPKnln4AlCU9Zfj-TSPEn2lTgJTJe7pOl4mUfhfNRfEOh3Ou441U5vXExbFKr5aY6Ec0NUgAs6A0');">
+</div>
+<!-- Gradient Overlay for contrast -->
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest via-transparent to-surface-container-lowest/30"></div>
+<!-- Top Left Label -->
+<div class="absolute top-8 left-8 flex items-center gap-3">
+<div class="px-4 py-1.5 rounded-full border border-primary-container/50 bg-surface-container-lowest/40 backdrop-blur-md">
+<span class="font-label-md text-label-md text-primary-container tracking-widest uppercase">Aurelia Bay Resort</span>
+</div>
+</div>
+<!-- Bottom Frosted Glass Bar -->
+<div class="absolute bottom-12 left-12 right-12">
+<div class="bg-[#1E2D3D]/50 backdrop-blur-[30px] border border-[#8A9BB0]/20 rounded-2xl p-8 flex justify-between items-end shadow-2xl relative overflow-hidden">
+<!-- Shimmer highlight effect -->
+<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out"></div>
+<div class="relative z-10">
+<p class="font-label-md text-label-md text-secondary tracking-widest uppercase mb-2">Özel Deneyim</p>
+<h1 class="font-display-lg text-display-lg text-on-surface">Plaj Sahnesi</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-xl mt-4">Bembeyaz kumların ve turkuaz suların kusursuz uyumunda, size özel ayrılmış cabanalarda gün batımının tadını çıkarın.</p>
+</div>
+<div class="relative z-10 shrink-0 ml-8">
+<button class="bg-primary-container text-on-primary-container px-8 py-4 rounded-full font-label-md text-label-md flex items-center gap-3 hover:bg-primary hover:scale-105 transition-all duration-300 shadow-[0_0_20px_rgba(201,168,76,0.3)]">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">360</span>
+                            Tura Katıl
+                        </button>
+</div>
+</div>
+</div>
+</section>
+<!-- Right Pane: 30% AI Concierge Chat -->
+<section class="w-[30%] h-full bg-[#0D1B2A] border-l border-[#8A9BB0]/20 flex flex-col relative z-10 shadow-[-10px_0_30px_rgba(0,0,0,0.5)]">
+<!-- Chat Header -->
+<header class="p-6 border-b border-[#8A9BB0]/20 flex items-center justify-between bg-[#0D1B2A]/90 backdrop-blur-md">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-surface-container border border-primary-container/30 flex items-center justify-center relative">
+<span class="material-symbols-outlined text-primary-container">support_agent</span>
+<span class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-[#0D1B2A]"></span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">AI Concierge</h2>
+<p class="font-label-sm text-label-sm text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">verified</span> 7/24 Aktif
+                        </p>
+</div>
+</div>
+<button class="text-secondary hover:text-primary-container transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</header>
+<!-- Chat Messages Area -->
+<div class="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar">
+<!-- Time divider -->
+<div class="flex justify-center">
+<span class="font-label-sm text-label-sm text-on-surface-variant/50 bg-surface-container px-3 py-1 rounded-full border border-[#8A9BB0]/10">Bugün 14:30</span>
+</div>
+<!-- AI Message -->
+<div class="flex gap-4 w-11/12">
+<div class="w-8 h-8 rounded-full bg-surface-container border border-primary-container/20 flex items-center justify-center shrink-0 mt-1">
+<span class="material-symbols-outlined text-primary-container text-[16px]">smart_toy</span>
+</div>
+<div class="bg-[#1E2D3D] text-on-surface p-4 rounded-2xl rounded-tl-none border border-[#8A9BB0]/20 shadow-sm relative">
+<p class="font-body-md text-body-md leading-relaxed">Aurelia Bay Resort Özel Plaj Kulübü'ne hoş geldiniz. Cabana rezervasyonu veya sahil etkinlikleri hakkında size nasıl yardımcı olabilirim?</p>
+<span class="text-[10px] text-secondary absolute bottom-2 right-3">14:30</span>
+</div>
+</div>
+<!-- User Message -->
+<div class="flex gap-4 w-11/12 self-end justify-end">
+<div class="bg-primary-container/10 text-on-surface p-4 rounded-2xl rounded-tr-none border border-primary-container/30 shadow-md relative">
+<p class="font-body-md text-body-md leading-relaxed">Yarın öğleden sonra için deniz manzaralı bir cabana ayarlayabilir misiniz?</p>
+<span class="text-[10px] text-primary-container absolute bottom-2 right-3">14:32</span>
+</div>
+</div>
+<!-- AI Typing Indicator (Simulated state) -->
+<!-- <div class="flex gap-4 w-11/12">
+                    <div class="w-8 h-8 rounded-full bg-surface-container border border-primary-container/20 flex items-center justify-center shrink-0 mt-1">
+                        <span class="material-symbols-outlined text-primary-container text-[16px]">smart_toy</span>
+                    </div>
+                    <div class="bg-[#1E2D3D] text-on-surface px-4 py-3 rounded-2xl rounded-tl-none border border-[#8A9BB0]/20 flex items-center gap-1.5 w-fit">
+                        <div class="w-2 h-2 rounded-full bg-primary-container/60 animate-bounce"></div>
+                        <div class="w-2 h-2 rounded-full bg-primary-container/60 animate-bounce" style="animation-delay: 0.1s"></div>
+                        <div class="w-2 h-2 rounded-full bg-primary-container/60 animate-bounce" style="animation-delay: 0.2s"></div>
+                    </div>
+                </div> -->
+<!-- AI Response -->
+<div class="flex gap-4 w-11/12">
+<div class="w-8 h-8 rounded-full bg-surface-container border border-primary-container/20 flex items-center justify-center shrink-0 mt-1">
+<span class="material-symbols-outlined text-primary-container text-[16px]">smart_toy</span>
+</div>
+<div class="bg-[#1E2D3D] text-on-surface p-4 rounded-2xl rounded-tl-none border border-[#8A9BB0]/20 shadow-sm relative">
+<p class="font-body-md text-body-md leading-relaxed mb-3">Elbette. Yarın 14:00 - 18:00 arası 'Ocean Edge' cabanamız müsait. Şampanya ve taze meyve ikramımız dahil.</p>
+<!-- Embedded Action Card inside chat -->
+<div class="bg-surface-container-lowest/50 border border-primary-container/20 rounded-xl p-3 mt-2 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-container bg-primary-container/10 p-2 rounded-lg" style="font-variation-settings: 'FILL' 1;">deck</span>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Ocean Edge Cabana</p>
+<p class="font-label-sm text-label-sm text-secondary">Yarın, 14:00 - 18:00</p>
+</div>
+</div>
+<button class="text-primary-container hover:text-primary transition-colors">
+<span class="material-symbols-outlined">add_circle</span>
+</button>
+</div>
+<p class="font-body-md text-body-md mt-3">Onaylıyor musunuz?</p>
+<span class="text-[10px] text-secondary absolute bottom-2 right-3">14:33</span>
+</div>
+</div>
+</div>
+<!-- Chat Input Area -->
+<div class="p-6 border-t border-[#8A9BB0]/20 bg-[#0D1B2A]">
+<div class="relative flex items-center bg-[#1E2D3D]/50 border border-[#8A9BB0]/30 rounded-full p-1.5 focus-within:border-primary-container transition-colors duration-300 shadow-inner">
+<button class="p-2 text-secondary hover:text-primary-container transition-colors">
+<span class="material-symbols-outlined text-[20px]">attach_file</span>
+</button>
+<input class="bg-transparent border-none outline-none flex-1 px-3 text-on-surface placeholder:text-on-surface-variant font-body-md text-body-md focus:ring-0" placeholder="Talebinizi yazın..." type="text"/>
+<button class="p-2.5 rounded-full bg-primary-container text-on-primary-container hover:bg-primary transition-colors flex items-center justify-center group">
+<span class="material-symbols-outlined text-[18px] group-hover:translate-x-0.5 transition-transform">send</span>
+</button>
+</div>
+<p class="text-center font-label-sm text-[10px] text-secondary/60 mt-3">AI Concierge kişiselleştirilmiş deneyimler sunmak için eğitilmiştir.</p>
+</div>
+</section>
+</main>
+<!-- Custom minimal scrollbar style for chat -->
+<style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #233242;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #394859;
+        }
+    </style>
+</body></html>

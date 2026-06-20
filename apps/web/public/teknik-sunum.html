@@ -1,0 +1,1406 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dengizek – Teknik sunum (kurumsal)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* Tasarım token’ları (ADR 002 ile uyumlu: sıcak nötr, tek birincil vurgu) */
+      :root {
+        --color-bg: #f7f4ef;
+        --color-surface: #ffffff;
+        --color-ink: #1a1816;
+        --color-ink-dim: #5c5650;
+        --color-ink-faint: #8a8279;
+        --color-border: #e2dcd4;
+        --color-primary: #1e4a6e;
+        --color-primary-mid: #2f6a8f;
+        --color-primary-soft: #e8f0f6;
+        --color-cover-bg: #141210;
+        --color-cover-ink: #f7f4ef;
+        --font-serif: "Cormorant Garamond", "Times New Roman", Georgia, serif;
+        --font-sans: "DM Sans", system-ui, "Segoe UI", Roboto, sans-serif;
+        --space-unit: 8px;
+        --slide-max: 58rem;
+        --slide-pad: clamp(1.5rem, 4vw, 2.75rem);
+        --slide-h: 100vh;
+        --head-h: 3.25rem;
+        --z-bar: 50;
+        --z-nav: 40;
+        font-synthesis: weight;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--color-bg);
+        color: var(--color-ink);
+        font-family: var(--font-sans);
+        font-size: 1rem;
+        line-height: 1.55;
+        overflow-x: hidden;
+      }
+      h1,
+      h2,
+      h3,
+      h4,
+      .font-serif {
+        font-family: var(--font-serif);
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+      a {
+        color: var(--color-primary-mid);
+        text-decoration: none;
+        border-bottom: 1px solid color-mix(in srgb, var(--color-primary-mid) 40%, transparent);
+      }
+      a:hover {
+        border-bottom-color: var(--color-primary-mid);
+      }
+      a:focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+      }
+      :focus:not(:focus-visible) {
+        outline: none;
+      }
+
+      .top-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: var(--z-bar);
+        height: var(--head-h);
+        background: var(--color-surface);
+        border-bottom: 1px solid var(--color-border);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0 1rem 0 0.75rem;
+      }
+      .top-bar__brand {
+        font-family: var(--font-serif);
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--color-ink);
+        white-space: nowrap;
+        border: none;
+        padding: 0.25rem 0.5rem;
+      }
+      .top-bar__fill {
+        flex: 1;
+        height: 4px;
+        background: var(--color-border);
+        border-radius: 4px;
+        overflow: hidden;
+        min-width: 0;
+      }
+      .top-bar__fill-inner {
+        height: 100%;
+        width: 0%;
+        background: var(--color-primary);
+        border-radius: 4px;
+        transition: width 0.25s ease;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .top-bar__fill-inner,
+        .deck,
+        a {
+          transition: none;
+        }
+        .deck {
+          scroll-behavior: auto;
+        }
+      }
+      .top-bar__meta {
+        font-size: 0.75rem;
+        color: var(--color-ink-dim);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .top-bar__live {
+        position: absolute;
+        left: -9999px;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+      }
+
+      .layout {
+        display: flex;
+        padding-top: var(--head-h);
+        min-height: 100vh;
+      }
+      .sidebar {
+        display: none;
+        width: 12rem;
+        flex-shrink: 0;
+        position: sticky;
+        top: var(--head-h);
+        align-self: flex-start;
+        max-height: calc(100vh - var(--head-h));
+        overflow-y: auto;
+        z-index: var(--z-nav);
+        border-right: 1px solid var(--color-border);
+        background: var(--color-surface);
+        padding: 0.75rem 0.5rem 1.5rem;
+        font-size: 0.7rem;
+        line-height: 1.3;
+      }
+      .sidebar a {
+        display: block;
+        padding: 0.2rem 0.35rem;
+        border: none;
+        color: var(--color-ink-dim);
+        border-left: 2px solid transparent;
+      }
+      .sidebar a:hover {
+        color: var(--color-ink);
+        background: var(--color-primary-soft);
+      }
+      @media (min-width: 1100px) {
+        .sidebar {
+          display: block;
+        }
+      }
+
+      .deck {
+        flex: 1;
+        min-width: 0;
+        scroll-snap-type: y mandatory;
+        height: calc(100vh - var(--head-h));
+        overflow-y: auto;
+        scroll-behavior: smooth;
+      }
+      [data-deck] {
+        outline: none;
+      }
+
+      .slide {
+        min-height: calc(100vh - var(--head-h));
+        scroll-snap-align: start;
+        padding: var(--slide-pad);
+        max-width: var(--slide-max);
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        border-bottom: 1px solid var(--color-border);
+        background: var(--color-bg);
+      }
+      .slide:last-of-type {
+        border-bottom: none;
+      }
+      .slide--cover,
+      .slide--section {
+        color: var(--color-cover-ink);
+        max-width: none;
+        position: relative;
+        overflow: hidden;
+      }
+      .slide--cover {
+        background: var(--color-cover-bg);
+        justify-content: center;
+        align-items: flex-start;
+        min-height: calc(100vh - var(--head-h));
+        padding: var(--slide-pad) var(--slide-pad) 3.5rem;
+      }
+      .slide--section {
+        min-height: auto;
+        padding: 2.25rem var(--slide-pad);
+        background: linear-gradient(120deg, #1a2228 0%, #0f181e 100%);
+        border-bottom: 1px solid #2a333b;
+        justify-content: center;
+        align-items: flex-start;
+      }
+      .slide--cover::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(47, 106, 143, 0.12) 0%, transparent 50%);
+        pointer-events: none;
+      }
+      .slide--cover .slide__inner,
+      .slide--section .slide__inner {
+        position: relative;
+        z-index: 1;
+        max-width: var(--slide-max);
+        margin: 0 auto;
+        width: 100%;
+      }
+      .cover__kicker {
+        text-transform: uppercase;
+        font-size: 0.7rem;
+        letter-spacing: 0.2em;
+        color: #b8a99a;
+        margin-bottom: 0.75rem;
+      }
+      .cover__title {
+        font-size: clamp(2rem, 4.2vw, 2.75rem);
+        line-height: 1.1;
+        margin: 0 0 0.5rem;
+        color: #faf8f5;
+        font-weight: 600;
+      }
+      .cover__subtitle {
+        font-size: 1.15rem;
+        color: #c4bbb0;
+        max-width: 32rem;
+        font-weight: 400;
+        margin: 0 0 2rem;
+        font-family: var(--font-sans);
+        line-height: 1.5;
+      }
+      .cover__meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1.5rem;
+        font-size: 0.8rem;
+        color: #9a9085;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        padding-top: 1.5rem;
+        max-width: 100%;
+        font-family: var(--font-sans);
+      }
+      .section-title {
+        font-size: 1.75rem;
+        margin: 0 0 0.35rem;
+        color: #f2ebe3;
+        font-weight: 600;
+      }
+      .section-index {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: #8fa8b5;
+        margin: 0 0 0.5rem;
+        font-weight: 600;
+      }
+      .section-desc {
+        font-size: 0.9rem;
+        color: #b0a89b;
+        margin: 0;
+        max-width: 36rem;
+        font-family: var(--font-sans);
+        font-weight: 400;
+      }
+
+      .slide h2 {
+        font-size: clamp(1.4rem, 2.2vw, 1.75rem);
+        color: var(--color-primary);
+        margin: 0 0 1rem;
+        line-height: 1.2;
+        padding-left: 0.65rem;
+        border-left: 4px solid var(--color-primary);
+      }
+      .slide h3 {
+        font-size: 1.1rem;
+        color: var(--color-ink);
+        margin: 1.5rem 0 0.5rem;
+        font-weight: 600;
+        font-family: var(--font-sans);
+      }
+      p {
+        margin: 0 0 0.75rem;
+        max-width: 46rem;
+        color: var(--color-ink);
+      }
+      p.lead {
+        font-size: 1.05rem;
+        color: var(--color-ink-dim);
+      }
+      p.small {
+        font-size: 0.8rem;
+        color: var(--color-ink-faint);
+        margin-top: 1.25rem;
+      }
+      ul,
+      ol {
+        margin: 0 0 0.5rem;
+        padding-left: 1.2rem;
+        color: var(--color-ink);
+        max-width: 46rem;
+      }
+      li {
+        margin-bottom: 0.4rem;
+      }
+      .muted {
+        color: var(--color-ink-dim);
+        font-size: 0.9rem;
+      }
+      code {
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: 0.86em;
+        background: var(--color-primary-soft);
+        padding: 0.1em 0.35em;
+        border-radius: 4px;
+        color: var(--color-ink);
+      }
+      .slide--cover code,
+      .slide--section code {
+        background: rgba(255, 255, 255, 0.1);
+        color: #e8e2d9;
+      }
+      .tag {
+        display: inline-block;
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--color-ink-faint);
+        margin-bottom: 0.4rem;
+        font-weight: 600;
+      }
+
+      .table-wrap {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        margin: 0.5rem 0 0.75rem;
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        background: var(--color-surface);
+      }
+      table {
+        width: 100%;
+        min-width: 32rem;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 0.5rem 0.6rem;
+        border-bottom: 1px solid var(--color-border);
+        vertical-align: top;
+      }
+      th {
+        color: var(--color-ink-dim);
+        font-weight: 600;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        background: #faf7f2;
+      }
+      tr:nth-child(even) td {
+        background: color-mix(in srgb, var(--color-primary-soft) 35%, #fff 65%);
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      th:first-child,
+      td:first-child {
+        white-space: nowrap;
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.25rem;
+        max-width: 100%;
+        margin: 0.5rem 0 0.75rem;
+      }
+      @media (max-width: 700px) {
+        .grid-2 {
+          grid-template-columns: 1fr;
+        }
+        table {
+          min-width: 0;
+        }
+        .table-wrap {
+          border-radius: 4px;
+        }
+        th:first-child,
+        td:first-child {
+          white-space: normal;
+        }
+      }
+
+      .card-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin: 0.75rem 0 0;
+        max-width: 100%;
+      }
+      .stat {
+        flex: 1 1 10rem;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        padding: 0.9rem 1rem;
+        min-width: 0;
+      }
+      .stat__value {
+        font-family: var(--font-serif);
+        font-size: 1.5rem;
+        color: var(--color-primary);
+        line-height: 1.2;
+        font-weight: 600;
+        margin: 0 0 0.2rem;
+      }
+      .stat__label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--color-ink-faint);
+        font-weight: 600;
+        margin: 0;
+      }
+      .stat p {
+        margin: 0.4rem 0 0;
+        font-size: 0.8rem;
+        color: var(--color-ink-dim);
+        max-width: none;
+      }
+
+      .arch-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.5rem;
+        margin: 0.5rem 0 0.75rem;
+        max-width: 46rem;
+        font-size: 0.75rem;
+        text-align: center;
+        color: var(--color-ink);
+      }
+      .arch-box {
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        padding: 0.5rem 0.35rem;
+        background: var(--color-surface);
+      }
+      .arch-arrow {
+        text-align: center;
+        color: var(--color-ink-faint);
+        font-size: 0.7rem;
+        margin: 0.15rem 0;
+      }
+      @media (max-width: 600px) {
+        .arch-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      @media print {
+        .arch-grid {
+          page-break-inside: avoid;
+        }
+      }
+
+      .mermaid {
+        max-width: 100%;
+        margin: 0.5rem 0 0.75rem;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        padding: 0.5rem;
+      }
+      @media print {
+        .mermaid {
+          break-inside: avoid;
+        }
+      }
+
+      .timeline {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        max-width: 40rem;
+        margin: 0.5rem 0 0.75rem;
+        border-left: 2px solid var(--color-border);
+        padding-left: 0.9rem;
+      }
+      .timeline__item {
+        position: relative;
+        margin-bottom: 0.9rem;
+        padding-left: 0.1rem;
+      }
+      .timeline__item::before {
+        content: "";
+        position: absolute;
+        left: -0.5rem;
+        top: 0.35rem;
+        width: 0.4rem;
+        height: 0.4rem;
+        background: var(--color-primary);
+        border-radius: 50%;
+        margin-left: -0.1rem;
+      }
+      .timeline__title {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: var(--color-ink);
+        margin: 0 0 0.15rem;
+        font-family: var(--font-sans);
+      }
+      .timeline__text {
+        font-size: 0.8rem;
+        color: var(--color-ink-dim);
+        margin: 0;
+        max-width: 38rem;
+      }
+
+      .foot-note {
+        position: fixed;
+        bottom: 0;
+        right: 0.75rem;
+        font-size: 0.65rem;
+        color: var(--color-ink-faint);
+        z-index: 30;
+        pointer-events: none;
+        background: color-mix(in srgb, var(--color-bg) 92%, transparent);
+        padding: 0.2rem 0.4rem;
+      }
+      @media (min-width: 1100px) {
+        .foot-note {
+          right: 0.75rem;
+          left: auto;
+        }
+      }
+
+      @media print {
+        :root {
+          --slide-h: auto;
+        }
+        .print-only-page {
+          display: block;
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          font-size: 0.6rem;
+          color: #666;
+          text-align: center;
+          border-top: 1px solid #ccc;
+          padding: 0.2rem 0.5rem;
+        }
+        .top-bar,
+        .foot-note,
+        .sidebar {
+          display: none;
+        }
+        .layout {
+          display: block;
+          padding-top: 0;
+        }
+        .deck {
+          height: auto;
+          overflow: visible;
+        }
+        .slide {
+          min-height: 0;
+          page-break-after: always;
+          page-break-inside: avoid;
+          border: none;
+          max-width: 100%;
+          padding: 1.25rem 0;
+        }
+        .slide--cover,
+        .slide--section {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        a {
+          color: var(--color-ink);
+          border: none;
+        }
+        p,
+        li {
+          color: #000;
+        }
+        .slide h2 {
+          color: #000;
+        }
+        body {
+          background: #fff;
+        }
+        @page {
+          margin: 14mm 16mm 18mm 16mm;
+        }
+        .print-only-page {
+          display: block !important;
+        }
+        .slide--cover::after {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="top-bar" aria-hidden="false">
+      <div class="top-bar__brand" lang="en">Dengizek</div>
+      <div class="top-bar__fill" aria-hidden="true">
+        <div class="top-bar__fill-inner" id="js-progress" style="width: 0%"></div>
+      </div>
+      <span class="top-bar__meta" id="js-counter" aria-hidden="true">0 / 0</span>
+      <span class="top-bar__live" id="js-live" role="status" aria-live="polite"></span>
+    </header>
+
+    <div class="layout">
+      <nav class="sidebar" aria-label="Bölümler">
+        <a href="#s-agenda">Gündem</a>
+        <a href="#s-context">Bağlam</a>
+        <a href="#s-product">Ürün</a>
+        <a href="#s-arch">Mimari</a>
+        <a href="#s-qual">Kalite</a>
+        <a href="#s-future">Gelecek</a>
+        <a href="#s-close">Kapanış</a>
+      </nav>
+
+      <div
+        class="deck"
+        id="deck"
+        data-deck
+        tabindex="0"
+        role="region"
+        aria-label="Slayt sunumu. Aşağı yukarı ok, boşluk, Page Down veya tıklayın."
+      >
+        <!-- 1 -->
+        <section class="slide slide--cover" id="s-cover" data-slide data-title="Kapak" data-section>
+          <div class="slide__inner">
+            <p class="cover__kicker">Teknik inceleme</p>
+            <h1 class="cover__title">Dengizek</h1>
+            <p class="cover__subtitle">
+              Otel video turları: etkileşimli oynatıcı, tekil veri sözleşmesi (manifest) ve Next.js
+              uygulama mimarisi
+            </p>
+            <div class="cover__meta">
+              <span>Sürüm: <code>apps/web</code> 0.1.0 (örnek)</span>
+              <span>Tarih: Nisan 2026</span>
+              <span>Konu: <span lang="en">Dahili değerlendirme — gizlilik sınıfı (örnek kapsam metni)</span></span>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2 -->
+        <section class="slide" id="s-agenda" data-slide data-title="Gündem">
+          <span class="tag" id="s-agenda-anchor">Gündem</span>
+          <h2>Bu sunumun kapsamı</h2>
+          <ol class="lead" style="line-height: 1.6">
+            <li>Bağlam, yönetici özeti ve değer önerisi (misafir / otel)</li>
+            <li>Kullanıcı yolculuğu ve modül (rota) envanteri</li>
+            <li>Etkileşimli tur, manifest, ön uç yığını ve mimari akış</li>
+            <li>ADR 001 / 002 / 003 özeti, tasarım token’ları</li>
+            <li>Operasyon, güvenlik, test, performans, riskler, yol haritası</li>
+            <li>Geliştirme ortamı ve sonraki adımlar</li>
+          </ol>
+        </section>
+
+        <!-- 3 -->
+        <section
+          class="slide slide--section"
+          id="s-context"
+          data-slide
+          data-title="Bölüm: Bağlam"
+          data-section
+        >
+          <div class="slide__inner">
+            <p class="section-index" lang="en">Bölüm I</p>
+            <h2 class="section-title" style="border: none; padding: 0; color: #f2ebe3; margin: 0">
+              Bağlam ve pazar</h2>
+            <p class="section-desc">
+              Ürün; SEO uyumlu pazarlama sayfaları, erişilebilir etkileşimli video ve otel yönetim
+              arayüzü için tek uygulamada ilerletilir.
+            </p>
+          </div>
+        </section>
+
+        <!-- 4 -->
+        <section class="slide" data-slide data-title="Yönetici özeti">
+          <h2>Yönetici özeti</h2>
+          <p class="lead">
+            <strong>Problem:</strong> Konaklama yolcusu, rezervasyondan önce mekânı sadece statik
+            görsellerle sınırlı biçimde keşfeder. Otel tarafı ise tutarlı, ölçülebilir video turu
+            deneyimi ihtiyacı taşır.
+          </p>
+          <p class="lead">
+            <strong>Çözüm (MVP arayüz):</strong> <span lang="en">Dengizek</span>, <strong
+              >Next.js 15 (App Router)</strong
+            >
+            + <strong>React 19</strong> + <strong>Mantine 7</strong> tabanlı bir ön uç: mock veri
+            üzerinde keşfet, otel/oda, etkileşimli rehberli tur ve talep hattı; ayrıca
+            <code>/dashboard</code> kabuk ekranları.
+          </p>
+          <div class="card-row" role="list">
+            <div class="stat" role="listitem">
+              <p class="stat__label" lang="en">Guest</p>
+              <p class="stat__value">3+</p>
+              <p>Ana dönüştürme: tur tamamlama, talep</p>
+            </div>
+            <div class="stat" role="listitem">
+              <p class="stat__label">Otel (panel)</p>
+              <p class="stat__value">/dash</p>
+              <p>Tur ve mülk ekranları: yer tutucu; üretimde genişleme hedefi</p>
+            </div>
+            <div class="stat" role="listitem">
+              <p class="stat__label">Sözleşme</p>
+              <p class="stat__value">Zod</p>
+              <p>Tur manifesti ve formlar tek doğrulama hattı</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 5 -->
+        <section class="slide" data-slide data-title="Değer önerisi">
+          <h2>Değer önerisi</h2>
+          <div class="grid-2">
+            <div>
+              <h3>Misafir</h3>
+              <ul>
+                <li>Arama, otel/oda inceleme, etkileşimli oynatıcı</li>
+                <li>Altyazı, çok adımlı tur, talep (iletişim) akışı</li>
+                <li>Klavye ve ekran okuyucu ile uyum hedefi (aşamalı)</li>
+              </ul>
+            </div>
+            <div>
+              <h3>Otel / iş</h3>
+              <ul>
+                <li>Tekmarka, tutarlı UI (ADR 002 token’ları)</li>
+                <li>Manifest ile içerik ve etkileşim birlikte sürümlenir</li>
+                <li>Backend eklendiğinde HLS, imzalı URL; jeton yenileme kancası mevcut</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- 6 -->
+        <section class="slide" data-slide data-title="Kullanıcı yolculuğu">
+          <h2>Kullanıcı yolculuğu (özet)</h2>
+          <div class="grid-2">
+            <div>
+              <h3>Misafir (demo rota)</h3>
+              <p class="muted" style="margin-bottom: 0.4rem; font-size: 0.75rem">
+                Kaynak: <code>apps/web/README.md</code>
+              </p>
+              <ol>
+                <li>
+                  <code>/</code> → <code>/browse</code> (isteğe bağlı <code>?q=</code>)
+                </li>
+                <li>
+                  <code>/hotels/[slug]</code> → oda: <code>/hotels/.../rooms/...</code>
+                </li>
+                <li>
+                  <code>/tours/[otel]/[tourId]</code> — <strong>TourPlayer</strong> (ör.
+                  aurelia-bay / demo-lobby)
+                </li>
+                <li>
+                  <code>/inquiry</code> → <code>POST /api/inquiry</code> (mock) →
+                  <code>/inquiry/success</code>
+                </li>
+              </ol>
+            </div>
+            <div>
+              <h3>Otel paneli</h3>
+              <ul>
+                <li>
+                  <code>/dashboard</code> giriş özeti, <code>.../tours</code>,
+                  <code>.../tours/[id]/edit</code>, <code>.../property</code>, <code>.../media</code>
+                </li>
+                <li>MVP’de Arayüz iskeleti; canlı yönetim ekranları ileri faz</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- 7 -->
+        <section
+          class="slide slide--section"
+          id="s-product"
+          data-slide
+          data-title="Bölüm: Ürün"
+          data-section
+        >
+          <div class="slide__inner">
+            <p class="section-index" lang="en">Bölüm II</p>
+            <h2 class="section-title" style="border: none; padding: 0; color: #f2ebe3; margin: 0">
+              Ürün modülleri
+            </h2>
+            <p class="section-desc">Rotalar, oynatıcı davranışı ve veri sözleşmesi.</p>
+          </div>
+        </section>
+
+        <!-- 8 -->
+        <section class="slide" data-slide data-title="Özellik envanteri">
+          <h2>Özellik envanteri (rotalar ve işlevler)</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Rota / bölge</th>
+                  <th>Ne sunar?</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>/</code></td>
+                  <td>Tanıtım, mock öne çıkan oteller</td>
+                </tr>
+                <tr>
+                  <td><code>/browse</code></td>
+                  <td>Arama (sorgu parametreli; mock liste)</td>
+                </tr>
+                <tr>
+                  <td><code>/hotels/[slug]</code></td>
+                  <td>Otel ayrıntı, görüntü optimizasyonu, “video tura başla” (demo ilşki)</td>
+                </tr>
+                <tr>
+                  <td><code>/hotels/.../rooms/...</code></td>
+                  <td>Oda tipi detayı</td>
+                </tr>
+                <tr>
+                  <td><code>/tours/...</code></td>
+                  <td>
+                    <strong>Rehberli tur oynatıcısı</strong> (adım çizelgesi, kontroller, altyazı, tam
+                    ekran, tur manifesti)
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>/inquiry</code></td>
+                  <td>Form, istemci doğrulama, API mock cevabı</td>
+                </tr>
+                <tr>
+                  <td><code>/dashboard/...</code></td>
+                  <td>Otel kabuğu: tur, mülk, medya (yer tutucu ekranlar)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 9 -->
+        <section class="slide" data-slide data-title="Etkileşimli tur">
+          <h2>Etkileşimli rehberli tur (ürün sınırı)</h2>
+          <p>
+            <strong>Medya penceresi:</strong> <code>media.startSec</code> /
+            <code>media.endSec</code> oynatıcıda sınırlar; yoksa
+            <code>[0, dosyaSüresi]</code> (ADR 003).
+          </p>
+          <p>
+            <strong>Callout’lar:</strong> <code>callouts[]</code> (zaman, başlık, gövde). Normal
+            modda en son açık olan vurgu; <strong>tam ekran</strong> modunda başlama anı geçmiş tüm
+            öğeler, isteğe bağlı <code>placement</code> (köşe/orta) ile kutularda.
+          </p>
+          <p>
+            <strong>Hotspot’lar:</strong> <code>object-fit: contain</code> piksele hizalı yüzde
+            koordinat; isteğe <code>tSec</code>.
+            <strong>Dallanma:</strong> <code>branches[]</code> ile <code>nextStepId</code> yönlendirmesi;
+            ileri fazda genel graf sözleşmesi değerlendirilebilir.
+          </p>
+        </section>
+
+        <!-- 10 -->
+        <section class="slide" data-slide data-title="Manifest ve sürümleme">
+          <h2>Manifest, Zod, geriye uyumluluk</h2>
+          <ul>
+            <li>
+              Şema: <code>apps/web/src/lib/schemas/tour-manifest.ts</code> — çalışma zamanı
+              <code>parse</code> ile aynı tip (<span lang="en">Zod 4.3+</span>).
+            </li>
+            <li>Yeni alanlar <strong>opsiyonel</strong>; mevcut JSON dosyaları ayrışmaya devam eder (ADR 003).</li>
+            <li>
+              <code>version</code> alanı önemli şema değişiminde artırılır; istemci uyumluluk
+              notları/telemetri için temel.
+            </li>
+            <li>Demo: <code>apps/web/src/lib/mocks/demo-tour.json</code></li>
+          </ul>
+        </section>
+
+        <!-- 11 -->
+        <section
+          class="slide slide--section"
+          id="s-arch"
+          data-slide
+          data-title="Bölüm: Mimari"
+          data-section
+        >
+          <div class="slide__inner">
+            <p class="section-index" lang="en">Bölüm III</p>
+            <h2 class="section-title" style="border: none; padding: 0; color: #f2ebe3; margin: 0">
+              Mimari ve yığın
+            </h2>
+            <p class="section-desc">Sunucu ve istemci sınırları, API, mock veri, SSR.</p>
+          </div>
+        </section>
+
+        <!-- 12 -->
+        <section class="slide" data-slide data-title="İstemci / sunucu ayrımı">
+          <h2>Sunum katmanı (özet metin)</h2>
+          <p>
+            <strong>App Router:</strong> RSC uyumlu sayfalar, sunucu bileşenlerinde
+            <code>generateMetadata</code> (SEO) ve yönlendirme (ör. <code>notFound</code>).
+            <strong>İstemci oynatıcı:</strong> <code>TourPlayer</code> ve medya; durum, klavye,
+            tam ekran API, erişilebilir canlı bölge.
+          </p>
+          <p>
+            <strong>API</strong> route örnekleri: <code>POST /api/inquiry</code> (MVP mock). Mock
+            otel/tur verisi modül yükleme ile; üretimde API/ CMS ile değişimi hedefleyin.
+          </p>
+          <p class="arch-arrow">Aşağıdaki diyagram üst seviyeyi betimler; sunumdaki ağda çalıştırma için
+            isteğe bağlıdır.</p>
+        </section>
+
+        <!-- 13: Mermaid -->
+        <section class="slide" data-slide data-title="Mimari (diyagram)">
+          <h2>Mimari (diyagram)</h2>
+          <div class="mermaid" id="mermaid-host">
+flowchart LR
+  n[NextAppRouter] --> c[RSC_istemci]
+  c --> t[TurPlayer]
+  c --> a[API]
+  a --> b[Backend_ileri]
+  c --> m[Mock_manifest]
+          </div>
+          <div class="arch-grid print-only" aria-hidden="true" style="display: none">
+            <div class="arch-box">Arayüz</div>
+            <div class="arch-box">RSC+istemci</div>
+            <div class="arch-box">API</div>
+            <div class="arch-box">Veri (mock/ileri API)</div>
+          </div>
+        </section>
+
+        <!-- 14 stack -->
+        <section class="slide" data-slide data-title="Bağımlılık tablosu">
+          <h2>Ön yüz bağımlılık tablosu</h2>
+          <p class="muted" style="margin-bottom: 0.4rem; font-size: 0.75rem">Sürümler: <code>package.json</code> (2026-04-23 itibari)</p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Paket</th>
+                  <th>Sürüm (özn)</th>
+                  <th>Rol</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>next</td>
+                  <td>15.5.15</td>
+                  <td>App Router, derleme, <span lang="en">Turbopack</span> (dev), görüntü optimizasyonu</td>
+                </tr>
+                <tr>
+                  <td>react / react-dom</td>
+                  <td>19.1.0</td>
+                  <td>UI, istemci bileşenler</td>
+                </tr>
+                <tr>
+                  <td>@mantine/*</td>
+                  <td>7.17.8</td>
+                  <td>Tema, layout, formlar, bildirimler, hook’lar (ör. tam ekran)</td>
+                </tr>
+                <tr>
+                  <td>zod</td>
+                  <td>4.3.6</td>
+                  <td>Manifest ve girdi şemaları</td>
+                </tr>
+                <tr>
+                  <td>react-hook-form, resolvers</td>
+                  <td>7.73 / 5.2</td>
+                  <td>Form + Zod eşleştirme (iletişim formu)</td>
+                </tr>
+                <tr>
+                  <td>@tabler/icons-react</td>
+                  <td>3.41.1</td>
+                  <td>Tek ikon seti (ADR 001)</td>
+                </tr>
+                <tr>
+                  <td>hls.js</td>
+                  <td>1.6.16</td>
+                  <td>İleride uyarlanabilir akış (HLS) için</td>
+                </tr>
+                <tr>
+                  <td>typescript</td>
+                  <td>5.x</td>
+                  <td>Statik tipleme</td>
+                </tr>
+                <tr>
+                  <td>vitest, playwright, eslint</td>
+                  <td>4.x, 1.59, 9.x</td>
+                  <td>Birim, E2E, lint</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 15 ADR -->
+        <section class="slide" data-slide data-title="Karar kayıtları (ADR)">
+          <h2>ADR 001, 002, 003 — kısa özet</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ADR</th>
+                  <th>Konu / karar</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>001 <span class="muted">(ön yük)</span></td>
+                  <td
+                    >Mantine 7, Tabler, Zod, RHF; <strong>Tailwind yok</strong>; <span
+                      lang="en"
+                    >HLS/URL ileri faz</span
+                    >; <code>onRequestTokenRefresh</code>; <code>/dashboard</code> otel
+                    paneli; SSR kök <code>MantineProvider</code></td
+                  >
+                </tr>
+                <tr>
+                  <td>002 <span class="muted">(görsel)</span></td>
+                  <td
+                    >Sıcak nötr, derin vurgu, serif başlık / <span lang="en">sans</span> gövde;
+                    <code>createTheme</code>; WCAG hedefi; pazarlama+panel aynı token; Türkçe
+                    kopya</td
+                  >
+                </tr>
+                <tr>
+                  <td>003 <span class="muted">(tur)</span></td>
+                  <td
+                    >Tek <code>tour-manifest</code>; klibin içi sarma, callout, hotspot, dallanma;
+                    sürümlü şema; erişilebilirlik notları (pin <span lang="en">label</span>, odak)</td
+                  >
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="small">Kaynak: <code>docs/adr/001-frontend-stack.md</code> ve 002, 003.</p>
+        </section>
+
+        <!-- 16 design tokens -->
+        <section class="slide" data-slide data-title="Tasarım token'ları (sunum)">
+          <h2>HTML sunumdaki eşleşmeler (referans token)</h2>
+          <p class="muted" style="margin-bottom: 0.5rem">ADR 002 ile aynı yön: sıcak nötr zemin, tekincil mavi, serif başlık.</p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Değişken (bu dosya)</th>
+                  <th>Kullanım</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>--color-bg</code> (#f7f4ef)</td>
+                  <td>Sıcak nötr arka plan</td>
+                </tr>
+                <tr>
+                  <td><code>--color-primary</code> (#1e4a6e)</td>
+                  <td>Başlık vurgu çizgisi, ilerleme, birincil ton</td>
+                </tr>
+                <tr>
+                  <td><code>--font-serif</code> / <code>--font-sans</code></td>
+                  <td>Cormorant Garamond / DM <span lang="en">Sans</span> (CDN, sunum dışı; uygulama <code>next/font</code>)</td>
+                </tr>
+                <tr>
+                  <td><code>--slide-max</code> (58rem)</td>
+                  <td>Okunur satır ve kurumsal “sayfa” genişliği</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 17 section quality -->
+        <section
+          class="slide slide--section"
+          id="s-qual"
+          data-slide
+          data-title="Bölüm: Kalite"
+          data-section
+        >
+          <div class="slide__inner">
+            <p class="section-index" lang="en">Bölüm IV</p>
+            <h2 class="section-title" style="border: none; padding: 0; color: #f2ebe3; margin: 0">
+              Kalite, operasyon, risk
+            </h2>
+            <p class="section-desc">Güvenlik, test, performans ve bağımlılık riski.</p>
+          </div>
+        </section>
+
+        <!-- 18 security -->
+        <section class="slide" data-slide data-title="Güvenlik ve operasyon (MVP)">
+          <h2>Güvenlik ve operasyon (MVP sınırları)</h2>
+          <ul>
+            <li>Üretim <strong>HTTPS</strong> varsayımı; formlar Zod + sunucu doğrulama ileri faz.</li>
+            <li>Video: demoda herkese açık MP4; canlıda kısa ömürlü <span lang="en">URL</span> + jeton
+              <code>onRequestTokenRefresh</code> (şu an sahte aralık — ADR 001).</li>
+            <li>Admin: <code>/admin</code> ertelendi; <code>/dashboard</code> aynı uygulamada
+              ayrı rota ağacı.</li>
+            <li>Kişisel veri: talep formu; KVKK metinleri operasyonel dokümantasyona bağlanacak
+              (bu sunum tüzel tavsiye değildir).</li>
+          </ul>
+        </section>
+
+        <!-- 19 test -->
+        <section class="slide" data-slide data-title="Test stratejisi">
+          <h2>Test stratejisi</h2>
+          <ul>
+            <li>
+              <strong>Vitest:</strong> yardımcı ve şema: örn. klibin süresi, callout, manifest
+              <code>parse</code> — hızlı geri bildirim.
+            </li>
+            <li>
+              <strong>Playwright:</strong> kritik duman yolları; ekran akışı (talep, tur) — görsel
+              oynamadan rol/metin odaklı senaryolar tercih (ADR 002 e2E notu).
+            </li>
+            <li><strong>ESLint 9 + eslint-config-next:</strong> kod sağlığı, Next kuralları.</li>
+            <li>
+              <span class="muted">Kısayol:</span> <code>pnpm test:ci</code>,
+              <code>pnpm test:e2e</code> (bkz. README).
+            </li>
+          </ul>
+        </section>
+
+        <!-- 20 performance -->
+        <section class="slide" data-slide data-title="Performans ve SEO">
+          <h2>Performans ve SEO</h2>
+          <ul>
+            <li>
+              <span lang="en">App Router</span> ile sunuçta kod bölme; ağır istemci yalnız
+              oynatıcıda.
+            </li>
+            <li>SEO: <code>generateMetadata</code> (ör. tur, otel sayfaları), semantik başlık hiyerarşisi.
+            </li>
+            <li>
+              <code>next/image</code> uzak resim: <code>next.config</code>
+              <span lang="en">remotePatterns</span> (unsplash) ile.
+            </li>
+            <li>Video: dosya boyutu ve CDN, ileri fazda <span lang="en">HLS</span> (ADR 001).</li>
+            <li>Animasyon: <code>prefers-reduced-motion</code> — ürün ve bu sunumda dikkat.</li>
+          </ul>
+        </section>
+
+        <!-- 21 risks -->
+        <section class="slide" data-slide data-title="Riskler ve bağımlılıklar">
+          <h2>Riskler ve bağımlılıklar</h2>
+          <ul>
+            <li>Mock veri üretimden kopuk: API sözleşmesi gecikirse ekran-arka uç farkı.</li>
+            <li>Harici <span lang="en">font CDN</span> (bu <span lang="en">HTML</span>): kurumsal
+              ağda filtre; sunumda yerel yansıtma opsiyonu.</li>
+            <li>
+              Mermaid: çevrimdışı/uyumluluk; baskıda <span lang="en">SVG</span> denebilir, gerekirse
+              kutu diyagramı (bu dosyada metinle desteklendi).
+            </li>
+            <li>
+              <span lang="en">Full-screen API</span> tarayıcı/izin farkı; oynatıcı HTML kontrolleri
+              ile aynı kapsülde.
+            </li>
+          </ul>
+        </section>
+
+        <!-- 22 future -->
+        <section
+          class="slide slide--section"
+          id="s-future"
+          data-slide
+          data-title="Bölüm: Gelecek"
+          data-section
+        >
+          <div class="slide__inner">
+            <p class="section-index" lang="en">Bölüm V</p>
+            <h2 class="section-title" style="border: none; padding: 0; color: #f2ebe3; margin: 0">
+              Gelecek ve kapanış
+            </h2>
+            <p class="section-desc">Yatırım alanları ve çalıştırma komutları kısaca.</p>
+          </div>
+        </section>
+
+        <!-- 23 roadmap -->
+        <section class="slide" data-slide data-title="Yol haritası (örnek)">
+          <h2>Yol haritası (yönsal)</h2>
+          <div class="timeline">
+            <div class="timeline__item">
+              <p class="timeline__title">Kısa vade</p>
+              <p class="timeline__text">Gerçek tur API, otel-oda CMS veya yönetim uç noktaları</p>
+            </div>
+            <div class="timeline__item">
+              <p class="timeline__title">Orta vade</p>
+              <p class="timeline__text">HLS, imzalı oynatma, gözlemlenebilirlik, oran sınırlama</p>
+            </div>
+            <div class="timeline__item">
+              <p class="timeline__title">Uzun vade</p>
+              <p class="timeline__text">Tam grafik tur, çok dilli lokal, panelde görsel zengin
+                <span lang="en">WYSIWYG</span> editör</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 24 dev -->
+        <section class="slide" data-slide data-title="Geliştirme">
+          <h2>Çalışma ortamı (komutlar)</h2>
+          <p>
+            Dizin: <code>apps/web</code>. <span class="muted">(README’de <code>npm</code> örneği; projede
+            <code>pnpm</code> tercihe bağlı.)</span>
+          </p>
+          <ul>
+            <li><code>npm run dev</code> / <code>pnpm dev</code> — <span lang="en">Turbopack</span> geliştirme
+              sunucusu</li>
+            <li><code>npm run build</code> — üretim derlemesi</li>
+            <li><code>npm run test:ci</code> — Vitest</li>
+            <li><code>npm run test:e2e</code> — Playwright (sunucu otomatiği tura bağlı olabilir)</li>
+            <li>
+              <strong>Bu sunum</strong> dosyası: <code>/teknik-sunum.html</code> (statik) — üretimde
+              <code>public</code> altında servis
+            </li>
+          </ul>
+        </section>
+
+        <!-- 25 close -->
+        <section class="slide" id="s-close" data-slide data-title="Kapanış">
+          <h2>Özet ve sonraki adımlar</h2>
+          <p>
+            <strong>Özet:</strong> Tek uygulama, çift kullanım (misafir + panel kabuğu), Zod
+            sözleşmeli tur, Mantine-Tabler ön yük, test ve operasyon sınırları açıkça tanımlı
+            (ADR 001–003).
+          </p>
+          <p>
+            <strong>Sonraki adım önerisi:</strong> Ürün ve mühendislik eşliğinde API sınır
+            taslakları, içerik modeli, gözlemlenebilirlik ve yasal inceleme (KVKK) takvimini
+            kilitmek.
+          </p>
+          <p class="small" style="margin-top: 1.5rem">İletişim: proje sahibi / ekip içi kanal (örnek
+            doldurun).</p>
+        </section>
+      </div>
+    </div>
+
+    <div class="foot-note" aria-hidden="true">Aşağı yukarı ok · <span lang="en">Page Down</span> ·
+      boşluk</div>
+    <p class="print-only-page" aria-hidden="true" style="display: none; margin: 0">
+      Dengizek – dahili / değerlendirme (örnek) – <span class="date-print">Nisan 2026</span>
+    </p>
+
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script>
+      (function () {
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: "base",
+          themeVariables: {
+            primaryColor: "#e8f0f6",
+            primaryTextColor: "#1a1816",
+            primaryBorderColor: "#1e4a6e",
+            lineColor: "#5c5650",
+            fontFamily: "DM Sans, system-ui, sans-serif",
+          },
+          securityLevel: "loose",
+        });
+        mermaid
+          .run({ querySelector: ".mermaid" })
+          .catch(function () {
+            var el = document.getElementById("mermaid-host");
+            if (el) {
+              el.innerHTML =
+                '<p class="muted" style="padding:0.5rem">Diyagram yuklenmedi (ag veya Mermaid). Metin: Next App Router, RSC+istemci, API, mock manifest.</p>';
+            }
+          });
+      })();
+    </script>
+    <script>
+      (function () {
+        var deck = document.getElementById("deck");
+        var progress = document.getElementById("js-progress");
+        var counter = document.getElementById("js-counter");
+        var live = document.getElementById("js-live");
+        if (!deck || !progress || !counter) return;
+        var slides = function () {
+          return Array.prototype.slice.call(deck.querySelectorAll(".slide"));
+        };
+        var total = slides().length;
+        var index = 0;
+        var reduceMotion =
+          typeof window !== "undefined" && window.matchMedia
+            ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+            : false;
+
+        function setProgress() {
+          if (total < 1) return;
+          var pct = ((index + 1) / total) * 100;
+          progress.style.width = pct + "%";
+          counter.textContent = index + 1 + " / " + total;
+          if (live) {
+            var s = slides()[index];
+            var t = s && s.getAttribute("data-title");
+            live.textContent = t
+              ? "Slayt " + (index + 1) + " / " + total + ": " + t
+              : "Slayt " + (index + 1) + " / " + total;
+          }
+        }
+
+        function go(delta) {
+          var s = slides();
+          if (!s.length) return;
+          index = Math.max(0, Math.min(s.length - 1, index + delta));
+          s[index].scrollIntoView({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
+          setProgress();
+        }
+
+        deck.addEventListener("keydown", function (e) {
+          if (e.key === "ArrowDown" || e.key === "PageDown" || (e.key === " " && e.target === deck)) {
+            e.preventDefault();
+            go(1);
+          } else if (e.key === "ArrowUp" || e.key === "PageUp") {
+            e.preventDefault();
+            go(-1);
+          } else if (e.key === "Home") {
+            e.preventDefault();
+            go(-index);
+          } else if (e.key === "End") {
+            e.preventDefault();
+            go(999);
+          }
+        });
+        window.addEventListener("keydown", function (e) {
+          if (document.activeElement !== deck && (e.key === " " || e.key === "PageDown" || e.key === "PageUp")) {
+            if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable)) {
+              return;
+            }
+            if (e.key === " " || e.key === "PageDown") {
+              e.preventDefault();
+              deck.focus();
+              go(1);
+            } else if (e.key === "PageUp") {
+              e.preventDefault();
+              deck.focus();
+              go(-1);
+            }
+          }
+        });
+
+        var obs = new IntersectionObserver(
+          function (entries) {
+            for (var i = 0; i < entries.length; i++) {
+              if (entries[i].isIntersecting) {
+                var j = slides().indexOf(entries[i].target);
+                if (j >= 0) {
+                  index = j;
+                  setProgress();
+                }
+              }
+            }
+          },
+          { root: deck, rootMargin: "0px", threshold: 0.5 }
+        );
+        slides().forEach(function (el) {
+          obs.observe(el);
+        });
+        setProgress();
+        deck.setAttribute("tabindex", "0");
+        if (document.activeElement === document.body) {
+          try {
+            deck.focus({ preventScroll: true });
+          } catch (err) {
+            /* ignore */
+          }
+        }
+      })();
+    </script>
+  </body>
+</html>

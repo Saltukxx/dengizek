@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="tr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AETHERIS - Lobi Sahnesi</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;600&amp;family=Noto+Serif:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+                  "outline-variant": "#4d4635",
+                  "primary-container": "#d4af37",
+                  "secondary-fixed-dim": "#cac6be",
+                  "on-surface": "#e3e2e3",
+                  "outline": "#99907c",
+                  "on-tertiary-fixed": "#1a1c1e",
+                  "surface-tint": "#e9c349",
+                  "secondary-container": "#494741",
+                  "on-tertiary-container": "#444547",
+                  "secondary": "#cac6be",
+                  "on-primary-fixed": "#241a00",
+                  "primary-fixed-dim": "#e9c349",
+                  "on-secondary-fixed": "#1d1c17",
+                  "on-error": "#690005",
+                  "tertiary-container": "#b2b3b5",
+                  "inverse-on-surface": "#303032",
+                  "surface-container-high": "#292a2b",
+                  "tertiary": "#ceced1",
+                  "background": "#121315",
+                  "error": "#ffb4ab",
+                  "on-tertiary": "#2f3133",
+                  "on-primary-container": "#554300",
+                  "on-primary-fixed-variant": "#574500",
+                  "surface-container-low": "#1b1c1d",
+                  "surface-dim": "#121315",
+                  "surface-bright": "#38393a",
+                  "on-secondary": "#32302b",
+                  "on-secondary-fixed-variant": "#494741",
+                  "inverse-surface": "#e3e2e3",
+                  "on-primary": "#3c2f00",
+                  "secondary-fixed": "#e7e2da",
+                  "surface-container": "#1f2021",
+                  "on-tertiary-fixed-variant": "#454749",
+                  "tertiary-fixed": "#e2e2e5",
+                  "surface-container-lowest": "#0d0e0f",
+                  "tertiary-fixed-dim": "#c6c6c9",
+                  "surface-variant": "#343536",
+                  "surface-container-highest": "#343536",
+                  "on-error-container": "#ffdad6",
+                  "surface": "#121315",
+                  "on-background": "#e3e2e3",
+                  "inverse-primary": "#735c00",
+                  "on-surface-variant": "#d0c5af",
+                  "error-container": "#93000a",
+                  "primary": "#f2ca50",
+                  "primary-fixed": "#ffe088",
+                  "on-secondary-container": "#b9b5ad"
+          },
+          "borderRadius": {
+                  "DEFAULT": "0.25rem",
+                  "lg": "0.5rem",
+                  "xl": "0.75rem",
+                  "full": "9999px"
+          },
+          "spacing": {
+                  "margin": "64px",
+                  "container-max": "1440px",
+                  "section-gap": "160px",
+                  "gutter": "24px",
+                  "unit": "8px"
+          },
+          "fontFamily": {
+                  "display-xl": ["Noto Serif"],
+                  "label-caps": ["Inter"],
+                  "body-md": ["Inter"],
+                  "display-lg": ["Noto Serif"],
+                  "body-lg": ["Inter"],
+                  "headline-sm": ["Noto Serif"],
+                  "headline-md": ["Noto Serif"]
+          },
+          "fontSize": {
+                  "display-xl": ["80px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "400" }],
+                  "label-caps": ["12px", { "lineHeight": "1.0", "letterSpacing": "0.15em", "fontWeight": "600" }],
+                  "body-md": ["16px", { "lineHeight": "1.6", "letterSpacing": "0.01em", "fontWeight": "300" }],
+                  "display-lg": ["64px", { "lineHeight": "1.1", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+                  "body-lg": ["18px", { "lineHeight": "1.6", "letterSpacing": "0.01em", "fontWeight": "300" }],
+                  "headline-sm": ["24px", { "lineHeight": "1.3", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                  "headline-md": ["32px", { "lineHeight": "1.2", "letterSpacing": "0em", "fontWeight": "400" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .grain-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+      z-index: 10;
+    }
+  </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen overflow-hidden antialiased selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-stone-950/80 backdrop-blur-md border-b-[0.5px] border-[#D4AF37]/30 flex justify-between items-center px-16 h-24 w-full flat no shadows">
+<nav class="flex gap-8">
+<a class="font-serif tracking-widest uppercase text-sm text-stone-400 hover:text-stone-200 transition-colors hover:text-[#D4AF37] transition-all duration-500" href="#">Collections</a>
+<a class="font-serif tracking-widest uppercase text-sm text-[#D4AF37] border-b border-[#D4AF37] pb-1 opacity-70 transition-opacity" href="#">Destinations</a>
+<a class="font-serif tracking-widest uppercase text-sm text-stone-400 hover:text-stone-200 transition-colors hover:text-[#D4AF37] transition-all duration-500" href="#">Editorial</a>
+</nav>
+<div class="text-2xl font-light tracking-[0.3em] text-[#D4AF37] mx-auto absolute left-1/2 transform -translate-x-1/2">
+      AETHERIS
+    </div>
+<div class="flex items-center">
+<button class="text-amber-200 dark:text-[#D4AF37] hover:text-[#D4AF37] transition-all duration-500">
+<span class="material-symbols-outlined" data-icon="concierge" style="font-variation-settings: 'FILL' 0;">concierge</span>
+</button>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-24 bottom-0 w-20 border-r-[0.5px] border-[#D4AF37]/20 bg-stone-900/40 backdrop-blur-xl border-r-[0.5px] border-[#D4AF37]/20 flat no shadows flex flex-col items-center py-12 space-y-12 z-40 hidden md:flex">
+<div class="flex flex-col space-y-8 mt-12 w-full px-2">
+<button class="text-[#D4AF37] bg-stone-800/50 scale-110 flex justify-center items-center p-3 rounded-DEFAULT transition-all duration-300 w-full" title="Panorama">
+<span class="material-symbols-outlined text-[24px]" data-icon="view_in_ar">view_in_ar</span>
+</button>
+<button class="text-stone-500 hover:text-stone-300 hover:bg-stone-800/30 transition-all duration-300 flex justify-center items-center p-3 rounded-DEFAULT w-full" title="Floorplan">
+<span class="material-symbols-outlined text-[24px]" data-icon="layers">layers</span>
+</button>
+<button class="text-stone-500 hover:text-stone-300 hover:bg-stone-800/30 transition-all duration-300 flex justify-center items-center p-3 rounded-DEFAULT w-full" title="Gallery">
+<span class="material-symbols-outlined text-[24px]" data-icon="auto_awesome_motion">auto_awesome_motion</span>
+</button>
+<button class="text-stone-500 hover:text-stone-300 hover:bg-stone-800/30 transition-all duration-300 flex justify-center items-center p-3 rounded-DEFAULT w-full" title="Enquire">
+<span class="material-symbols-outlined text-[24px]" data-icon="contact_support">contact_support</span>
+</button>
+<button class="text-stone-500 hover:text-stone-300 hover:bg-stone-800/30 transition-all duration-300 flex justify-center items-center p-3 rounded-DEFAULT w-full" title="Concierge">
+<span class="material-symbols-outlined text-[24px]" data-icon="chat_bubble">chat_bubble</span>
+</button>
+</div>
+</aside>
+<!-- Main Canvas Content -->
+<main class="fixed inset-0 pt-24 md:pl-20 flex w-full h-full bg-background z-0">
+<!-- Left: Video Panel / Main Scene -->
+<div class="relative flex-grow h-full bg-surface-container-lowest overflow-hidden">
+<!-- Background Image representing the video feed -->
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Expansive luxury hotel lobby with warm golden lighting, high ceilings, marble floors, and contemporary minimalist furniture." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAA6ob-ICH2tNnfsFBPJ2hXf5WdKvZI3IynBWRjDwV5vBqjsygRLTA-r0KhwfcwIchVm361-bUvKToBxQwt6bQV5JuHsqiF13D3s5GDnFl457b-jvnlYvFNwTKy59WMEkoiDfKFXsMawLF5ZG1e34QCFTY9a3OjGRxrWzHCJiPMUBZmTFULsKLvskXunaTJgiRym9kpxjWOIvM0VBPA15_Ch9csXzFSx9H0U8p7sJtzzl4TkCWd8cqHthttidYsOddKO-Hh0GTSzMk');"></div>
+<!-- Subtle Grain Overlay -->
+<div class="grain-overlay"></div>
+<!-- Gradient Fade for text legibility -->
+<div class="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-background/90 to-transparent z-10 pointer-events-none"></div>
+<!-- Content over Video Panel -->
+<div class="absolute inset-0 z-20 flex flex-col justify-between p-12">
+<!-- Top Left Corner -->
+<div class="flex items-center space-x-4">
+<div class="font-label-caps text-label-caps text-primary-container/80 tracking-[0.2em]">01 / LOBİ SAHNESİ</div>
+</div>
+<!-- Bottom Left Corner -->
+<div class="max-w-xl space-y-6">
+<h1 class="font-display-lg text-display-lg text-on-background">Giriş Alanı</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-md">Burası, yüksek tavanları ve özel sanat eserleriyle The Luxury of Space konseptimizin kalbidir.</p>
+<div class="pt-4">
+<a class="font-label-caps text-label-caps text-primary-container tracking-[0.15em] underline decoration-[0.5px] underline-offset-[6px] hover:text-primary transition-colors" href="#">TUR BAŞLAT</a>
+</div>
+</div>
+</div>
+<!-- Ultra-thin Gold Progress Markers (Bottom Edge) -->
+<div class="absolute bottom-0 left-0 w-full flex h-[1px] z-20">
+<div class="w-1/3 bg-primary-container h-full shadow-[0_0_10px_rgba(212,175,55,0.5)]"></div>
+<div class="w-2/3 bg-primary-container/20 h-full"></div>
+</div>
+</div>
+<!-- Right: AI Concierge Panel -->
+<div class="w-[420px] h-full bg-surface-container-low/90 backdrop-blur-2xl border-l-[0.5px] border-outline-variant flex flex-col z-30 flex-shrink-0 relative">
+<!-- Concierge Header -->
+<div class="px-8 py-10 border-b-[0.5px] border-outline-variant/50 flex items-center justify-between">
+<div class="flex items-center space-x-4">
+<div class="w-10 h-10 rounded-full border-[0.5px] border-primary-container/50 flex items-center justify-center bg-surface-container text-primary-container font-serif italic text-sm">
+            AE
+          </div>
+<div>
+<div class="font-label-caps text-label-caps text-on-surface tracking-[0.15em]">AETHERIS CONCIERGE</div>
+<div class="font-body-md text-[11px] text-primary-container/70 mt-1">Sizin için buradayım</div>
+</div>
+</div>
+<button class="text-on-surface-variant hover:text-primary-container transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="close">close</span>
+</button>
+</div>
+<!-- Chat Area -->
+<div class="flex-grow overflow-y-auto p-8 space-y-10 custom-scrollbar flex flex-col justify-end pb-8">
+<!-- User Message -->
+<div class="flex justify-end">
+<div class="max-w-[85%] bg-surface-container-high px-6 py-4 rounded-lg rounded-br-none border-[0.5px] border-outline-variant/30 text-on-surface font-body-md text-[14px] leading-relaxed">
+            Lobi hakkında detaylı bilgi alabilir miyim?
+          </div>
+</div>
+<!-- AI Message -->
+<div class="flex justify-start items-start space-x-4">
+<div class="w-8 h-8 rounded-full border-[0.5px] border-primary-container/30 flex items-center justify-center bg-surface-container text-primary-container font-serif italic text-[10px] mt-1 flex-shrink-0">
+            AE
+          </div>
+<div class="max-w-[85%] px-0 py-1 text-on-surface-variant font-body-md text-[14px] leading-relaxed">
+            Elbette. Aetheris Lobi'ye hoş geldiniz. Karşınızda gördüğünüz heykeller, yerel mermer sanatçısı tarafından bu alan için özel olarak tasarlanmıştır. Mekan boyunca uzanan panoramik pencereler, doğal ışığı gün boyu içeri alarak ahşap dokularla mükemmel bir uyum sergiler. Başka bir alanı incelemek ister misiniz?
+          </div>
+</div>
+</div>
+<!-- Input Area -->
+<div class="px-8 py-6 border-t-[0.5px] border-outline-variant/50">
+<div class="relative flex items-center">
+<input class="w-full bg-transparent border-none border-b-[0.5px] border-outline-variant focus:border-primary-container focus:ring-0 text-on-surface font-body-md text-[14px] px-0 py-3 placeholder:text-on-surface-variant/50 transition-colors" placeholder="Bir soru sorun..." type="text"/>
+<button class="absolute right-0 text-primary-container/70 hover:text-primary-container transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<style>
+    /* Custom thin scrollbar for chat */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(212, 175, 55, 0.2);
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(212, 175, 55, 0.5);
+    }
+  </style>
+</body></html>

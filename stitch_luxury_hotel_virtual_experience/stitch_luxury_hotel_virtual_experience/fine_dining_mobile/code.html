@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="tr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Aurelia Bay Resort - Fine Dining</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-tint": "#e6c364",
+                        "on-tertiary-fixed-variant": "#394859",
+                        "on-primary-fixed-variant": "#584400",
+                        "on-secondary-container": "#a8b6ca",
+                        "outline": "#99907e",
+                        "inverse-on-surface": "#2f3131",
+                        "secondary": "#bac8dc",
+                        "secondary-fixed": "#d6e4f9",
+                        "on-tertiary": "#233242",
+                        "tertiary-fixed-dim": "#b8c8dd",
+                        "surface-container-high": "#282a2b",
+                        "primary-fixed-dim": "#e6c364",
+                        "on-tertiary-fixed": "#0d1d2c",
+                        "inverse-primary": "#755b00",
+                        "surface-variant": "#333535",
+                        "secondary-fixed-dim": "#bac8dc",
+                        "on-primary-fixed": "#241a00",
+                        "tertiary-container": "#9dadc1",
+                        "outline-variant": "#4d4637",
+                        "on-primary-container": "#503d00",
+                        "surface-container-lowest": "#0c0f0f",
+                        "on-surface-variant": "#d0c5b2",
+                        "on-surface": "#e2e2e2",
+                        "surface-container-highest": "#333535",
+                        "on-secondary": "#243141",
+                        "on-error-container": "#ffdad6",
+                        "surface-bright": "#38393a",
+                        "surface": "#121414",
+                        "secondary-container": "#3a4859",
+                        "on-secondary-fixed-variant": "#3a4859",
+                        "on-secondary-fixed": "#0f1c2c",
+                        "surface-container-low": "#1a1c1c",
+                        "on-primary": "#3d2e00",
+                        "on-error": "#690005",
+                        "primary-container": "#c9a84c",
+                        "tertiary-fixed": "#d4e4f9",
+                        "surface-dim": "#121414",
+                        "inverse-surface": "#e2e2e2",
+                        "background": "#121414",
+                        "primary-fixed": "#ffe08f",
+                        "error-container": "#93000a",
+                        "on-background": "#e2e2e2",
+                        "error": "#ffb4ab",
+                        "surface-container": "#1e2020",
+                        "on-tertiary-container": "#324152",
+                        "tertiary": "#b9c8dd",
+                        "primary": "#e6c364"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "xs": "0.5rem",
+                        "xl": "4rem",
+                        "lg": "2.5rem",
+                        "unit": "4px",
+                        "container-max": "1280px",
+                        "sm": "1rem",
+                        "md": "1.5rem",
+                        "gutter": "2rem"
+                    },
+                    "fontFamily": {
+                        "display-xl": ["Plus Jakarta Sans"],
+                        "headline-sm": ["Plus Jakarta Sans"],
+                        "body-lg": ["Plus Jakarta Sans"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "label-sm": ["Plus Jakarta Sans"],
+                        "label-md": ["Plus Jakarta Sans"],
+                        "body-md": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "display-xl": ["64px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-sm": ["24px", { "lineHeight": "1.4", "fontWeight": "500" }],
+                        "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "headline-md": ["32px", { "lineHeight": "1.3", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "1.2", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "1", "fontWeight": "500" }],
+                        "label-md": ["14px", { "lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(30, 45, 61, 0.6);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(138, 155, 176, 0.2);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background h-screen w-screen overflow-hidden relative font-body-md text-body-md antialiased selection:bg-primary-container selection:text-on-primary-container">
+<!-- Full Screen Background Image -->
+<div class="absolute inset-0 z-0 bg-cover bg-center" data-alt="Luxurious fine dining restaurant interior at twilight, warm ambient lighting, elegant table settings, ocean view through large windows, deep navy and gold tones, opulent atmosphere" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBPG6DN68_pXvJ4AhntWWM1kVWV31N10qgKCK1bVsgiL_5pZQB6GMk-i78vh1fQBN9w4GbztlvZ64sME6pD88YnBXipEu24Sj4pG4Y2pWe2vHX7Uxnp2wCggApZADgU_dmV-vxjFRBB9a7lNDi7agvMRNos_qx1c78yxlZEEMT4m-kW5swQR_ZTARn2Y9tuM-cGkBX7yTBqKuUSyO-vozaOJgqv8wR8isTCDfnAm9vCc0JUjfxE2PYHdG1HbdaaMoFwVWQkFgpiwYI');">
+<div class="absolute inset-0 bg-gradient-to-t from-[#0D1B2A]/90 via-[#0D1B2A]/40 to-transparent"></div>
+</div>
+<!-- Top App Bar -->
+<header class="fixed top-0 w-full z-50 bg-slate-950/60 backdrop-blur-xl border-b border-[#8A9BB0]/20 flex justify-between items-center px-6 h-16">
+<button aria-label="Menu" class="text-slate-400 hover:text-[#C9A84C] hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<h1 class="font-['Plus_Jakarta_Sans'] font-bold tracking-widest uppercase text-xl text-[#C9A84C] tracking-[0.2em]">LUXE RESORT</h1>
+<button aria-label="Profile" class="text-slate-400 hover:text-[#C9A84C] hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+</header>
+<!-- Main Content Area (Overlaying Image) -->
+<main class="relative z-10 h-full flex flex-col justify-end pb-32 px-6 pt-24">
+<div class="max-w-container-max mx-auto w-full">
+<!-- Restaurant Info -->
+<div class="mb-8">
+<div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full border border-primary-container text-primary-container text-label-sm font-label-sm mb-4 bg-[#0D1B2A]/50 backdrop-blur-md">
+<span class="material-symbols-outlined text-[14px]" data-icon="star" data-weight="fill" style="font-variation-settings: 'FILL' 1;">star</span>
+<span>Michelin Yıldızlı</span>
+</div>
+<h2 class="text-display-lg font-display-lg text-on-surface mb-2">Aurelia Bay<br/><span class="text-primary-container">Fine Dining</span></h2>
+<p class="text-body-lg font-body-lg text-on-surface-variant max-w-md">Akdeniz'in kalbinde, eşsiz bir gastronomi deneyimi. Usta şeflerimizin özenle hazırladığı menüyü keşfedin.</p>
+</div>
+<!-- Detail Cards (Bento style mini) -->
+<div class="grid grid-cols-2 gap-4 mb-8">
+<div class="glass-panel rounded-xl p-4 flex flex-col justify-center items-start">
+<span class="material-symbols-outlined text-primary-container mb-2" data-icon="restaurant_menu">restaurant_menu</span>
+<span class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider mb-1">Mutfak</span>
+<span class="text-body-md font-body-md text-on-surface">Modern Akdeniz</span>
+</div>
+<div class="glass-panel rounded-xl p-4 flex flex-col justify-center items-start">
+<span class="material-symbols-outlined text-primary-container mb-2" data-icon="schedule">schedule</span>
+<span class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider mb-1">Çalışma Saatleri</span>
+<span class="text-body-md font-body-md text-on-surface">19:00 - 23:30</span>
+</div>
+</div>
+<!-- Action Area -->
+<div class="flex flex-col space-y-4">
+<button class="w-full bg-primary-container text-[#0D1B2A] py-4 rounded-lg font-label-md text-label-md flex items-center justify-center space-x-2 hover:bg-primary-fixed transition-colors">
+<span>Masa Ayırt</span>
+<span class="material-symbols-outlined text-[20px]" data-icon="arrow_forward">arrow_forward</span>
+</button>
+<button class="w-full glass-panel text-on-surface py-4 rounded-lg font-label-md text-label-md flex items-center justify-center space-x-2 hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="panorama">panorama</span>
+<span>Tura Katıl</span>
+</button>
+</div>
+</div>
+</main>
+<!-- Floating AI Concierge Button -->
+<button aria-label="AI Concierge" class="fixed bottom-24 right-6 z-40 w-14 h-14 bg-[#0D1B2A] border border-primary-container rounded-full flex items-center justify-center text-primary-container shadow-[0_0_20px_rgba(201,168,76,0.3)] hover:scale-105 transition-transform">
+<span class="material-symbols-outlined" data-icon="auto_awesome">auto_awesome</span>
+</button>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-3 bg-slate-950/40 backdrop-blur-2xl rounded-t-lg border-t border-[#8A9BB0]/20 shadow-2xl md:hidden">
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-[#C9A84C]/80 font-['Plus_Jakarta_Sans'] text-[10px] font-semibold uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="explore">explore</span>
+            Keşfet
+        </a>
+<a class="flex flex-col items-center justify-center text-[#C9A84C] relative after:content-[''] after:absolute after:-bottom-1 after:w-1 after:h-1 after:bg-[#C9A84C] after:rounded-full transform scale-90 transition-transform font-['Plus_Jakarta_Sans'] text-[10px] font-semibold uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="restaurant" data-weight="fill" style="font-variation-settings: 'FILL' 1;">restaurant</span>
+            Restoran
+        </a>
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-[#C9A84C]/80 font-['Plus_Jakarta_Sans'] text-[10px] font-semibold uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="spa">spa</span>
+            Spa
+        </a>
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-[#C9A84C]/80 font-['Plus_Jakarta_Sans'] text-[10px] font-semibold uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="beach_access">beach_access</span>
+            Plaj
+        </a>
+</nav>
+</body></html>

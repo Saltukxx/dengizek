@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Next.js
+apps/web/.next/
+apps/web/out/
+
+# Env
+.env
+.env.*.local
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Test / Playwright
+apps/web/test-results/
+apps/web/playwright-report/
+playwright/.cache/
+
+# Vitest
+apps/web/coverage/

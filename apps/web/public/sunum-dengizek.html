@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dengizek — Sunum özeti</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Source+Sans+3:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #faf9f7;
+        --ink: #1c1917;
+        --sub: #57534e;
+        --line: #d6d3d1;
+        --accent: #1c3d5a;
+        --font-h: "Libre Baskerville", Georgia, "Times New Roman", serif;
+        --font-b: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: var(--font-b);
+        font-size: 11.5pt;
+        line-height: 1.45;
+        color: var(--ink);
+        background: #e7e5e4;
+      }
+
+      /* Ekranda: ardışık “sayfalar” */
+      .wrap {
+        max-width: 42rem;
+        margin: 0 auto;
+        padding: 1.5rem 1rem 3rem;
+      }
+      @media (min-width: 900px) {
+        .wrap {
+          max-width: 48rem;
+        }
+      }
+      .screen-hint {
+        text-align: center;
+        font-size: 0.8rem;
+        color: var(--sub);
+        margin-bottom: 1.5rem;
+        padding: 0.6rem 0.8rem;
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+      }
+      @media print {
+        .screen-hint {
+          display: none;
+        }
+        body {
+          background: #fff;
+        }
+        .wrap {
+          max-width: none;
+          padding: 0;
+          margin: 0;
+        }
+      }
+
+      .page {
+        background: var(--paper);
+        padding: 14mm 16mm 12mm;
+        min-height: 180mm;
+        border: 1px solid var(--line);
+        margin-bottom: 1.25rem;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+      }
+      @media print {
+        .page {
+          margin: 0;
+          border: none;
+          box-shadow: none;
+          page-break-after: always;
+          page-break-inside: avoid;
+          min-height: 0;
+          height: 190mm;
+          padding: 12mm 14mm;
+        }
+        .page:last-of-type {
+          page-break-after: auto;
+        }
+      }
+
+      @page {
+        size: A4 landscape;
+        margin: 0;
+      }
+
+      h1,
+      h2,
+      h3 {
+        font-family: var(--font-h);
+        font-weight: 700;
+        line-height: 1.2;
+        margin: 0 0 0.5rem;
+      }
+      h1 {
+        font-size: 1.75rem;
+        letter-spacing: -0.02em;
+      }
+      h2 {
+        font-size: 1.2rem;
+        color: var(--accent);
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 0.3rem;
+        margin-bottom: 0.75rem;
+      }
+      h3 {
+        font-size: 0.95rem;
+        color: var(--ink);
+        margin-top: 0.6rem;
+      }
+      p {
+        margin: 0 0 0.6rem;
+        color: var(--ink);
+      }
+      .sub {
+        color: var(--sub);
+        font-size: 0.95rem;
+      }
+      ul {
+        margin: 0.25rem 0 0.5rem;
+        padding-left: 1.1rem;
+      }
+      li {
+        margin-bottom: 0.35rem;
+      }
+      .page--cover {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        background: #1a1a1a;
+        color: #f5f5f4;
+        border-color: #292524;
+      }
+      @media print {
+        .page--cover {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+      }
+      .page--cover h1 {
+        color: #fafaf9;
+        font-size: 2rem;
+        margin-bottom: 0.4rem;
+      }
+      .page--cover .lead {
+        font-size: 1.1rem;
+        color: #d6d3d1;
+        font-weight: 400;
+        max-width: 32rem;
+      }
+      .page--cover .meta {
+        margin-top: 2rem;
+        font-size: 0.8rem;
+        color: #a8a29e;
+        border-top: 1px solid #44403c;
+        padding-top: 0.8rem;
+      }
+      .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem 1.5rem;
+      }
+      @media (max-width: 640px) {
+        .two-col {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media print {
+        .two-col {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="screen-hint">
+        PDF almak için: <strong>Chrome / Edge</strong> ile bu sayfayı açın, <strong>Ctrl+P</strong> (veya
+        Yazdır) → <strong>Hedef: PDF’ye kaydet</strong> → Kenar boşlukları: Yok veya minimum. (A4 yatay,
+        arka plan grafikleri açık.)
+      </p>
+
+      <div class="page page--cover">
+        <h1>Dengizek</h1>
+        <p class="lead">Otel ve odaları, adım adım video ile tanıtan dijital bir deneyim.</p>
+        <p class="meta">Dahili paylaşım — Nisan 2026</p>
+      </div>
+
+      <div class="page">
+        <h2>Bu proje ne işe yarıyor?</h2>
+        <p>
+          Çoğu otel sayfası hâlâ sabit fotoğrafla yetiniyor. Dengizek, gezginin mekâna dair fikir
+          edinmesini kolaylaştırmak için: arama, otel ve oda sayfaları, ardından <strong>rehberli bir
+            video turu</strong> ve gerektiğinde <strong>iletişim formu</strong> sunan bir yol
+          tasarlar. Amaç, “siteyi gezdim, içeri biraz olsun aşina oldum” hissi vermek.
+        </p>
+        <p class="sub">Şu an gördüğünüz sürüm, gerçek otel verisine bağlanmadan çalışan bir demodur.</p>
+      </div>
+
+      <div class="page">
+        <h2>Kimler için?</h2>
+        <div class="two-col">
+          <div>
+            <h3>Gezgin</h3>
+            <p>
+              Oteli kıyaslamak, oda tiplerine bakmak, isteğe bağlı olarak tura girip oynatmak, durdurmak
+              veya yönlendirilmiş adımlar arasında ilerlemek.
+            </p>
+          </div>
+          <div>
+            <h3>Otel tarafı (ileride)</h3>
+            <p>
+              Turların ve görsellerin yönetilebileceği bir panelin temelleri ayrı bölümde; ürün büyüdükçe
+              doldurulacak.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="page">
+        <h2>Gezginin yolu (kısaca)</h2>
+        <p>Bir ziyaretçi kabaca şu sırayla ilerler:</p>
+        <ul>
+          <li>Ana sayfa ve listelerden otele veya odaya gider</li>
+          <li>Otelde “video tura başla” ile tura girer; tur, birden çok bölümden oluşabilir</li>
+          <li>Videonun üzerinde açıklamalar, gerektiğinde noktalar (bilgi) ve yönlendirmeler görür</li>
+          <li>Form ile iletişim niyeti bırakabilir; ardından teşekkür ekranına düşer</li>
+        </ul>
+        <p class="sub">Her şey tarayıcıda, tek dil (Türkçe) arayüzle sunulmaya göre tasarlandı.</p>
+      </div>
+
+      <div class="page">
+        <h2>Video turda neler var?</h2>
+        <p>
+          Sade oynatıp geçmek değil; rehberli turla birlikte sunulan birkaç şey: <strong>altyazı
+            tercihi</strong>, sarma çubuğu, tam ekran, o adıma özel açıklama alanları ve ekran üzerinde
+          bilgi noktaları. Bazı turlarda yol, kullanıcının seçimine göre başka bir sahneye
+          yönlendirilebilir. Hepsi, aynı tur tanımı içinde tutulur; böylece metin, zaman ve ekran
+          düzeninin birbirinden sapması zorlaşır.
+        </p>
+      </div>
+
+      <div class="page">
+        <h2>Ön tarafta neden böyle ilerledik?</h2>
+        <p>
+          Uzun vadede bakım ve güvenlik için, yaygın ve güncel web bileşenleriyle kurduk; ayrıca
+          türünün tek bir tanımı (tur dosyası) olsun istedik ki içerik değişince ekranlar da aynı
+          çizgide kalsın. Detay katalogları ve sürüm numaraları ekiplerin inceleyeceği ayrı dokümanda
+          kalabilir; bu özet, kararın “neden”ine odaklanıyor.
+        </p>
+        <p>
+          Arayüzde tek tip düğme ve tipografi, hem tanıtım sayfaları hem de otel paneli kabuğunda
+          tekrar kullanılsın diye aynı görsel sözlüğe bağlandı; böylece marka ciddi ve tutarlı
+          durur.
+        </p>
+      </div>
+
+      <div class="page">
+        <h2>Bugünkü sınır, yarınki adımlar</h2>
+        <p>
+          <strong>Bugün:</strong> Demo veriyle dönen, çevrimdışı sunuma uygun, denenebilir bir yol. Video
+          dosyaları şu an web’de açık örnekler; canlıda kalite, güvenli bağlantı ve yönetim ekranları
+          bir sonraki safhada.
+        </p>
+        <p>
+          <strong>Sıradaki adımlar (örnek):</strong> gerçek otel ve tur kayıtları, daha iyi video
+          dağıtımı, yönetim arayüzü ve ölçüm (ör. turun nerede bırakıldığını anlama). Bunların her biri
+          iş ve altyapı planı ile birlikte ele alılmalı.
+        </p>
+      </div>
+
+      <div class="page">
+        <h2>Sonuç</h2>
+        <p>
+          Dengizek, otelin dijital vitrinine “yürüyerek geziyormuş” gibi bir katman eklemeyi
+          hedefliyor. Bu dosya, teknik ayrıntıları bir kenara bırakıp, neyi kimin için yaptığımızı
+          anlatmak içindir. Sorularınız için proje yürütücüsüne dönmeniz yeterli.
+        </p>
+        <p class="sub" style="margin-top: 1.5rem">Dengizek — www veya iç iletişim hattı (doldurun)</p>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,153 @@
+{
+  "tourId": "demo-lobby",
+  "hotelSlug": "aurelia-bay",
+  "version": 3,
+  "title": "Aurelia Bay - Sanal Tur",
+  "hotelProfile": {
+    "aiPersona": "Yapay Zeka Rehberi",
+    "language": "tr",
+    "facts": [
+      "5 yildiz otel",
+      "200 oda kapasitesi",
+      "1923 yilinda kuruldu",
+      "Turkiye'nin guneybati sahilinde, Ege'ye sifir konumda",
+      "Ozel 200 metre kumsali var",
+      "3 restoran, 2 bar, 1 spa merkezi mevcut"
+    ],
+    "policies": [
+      "Check-in saati: 14:00",
+      "Check-out saati: 12:00",
+      "Ucretsiz iptal: rezervasyondan 48 saat oncesine kadar",
+      "Evcil hayvan kabul edilmez",
+      "Cocuk politikasi: her yasa uygundur",
+      "Ucretsiz Wi-Fi tum alanlarda mevcut"
+    ]
+  },
+  "steps": [
+    {
+      "stepId": "s1",
+      "order": 0,
+      "kind": "lobby",
+      "title": "Lobide hos geldiniz",
+      "body": "Bu kisа bir ornek kliptir. Bittiginde yol secin veya son adima atlayin.",
+      "requiresUserContinue": true,
+      "media": {
+        "mode": "clip",
+        "src": "/demo/local-sample.mp4",
+        "endSec": 4
+      },
+      "captionsVttUrl": "/demo/sample-tr.vtt",
+      "aiTags": [
+        "lobi",
+        "lobby",
+        "giris",
+        "karsilama",
+        "resepsiyon",
+        "entrance",
+        "reception"
+      ],
+      "aiDescription": "Otelin 2019'da restore edilen ana lobisi. Yerel sanatcilarin eserleriyle dekore edilmis, 24 saat acik resepsiyon ve concierge hizmeti mevcut.",
+      "aiPromo": [
+        "24 saat concierge hizmeti",
+        "Lobi bar her gun 10:00-24:00 arasi acik",
+        "2019'da odullu mimarlar tarafindan restore edildi"
+      ],
+      "aiVisible": true,
+      "callouts": [
+        {
+          "id": "co1",
+          "tSec": 0.2,
+          "title": "Panoramik lobi (demo)",
+          "body": "Kaydirici ile klibin icinde gezinin.",
+          "placement": "topStart"
+        },
+        {
+          "id": "co2",
+          "tSec": 0.6,
+          "title": "Tam ekran (demo)",
+          "body": "Kose aciklamalari tam ekran modunda birlikte gorunur.",
+          "placement": "bottomEnd"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "label": "Siradaki sahneye (demo)",
+          "nextStepId": "s2"
+        },
+        {
+          "id": "b2",
+          "label": "Son adima atla (demo)",
+          "nextStepId": "s3"
+        }
+      ]
+    },
+    {
+      "stepId": "s2",
+      "order": 1,
+      "kind": "amenity_spot",
+      "title": "Sahil ve Plaj Alani",
+      "body": "Video bitince bu adim kendiliğinden ilerler (devam butonu yok). Haritadaki pine tiklayin.",
+      "requiresUserContinue": false,
+      "media": {
+        "mode": "clip",
+        "src": "/demo/local-sample.mp4"
+      },
+      "aiTags": [
+        "sahil",
+        "plaj",
+        "deniz",
+        "beach",
+        "kumsal",
+        "yuzme",
+        "kiy"
+      ],
+      "aiDescription": "Otelin 200 metre uzunlugundaki ozel kumsali. Sezlong ve semsiye hizmeti ucretsiz, su sporlari merkezi ve plaj bari mevcut.",
+      "aiPromo": [
+        "Sezlong ve semsiye tamamen ucretsiz",
+        "Sorf, jet ski ve kano kiralama imkani",
+        "Gunbatiminda canli muzik ve kokteyl servisi"
+      ],
+      "aiVisible": true,
+      "hotspots": [
+        {
+          "id": "h1",
+          "xPct": 50,
+          "yPct": 45,
+          "label": "Plaj bari",
+          "body": "Taze meyve sulari ve soguk icecekler, her gun 10:00-20:00.",
+          "tSec": 0
+        }
+      ]
+    },
+    {
+      "stepId": "s3",
+      "order": 2,
+      "kind": "room",
+      "title": "Deniz Manzarali Suit",
+      "body": "Demo turu tamamladiniz. Otel sayfasina donmek icin ustteki geri baglantıyı kullanin.",
+      "requiresUserContinue": true,
+      "media": {
+        "mode": "clip",
+        "src": "/demo/local-sample.mp4"
+      },
+      "aiTags": [
+        "oda",
+        "suit",
+        "suite",
+        "deniz manzarasi",
+        "yatak odasi",
+        "room",
+        "sea view",
+        "balkon"
+      ],
+      "aiDescription": "45 m2 deniz manzarali suit. King size yatak, ozel balkon, jakuzi ve minibar dahil. Ege manzarasina bakan panoramik cam.",
+      "aiPromo": [
+        "Her odadan Ege manzarasi",
+        "Jakuzi ve ozel balkon dahil",
+        "Gunluk ucretsiz minibar yenileme"
+      ],
+      "aiVisible": true
+    }
+  ]
+}

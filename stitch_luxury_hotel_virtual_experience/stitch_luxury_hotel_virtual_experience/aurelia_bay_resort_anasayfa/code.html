@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="tr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Aurelia Bay Resort - Nocturnal Elegance</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-bright": "#38393a",
+                      "secondary-container": "#3a4859",
+                      "surface-dim": "#121414",
+                      "surface-tint": "#e6c364",
+                      "on-tertiary-fixed": "#0d1d2c",
+                      "on-tertiary-fixed-variant": "#394859",
+                      "on-error": "#690005",
+                      "on-error-container": "#ffdad6",
+                      "surface-container-high": "#282a2b",
+                      "secondary": "#bac8dc",
+                      "primary-fixed": "#ffe08f",
+                      "on-primary-fixed": "#241a00",
+                      "on-secondary": "#243141",
+                      "secondary-fixed": "#d6e4f9",
+                      "inverse-primary": "#755b00",
+                      "primary": "#e6c364",
+                      "tertiary": "#b9c8dd",
+                      "tertiary-fixed": "#d4e4f9",
+                      "error": "#ffb4ab",
+                      "surface-container-lowest": "#0c0f0f",
+                      "outline-variant": "#4d4637",
+                      "on-tertiary": "#233242",
+                      "surface-container-highest": "#333535",
+                      "on-primary-container": "#503d00",
+                      "surface-container": "#1e2020",
+                      "on-secondary-fixed-variant": "#3a4859",
+                      "error-container": "#93000a",
+                      "surface": "#121414",
+                      "on-secondary-container": "#a8b6ca",
+                      "on-primary-fixed-variant": "#584400",
+                      "on-primary": "#3d2e00",
+                      "tertiary-fixed-dim": "#b8c8dd",
+                      "on-background": "#e2e2e2",
+                      "secondary-fixed-dim": "#bac8dc",
+                      "on-tertiary-container": "#324152",
+                      "on-surface-variant": "#d0c5b2",
+                      "inverse-on-surface": "#2f3131",
+                      "tertiary-container": "#9dadc1",
+                      "surface-variant": "#333535",
+                      "primary-container": "#c9a84c",
+                      "on-surface": "#e2e2e2",
+                      "on-secondary-fixed": "#0f1c2c",
+                      "outline": "#99907e",
+                      "inverse-surface": "#e2e2e2",
+                      "surface-container-low": "#1a1c1c",
+                      "primary-fixed-dim": "#e6c364",
+                      "background": "#121414"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "xl": "4rem",
+                      "gutter": "2rem",
+                      "container-max": "1280px",
+                      "unit": "4px",
+                      "sm": "1rem",
+                      "xs": "0.5rem",
+                      "lg": "2.5rem",
+                      "md": "1.5rem"
+              },
+              "fontFamily": {
+                      "body-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "label-sm": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "headline-sm": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "headline-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "label-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "display-xl": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "display-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-lg": [
+                              "Plus Jakarta Sans"
+                      ]
+              },
+              "fontSize": {
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "1",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-sm": [
+                              "24px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-md": [
+                              "32px",
+                              {
+                                      "lineHeight": "1.3",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "1",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-xl": [
+                              "64px",
+                              {
+                                      "lineHeight": "1.1",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+        body {
+            background-color: #121414;
+            color: #e2e2e2;
+        }
+        .shimmer-hover:hover {
+            position: relative;
+            overflow: hidden;
+        }
+        .shimmer-hover:hover::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%);
+            transform: rotate(45deg);
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) rotate(45deg); }
+        }
+        .glass-card {
+            background-color: rgba(30, 45, 61, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(138, 155, 176, 0.2);
+        }
+    </style>
+</head>
+<body class="font-body-md text-body-md bg-background text-on-background antialiased selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-slate-950/60 backdrop-blur-2xl border-b border-white/10 hidden md:flex">
+<div class="flex items-center gap-4">
+<button class="text-slate-400 hover:text-amber-400 transition-colors duration-300">
+<span class="material-symbols-outlined text-[24px]">menu</span>
+</button>
+<span class="text-xl font-medium tracking-widest text-amber-500">L'ÉCLAT</span>
+</div>
+<nav class="flex gap-8">
+<a class="text-amber-500 font-plus-jakarta text-sm tracking-[0.2em] uppercase font-light hover:text-amber-400 transition-colors duration-300" href="#">Aurelia Bay Resort</a>
+<a class="text-slate-400 font-plus-jakarta text-sm tracking-[0.2em] uppercase font-light hover:text-amber-400 transition-colors duration-300" href="#">Odalarımız</a>
+<a class="text-slate-400 font-plus-jakarta text-sm tracking-[0.2em] uppercase font-light hover:text-amber-400 transition-colors duration-300" href="#">Gastronomi</a>
+<a class="text-slate-400 font-plus-jakarta text-sm tracking-[0.2em] uppercase font-light hover:text-amber-400 transition-colors duration-300" href="#">Spa &amp; Wellness</a>
+</nav>
+<div class="flex items-center">
+<img alt="User profile avatar" class="w-8 h-8 rounded-full border border-amber-500/30 object-cover" data-alt="Portrait of a person, soft lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDr1GPCPX9eEQTLH-YlLceoFFR-asf9AjXUzyKgyYBHPvhcPBZ5kwQGvGNuj8ci7TfPQ0v68mKX8gGjX3BjoBh_6KS4-4szdXc4vQ3X0kWWOdh2I2DHZF0T-mW2-K1zlcRqW2YZriRrtb8muN5OcyFcEutyuu1Y-C7_4fSC1QtVjviWszghs4orBOl0ygOmOsW7jX0s3UFCszuUHf4HonLsJgbNKc4GNPgNp4pXNLyJLH6dAzvykPHJrTVl8zy8Cfa8N6MKg48LGUY"/>
+</div>
+</header>
+<!-- Main Content -->
+<main>
+<!-- Hero Section -->
+<section class="relative h-screen w-full flex items-center justify-center overflow-hidden">
+<div class="absolute inset-0 w-full h-full">
+<img alt="Stunning aerial view of a luxury secluded resort at twilight, deep navy waters, warm glowing lights" class="w-full h-full object-cover opacity-70 mix-blend-luminosity" data-alt="Stunning aerial view of a luxury secluded resort at twilight, deep navy waters, warm glowing lights from villas, serene and exclusive atmosphere" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbCgeR0p5johbDZqyFqrDnWnBsbxmfvtg7US_-TmrugxW99qf_ZyIKqBsCgUe5rIkfcvMS-11rzhGwTDmQ9D_2fWljixHY3HyOD34I-GpnNnxYwChIE-m35MBlmAWygXPP3tf35GfJNHvd-MRf2UItw2Xv6scAVlZDsF52udPHunxQmUIe3xnNbm1LAExLUnBbIM9XqJrAiiezIwuQX7i162wWYw06w5A-BpqFIsAPoSxbcsGDDpBrBSt0UwsT5qudtF26KuObMc0"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent"></div>
+</div>
+<div class="relative z-10 text-center max-w-container-max px-gutter flex flex-col items-center gap-8">
+<span class="font-label-sm text-label-sm text-primary tracking-[0.3em] uppercase opacity-80 border border-primary/30 px-4 py-1 rounded-full backdrop-blur-sm">Gecenin Zarafeti</span>
+<h1 class="font-display-xl text-display-xl text-on-surface">Aurelia Bay Resort</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl text-center">Zamanın durduğu, doğanın ve lüksün kusursuz bir uyum içinde dans ettiği o saklı koya hoş geldiniz.</p>
+<button class="mt-8 bg-primary-container text-[#0D1B2A] font-label-md text-label-md px-8 py-4 rounded DEFAULT hover:bg-primary-fixed-dim transition-all duration-300 shimmer-hover flex items-center gap-2">
+<span class="material-symbols-outlined">vrpano</span>
+                    Sanal Turu Deneyimle
+                </button>
+</div>
+</section>
+<!-- Odalarımız (Bento Grid) -->
+<section class="py-xl max-w-container-max mx-auto px-gutter" id="odalar">
+<div class="mb-lg">
+<h2 class="font-display-lg text-display-lg text-on-surface mb-2">Odalarımız</h2>
+<div class="w-12 h-1 bg-primary-container"></div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-unit auto-rows-[300px]">
+<div class="glass-card md:col-span-8 rounded-xl overflow-hidden relative group">
+<img alt="Luxury hotel suite interior at night" class="absolute inset-0 w-full h-full object-cover opacity-60 transition-transform duration-700 group-hover:scale-105" data-alt="Luxury hotel suite bedroom interior at night, warm low lighting, plush king bed, dark wood accents, deep navy walls, elegant and moody" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBGndoHp4lrs1jWBWZM5p0jwpjoHUD6bPtg4QidaZLvXhuGRgyTDP1gueQ25UAS1-bl5j-rU7PaNF28uJedCsIvCOk3nx7d-G2mweOsm-EruHcpKHPtePfwPr1Ax07AMAp8IlVRSSoooJvRunpfsxjGTmFGNbH0CiAWjHXCIlC_UQxlq6O7gdvRjW39SAFfWghyoI79k_WDueJowKA1bIZfpinQGc6x-TVRuJfOa8X8Oa2zNwz09Pi0ZuGM2GyQ_WoS-HBAfl0TlR8"/>
+<div class="absolute inset-0 bg-gradient-to-t from-[#121414] to-transparent opacity-80"></div>
+<div class="absolute bottom-0 left-0 p-6">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-1">Signature Villa</h3>
+<p class="font-body-md text-body-md text-on-surface-variant flex items-center gap-2"><span class="material-symbols-outlined text-primary text-[18px]">king_bed</span> Özel Havuzlu Lüks</p>
+</div>
+</div>
+<div class="glass-card md:col-span-4 rounded-xl overflow-hidden relative group flex items-center justify-center">
+<div class="text-center p-6 z-10">
+<span class="material-symbols-outlined text-primary text-[48px] mb-4">castle</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-2">Kral Dairesi</h3>
+<button class="font-label-md text-label-md text-primary hover:text-primary-fixed transition-colors border-b border-primary/30 pb-1">Detayları İncele</button>
+</div>
+</div>
+<div class="glass-card md:col-span-6 rounded-xl overflow-hidden relative group">
+<img alt="Elegant bathroom with freestanding tub" class="absolute inset-0 w-full h-full object-cover opacity-60 transition-transform duration-700 group-hover:scale-105" data-alt="Elegant luxury resort bathroom, dark stone walls, freestanding white bathtub, dim golden accent lighting, spa-like atmosphere" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAnpjBU9H1xFuLKm1xQ4TjsK2W3P0pmdrys-JYbK51VkvavPjMBChqzxhzV0IQoDC5JHqDBKka2p26PwsCBr8dE7ASzDKzN01NLx0VVlMB8Dns5w5FjXxDag1Iyqq0OSh-N58yygvRdaAaQif-GjcSM3jY-uRp8Z_0zyixNDGNleY2ZYeYY-wR9B-bYCyhvPjiMJHwH8hjEjDIaociz7ZwZHQe4LmoCdqE9vDbFZWv5RjxO5qc_39oewxUyejzEqVzn_xAaIhMoHjo"/>
+<div class="absolute inset-0 bg-gradient-to-t from-[#121414] to-transparent opacity-80"></div>
+<div class="absolute bottom-0 left-0 p-6">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-1">Okyanus Manzaralı Süit</h3>
+</div>
+</div>
+<div class="glass-card md:col-span-6 rounded-xl overflow-hidden relative group">
+<img alt="Luxury lounge area with dark tones" class="absolute inset-0 w-full h-full object-cover opacity-60 transition-transform duration-700 group-hover:scale-105" data-alt="Dark and moody luxury hotel lounge area, velvet armchairs, dim lighting, elegant decor, sophisticated evening vibe" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCucM24PIBQh43xpVAqjkEoNZoCUZIoOhcaXKbFDRCPTvtDeNyURycB9rOcKUZW7Aick189MuZYHKRbRaMsSV1XnDitzoXbVmZYVbTWzmPt_Is8nHJd41vjkDBbMx9w4ya5yiLh0vRxCg2rlps4_vPxAwep8ffX7NG9K1WHR_by6nRaAZ10ayO16dCtkGFlepI4NwDA8mdz-qFN9qdyenEt9_iLwpzUUNIFaWdBVOL0MIW1p41pX3qacM0zqzfN6SiL15Hw6FTJ_PA"/>
+<div class="absolute inset-0 bg-gradient-to-t from-[#121414] to-transparent opacity-80"></div>
+<div class="absolute bottom-0 left-0 p-6">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-1">Premium Odalar</h3>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-3 bg-slate-950/80 backdrop-blur-3xl shadow-2xl md:hidden border-t border-white/5">
+<a class="flex flex-col items-center justify-center text-amber-500 scale-110 transition-transform" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="font-plus-jakarta text-[10px] font-medium tracking-tighter">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-amber-200 transition-all" href="#">
+<span class="material-symbols-outlined mb-1">vrpano</span>
+<span class="font-plus-jakarta text-[10px] font-medium tracking-tighter">Tours</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-amber-200 transition-all" href="#">
+<span class="material-symbols-outlined mb-1">restaurant</span>
+<span class="font-plus-jakarta text-[10px] font-medium tracking-tighter">Gastronomi</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-amber-200 transition-all" href="#">
+<span class="material-symbols-outlined mb-1">spa</span>
+<span class="font-plus-jakarta text-[10px] font-medium tracking-tighter">Spa</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-amber-200 transition-all" href="#">
+<span class="material-symbols-outlined mb-1">person</span>
+<span class="font-plus-jakarta text-[10px] font-medium tracking-tighter">Profile</span>
+</a>
+</nav>
+</body></html>

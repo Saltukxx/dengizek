@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="tr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Aurelia Bay Resort - Havuz Sahnesi</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary-fixed": "#241a00",
+                      "on-tertiary-fixed": "#0d1d2c",
+                      "on-primary-fixed-variant": "#584400",
+                      "error-container": "#93000a",
+                      "surface-container-lowest": "#0c0f0f",
+                      "on-secondary": "#243141",
+                      "inverse-primary": "#755b00",
+                      "on-primary": "#3d2e00",
+                      "on-tertiary-fixed-variant": "#394859",
+                      "on-error-container": "#ffdad6",
+                      "on-background": "#e2e2e2",
+                      "inverse-surface": "#e2e2e2",
+                      "primary-container": "#c9a84c",
+                      "background": "#121414",
+                      "secondary-fixed-dim": "#bac8dc",
+                      "surface-dim": "#121414",
+                      "primary-fixed-dim": "#e6c364",
+                      "secondary": "#bac8dc",
+                      "on-secondary-fixed": "#0f1c2c",
+                      "on-surface-variant": "#d0c5b2",
+                      "secondary-container": "#3a4859",
+                      "tertiary-container": "#9dadc1",
+                      "primary-fixed": "#ffe08f",
+                      "tertiary": "#b9c8dd",
+                      "surface-container-high": "#282a2b",
+                      "on-secondary-container": "#a8b6ca",
+                      "surface-tint": "#e6c364",
+                      "surface-container-low": "#1a1c1c",
+                      "error": "#ffb4ab",
+                      "primary": "#e6c364",
+                      "on-secondary-fixed-variant": "#3a4859",
+                      "inverse-on-surface": "#2f3131",
+                      "surface": "#121414",
+                      "tertiary-fixed": "#d4e4f9",
+                      "surface-container": "#1e2020",
+                      "outline": "#99907e",
+                      "tertiary-fixed-dim": "#b8c8dd",
+                      "surface-variant": "#333535",
+                      "surface-container-highest": "#333535",
+                      "on-tertiary-container": "#324152",
+                      "on-surface": "#e2e2e2",
+                      "secondary-fixed": "#d6e4f9",
+                      "on-primary-container": "#503d00",
+                      "outline-variant": "#4d4637",
+                      "on-tertiary": "#233242",
+                      "on-error": "#690005",
+                      "surface-bright": "#38393a"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "lg": "2.5rem",
+                      "md": "1.5rem",
+                      "container-max": "1280px",
+                      "sm": "1rem",
+                      "xl": "4rem",
+                      "unit": "4px",
+                      "xs": "0.5rem",
+                      "gutter": "2rem"
+              },
+              "fontFamily": {
+                      "label-sm": ["Plus Jakarta Sans"],
+                      "label-md": ["Plus Jakarta Sans"],
+                      "headline-sm": ["Plus Jakarta Sans"],
+                      "display-lg": ["Plus Jakarta Sans"],
+                      "body-md": ["Plus Jakarta Sans"],
+                      "body-lg": ["Plus Jakarta Sans"],
+                      "display-xl": ["Plus Jakarta Sans"],
+                      "headline-md": ["Plus Jakarta Sans"]
+              },
+              "fontSize": {
+                      "label-sm": ["12px", { "lineHeight": "1", "fontWeight": "500" }],
+                      "label-md": ["14px", { "lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                      "headline-sm": ["24px", { "lineHeight": "1.4", "fontWeight": "500" }],
+                      "display-lg": ["48px", { "lineHeight": "1.2", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                      "body-md": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                      "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                      "display-xl": ["64px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                      "headline-md": ["32px", { "lineHeight": "1.3", "fontWeight": "600" }]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        .shimmer {
+            position: relative;
+            overflow: hidden;
+        }
+        .shimmer::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            background: linear-gradient(
+                45deg,
+                rgba(255, 255, 255, 0) 0%,
+                rgba(255, 255, 255, 0.1) 50%,
+                rgba(255, 255, 255, 0) 100%
+            );
+            transform: translateX(-100%);
+            animation: shimmer-anim 3s infinite;
+        }
+        @keyframes shimmer-anim {
+            100% { transform: translateX(100%); }
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased overflow-hidden selection:bg-primary/30 selection:text-primary">
+<main class="flex flex-col lg:flex-row w-full h-screen">
+<!-- Left Panel: Immersive Scene (70%) -->
+<section class="relative w-full lg:w-[70%] h-[614px] lg:h-full flex-shrink-0">
+<!-- Background Image -->
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Stunning infinity pool merging with the deep blue ocean at golden hour sunset, surrounded by luxury modern loungers and softly glowing fire pits, 5-star resort atmosphere, photorealistic, cinematic lighting" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBeUrgyFdwo8W0TVkxsWrphO_G_e6aokMkJA-LMTciWJFi-kv7YePl5yH0HPymzYZ-0mk5hcBClouHGz0lTy97Y0__XRadghN7HneKqEgHkYWNwzpR5KXkKOJ6TkP-kK5nVMypa0rcZywuJgKWb37-F9dvOWu6gAfM8QIx_qdGHxRiyYs_IdNqGSMmoO8OpPwK00b0Aw96zZ6BemslAEEFsEmUaImFzoWmSWg66iPg66uDo5VoT2Vtx-93tDd42WNLuxAP93oCS5aw');">
+</div>
+<!-- Gradient Overlays for depth and text legibility -->
+<div class="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent lg:via-background/20"></div>
+<div class="absolute inset-0 bg-gradient-to-r from-background/30 to-transparent"></div>
+<!-- Brand Anchor -->
+<div class="absolute top-md left-md lg:top-lg lg:left-lg z-10">
+<span class="font-headline-sm text-headline-sm text-primary tracking-[0.3em] font-light">LUMIÈRE</span>
+</div>
+<!-- Floating Control Bar -->
+<div class="absolute bottom-md left-md right-md lg:bottom-lg lg:left-lg lg:right-lg z-20">
+<div class="bg-surface-container/60 backdrop-blur-[40px] border border-outline/20 rounded-xl p-md flex flex-col md:flex-row items-start md:items-center justify-between gap-md shadow-2xl">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-tertiary uppercase tracking-widest flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(230,195,100,0.6)]"></span>
+                            ADIM 4 / 5
+                        </span>
+<h1 class="font-display-lg text-display-lg text-on-surface mt-xs tracking-tight">Havuz Sahnesi</h1>
+</div>
+<div class="flex items-center gap-sm w-full md:w-auto">
+<button class="flex-1 md:flex-none px-md py-3 rounded-full border border-primary text-primary font-label-md text-label-md hover:bg-primary/10 transition-colors duration-300">
+                            Serbestçe Keşfet
+                        </button>
+<button class="flex-1 md:flex-none px-md py-3 rounded-full bg-primary text-on-primary font-label-md text-label-md hover:brightness-110 transition-all duration-300 flex items-center justify-center gap-xs shimmer">
+                            Tura Katıl
+                            <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Right Panel: AI Concierge (30%) -->
+<section class="w-full lg:w-[30%] h-[409px] lg:h-full bg-surface-container-lowest flex flex-col border-t lg:border-t-0 lg:border-l border-outline/20 z-30 relative">
+<!-- Glassmorphism Header -->
+<header class="p-md border-b border-outline/10 bg-surface/80 backdrop-blur-xl flex items-center gap-sm sticky top-0 z-10">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest border border-outline/20 flex items-center justify-center shadow-inner">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+<div class="flex flex-col">
+<h2 class="font-label-md text-label-md text-on-surface tracking-wide uppercase">Yapay Zeka Rehberi</h2>
+<span class="font-label-sm text-label-sm text-tertiary flex items-center gap-1 mt-1">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        Asistanınız Çevrimiçi
+                    </span>
+</div>
+</header>
+<!-- Chat Canvas -->
+<div class="flex-1 overflow-y-auto p-md flex flex-col gap-lg no-scrollbar scroll-smooth">
+<!-- AI Message Block 1 -->
+<div class="flex gap-sm w-full max-w-[90%]">
+<div class="w-8 h-8 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center border border-outline/10 mt-1">
+<span class="material-symbols-outlined text-primary text-[16px]">water</span>
+</div>
+<div class="bg-surface-container-low p-md rounded-xl rounded-tl-none border border-outline/10 shadow-sm relative overflow-hidden group">
+<div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+<p class="font-body-md text-body-md text-on-surface-variant relative z-10">
+                            Sonsuzluk havuzuna hoş geldiniz. Havuzumuz sabah 07:00'den akşam 20:00'ye kadar hizmet vermektedir. Hemen yanınızdaki Ocean Bar'dan imza kokteyllerimizi sipariş edebilirsiniz.
+                        </p>
+</div>
+</div>
+<!-- AI Message Block 2 -->
+<div class="flex gap-sm w-full max-w-[90%]">
+<div class="w-8 h-8 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center border border-outline/10 mt-1">
+<span class="material-symbols-outlined text-primary text-[16px]" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+<div class="bg-surface-container-low p-md rounded-xl rounded-tl-none border border-outline/10 shadow-sm">
+<p class="font-body-md text-body-md text-on-surface-variant">
+                            Şu an için size nasıl yardımcı olabilirim?
+                        </p>
+</div>
+</div>
+</div>
+<!-- Interaction Zone (Bottom fixed) -->
+<div class="p-md bg-surface/80 backdrop-blur-xl border-t border-outline/10 flex flex-col gap-md sticky bottom-0">
+<!-- Quick Replies -->
+<div class="flex overflow-x-auto gap-xs pb-xs no-scrollbar snap-x">
+<button class="snap-start whitespace-nowrap px-sm py-2 rounded-full border border-outline/30 text-on-surface-variant font-label-sm text-label-sm hover:border-primary hover:text-primary transition-all duration-300 bg-surface-container-lowest/50 backdrop-blur-sm">
+                        Menüyü gör
+                    </button>
+<button class="snap-start whitespace-nowrap px-sm py-2 rounded-full border border-outline/30 text-on-surface-variant font-label-sm text-label-sm hover:border-primary hover:text-primary transition-all duration-300 bg-surface-container-lowest/50 backdrop-blur-sm">
+                        Spa randevusu
+                    </button>
+<button class="snap-start whitespace-nowrap px-sm py-2 rounded-full border border-outline/30 text-on-surface-variant font-label-sm text-label-sm hover:border-primary hover:text-primary transition-all duration-300 bg-surface-container-lowest/50 backdrop-blur-sm">
+                        Oda ayırt
+                    </button>
+</div>
+<!-- Input Area -->
+<div class="relative flex items-center w-full group">
+<input class="w-full bg-surface-container-high py-3 pl-sm pr-xl rounded-lg border border-outline/20 font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary/50 focus:bg-surface-container-lowest transition-all duration-300 shadow-inner" placeholder="Resort hakkında her şeyi sorun..." type="text"/>
+<button class="absolute right-2 w-8 h-8 rounded-md bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-on-primary transition-all duration-300">
+<span class="material-symbols-outlined text-[18px]">send</span>
+</button>
+</div>
+</div>
+</section>
+</main>
+</body></html>
