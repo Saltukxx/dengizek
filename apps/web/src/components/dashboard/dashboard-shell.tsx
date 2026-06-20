@@ -24,21 +24,29 @@ import {
   IconBed,
   IconBedFlat,
   IconBuilding,
+  IconCalendar,
+  IconChartBar,
   IconChevronDown,
+  IconCoin,
   IconExternalLink,
   IconFolder,
   IconLayoutDashboard,
+  IconLink,
   IconLogout,
   IconMessage,
   IconSparkles,
+  IconStar,
   IconToolsKitchen2,
+  IconUsers,
   IconVideo,
+  IconWallet,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { ReactNode } from "react";
 import { useHotelContext } from "./hotel-context";
+import { NotificationBell } from "./notification-bell";
 
 const links = [
   { href: "/dashboard", label: "Genel bakış", icon: IconLayoutDashboard },
@@ -49,6 +57,15 @@ const links = [
   { href: "/dashboard/tours", label: "Turlar", icon: IconVideo },
   { href: "/dashboard/media", label: "Medya", icon: IconFolder },
   { href: "/dashboard/inquiries", label: "Talepler", icon: IconMessage },
+  { href: "/dashboard/bookings", label: "Rezervasyonlar", icon: IconCalendar },
+  { href: "/dashboard/availability", label: "Müsaitlik", icon: IconCalendar },
+  { href: "/dashboard/rate-plans", label: "Fiyat planları", icon: IconCoin },
+  { href: "/dashboard/promotions", label: "Kampanyalar", icon: IconSparkles },
+  { href: "/dashboard/reviews", label: "Yorumlar", icon: IconStar },
+  { href: "/dashboard/analytics", label: "Analitik", icon: IconChartBar },
+  { href: "/dashboard/finance", label: "Finans", icon: IconWallet },
+  { href: "/dashboard/connectivity", label: "Bağlantılar", icon: IconLink },
+  { href: "/dashboard/team", label: "Ekip", icon: IconUsers },
 ] as const;
 
 export function DashboardShell({
@@ -149,6 +166,7 @@ export function DashboardShell({
                 {hotel.name}
               </Text>
             )}
+            <NotificationBell />
             <Button
               component={Link}
               href="/"

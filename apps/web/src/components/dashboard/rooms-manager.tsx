@@ -88,6 +88,7 @@ interface RoomRow {
   isActive: boolean;
   orderIndex: number;
   rates: RateRow[];
+  galleryUrls: string[];
 }
 
 interface RateForm {
@@ -120,6 +121,7 @@ interface RoomForm {
   discountPercent: number | null;
   discountLabel: string;
   isActive: boolean;
+  galleryUrls: string[];
 }
 
 const emptyForm: RoomForm = {
@@ -142,6 +144,7 @@ const emptyForm: RoomForm = {
   discountPercent: null,
   discountLabel: "",
   isActive: true,
+  galleryUrls: [],
 };
 
 function rowToForm(r: RoomRow): RoomForm {
@@ -169,6 +172,7 @@ function rowToForm(r: RoomRow): RoomForm {
     discountPercent: r.discountPercent,
     discountLabel: r.discountLabel ?? "",
     isActive: r.isActive,
+    galleryUrls: r.galleryUrls ?? [],
   };
 }
 
@@ -255,6 +259,7 @@ export function RoomsManager() {
       discountPercent: f.discountPercent,
       discountLabel: f.discountLabel || undefined,
       isActive: f.isActive,
+      galleryUrls: f.galleryUrls,
     };
     const url = editing.id
       ? `/api/manager/hotels/${hotel.id}/rooms/${editing.id}`
@@ -730,6 +735,14 @@ export function RoomsManager() {
               value={f.imageUrl}
               onChange={(url) =>
                 setEditing((s) => s && { ...s, form: { ...s.form, imageUrl: url } })
+              }
+            />
+            <TagsInput
+              label="Galeri görselleri (URL)"
+              description="Ek oda fotoğrafları — geçerli https adresleri"
+              value={f.galleryUrls}
+              onChange={(v) =>
+                setEditing((s) => s && { ...s, form: { ...s.form, galleryUrls: v } })
               }
             />
             <TagsInput

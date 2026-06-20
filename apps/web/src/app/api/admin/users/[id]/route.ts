@@ -55,13 +55,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     .update(usersTable)
     .set(updates)
     .where(eq(usersTable.id, id))
-    .returning({
-      id: usersTable.id,
-      email: usersTable.email,
-      name: usersTable.name,
-      role: usersTable.role,
-      isActive: usersTable.isActive,
-    });
+    .returning();
 
   await logAudit({
     actor: guard.user,

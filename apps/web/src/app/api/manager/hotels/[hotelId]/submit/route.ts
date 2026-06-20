@@ -44,7 +44,7 @@ export async function POST(_req: Request, { params }: RouteParams) {
     .update(hotelsTable)
     .set({ status: "incelemede", submittedAt: new Date(), updatedAt: new Date() })
     .where(eq(hotelsTable.id, guard.hotel.id))
-    .returning({ status: hotelsTable.status });
+    .returning();
 
   await logAudit({
     actor: guard.user,

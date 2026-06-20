@@ -17,6 +17,7 @@ import {
   NumberInput,
   Paper,
   SegmentedControl,
+  Select,
   Stack,
   TagsInput,
   Text,
@@ -31,9 +32,10 @@ import {
   paymentMethodLabels,
   paymentMethods,
 } from "@/lib/schemas/hotel-content";
-import { moderationStatusColors, moderationStatusLabels } from "@/lib/labels";
+import { moderationStatusColors, moderationStatusLabels, propertyTypeLabels } from "@/lib/labels";
 import { useMyHotel } from "./use-my-hotel";
 import { MediaPicker } from "./media-picker";
+import { PropertyGallerySection } from "./property-gallery-section";
 
 // TagsInput önerileri — katalog kategorilere göre gruplanır, serbest metin de geçerli
 const amenitySuggestions = amenitiesCatalog.map((cat) => ({
@@ -68,6 +70,10 @@ interface HotelDetail {
   phone: string | null;
   contactEmail: string | null;
   airportDistanceKm: number | null;
+  latitude: string | null;
+  longitude: string | null;
+  propertyType: "otel" | "apart" | "villa" | "butik" | "pansiyon" | "diger" | null;
+  blackoutText: string | null;
   status: "taslak" | "incelemede" | "yayinda" | "reddedildi";
   moderationNote: string | null;
 }
@@ -132,6 +138,10 @@ export function PropertyForm() {
         phone: detail.phone ?? undefined,
         contactEmail: detail.contactEmail ?? "",
         airportDistanceKm: detail.airportDistanceKm,
+        latitude: detail.latitude ?? "",
+        longitude: detail.longitude ?? "",
+        propertyType: detail.propertyType ?? "otel",
+        blackoutText: detail.blackoutText ?? undefined,
       }),
     });
     const json = await res.json();
@@ -215,6 +225,36 @@ export function PropertyForm() {
               onChange={(e) => set("country", e.currentTarget.value)}
             />
           </Group>
+          <Select
+            label="Tesis türü"
+            data={Object.entries(propertyTypeLabels).map(([v, l]) => ({ value: v, label: l }))}
+            value={detail.propertyType ?? "otel"}
+            onChange={(v) =>
+              set("propertyType", (v ?? "otel") as HotelDetail["propertyType"])
+            }
+          />
+          <Group grow>
+            <TextInput
+              label="Enlem"
+              placeholder="36.8841"
+              value={detail.latitude ?? ""}
+              onChange={(e) => set("latitude", e.currentTarget.value || null)}
+            />
+            <TextInput
+              label="Boylam"
+              placeholder="30.7056"
+              value={detail.longitude ?? ""}
+              onChange={(e) => set("longitude", e.currentTarget.value || null)}
+            />
+          </Group>
+          <Textarea
+            label="Kapalı dönem metni"
+            description="Misafir sayfasında gösterilecek genel müsaitlik uyarısı"
+            autosize
+            minRows={2}
+            value={detail.blackoutText ?? ""}
+            onChange={(e) => set("blackoutText", e.currentTarget.value || null)}
+          />
           <MediaPicker
             hotelId={detail.id}
             label="Kapak görseli"
@@ -243,6 +283,8 @@ export function PropertyForm() {
           />
         </Stack>
       </Paper>
+
+      <PropertyGallerySection hotelId={detail.id} />
 
       <Paper withBorder p="md" radius="md">
         <Stack gap="sm">

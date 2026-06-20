@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import { and, desc, eq, type SQL } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
-import { inquiriesTable, inquiryStatusEnum } from "@/lib/db/schema";
+import { hotelsTable, inquiriesTable, inquirySourceEnum, inquiryStatusEnum } from "@/lib/db/schema";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -22,14 +22,18 @@ export async function GET(req: Request) {
   if (guard.response) return guard.response;
 
   const durum = url.searchParams.get("durum");
+  const kaynak = url.searchParams.get("kaynak");
   const sayfa = Math.max(1, Number(url.searchParams.get("sayfa") ?? "1") || 1);
   const limit = 50;
 
   const isValidStatus = (v: string): v is (typeof inquiryStatusEnum.enumValues)[number] =>
     (inquiryStatusEnum.enumValues as readonly string[]).includes(v);
+  const isValidSource = (v: string): v is (typeof inquirySourceEnum.enumValues)[number] =>
+    (inquirySourceEnum.enumValues as readonly string[]).includes(v);
 
   const filters: SQL[] = [eq(inquiriesTable.hotelId, guard.hotel.id)];
   if (durum && isValidStatus(durum)) filters.push(eq(inquiriesTable.status, durum));
+  if (kaynak && isValidSource(kaynak)) filters.push(eq(inquiriesTable.source, kaynak));
 
   const db = getDb();
   const inquiries = await db

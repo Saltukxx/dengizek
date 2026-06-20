@@ -19,7 +19,7 @@ import {
   Textarea,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconCheck, IconExternalLink, IconX } from "@tabler/icons-react";
+import { IconCheck, IconExternalLink, IconTrash, IconX } from "@tabler/icons-react";
 import { moderationStatusColors, moderationStatusLabels } from "@/lib/labels";
 
 interface AdminTour {
@@ -52,6 +52,26 @@ export function ModerationQueue() {
   }, [reload]);
 
   if (!tours) return <Loader />;
+
+  async function deleteTour(t: AdminTour) {
+    if (
+      !confirm(
+        `"${t.title}" turunu kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`,
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    const res = await fetch(`/api/admin/tours/${t.id}`, { method: "DELETE" });
+    const json = await res.json();
+    setBusy(false);
+    if (json.ok) {
+      notifications.show({ color: "green", message: "Tur silindi." });
+      void reload();
+    } else {
+      notifications.show({ color: "red", message: json.error ?? "Silme başarısız oldu." });
+    }
+  }
 
   async function decide(tour: AdminTour, karar: "onayla" | "reddet", not?: string) {
     setBusy(true);
@@ -131,6 +151,16 @@ export function ModerationQueue() {
                 </Button>
               </>
             )}
+            <Button
+              size="xs"
+              color="red"
+              variant="subtle"
+              leftSection={<IconTrash size={14} />}
+              loading={busy}
+              onClick={() => deleteTour(t)}
+            >
+              Sil
+            </Button>
           </Group>
         </Table.Td>
       </Table.Tr>

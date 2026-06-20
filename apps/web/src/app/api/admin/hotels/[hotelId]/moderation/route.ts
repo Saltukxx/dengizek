@@ -61,7 +61,7 @@ export async function POST(req: Request, { params }: RouteParams) {
       updatedAt: now,
     })
     .where(eq(hotelsTable.id, hotel.id))
-    .returning({ status: hotelsTable.status });
+    .returning();
 
   await logAudit({
     actor: guard.user,

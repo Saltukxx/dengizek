@@ -20,7 +20,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconExternalLink, IconPencil, IconPlus, IconSend, IconTrash } from "@tabler/icons-react";
+import { IconAlertCircle, IconCopy, IconExternalLink, IconPencil, IconPlus, IconSend, IconTrash, IconVersions } from "@tabler/icons-react";
 import { moderationStatusColors, moderationStatusLabels } from "@/lib/labels";
 import { useMyHotel } from "./use-my-hotel";
 
@@ -95,6 +95,21 @@ export function ToursList() {
       void reload();
     } else {
       notifications.show({ color: "red", message: json.error ?? "Gönderme başarısız oldu." });
+    }
+  }
+
+  async function newVersion(tourId: string) {
+    if (!hotel) return;
+    const res = await fetch(
+      `/api/manager/hotels/${hotel.id}/tours/${tourId}/new-version`,
+      { method: "POST" },
+    );
+    const json = await res.json();
+    if (json.ok) {
+      notifications.show({ color: "green", message: "Yeni taslak sürüm oluşturuldu." });
+      void reload();
+    } else {
+      notifications.show({ color: "red", message: json.error ?? "Sürüm oluşturulamadı." });
     }
   }
 
@@ -186,6 +201,17 @@ export function ToursList() {
                     >
                       Düzenle
                     </Button>
+                    {t.status === "yayinda" && (
+                      <Button
+                        size="xs"
+                        variant="light"
+                        color="violet"
+                        leftSection={<IconVersions size={14} />}
+                        onClick={() => newVersion(t.tourId)}
+                      >
+                        Yeni sürüm
+                      </Button>
+                    )}
                     {t.status !== "yayinda" && (
                       <Button
                         size="xs"

@@ -112,8 +112,15 @@ export function TourPlayer({
     currentStep,
     stepsSeen,
     onNavigate: goToStepId,
-    onOpenInquiry: () => {
-      const params = new URLSearchParams({ hotel: manifest.hotelSlug });
+    onOpenInquiry: (roomSlug?: string, fromAi = false) => {
+      const params = new URLSearchParams({
+        hotel: manifest.hotelSlug,
+        tour: manifest.tourId,
+        source: fromAi ? "tour_ai" : "tour_player",
+      });
+      if (roomSlug) params.set("room", roomSlug);
+      const step = currentStep?.stepId;
+      if (step) params.set("step", step);
       router.push(`/inquiry?${params.toString()}`);
     },
   });

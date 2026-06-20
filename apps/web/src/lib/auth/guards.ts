@@ -69,7 +69,7 @@ export async function requireAdmin(): Promise<GuardResult> {
 }
 
 type HotelGuardResult =
-  | { user: SessionUser; hotel: { id: string; slug: string }; response: null }
+  | { user: SessionUser; hotel: { id: string; slug: string; name: string }; response: null }
   | { user: null; hotel: null; response: NextResponse };
 
 /**
@@ -94,7 +94,7 @@ export async function requireHotelAccess(
     hotelIdOrSlug,
   );
   const [hotel] = await db
-    .select({ id: hotelsTable.id, slug: hotelsTable.slug })
+    .select({ id: hotelsTable.id, slug: hotelsTable.slug, name: hotelsTable.name })
     .from(hotelsTable)
     .where(isUuid ? eq(hotelsTable.id, hotelIdOrSlug) : eq(hotelsTable.slug, hotelIdOrSlug))
     .limit(1);

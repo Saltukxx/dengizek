@@ -30,7 +30,7 @@ interface UseTourGuideOptions {
   currentStep: TourStep | null;
   stepsSeen: string[];
   onNavigate: (stepId: string) => void;
-  onOpenInquiry: (roomSlug?: string) => void;
+  onOpenInquiry: (roomSlug?: string, fromAi?: boolean) => void;
   onAutoTourEnd?: () => void;
   idleTimeoutMs?: number;
   maxNudges?: number;
@@ -100,7 +100,7 @@ export function useTourGuide({
           onNavigate((input as { stepId: string }).stepId);
           break;
         case "openInquiry":
-          onOpenInquiry((input as { roomSlug?: string }).roomSlug);
+          onOpenInquiry((input as { roomSlug?: string }).roomSlug, true);
           break;
         case "autoTourNext": {
           const { stepId, delayMs } = input as { stepId: string; delayMs: number };

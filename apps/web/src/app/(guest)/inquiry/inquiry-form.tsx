@@ -3,12 +3,22 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { inquiryFormSchema, type InquiryFormValues } from "@/lib/schemas/inquiry";
+import { trackEvent } from "@/lib/analytics-client";
+
+type RoomOption = { slug: string; name: string };
 
 export function InquiryForm() {
   const search = useSearchParams();
   const router = useRouter();
   const hotelFromQuery = search.get("hotel") ?? undefined;
+  const roomFromQuery = search.get("room") ?? undefined;
+  const tourFromQuery = search.get("tour") ?? undefined;
+  const stepFromQuery = search.get("step") ?? undefined;
+  const sourceFromQuery = search.get("source") ?? "web";
+
+  const [rooms, setRooms] = useState<RoomOption[]>([]);
 
   const {
     register,
@@ -25,11 +35,36 @@ export function InquiryForm() {
       message: "",
       marketingConsent: false,
       hotelSlug: hotelFromQuery,
+      roomSlug: roomFromQuery,
+      tourId: tourFromQuery,
+      stepKey: stepFromQuery,
+      source: sourceFromQuery as InquiryFormValues["source"],
+      checkIn: "",
+      checkOut: "",
+      adults: 2,
+      children: 0,
     },
   });
 
+  useEffect(() => {
+    if (!hotelFromQuery) return;
+    void fetch(`/api/public/hotels/${hotelFromQuery}/rooms`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.ok) setRooms(j.rooms);
+      });
+    void trackEvent("inquiry_start", { hotelSlug: hotelFromQuery });
+  }, [hotelFromQuery]);
+
   const onSubmit = handleSubmit(async (data) => {
-    const payload = { ...data, hotelSlug: data.hotelSlug || hotelFromQuery };
+    const payload = {
+      ...data,
+      hotelSlug: data.hotelSlug || hotelFromQuery,
+      roomSlug: data.roomSlug || roomFromQuery,
+      tourId: data.tourId || tourFromQuery,
+      stepKey: data.stepKey || stepFromQuery,
+      source: data.source || sourceFromQuery,
+    };
     const res = await fetch("/api/inquiry", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -54,7 +89,6 @@ export function InquiryForm() {
         padding: "clamp(32px, 5vw, 64px) clamp(24px, 5vw, 48px)",
       }}
     >
-      {/* Header */}
       <div style={{ marginBottom: "clamp(28px, 4vw, 48px)" }}>
         <p
           style={{
@@ -84,7 +118,7 @@ export function InquiryForm() {
         </h1>
         <div style={{ width: 48, height: 2, background: "var(--lux-gold)", opacity: 0.6, marginBottom: 16 }} />
         <p style={{ margin: 0, color: "var(--lux-muted)", fontSize: 14, lineHeight: 1.6 }}>
-          Talebiniz otele veya ön büroya iletilecek. Bu demoda çevrimiçi rezervasyon yoktur.
+          Talebiniz otele iletilecek. Müsaitlik bilgilendiricidir; kesin onay otelden gelir.
         </p>
       </div>
 
@@ -102,6 +136,12 @@ export function InquiryForm() {
           }}
         >
           Otel: <strong style={{ color: "var(--lux-gold)" }}>{hotelFromQuery}</strong>
+          {roomFromQuery && (
+            <>
+              {" "}
+              · Oda: <strong>{roomFromQuery}</strong>
+            </>
+          )}
         </div>
       )}
 
@@ -116,131 +156,100 @@ export function InquiryForm() {
                 borderRadius: 4,
                 color: "#ff8080",
                 fontSize: 13,
-                fontFamily: "var(--lux-font-sans)",
               }}
             >
               {errors.root.message}
             </div>
           )}
 
-          {/* Name */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div>
+              <label className="lux-input-label">Giriş</label>
+              <input type="date" {...register("checkIn")} className="lux-input" />
+            </div>
+            <div>
+              <label className="lux-input-label">Çıkış</label>
+              <input type="date" {...register("checkOut")} className="lux-input" />
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div>
+              <label className="lux-input-label">Yetişkin</label>
+              <input type="number" min={1} max={20} {...register("adults")} className="lux-input" />
+            </div>
+            <div>
+              <label className="lux-input-label">Çocuk</label>
+              <input type="number" min={0} max={20} {...register("children")} className="lux-input" />
+            </div>
+          </div>
+
+          {rooms.length > 0 && (
+            <div>
+              <label className="lux-input-label">Oda tipi</label>
+              <select {...register("roomSlug")} className="lux-input" defaultValue={roomFromQuery ?? ""}>
+                <option value="">Seçin (opsiyonel)</option>
+                {rooms.map((r) => (
+                  <option key={r.slug} value={r.slug}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div>
             <label className="lux-input-label">
               Ad Soyad <span style={{ color: "rgba(212,175,55,0.6)" }}>*</span>
             </label>
-            <input
-              {...register("name")}
-              className="lux-input"
-              placeholder="Adınız ve soyadınız"
-            />
-            {errors.name && (
-              <p style={{ margin: "6px 0 0", fontSize: 12, color: "#ff8080" }}>
-                {errors.name.message}
-              </p>
-            )}
+            <input {...register("name")} className="lux-input" placeholder="Adınız ve soyadınız" />
+            {errors.name && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#ff8080" }}>{errors.name.message}</p>}
           </div>
 
-          {/* Email */}
           <div>
             <label className="lux-input-label">
               E-posta <span style={{ color: "rgba(212,175,55,0.6)" }}>*</span>
             </label>
-            <input
-              {...register("email")}
-              type="email"
-              className="lux-input"
-              placeholder="ornek@email.com"
-            />
-            {errors.email && (
-              <p style={{ margin: "6px 0 0", fontSize: 12, color: "#ff8080" }}>
-                {errors.email.message}
-              </p>
-            )}
+            <input {...register("email")} type="email" className="lux-input" placeholder="ornek@email.com" />
+            {errors.email && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#ff8080" }}>{errors.email.message}</p>}
           </div>
 
-          {/* Phone */}
           <div>
             <label className="lux-input-label">Telefon</label>
-            <input
-              {...register("phone")}
-              type="tel"
-              className="lux-input"
-              placeholder="+90 5xx xxx xx xx"
-            />
-            {errors.phone && (
-              <p style={{ margin: "6px 0 0", fontSize: 12, color: "#ff8080" }}>
-                {errors.phone.message}
-              </p>
-            )}
+            <input {...register("phone")} type="tel" className="lux-input" placeholder="+90 5xx xxx xx xx" />
           </div>
 
-          {/* Message */}
           <div>
             <label className="lux-input-label">
               Mesaj <span style={{ color: "rgba(212,175,55,0.6)" }}>*</span>
             </label>
-            <textarea
-              {...register("message")}
-              className="lux-textarea"
-              placeholder="Tarihler, oda tercihi, özel talepler…"
-              rows={5}
-            />
-            {errors.message && (
-              <p style={{ margin: "6px 0 0", fontSize: 12, color: "#ff8080" }}>
-                {errors.message.message}
-              </p>
-            )}
+            <textarea {...register("message")} className="lux-textarea" placeholder="Özel talepler…" rows={5} />
+            {errors.message && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#ff8080" }}>{errors.message.message}</p>}
           </div>
 
           <input type="hidden" {...register("hotelSlug")} />
+          <input type="hidden" {...register("tourId")} />
+          <input type="hidden" {...register("stepKey")} />
+          <input type="hidden" {...register("source")} />
 
-          {/* Marketing consent */}
           <Controller
             name="marketingConsent"
             control={control}
             render={({ field }) => (
-              <label
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  alignItems: "flex-start",
-                  cursor: "pointer",
-                  fontFamily: "var(--lux-font-sans)",
-                  fontSize: 13,
-                  color: "var(--lux-muted)",
-                  lineHeight: 1.5,
-                }}
-              >
+              <label style={{ display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer", fontSize: 13, color: "var(--lux-muted)" }}>
                 <input
                   type="checkbox"
                   checked={field.value}
                   onChange={(e) => field.onChange(e.currentTarget.checked)}
                   onBlur={field.onBlur}
-                  style={{
-                    marginTop: 2,
-                    accentColor: "var(--lux-gold)",
-                    width: 16,
-                    height: 16,
-                    flexShrink: 0,
-                  }}
+                  style={{ marginTop: 2, accentColor: "var(--lux-gold)" }}
                 />
                 Bu talep ve (isteğe bağlı) gelecek teklifler için benimle iletişime geçilmesini kabul ediyorum
               </label>
             )}
           />
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="luxury-gold-button"
-            data-testid="inquiry-submit"
-            style={{
-              borderRadius: 2,
-              opacity: isSubmitting ? 0.7 : 1,
-              cursor: isSubmitting ? "wait" : "pointer",
-            }}
-          >
+          <button type="submit" disabled={isSubmitting} className="luxury-gold-button" data-testid="inquiry-submit">
             {isSubmitting ? "Gönderiliyor…" : "Talebi Gönder"}
           </button>
         </div>

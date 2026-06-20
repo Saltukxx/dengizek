@@ -29,6 +29,13 @@
       "when": 1781278999485,
       "tag": "0003_pretty_salo",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782000000000,
+      "tag": "0004_hotel_panel_roadmap",
+      "breakpoints": true
     }
   ]
 }

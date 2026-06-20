@@ -44,22 +44,88 @@ function toGuestHotel(row: {
 
 /** Yayında olan otelleri döner (misafir /browse). */
 export async function getPublishedHotels(): Promise<HotelMock[]> {
+  const rows = await getPublishedHotelsForBrowse();
+  return rows.map((row) => {
+    const mock = getMockHotelBySlug(row.slug);
+    return {
+      slug: row.slug,
+      name: row.name,
+      city: row.city ?? "",
+      country: row.country ?? "",
+      shortDescription: row.shortDescription ?? "",
+      longDescription: row.longDescription ?? "",
+      imageUrl: row.imageUrl ?? "",
+      priceLabel: row.priceLabel ?? undefined,
+      roomTypes: mock?.roomTypes ?? [],
+    };
+  });
+}
+
+export interface BrowseHotelRow {
+  slug: string;
+  name: string;
+  city: string | null;
+  country: string | null;
+  shortDescription: string | null;
+  longDescription: string | null;
+  imageUrl: string | null;
+  priceLabel: string | null;
+  starRating: number | null;
+  amenities: string[];
+  petsAllowed: boolean | null;
+  minPriceMinor: number | null;
+}
+
+/** Browse filtreleri için genişletilmiş otel listesi. */
+export async function getPublishedHotelsForBrowse(): Promise<BrowseHotelRow[]> {
   if (isDbAvailable()) {
     try {
       const { getDb } = await import("@/lib/db");
-      const { hotelsTable } = await import("@/lib/db/schema");
-      const { eq } = await import("drizzle-orm");
-      const rows = await getDb()
-        .select()
+      const { hotelsTable, roomsTable } = await import("@/lib/db/schema");
+      const { eq, sql, and } = await import("drizzle-orm");
+      return await getDb()
+        .select({
+          slug: hotelsTable.slug,
+          name: hotelsTable.name,
+          city: hotelsTable.city,
+          country: hotelsTable.country,
+          shortDescription: hotelsTable.shortDescription,
+          longDescription: hotelsTable.longDescription,
+          imageUrl: hotelsTable.imageUrl,
+          priceLabel: hotelsTable.priceLabel,
+          starRating: hotelsTable.starRating,
+          amenities: hotelsTable.amenities,
+          petsAllowed: hotelsTable.petsAllowed,
+          minPriceMinor: sql<number | null>`(
+            SELECT min(${roomsTable.priceMinor})
+            FROM ${roomsTable}
+            WHERE ${roomsTable.hotelId} = ${hotelsTable.id}
+              AND ${roomsTable.isActive} = true
+              AND ${roomsTable.priceOnRequest} = false
+              AND ${roomsTable.priceMinor} IS NOT NULL
+          )`.as("min_price_minor"),
+        })
         .from(hotelsTable)
         .where(eq(hotelsTable.status, "yayinda"))
         .orderBy(hotelsTable.name);
-      return rows.map(toGuestHotel);
     } catch (err) {
       console.warn("[hotels-repo] DB sorgusu başarısız, mock'a düşülüyor:", err);
     }
   }
-  return getMockHotels();
+  return getMockHotels().map((h) => ({
+    slug: h.slug,
+    name: h.name,
+    city: h.city,
+    country: h.country,
+    shortDescription: h.shortDescription,
+    longDescription: h.longDescription,
+    imageUrl: h.imageUrl,
+    priceLabel: h.priceLabel ?? null,
+    starRating: null,
+    amenities: [] as string[],
+    petsAllowed: null,
+    minPriceMinor: null,
+  }));
 }
 
 /** Yayında olan tek oteli döner (misafir /hotels/[slug]). */
@@ -101,6 +167,14 @@ export interface HotelSpecs {
   phone: string | null;
   contactEmail: string | null;
   airportDistanceKm: number | null;
+  blackoutText: string | null;
+}
+
+export interface GuestAvailabilityNote {
+  label: string;
+  startDate: string | null;
+  endDate: string | null;
+  isBlackout: boolean;
 }
 
 export type RoomWithRates = Room & { rates: RoomRate[] };
@@ -111,6 +185,10 @@ export interface PublishedHotelContent {
   extras: Extra[];
   amenities: string[];
   specs: HotelSpecs;
+  gallery: { url: string; caption: string | null }[];
+  latitude: string | null;
+  longitude: string | null;
+  availabilityNotes: GuestAvailabilityNote[];
 }
 
 const emptySpecs: HotelSpecs = {
@@ -126,6 +204,7 @@ const emptySpecs: HotelSpecs = {
   phone: null,
   contactEmail: null,
   airportDistanceKm: null,
+  blackoutText: null,
 };
 
 const emptyContent: PublishedHotelContent = {
@@ -134,6 +213,10 @@ const emptyContent: PublishedHotelContent = {
   extras: [],
   amenities: [],
   specs: emptySpecs,
+  gallery: [],
+  latitude: null,
+  longitude: null,
+  availabilityNotes: [],
 };
 
 /**
@@ -147,7 +230,7 @@ export async function getPublishedHotelContent(
   if (!isDbAvailable()) return emptyContent;
   try {
     const { getDb } = await import("@/lib/db");
-    const { hotelsTable, roomsTable, roomRatesTable, restaurantsTable, extrasTable } =
+    const { hotelsTable, roomsTable, roomRatesTable, restaurantsTable, extrasTable, hotelGalleryImagesTable, hotelAvailabilityNotesTable } =
       await import("@/lib/db/schema");
     const { and, asc, eq } = await import("drizzle-orm");
     const db = getDb();
@@ -168,13 +251,16 @@ export async function getPublishedHotelContent(
         phone: hotelsTable.phone,
         contactEmail: hotelsTable.contactEmail,
         airportDistanceKm: hotelsTable.airportDistanceKm,
+        blackoutText: hotelsTable.blackoutText,
+        latitude: hotelsTable.latitude,
+        longitude: hotelsTable.longitude,
       })
       .from(hotelsTable)
       .where(and(eq(hotelsTable.slug, slug), eq(hotelsTable.status, "yayinda")))
       .limit(1);
     if (!hotel) return emptyContent;
 
-    const [rooms, rates, restaurants, extras] = await Promise.all([
+    const [rooms, rates, restaurants, extras, gallery, availabilityNotes] = await Promise.all([
       db
         .select()
         .from(roomsTable)
@@ -197,6 +283,21 @@ export async function getPublishedHotelContent(
         .from(extrasTable)
         .where(and(eq(extrasTable.hotelId, hotel.id), eq(extrasTable.isActive, true)))
         .orderBy(asc(extrasTable.orderIndex), asc(extrasTable.createdAt)),
+      db
+        .select({ url: hotelGalleryImagesTable.url, caption: hotelGalleryImagesTable.caption })
+        .from(hotelGalleryImagesTable)
+        .where(eq(hotelGalleryImagesTable.hotelId, hotel.id))
+        .orderBy(asc(hotelGalleryImagesTable.sortOrder)),
+      db
+        .select({
+          label: hotelAvailabilityNotesTable.label,
+          startDate: hotelAvailabilityNotesTable.startDate,
+          endDate: hotelAvailabilityNotesTable.endDate,
+          isBlackout: hotelAvailabilityNotesTable.isBlackout,
+        })
+        .from(hotelAvailabilityNotesTable)
+        .where(eq(hotelAvailabilityNotesTable.hotelId, hotel.id))
+        .orderBy(asc(hotelAvailabilityNotesTable.createdAt)),
     ]);
 
     const ratesByRoom = new Map<string, RoomRate[]>();
@@ -211,6 +312,7 @@ export async function getPublishedHotelContent(
       restaurants,
       extras,
       amenities: hotel.amenities,
+      gallery,
       specs: {
         starRating: hotel.starRating,
         totalRooms: hotel.totalRooms,
@@ -224,7 +326,11 @@ export async function getPublishedHotelContent(
         phone: hotel.phone,
         contactEmail: hotel.contactEmail,
         airportDistanceKm: hotel.airportDistanceKm,
+        blackoutText: hotel.blackoutText,
       },
+      latitude: hotel.latitude,
+      longitude: hotel.longitude,
+      availabilityNotes,
     };
   } catch (err) {
     console.warn("[hotels-repo] İçerik sorgusu başarısız, boş içerik dönülüyor:", err);

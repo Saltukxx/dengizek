@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dengizek-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: dengizek
+    ports:
+      - "5432:5432"
+    volumes:
+      - dengizek_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dengizek"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  dengizek_pg_data:

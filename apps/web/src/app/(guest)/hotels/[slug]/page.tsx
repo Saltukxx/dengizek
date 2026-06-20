@@ -14,7 +14,10 @@ import {
 } from "@tabler/icons-react";
 import { getPublishedHotelBySlug, getPublishedHotelContent } from "@/lib/hotels-repo";
 import { AmenitiesSection } from "@/components/guest/amenities-section";
+import { AvailabilitySection } from "@/components/guest/availability-section";
 import { ExtrasSection } from "@/components/guest/extras-section";
+import { GallerySection } from "@/components/guest/gallery-section";
+import { HotelMapSection } from "@/components/guest/hotel-map-section";
 import { PoliciesSection } from "@/components/guest/policies-section";
 import { RestaurantsSection } from "@/components/guest/restaurants-section";
 import { RoomsSection } from "@/components/guest/rooms-section";
@@ -71,6 +74,17 @@ export default async function HotelPage({ params }: PageProps) {
           </div>
         </section>
         <RoomsSection hotelSlug={slug} rooms={content.rooms} />
+        <GallerySection images={content.gallery} />
+        <HotelMapSection
+          latitude={content.latitude}
+          longitude={content.longitude}
+          address={content.specs.address}
+          hotelName={hotel.name}
+        />
+        <AvailabilitySection
+          notes={content.availabilityNotes}
+          blackoutText={content.specs.blackoutText}
+        />
         <AmenitiesSection amenities={content.amenities} specs={content.specs} />
         <RestaurantsSection restaurants={content.restaurants} />
         <ExtrasSection extras={content.extras} />
@@ -291,6 +305,16 @@ export default async function HotelPage({ params }: PageProps) {
       )}
 
       <div id="deneyimler">
+        <HotelMapSection
+          latitude={content.latitude}
+          longitude={content.longitude}
+          address={content.specs.address}
+          hotelName={hotel.name}
+        />
+        <AvailabilitySection
+          notes={content.availabilityNotes}
+          blackoutText={content.specs.blackoutText}
+        />
         <AmenitiesSection amenities={content.amenities} specs={content.specs} />
         <RestaurantsSection restaurants={content.restaurants} />
         <ExtrasSection extras={content.extras} />

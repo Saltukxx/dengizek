@@ -86,9 +86,11 @@ export function HotelDetailPanel({ hotelId }: { hotelId: string }) {
 
   if (!hotel) return <Loader />;
 
+  const resolvedHotelId = hotel.id;
+
   async function moderate(karar: "onayla" | "reddet", not?: string) {
     setBusy(true);
-    const res = await fetch(`/api/admin/hotels/${hotel.id}/moderation`, {
+    const res = await fetch(`/api/admin/hotels/${resolvedHotelId}/moderation`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ karar, not }),

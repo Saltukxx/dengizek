@@ -91,13 +91,7 @@ export async function POST(req: Request) {
       role: parsed.data.role,
       passwordHash,
     })
-    .returning({
-      id: usersTable.id,
-      email: usersTable.email,
-      name: usersTable.name,
-      role: usersTable.role,
-      isActive: usersTable.isActive,
-    });
+    .returning();
 
   await logAudit({
     actor: guard.user,

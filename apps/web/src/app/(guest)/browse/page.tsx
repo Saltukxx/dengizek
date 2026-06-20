@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getPublishedHotels } from "@/lib/hotels-repo";
+import { getPublishedHotelsForBrowse } from "@/lib/hotels-repo";
 import { HotelCard, EmptyState } from "@/components/marketing";
+import { amenitiesCatalog } from "@/lib/amenities-catalog";
+
+const browseAmenities = amenitiesCatalog.flatMap((c) => c.items);
 
 export const metadata: Metadata = {
   title: "Otelleri keşfet",
@@ -11,19 +14,49 @@ export const metadata: Metadata = {
 export default async function BrowsePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; stars?: string; amenity?: string; pets?: string; price?: string }>;
 }) {
   const sp = await searchParams;
   const q = (sp.q ?? "").trim().toLowerCase();
-  let hotels = await getPublishedHotels();
+  const minStars = sp.stars ? Number(sp.stars) : undefined;
+  const amenity = sp.amenity?.trim();
+  const petsOnly = sp.pets === "1";
+  const priceBand = sp.price?.trim();
+
+  let hotels = await getPublishedHotelsForBrowse();
   if (q) {
     hotels = hotels.filter(
       (h) =>
         h.name.toLowerCase().includes(q) ||
-        h.city.toLowerCase().includes(q) ||
-        h.country.toLowerCase().includes(q),
+        (h.city ?? "").toLowerCase().includes(q) ||
+        (h.country ?? "").toLowerCase().includes(q),
     );
   }
+  if (minStars && minStars >= 1) {
+    hotels = hotels.filter((h) => (h.starRating ?? 0) >= minStars);
+  }
+  if (amenity) {
+    hotels = hotels.filter((h) => h.amenities.includes(amenity));
+  }
+  if (petsOnly) {
+    hotels = hotels.filter((h) => h.petsAllowed === true);
+  }
+  if (priceBand === "budget") {
+    hotels = hotels.filter((h) => h.minPriceMinor != null && h.minPriceMinor < 300_000);
+  } else if (priceBand === "mid") {
+    hotels = hotels.filter(
+      (h) => h.minPriceMinor != null && h.minPriceMinor >= 300_000 && h.minPriceMinor < 800_000,
+    );
+  } else if (priceBand === "luxury") {
+    hotels = hotels.filter((h) => h.minPriceMinor != null && h.minPriceMinor >= 800_000);
+  }
+
+  const filterParams = new URLSearchParams();
+  if (sp.q) filterParams.set("q", sp.q);
+  if (sp.stars) filterParams.set("stars", sp.stars);
+  if (sp.amenity) filterParams.set("amenity", sp.amenity);
+  if (sp.pets) filterParams.set("pets", sp.pets);
+  if (sp.price) filterParams.set("price", sp.price);
 
   return (
     <div
@@ -33,7 +66,6 @@ export default async function BrowsePage({
         padding: "clamp(32px, 5vw, 72px) clamp(24px, 5vw, 64px)",
       }}
     >
-      {/* ── Page header ──────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: "clamp(32px, 4vw, 52px)" }}>
         <p
           style={{
@@ -64,29 +96,9 @@ export default async function BrowsePage({
         <div style={{ width: 48, height: 2, background: "var(--lux-gold)", opacity: 0.6 }} />
       </div>
 
-      {/* ── Search ───────────────────────────────────────────────────────────── */}
-      <form method="GET" action="/browse" style={{ marginBottom: "clamp(32px, 4vw, 48px)" }}>
-        <div style={{ position: "relative", maxWidth: 480, display: "flex", gap: 10 }}>
-          <div style={{ position: "relative", flex: 1 }}>
-            <svg
-              aria-hidden
-              width="16" height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              style={{
-                position: "absolute",
-                left: 16,
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--lux-dim)",
-                pointerEvents: "none",
-              }}
-            >
-              <circle cx="11" cy="11" r="7"/>
-              <path d="M21 21l-4.35-4.35"/>
-            </svg>
+      <form method="GET" action="/browse" style={{ marginBottom: "clamp(24px, 3vw, 32px)" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
+          <div style={{ position: "relative", flex: "1 1 220px", maxWidth: 480 }}>
             <input
               name="q"
               defaultValue={sp.q}
@@ -95,76 +107,73 @@ export default async function BrowsePage({
               autoComplete="off"
             />
           </div>
-          <button
-            type="submit"
-            className="luxury-gold-button"
-            style={{ borderRadius: 2, minWidth: 80, minHeight: 48, cursor: "pointer" }}
-          >
-            Ara
+          <select name="stars" defaultValue={sp.stars ?? ""} className="lux-input" style={{ minWidth: 120 }}>
+            <option value="">Yıldız</option>
+            {[5, 4, 3, 2, 1].map((s) => (
+              <option key={s} value={s}>
+                {s}+ yıldız
+              </option>
+            ))}
+          </select>
+          <select name="amenity" defaultValue={sp.amenity ?? ""} className="lux-input" style={{ minWidth: 160 }}>
+            <option value="">Olanak</option>
+            {browseAmenities.slice(0, 20).map((a) => (
+              <option key={a.key} value={a.key}>
+                {a.label}
+              </option>
+            ))}
+          </select>
+          <select name="price" defaultValue={sp.price ?? ""} className="lux-input" style={{ minWidth: 140 }}>
+            <option value="">Fiyat</option>
+            <option value="budget">Ekonomik (&lt; 3.000 ₺)</option>
+            <option value="mid">Orta (3.000–8.000 ₺)</option>
+            <option value="luxury">Lüks (8.000 ₺+)</option>
+          </select>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--lux-muted)" }}>
+            <input type="checkbox" name="pets" value="1" defaultChecked={petsOnly} />
+            Evcil hayvan
+          </label>
+          <button type="submit" className="luxury-gold-button" style={{ borderRadius: 2, minHeight: 48 }}>
+            Filtrele
           </button>
         </div>
       </form>
 
-      {/* ── Results ──────────────────────────────────────────────────────────── */}
       {hotels.length === 0 ? (
         <EmptyState
           title="Eşleşen otel yok"
-          description="Aramayı genişletin veya sorguyu temizleyin."
+          description="Aramayı genişletin veya filtreleri temizleyin."
           action={
-            <Link
-              href="/browse"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                minHeight: 44,
-                padding: "0 1.5rem",
-                fontFamily: "var(--lux-font-sans)",
-                fontSize: 13,
-                fontWeight: 600,
-                letterSpacing: "0.08em",
-                color: "var(--lux-gold)",
-                border: "1px solid rgba(212,175,55,0.35)",
-                borderRadius: 2,
-                textDecoration: "none",
-                marginTop: 8,
-              }}
-            >
-              Aramayı temizle
+            <Link href="/browse" style={{ color: "var(--lux-gold)", textDecoration: "none", marginTop: 8 }}>
+              Filtreleri temizle
             </Link>
           }
         />
       ) : (
-        <>
-          {q && (
-            <p
-              style={{
-                marginBottom: 20,
-                fontFamily: "var(--lux-font-sans)",
-                fontSize: 13,
-                color: "var(--lux-dim)",
-                letterSpacing: "0.04em",
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 380px), 1fr))",
+            gap: "clamp(12px, 1.5vw, 20px)",
+          }}
+        >
+          {hotels.map((h) => (
+            <HotelCard
+              key={h.slug}
+              hotel={{
+                slug: h.slug,
+                name: h.name,
+                city: h.city ?? "",
+                country: h.country ?? "",
+                shortDescription: h.shortDescription ?? "",
+                longDescription: h.longDescription ?? "",
+                imageUrl: h.imageUrl ?? "",
+                priceLabel: h.priceLabel ?? undefined,
+                roomTypes: [],
               }}
-            >
-              {hotels.length} sonuç &mdash; &ldquo;{sp.q}&rdquo;
-              &nbsp;&middot;&nbsp;
-              <Link href="/browse" style={{ color: "var(--lux-gold)", textDecoration: "none" }}>
-                Temizle
-              </Link>
-            </p>
-          )}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 380px), 1fr))",
-              gap: "clamp(12px, 1.5vw, 20px)",
-            }}
-          >
-            {hotels.map((h) => (
-              <HotelCard key={h.slug} hotel={h} />
-            ))}
-          </div>
-        </>
+            />
+          ))}
+        </div>
       )}
     </div>
   );

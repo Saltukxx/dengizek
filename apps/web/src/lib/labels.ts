@@ -4,10 +4,15 @@
 // ---------------------------------------------------------------------------
 
 import type {
+  BookingStatus,
+  InquirySource,
   InquiryStatus,
   MediaStatus,
   MemberRole,
   ModerationStatus,
+  PaymentStatus,
+  PropertyType,
+  ReviewStatus,
   UserRole,
 } from "@/lib/db/schema";
 
@@ -62,4 +67,39 @@ export const userRoleLabels: Record<UserRole, string> = {
 export const memberRoleLabels: Record<MemberRole, string> = {
   owner:  "Sahip",
   editor: "Düzenleyici",
+};
+
+export const inquirySourceLabels: Record<InquirySource, string> = {
+  web:         "Web formu",
+  tour_ai:     "AI rehber",
+  tour_player: "Tur oynatıcı",
+};
+
+export const propertyTypeLabels: Record<PropertyType, string> = {
+  otel:     "Otel",
+  apart:    "Apart",
+  villa:    "Villa",
+  butik:    "Butik otel",
+  pansiyon: "Pansiyon",
+  diger:    "Diğer",
+};
+
+export const reviewStatusLabels: Record<ReviewStatus, string> = {
+  beklemede:  "Beklemede",
+  yayinda:    "Yayında",
+  reddedildi: "Reddedildi",
+};
+
+export const bookingStatusLabels: Record<BookingStatus, string> = {
+  beklemede:  "Beklemede",
+  onaylandi:  "Onaylandı",
+  iptal:      "İptal",
+  no_show:    "Gelmedi",
+};
+
+export const paymentStatusLabels: Record<PaymentStatus, string> = {
+  beklemede:   "Beklemede",
+  odendi:      "Ödendi",
+  iade:        "İade",
+  basarisiz:   "Başarısız",
 };

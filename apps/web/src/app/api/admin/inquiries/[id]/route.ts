@@ -51,7 +51,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       handledAt: parsed.data.durum === "yeni" ? null : now,
     })
     .where(eq(inquiriesTable.id, inquiry.id))
-    .returning({ id: inquiriesTable.id, status: inquiriesTable.status });
+    .returning();
 
   return NextResponse.json({ ok: true, inquiry: updated });
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { validateLatLng } from "@/lib/stay-dates";
 import { currencies } from "@/lib/price";
 
 // ---------------------------------------------------------------------------
@@ -8,7 +9,7 @@ import { currencies } from "@/lib/price";
 /** URL kimliği: küçük harf, rakam ve tire */
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
-const datePattern = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+export const datePattern = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
 // ---------------------------------------------------------------------------
 // Pansiyon tipleri ve ödeme yöntemleri — Türkçe etiket sözlükleri
@@ -83,6 +84,7 @@ export const roomUpsertSchema = priceFieldsSchema
     bedConfig: z.string().max(200).optional(),
     viewType: z.string().max(120).optional(),
     imageUrl: z.string().url("Geçerli bir görsel adresi girin").optional().or(z.literal("")),
+    galleryUrls: z.array(z.string().url()).max(20).optional(),
     amenities: z.array(z.string().min(1).max(120)).max(50, "En fazla 50 olanak").default([]),
     boardType: z.enum(boardTypes).default("sadece-oda"),
     unitCount: z
@@ -259,4 +261,14 @@ export const hotelSpecsSchema = z.object({
   phone: z.string().max(40).optional(),
   contactEmail: z.string().email("Geçerli bir e-posta girin").optional().or(z.literal("")),
   airportDistanceKm: z.number().int().min(0).max(500).nullable().optional(),
+  latitude: z.string().max(30).optional().or(z.literal("")),
+  longitude: z.string().max(30).optional().or(z.literal("")),
+  propertyType: z.enum(["otel", "apart", "villa", "butik", "pansiyon", "diger"]).optional(),
+  blackoutText: z.string().max(2000).optional(),
+  cancellationRuleId: z.string().uuid().nullable().optional(),
+}).superRefine((data, ctx) => {
+  const coords = validateLatLng(data.latitude, data.longitude);
+  if (!coords.ok) {
+    ctx.addIssue({ code: "custom", message: coords.error, path: ["latitude"] });
+  }
 });

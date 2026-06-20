@@ -6,9 +6,8 @@
 // ---------------------------------------------------------------------------
 
 import { eq, and } from "drizzle-orm";
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
 import { hashPassword } from "@/lib/auth/password";
+import { getDb } from "./index";
 import {
   extrasTable,
   hotelMembersTable,
@@ -29,9 +28,7 @@ async function seed() {
     process.exit(1);
   }
 
-  const db = drizzle(neon(url), {
-    schema: { hotelsTable, tourStepsTable, usersTable, hotelMembersTable, toursTable },
-  });
+  const db = getDb();
 
   console.log("Otel kaydı ekleniyor...");
   await db
