@@ -16,6 +16,7 @@ import {
   formatDateRangeTr,
   formatPrice,
 } from "@/lib/price";
+import { formatOccupancySummary } from "@/lib/occupancy-price";
 import { boardTypeLabels } from "@/lib/schemas/hotel-content";
 
 type PageProps = {
@@ -414,7 +415,20 @@ export default async function RoomPage({ params }: PageProps) {
                       ) : (
                         formatPrice(r.priceMinor, r.currency, false)
                       )}
-                      <span style={{ color: "var(--lux-dim)", fontWeight: 400, fontSize: 12 }}> / gece</span>
+                      <span style={{ color: "var(--lux-dim)", fontWeight: 400, fontSize: 12 }}> / gece (baz)</span>
+                      {formatOccupancySummary(r, formatPrice) && (
+                        <span
+                          style={{
+                            display: "block",
+                            color: "var(--lux-dim)",
+                            fontWeight: 400,
+                            fontSize: 12,
+                            marginTop: 4,
+                          }}
+                        >
+                          {formatOccupancySummary(r, formatPrice)}
+                        </span>
+                      )}
                     </span>
                   </div>
                 ))}

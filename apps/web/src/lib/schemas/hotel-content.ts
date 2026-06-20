@@ -122,32 +122,86 @@ export const roomsReorderSchema = z.object({
 // Dönemsel fiyatlar — PUT ile tüm liste tek seferde kaydedilir
 // ---------------------------------------------------------------------------
 
-export const roomRateSchema = z
-  .object({
-    id: z.string().uuid().optional(), // varsa update, yoksa insert
-    name: z.string().min(1, "Dönem adı gerekli").max(120),
-    startDate: z
-      .string()
-      .regex(datePattern, "Tarih YYYY-AA-GG biçiminde olmalı (örn. 2026-06-01)"),
-    endDate: z
-      .string()
-      .regex(datePattern, "Tarih YYYY-AA-GG biçiminde olmalı (örn. 2026-09-15)"),
-    priceMinor: z
-      .number()
-      .int()
-      .positive("Dönem fiyatı pozitif olmalı")
-      .max(1_000_000_000),
-    currency: z.enum(currencies).default("TRY"),
-    minStayNights: z.number().int().min(1).max(30).nullable().optional(),
-  })
-  .refine((v) => v.startDate <= v.endDate, {
-    message: "Bitiş tarihi başlangıçtan önce olamaz.",
-    path: ["endDate"],
-  });
+export const occupancyPriceSchema = z.object({
+  guestCount: z.number().int().min(1, "En az 1 kişi").max(20, "En fazla 20 kişi"),
+  priceMinor: z
+    .number()
+    .int()
+    .positive("Kişi fiyatı pozitif olmalı")
+    .max(1_000_000_000),
+});
+
+const roomRateFieldsSchema = z.object({
+  id: z.string().uuid().optional(), // varsa update, yoksa insert
+  name: z.string().min(1, "Dönem adı gerekli").max(120),
+  startDate: z
+    .string()
+    .regex(datePattern, "Tarih YYYY-AA-GG biçiminde olmalı (örn. 2026-06-01)"),
+  endDate: z
+    .string()
+    .regex(datePattern, "Tarih YYYY-AA-GG biçiminde olmalı (örn. 2026-09-15)"),
+  priceMinor: z
+    .number()
+    .int()
+    .positive("Dönem fiyatı pozitif olmalı")
+    .max(1_000_000_000),
+  currency: z.enum(currencies).default("TRY"),
+  minStayNights: z.number().int().min(1).max(30).nullable().optional(),
+  occupancyPrices: z.array(occupancyPriceSchema).max(15).optional().default([]),
+});
+
+const roomRateDateRefine = {
+  message: "Bitiş tarihi başlangıçtan önce olamaz.",
+  path: ["endDate"],
+};
+
+function uniqueOccupancyGuestCounts(
+  v: { occupancyPrices?: { guestCount: number }[] | null },
+  ctx: z.RefinementCtx,
+) {
+  const counts = (v.occupancyPrices ?? []).map((p) => p.guestCount);
+  if (new Set(counts).size !== counts.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Aynı kişi sayısı için birden fazla fiyat olamaz.",
+      path: ["occupancyPrices"],
+    });
+  }
+}
+
+export const roomRateSchema = roomRateFieldsSchema
+  .superRefine(uniqueOccupancyGuestCounts)
+  .refine((v) => v.startDate <= v.endDate, roomRateDateRefine);
+
+export const roomRateInsertSchema = roomRateFieldsSchema
+  .omit({ id: true })
+  .superRefine(uniqueOccupancyGuestCounts)
+  .refine((v) => v.startDate <= v.endDate, roomRateDateRefine);
 
 export const roomRatesPutSchema = z.object({
   donemler: z.array(roomRateSchema).max(40, "Oda başına en fazla 40 dönem"),
 });
+
+export const seasonalRatesRoomSyncSchema = z.object({
+  roomId: z.string().uuid(),
+  donemler: z.array(roomRateSchema).max(40, "Oda başına en fazla 40 dönem"),
+});
+
+export const seasonalRatesBulkPutSchema = z.object({
+  rooms: z.array(seasonalRatesRoomSyncSchema).min(1).max(100),
+});
+
+export const seasonalRatesBulkActionSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("delete"),
+    ids: z.array(z.string().uuid()).min(1).max(200),
+  }),
+  z.object({
+    action: z.literal("apply"),
+    roomIds: z.array(z.string().uuid()).min(1).max(100),
+    period: roomRateInsertSchema,
+  }),
+]);
 
 export type RoomRateValues = z.infer<typeof roomRateSchema>;
 

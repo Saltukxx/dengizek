@@ -1,3 +1,5 @@
+"use client";
+
 import { Stack, Tabs, Text, Title } from "@mantine/core";
 import { AvailabilityManager } from "@/components/dashboard/availability-manager";
 import { InventoryManager } from "@/components/dashboard/inventory-manager";

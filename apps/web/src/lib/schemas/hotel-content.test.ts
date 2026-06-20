@@ -109,6 +109,36 @@ describe("roomRatesPutSchema", () => {
       roomRatesPutSchema.safeParse({ donemler: [{ ...rate, priceMinor: 0 }] }).success,
     ).toBe(false);
   });
+
+  it("kişi fiyatlarını kabul eder", () => {
+    const r = roomRatesPutSchema.safeParse({
+      donemler: [
+        {
+          ...rate,
+          occupancyPrices: [
+            { guestCount: 2, priceMinor: 620000 },
+            { guestCount: 3, priceMinor: 710000 },
+          ],
+        },
+      ],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("aynı kişi sayısı için tekrarlı fiyat reddedilir", () => {
+    const r = roomRatesPutSchema.safeParse({
+      donemler: [
+        {
+          ...rate,
+          occupancyPrices: [
+            { guestCount: 3, priceMinor: 710000 },
+            { guestCount: 3, priceMinor: 720000 },
+          ],
+        },
+      ],
+    });
+    expect(r.success).toBe(false);
+  });
 });
 
 describe("restaurantUpsertSchema (menü)", () => {

@@ -319,6 +319,11 @@ export const roomRatesTable = pgTable("room_rates", {
   priceMinor:    integer("price_minor").notNull(),
   currency:      text("currency").default("TRY").notNull(),
   minStayNights: integer("min_stay_nights"),
+  /** Kişi sayısına göre gecelik fiyatlar — [{ guestCount, priceMinor }] */
+  occupancyPrices: jsonb("occupancy_prices")
+    .$type<{ guestCount: number; priceMinor: number }[]>()
+    .default([])
+    .notNull(),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

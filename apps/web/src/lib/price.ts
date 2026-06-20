@@ -52,6 +52,11 @@ export function applyDiscount(priceMinor: number, discountPercent: number): numb
   return Math.round(priceMinor * (1 - discountPercent / 100));
 }
 
+export interface OccupancyPriceLike {
+  guestCount: number;
+  priceMinor: number;
+}
+
 export interface RateLike {
   name: string;
   startDate: string; // YYYY-MM-DD
@@ -59,6 +64,19 @@ export interface RateLike {
   priceMinor: number;
   currency: string;
   minStayNights?: number | null;
+  occupancyPrices?: OccupancyPriceLike[];
+}
+
+/** Kişi sayısına göre dönem fiyatını çözer; eşleşme yoksa baz fiyat döner. */
+export function resolveRatePriceForGuests(
+  rate: { priceMinor: number; occupancyPrices?: OccupancyPriceLike[] | null },
+  guestCount?: number | null,
+): number {
+  if (guestCount != null && guestCount > 0 && rate.occupancyPrices?.length) {
+    const match = rate.occupancyPrices.find((p) => p.guestCount === guestCount);
+    if (match) return match.priceMinor;
+  }
+  return rate.priceMinor;
 }
 
 export interface ResolvedRate {
@@ -91,6 +109,7 @@ export function resolveCurrentRate(
   },
   rates: RateLike[],
   date: string = todayIso(),
+  guestCount?: number | null,
 ): ResolvedRate {
   const active = rates
     .filter((r) => r.startDate <= date && date <= r.endDate)
@@ -98,7 +117,7 @@ export function resolveCurrentRate(
   const winner = active[0];
   if (winner) {
     return {
-      priceMinor: winner.priceMinor,
+      priceMinor: resolveRatePriceForGuests(winner, guestCount),
       currency: winner.currency,
       priceOnRequest: false,
       rateName: winner.name,

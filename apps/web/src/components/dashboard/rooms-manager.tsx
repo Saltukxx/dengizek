@@ -49,7 +49,9 @@ import {
   type Currency,
 } from "@/lib/price";
 import { boardTypeLabels, boardTypes } from "@/lib/schemas/hotel-content";
+import { occupancyFromApi, occupancyToApi, validateOccupancyForms, type OccupancyPriceForm } from "@/lib/occupancy-price";
 import { PriceInput, type PriceValue } from "./price-input";
+import { OccupancyPricesEditor } from "./occupancy-prices-editor";
 import { MediaPicker } from "./media-picker";
 import { useMyHotel } from "./use-my-hotel";
 
@@ -61,6 +63,7 @@ interface RateRow {
   priceMinor: number;
   currency: string;
   minStayNights: number | null;
+  occupancyPrices?: { guestCount: number; priceMinor: number }[];
 }
 
 interface RoomRow {
@@ -99,6 +102,7 @@ interface RateForm {
   priceMajor: number | null;
   currency: Currency;
   minStayNights: number | null;
+  occupancyPrices: OccupancyPriceForm[];
 }
 
 interface RoomForm {
@@ -185,6 +189,7 @@ function rateRowToForm(r: RateRow): RateForm {
     priceMajor: toMajor(r.priceMinor),
     currency: (r.currency || "TRY") as Currency,
     minStayNights: r.minStayNights,
+    occupancyPrices: occupancyFromApi(r.occupancyPrices),
   };
 }
 
@@ -364,7 +369,16 @@ export function RoomsManager() {
       priceMinor: r.priceMajor != null ? toMinor(r.priceMajor) : 0,
       currency: r.currency,
       minStayNights: r.minStayNights,
+      occupancyPrices: occupancyToApi(r.occupancyPrices),
     }));
+    for (const rate of editing.rates) {
+      const occErr = validateOccupancyForms(rate.occupancyPrices);
+      if (occErr) {
+        notifications.show({ color: "red", message: `${rate.name || "Dönem"}: ${occErr}` });
+        setRatesBusy(false);
+        return;
+      }
+    }
     const res = await fetch(
       `/api/manager/hotels/${hotel.id}/rooms/${editing.id}/rates`,
       {
@@ -904,6 +918,11 @@ export function RoomsManager() {
                           }
                         />
                       </Group>
+                      <OccupancyPricesEditor
+                        value={rate.occupancyPrices}
+                        onChange={(occupancyPrices) => setRate(i, { occupancyPrices })}
+                        capacityAdults={editing.form.capacityAdults}
+                      />
                     </Stack>
                   </Paper>
                 ))}
@@ -926,6 +945,7 @@ export function RoomsManager() {
                                 priceMajor: null,
                                 currency: "TRY" as Currency,
                                 minStayNights: null,
+                                occupancyPrices: [],
                               },
                             ],
                           },

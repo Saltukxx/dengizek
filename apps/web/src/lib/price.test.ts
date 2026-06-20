@@ -102,6 +102,20 @@ describe("resolveCurrentRate", () => {
     expect(r.rateName).toBeUndefined();
   });
 
+  it("kişi sayısına göre dönem fiyatını çözer", () => {
+    const withOcc = {
+      ...summer,
+      occupancyPrices: [
+        { guestCount: 2, priceMinor: 620000 },
+        { guestCount: 3, priceMinor: 710000 },
+        { guestCount: 4, priceMinor: 790000 },
+      ],
+    };
+    expect(resolveCurrentRate(room, [withOcc], "2026-07-01", 3).priceMinor).toBe(710000);
+    expect(resolveCurrentRate(room, [withOcc], "2026-07-01", 4).priceMinor).toBe(790000);
+    expect(resolveCurrentRate(room, [withOcc], "2026-07-01", 5).priceMinor).toBe(620000);
+  });
+
   it("baz fiyat talep üzerineyse onu korur, dönem fiyatı talep üzerine olamaz", () => {
     const onRequest = { ...room, priceMinor: null, priceOnRequest: true };
     expect(resolveCurrentRate(onRequest, [], "2026-07-01").priceOnRequest).toBe(true);

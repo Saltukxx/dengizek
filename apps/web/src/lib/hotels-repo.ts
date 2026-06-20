@@ -418,6 +418,7 @@ export interface GuestRoomRate {
   priceMinor: number;
   currency: string;
   minStayNights: number | null;
+  occupancyPrices?: { guestCount: number; priceMinor: number }[];
 }
 
 export interface GuestRoomDetail {

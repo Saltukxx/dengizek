@@ -45,6 +45,7 @@ export interface GuestRoomPricingInput {
   ratePlanPrices?: GuestRatePlanPrice[];
   date?: string;
   nights?: number;
+  guestCount?: number | null;
 }
 
 export type GuestPriceSource = "promotion" | "rate_plan" | "seasonal" | "base";
@@ -104,7 +105,7 @@ function resolveUnderlyingPrice(
   );
   if (plan) return plan;
 
-  const seasonal = resolveCurrentRate(input.room, input.rates, date);
+  const seasonal = resolveCurrentRate(input.room, input.rates, date, input.guestCount);
   if (seasonal.rateName) return seasonal;
 
   return {
@@ -155,7 +156,7 @@ export function resolveGuestRoomPrice(input: GuestRoomPricingInput): GuestRoomPr
     };
   }
 
-  const seasonal = resolveCurrentRate(input.room, input.rates, date);
+  const seasonal = resolveCurrentRate(input.room, input.rates, date, input.guestCount);
   if (seasonal.rateName) {
     const hasDiscount =
       !seasonal.priceOnRequest &&
