@@ -74,6 +74,7 @@ interface HotelDetail {
   longitude: string | null;
   propertyType: "otel" | "apart" | "villa" | "butik" | "pansiyon" | "diger" | null;
   blackoutText: string | null;
+  cancellationRuleId: string | null;
   status: "taslak" | "incelemede" | "yayinda" | "reddedildi";
   moderationNote: string | null;
 }
@@ -81,15 +82,21 @@ interface HotelDetail {
 export function PropertyForm() {
   const { hotel: myHotel, loading: hotelLoading, error: hotelError } = useMyHotel();
   const [detail, setDetail] = useState<HotelDetail | null>(null);
+  const [cancellationRules, setCancellationRules] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!myHotel) return;
     (async () => {
-      const res = await fetch(`/api/manager/hotels/${myHotel.id}`);
-      const json = await res.json();
+      const [hotelRes, rulesRes] = await Promise.all([
+        fetch(`/api/manager/hotels/${myHotel.id}`),
+        fetch(`/api/manager/hotels/${myHotel.id}/cancellation-rules`),
+      ]);
+      const json = await hotelRes.json();
+      const rulesJson = await rulesRes.json();
       if (json.ok) setDetail(json.hotel);
+      if (rulesJson.ok) setCancellationRules(rulesJson.rules);
     })();
   }, [myHotel]);
 
@@ -142,6 +149,7 @@ export function PropertyForm() {
         longitude: detail.longitude ?? "",
         propertyType: detail.propertyType ?? "otel",
         blackoutText: detail.blackoutText ?? undefined,
+        cancellationRuleId: detail.cancellationRuleId,
       }),
     });
     const json = await res.json();
@@ -352,11 +360,21 @@ export function PropertyForm() {
           </Text>
           <Textarea
             label="İptal politikası"
+            description="Serbest metin — yapılandırılmış kural seçilmezse misafir sayfasında gösterilir"
             placeholder="Rezervasyondan 48 saat öncesine kadar ücretsiz iptal..."
             autosize
             minRows={2}
             value={detail.cancellationPolicy ?? ""}
             onChange={(e) => set("cancellationPolicy", e.currentTarget.value)}
+          />
+          <Select
+            label="İptal kuralı"
+            description="Tanımlı kurallardan birini tesis varsayılanı olarak seçin"
+            placeholder="Seçin (opsiyonel)"
+            clearable
+            data={cancellationRules.map((r) => ({ value: r.id, label: r.name }))}
+            value={detail.cancellationRuleId}
+            onChange={(v) => set("cancellationRuleId", v)}
           />
           <Textarea
             label="Çocuk politikası"

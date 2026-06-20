@@ -50,6 +50,8 @@ export function UsersTable() {
   const [hotels, setHotels] = useState<HotelOption[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [assigning, setAssigning] = useState<AdminUser | null>(null);
+  const [editing, setEditing] = useState<AdminUser | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", role: "manager" as "admin" | "manager", password: "" });
   const [busy, setBusy] = useState(false);
 
   const [newUser, setNewUser] = useState({
@@ -103,12 +105,33 @@ export function UsersTable() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isActive: !user.isActive }),
     });
-    const json = await res.json();
-    if (json.ok) {
+    if ((await res.json()).ok) void reload();
+  }
+
+  async function saveEdit() {
+    if (!editing) return;
+    setBusy(true);
+    const payload: Record<string, string> = { name: editForm.name, role: editForm.role };
+    if (editForm.password.trim()) payload.password = editForm.password;
+    const res = await fetch(`/api/admin/users/${editing.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    setBusy(false);
+    if ((await res.json()).ok) {
+      setEditing(null);
       void reload();
-    } else {
-      notifications.show({ color: "red", message: json.error ?? "Güncelleme başarısız oldu." });
     }
+  }
+
+  async function removeMembership(userId: string, hotelId: string) {
+    await fetch(`/api/admin/users/${userId}/memberships`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hotelId }),
+    });
+    void reload();
   }
 
   async function assign() {
@@ -172,12 +195,22 @@ export function UsersTable() {
                   ) : (
                     <Stack gap={2}>
                       {u.memberships.map((m) => (
-                        <Text size="xs" key={m.hotelId}>
-                          {m.hotelName}{" "}
-                          <Text span c="dimmed">
-                            ({memberRoleLabels[m.role]})
+                        <Group gap={4} key={m.hotelId}>
+                          <Text size="xs">
+                            {m.hotelName}{" "}
+                            <Text span c="dimmed">
+                              ({memberRoleLabels[m.role]})
+                            </Text>
                           </Text>
-                        </Text>
+                          <Button
+                            size="compact-xs"
+                            variant="subtle"
+                            color="red"
+                            onClick={() => removeMembership(u.id, m.hotelId)}
+                          >
+                            Kaldır
+                          </Button>
+                        </Group>
                       ))}
                     </Stack>
                   )}
@@ -187,6 +220,12 @@ export function UsersTable() {
                 </Table.Td>
                 <Table.Td>
                   <Group justify="flex-end">
+                    <Button size="xs" variant="light" onClick={() => {
+                      setEditing(u);
+                      setEditForm({ name: u.name, role: u.role, password: "" });
+                    }}>
+                      Düzenle
+                    </Button>
                     <Button
                       size="xs"
                       variant="default"
@@ -261,6 +300,29 @@ export function UsersTable() {
           />
           <Button loading={busy} disabled={!assignHotelId} onClick={assign}>
             Ata
+          </Button>
+        </Stack>
+      </Modal>
+
+      <Modal opened={editing !== null} onClose={() => setEditing(null)} title={`Düzenle — ${editing?.email ?? ""}`}>
+        <Stack gap="sm">
+          <TextInput label="Ad" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.currentTarget.value })} />
+          <Select
+            label="Platform rolü"
+            data={[
+              { value: "manager", label: userRoleLabels.manager },
+              { value: "admin", label: userRoleLabels.admin },
+            ]}
+            value={editForm.role}
+            onChange={(v) => v && setEditForm({ ...editForm, role: v as "admin" | "manager" })}
+          />
+          <PasswordInput
+            label="Yeni şifre (opsiyonel)"
+            value={editForm.password}
+            onChange={(e) => setEditForm({ ...editForm, password: e.currentTarget.value })}
+          />
+          <Button loading={busy} onClick={saveEdit}>
+            Kaydet
           </Button>
         </Stack>
       </Modal>

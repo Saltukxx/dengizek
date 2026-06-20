@@ -25,7 +25,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconAlertCircle, IconArrowDown, IconArrowUp, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import {
   extraCategories,
   extraCategoryLabels,
@@ -154,6 +154,20 @@ export function ExtrasManager() {
     }
   }
 
+  async function move(index: number, delta: -1 | 1) {
+    if (!hotel || !extras) return;
+    const target = index + delta;
+    if (target < 0 || target >= extras.length) return;
+    const next = [...extras];
+    [next[index], next[target]] = [next[target], next[index]];
+    setExtras(next);
+    await fetch(`/api/manager/hotels/${hotel.id}/extras/reorder`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sirali: next.map((x) => x.id) }),
+    });
+  }
+
   const f = editing?.form;
 
   return (
@@ -171,6 +185,7 @@ export function ExtrasManager() {
         <Table highlightOnHover>
           <Table.Thead>
             <Table.Tr>
+              <Table.Th />
               <Table.Th>Hizmet</Table.Th>
               <Table.Th>Kategori</Table.Th>
               <Table.Th>Fiyat</Table.Th>
@@ -181,15 +196,39 @@ export function ExtrasManager() {
           <Table.Tbody>
             {extras.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={5}>
+                <Table.Td colSpan={6}>
                   <Text c="dimmed" size="sm" py="sm">
                     Henüz ek hizmet yok.
                   </Text>
                 </Table.Td>
               </Table.Tr>
             )}
-            {extras.map((x) => (
+            {extras.map((x, index) => (
               <Table.Tr key={x.id}>
+                <Table.Td>
+                  <Group gap={4}>
+                    <Tooltip label="Yukarı">
+                      <ActionIcon
+                        size="sm"
+                        variant="subtle"
+                        disabled={index === 0}
+                        onClick={() => move(index, -1)}
+                      >
+                        <IconArrowUp size={15} />
+                      </ActionIcon>
+                    </Tooltip>
+                    <Tooltip label="Aşağı">
+                      <ActionIcon
+                        size="sm"
+                        variant="subtle"
+                        disabled={index === extras.length - 1}
+                        onClick={() => move(index, 1)}
+                      >
+                        <IconArrowDown size={15} />
+                      </ActionIcon>
+                    </Tooltip>
+                  </Group>
+                </Table.Td>
                 <Table.Td>
                   <Text fw={500}>{x.name}</Text>
                   {x.description && (

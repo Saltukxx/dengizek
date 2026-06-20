@@ -102,6 +102,7 @@ export function ConnectivityPanel() {
               <Table.Th>Ad</Table.Th>
               <Table.Th>İçe aktarma URL</Table.Th>
               <Table.Th>Dışa aktarma</Table.Th>
+              <Table.Th>Son senkron</Table.Th>
               <Table.Th />
             </Table.Tr>
           </Table.Thead>
@@ -125,6 +126,22 @@ export function ConnectivityPanel() {
                         </Tooltip>
                       )}
                     </CopyButton>
+                  )}
+                </Table.Td>
+                <Table.Td>
+                  {f.lastSyncAt ? (
+                    <Stack gap={2}>
+                      <Text size="xs">
+                        {new Date(f.lastSyncAt).toLocaleString("tr-TR")}
+                      </Text>
+                      {f.lastSyncError && (
+                        <Text size="xs" c="red" lineClamp={2}>
+                          {f.lastSyncError}
+                        </Text>
+                      )}
+                    </Stack>
+                  ) : (
+                    "—"
                   )}
                 </Table.Td>
                 <Table.Td>

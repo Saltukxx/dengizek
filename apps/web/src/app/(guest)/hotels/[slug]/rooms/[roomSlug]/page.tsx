@@ -10,11 +10,11 @@ import {
 } from "@tabler/icons-react";
 import { getDemoTourManifest } from "@/lib/mocks/hotels";
 import { getPublishedRoom } from "@/lib/hotels-repo";
+import { resolveGuestRoomPrice } from "@/lib/guest-pricing";
 import {
   applyDiscount,
   formatDateRangeTr,
   formatPrice,
-  resolveCurrentRate,
 } from "@/lib/price";
 import { boardTypeLabels } from "@/lib/schemas/hotel-content";
 
@@ -36,7 +36,7 @@ export default async function RoomPage({ params }: PageProps) {
   const { slug, roomSlug } = await params;
   const data = await getPublishedRoom(slug, roomSlug);
   if (!data) notFound();
-  const { hotel, room } = data;
+  const { hotel, room, promotions, ratePlanPrices } = data;
   const hasDemoTour = slug === "aurelia-bay" && getDemoTourManifest("aurelia-bay", "demo-lobby");
   const tourId = "demo-lobby";
 
@@ -51,20 +51,26 @@ export default async function RoomPage({ params }: PageProps) {
   if (room.bedConfig) features.push({ icon: IconBed, label: room.bedConfig });
   if (room.viewType) features.push({ icon: IconEye, label: room.viewType });
 
-  const rate = resolveCurrentRate(
-    {
+  const priced = resolveGuestRoomPrice({
+    room: {
+      id: room.id,
       priceMinor: room.priceMinor,
       currency: room.currency,
       priceOnRequest: room.priceOnRequest,
+      discountPercent: room.discountPercent,
+      discountLabel: room.discountLabel,
       minStayNights: room.minStayNights,
     },
-    room.rates,
-  );
+    rates: room.rates,
+    promotions,
+    ratePlanPrices,
+  });
   const hasDiscount =
-    !rate.priceOnRequest && rate.priceMinor != null && room.discountPercent != null;
-  const finalMinor = hasDiscount
-    ? applyDiscount(rate.priceMinor as number, room.discountPercent as number)
-    : rate.priceMinor;
+    !priced.priceOnRequest &&
+    priced.priceMinor != null &&
+    priced.originalPriceMinor != null &&
+    priced.priceMinor < priced.originalPriceMinor;
+  const finalMinor = priced.priceMinor;
   const boardLabel =
     room.boardType && room.boardType !== "sadece-oda"
       ? boardTypeLabels[room.boardType as keyof typeof boardTypeLabels] ?? room.boardType
@@ -255,6 +261,21 @@ export default async function RoomPage({ params }: PageProps) {
           )}
 
           <div style={{ marginTop: 28 }}>
+            {priced.hasCampaign && !hasDiscount && (
+              <p
+                style={{
+                  margin: "0 0 4px",
+                  fontFamily: "var(--lux-font-sans)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  color: "var(--lux-gold)",
+                }}
+              >
+                Kampanya
+              </p>
+            )}
             {hasDiscount && (
               <p
                 style={{
@@ -267,7 +288,7 @@ export default async function RoomPage({ params }: PageProps) {
                   color: "var(--lux-gold)",
                 }}
               >
-                {room.discountLabel || `%${room.discountPercent} indirim`}
+                {room.discountLabel || priced.discountLabel || `%${room.discountPercent} indirim`}
               </p>
             )}
             <p
@@ -289,17 +310,17 @@ export default async function RoomPage({ params }: PageProps) {
                     marginRight: 10,
                   }}
                 >
-                  {formatPrice(rate.priceMinor, rate.currency, false)}
+                  {formatPrice(priced.originalPriceMinor, priced.currency, false)}
                 </span>
               )}
-              {formatPrice(finalMinor, rate.currency, rate.priceOnRequest)}
-              {!rate.priceOnRequest && (
+              {formatPrice(finalMinor, priced.currency, priced.priceOnRequest)}
+              {!priced.priceOnRequest && (
                 <span style={{ fontSize: 13, fontWeight: 500, color: "var(--lux-dim)", marginLeft: 8 }}>
-                  / gece{rate.rateName ? ` · ${rate.rateName}` : ""}
+                  / gece{priced.rateName ? ` · ${priced.rateName}` : ""}
                 </span>
               )}
             </p>
-            {(boardLabel || rate.minStayNights != null) && (
+            {(boardLabel || priced.minStayNights != null) && (
               <p
                 style={{
                   margin: "8px 0 0",
@@ -308,7 +329,7 @@ export default async function RoomPage({ params }: PageProps) {
                   color: "var(--lux-muted)",
                 }}
               >
-                {[boardLabel, rate.minStayNights != null ? `En az ${rate.minStayNights} gece` : null]
+                {[boardLabel, priced.minStayNights != null ? `En az ${priced.minStayNights} gece` : null]
                   .filter(Boolean)
                   .join(" · ")}
               </p>

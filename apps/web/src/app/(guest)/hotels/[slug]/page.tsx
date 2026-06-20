@@ -73,7 +73,12 @@ export default async function HotelPage({ params }: PageProps) {
             </p>
           </div>
         </section>
-        <RoomsSection hotelSlug={slug} rooms={content.rooms} />
+        <RoomsSection
+          hotelSlug={slug}
+          rooms={content.rooms}
+          promotions={content.promotions}
+          ratePlanPrices={content.ratePlanPrices}
+        />
         <GallerySection images={content.gallery} />
         <HotelMapSection
           latitude={content.latitude}
@@ -82,6 +87,7 @@ export default async function HotelPage({ params }: PageProps) {
           hotelName={hotel.name}
         />
         <AvailabilitySection
+          hotelSlug={slug}
           notes={content.availabilityNotes}
           blackoutText={content.specs.blackoutText}
         />
@@ -252,7 +258,12 @@ export default async function HotelPage({ params }: PageProps) {
       </section>
 
       {content.rooms.length > 0 ? (
-        <RoomsSection hotelSlug={slug} rooms={content.rooms} />
+        <RoomsSection
+          hotelSlug={slug}
+          rooms={content.rooms}
+          promotions={content.promotions}
+          ratePlanPrices={content.ratePlanPrices}
+        />
       ) : (
       <section
         id="odalar"
@@ -312,6 +323,7 @@ export default async function HotelPage({ params }: PageProps) {
           hotelName={hotel.name}
         />
         <AvailabilitySection
+          hotelSlug={slug}
           notes={content.availabilityNotes}
           blackoutText={content.specs.blackoutText}
         />

@@ -17,6 +17,19 @@ const statusUpdateSchema = z.object({
 
 type RouteParams = { params: Promise<{ id: string }> };
 
+export async function GET(_req: Request, { params }: RouteParams) {
+  const guard = await requireAdmin();
+  if (guard.response) return guard.response;
+
+  const { id } = await params;
+  const db = getDb();
+  const [inquiry] = await db.select().from(inquiriesTable).where(eq(inquiriesTable.id, id)).limit(1);
+  if (!inquiry) {
+    return NextResponse.json({ ok: false, error: "Talep bulunamadı." }, { status: 404 });
+  }
+  return NextResponse.json({ ok: true, inquiry });
+}
+
 export async function PATCH(req: Request, { params }: RouteParams) {
   const guard = await requireAdmin();
   if (guard.response) return guard.response;

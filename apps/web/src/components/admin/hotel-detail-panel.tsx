@@ -204,12 +204,13 @@ export function HotelDetailPanel({ hotelId }: { hotelId: string }) {
               <Table.Th>Kullanıcı</Table.Th>
               <Table.Th>Rol</Table.Th>
               <Table.Th>Aktif</Table.Th>
+              <Table.Th />
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {members.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={3}>
+                <Table.Td colSpan={4}>
                   <Text c="dimmed" size="sm" py="sm">
                     Henüz üye atanmamış.
                   </Text>
@@ -229,6 +230,23 @@ export function HotelDetailPanel({ hotelId }: { hotelId: string }) {
                   <Badge color={m.isActive ? "green" : "gray"} variant="light">
                     {m.isActive ? "Aktif" : "Pasif"}
                   </Badge>
+                </Table.Td>
+                <Table.Td>
+                  <Button
+                    size="xs"
+                    color="red"
+                    variant="light"
+                    onClick={async () => {
+                      await fetch(`/api/admin/users/${m.userId}/memberships`, {
+                        method: "DELETE",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ hotelId }),
+                      });
+                      void reload();
+                    }}
+                  >
+                    Kaldır
+                  </Button>
                 </Table.Td>
               </Table.Tr>
             ))}

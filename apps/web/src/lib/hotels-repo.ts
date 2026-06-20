@@ -10,7 +10,8 @@ import {
   getRoomBySlugs as getMockRoomBySlugs,
   type HotelMock,
 } from "@/lib/mocks/hotels";
-import type { Extra, Restaurant, Room, RoomRate } from "@/lib/db/schema";
+import type { Extra, Promotion, Restaurant, Room, RoomRate } from "@/lib/db/schema";
+import type { GuestPromotion, GuestRatePlanPrice } from "@/lib/guest-pricing";
 
 function isDbAvailable(): boolean {
   return Boolean(process.env.DATABASE_URL);
@@ -189,6 +190,8 @@ export interface PublishedHotelContent {
   latitude: string | null;
   longitude: string | null;
   availabilityNotes: GuestAvailabilityNote[];
+  promotions: GuestPromotion[];
+  ratePlanPrices: GuestRatePlanPrice[];
 }
 
 const emptySpecs: HotelSpecs = {
@@ -217,6 +220,8 @@ const emptyContent: PublishedHotelContent = {
   latitude: null,
   longitude: null,
   availabilityNotes: [],
+  promotions: [],
+  ratePlanPrices: [],
 };
 
 /**
@@ -230,9 +235,19 @@ export async function getPublishedHotelContent(
   if (!isDbAvailable()) return emptyContent;
   try {
     const { getDb } = await import("@/lib/db");
-    const { hotelsTable, roomsTable, roomRatesTable, restaurantsTable, extrasTable, hotelGalleryImagesTable, hotelAvailabilityNotesTable } =
-      await import("@/lib/db/schema");
-    const { and, asc, eq } = await import("drizzle-orm");
+    const {
+      hotelsTable,
+      roomsTable,
+      roomRatesTable,
+      restaurantsTable,
+      extrasTable,
+      hotelGalleryImagesTable,
+      hotelAvailabilityNotesTable,
+      promotionsTable,
+      ratePlansTable,
+      roomRatePlanPricesTable,
+    } = await import("@/lib/db/schema");
+    const { and, asc, eq, or, isNull, lte, gte } = await import("drizzle-orm");
     const db = getDb();
 
     const [hotel] = await db
@@ -260,7 +275,10 @@ export async function getPublishedHotelContent(
       .limit(1);
     if (!hotel) return emptyContent;
 
-    const [rooms, rates, restaurants, extras, gallery, availabilityNotes] = await Promise.all([
+    const today = new Date().toISOString().slice(0, 10);
+
+    const [rooms, rates, restaurants, extras, gallery, availabilityNotes, promotions, defaultPlan] =
+      await Promise.all([
       db
         .select()
         .from(roomsTable)
@@ -298,7 +316,39 @@ export async function getPublishedHotelContent(
         .from(hotelAvailabilityNotesTable)
         .where(eq(hotelAvailabilityNotesTable.hotelId, hotel.id))
         .orderBy(asc(hotelAvailabilityNotesTable.createdAt)),
+      db
+        .select()
+        .from(promotionsTable)
+        .where(
+          and(
+            eq(promotionsTable.hotelId, hotel.id),
+            eq(promotionsTable.isActive, true),
+            or(isNull(promotionsTable.validFrom), lte(promotionsTable.validFrom, today)),
+            or(isNull(promotionsTable.validTo), gte(promotionsTable.validTo, today)),
+          ),
+        ),
+      db
+        .select({ id: ratePlansTable.id })
+        .from(ratePlansTable)
+        .where(and(eq(ratePlansTable.hotelId, hotel.id), eq(ratePlansTable.isDefault, true)))
+        .limit(1),
     ]);
+
+    const ratePlanPrices =
+      defaultPlan[0]?.id != null
+        ? await db
+            .select({
+              roomId: roomRatePlanPricesTable.roomId,
+              name: roomRatePlanPricesTable.name,
+              startDate: roomRatePlanPricesTable.startDate,
+              endDate: roomRatePlanPricesTable.endDate,
+              priceMinor: roomRatePlanPricesTable.priceMinor,
+              currency: roomRatePlanPricesTable.currency,
+              minStayNights: roomRatePlanPricesTable.minStayNights,
+            })
+            .from(roomRatePlanPricesTable)
+            .where(eq(roomRatePlanPricesTable.ratePlanId, defaultPlan[0].id))
+        : [];
 
     const ratesByRoom = new Map<string, RoomRate[]>();
     for (const rate of rates) {
@@ -331,6 +381,24 @@ export async function getPublishedHotelContent(
       latitude: hotel.latitude,
       longitude: hotel.longitude,
       availabilityNotes,
+      promotions: promotions.map((p: Promotion) => ({
+        name: p.name,
+        discountPercent: p.discountPercent,
+        validFrom: p.validFrom ? String(p.validFrom) : null,
+        validTo: p.validTo ? String(p.validTo) : null,
+        minNights: p.minNights,
+        roomIds: p.roomIds,
+        isActive: p.isActive,
+      })),
+      ratePlanPrices: ratePlanPrices.map((p) => ({
+        roomId: p.roomId,
+        name: p.name,
+        startDate: String(p.startDate),
+        endDate: String(p.endDate),
+        priceMinor: p.priceMinor,
+        currency: p.currency,
+        minStayNights: p.minStayNights,
+      })),
     };
   } catch (err) {
     console.warn("[hotels-repo] İçerik sorgusu başarısız, boş içerik dönülüyor:", err);
@@ -354,7 +422,10 @@ export interface GuestRoomRate {
 
 export interface GuestRoomDetail {
   hotel: { slug: string; name: string; imageUrl: string };
+  promotions: GuestPromotion[];
+  ratePlanPrices: GuestRatePlanPrice[];
   room: {
+    id: string;
     slug: string;
     name: string;
     tagline: string | null;
@@ -422,13 +493,17 @@ export async function getPublishedRoom(
             .from(roomRatesTable)
             .where(eq(roomRatesTable.roomId, room.id))
             .orderBy(asc(roomRatesTable.startDate));
+          const content = await getPublishedHotelContent(hotelSlug);
           return {
             hotel: {
               slug: hotel.slug,
               name: hotel.name,
               imageUrl: hotel.imageUrl ?? "",
             },
+            promotions: content.promotions,
+            ratePlanPrices: content.ratePlanPrices,
             room: {
+              id: room.id,
               slug: room.slug,
               name: room.name,
               tagline: room.tagline,
@@ -467,7 +542,10 @@ export async function getPublishedRoom(
       name: mock.hotel.name,
       imageUrl: mock.hotel.imageUrl,
     },
+    promotions: [],
+    ratePlanPrices: [],
     room: {
+      id: mock.room.slug,
       slug: mock.room.slug,
       name: mock.room.name,
       tagline: mock.room.tagline,

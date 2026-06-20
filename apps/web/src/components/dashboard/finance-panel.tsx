@@ -9,6 +9,7 @@ import { useMyHotel } from "./use-my-hotel";
 
 interface PaymentRow {
   id: string;
+  bookingId: string | null;
   amountMinor: number;
   currency: string;
   platformFeeMinor: number;
@@ -49,9 +50,7 @@ export function FinancePanel() {
   return (
     <Stack gap="md">
       <Paper withBorder p="lg" radius="md">
-        <Title order={4}>
-          {formatPrice(totalMinor, "TRY")}
-        </Title>
+        <Title order={4}>{formatPrice(totalMinor, "TRY")}</Title>
         <Text c="dimmed" size="sm">
           Toplam tahsil edilen (son 30 gün sınırı yok — tüm ödenenler)
         </Text>
@@ -60,6 +59,7 @@ export function FinancePanel() {
         <Table highlightOnHover>
           <Table.Thead>
             <Table.Tr>
+              <Table.Th>Rezervasyon</Table.Th>
               <Table.Th>Tutar</Table.Th>
               <Table.Th>Durum</Table.Th>
               <Table.Th>Sağlayıcı</Table.Th>
@@ -69,7 +69,7 @@ export function FinancePanel() {
           <Table.Tbody>
             {payments.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={4}>
+                <Table.Td colSpan={5}>
                   <Text c="dimmed" size="sm" py="sm">
                     Ödeme kaydı yok.
                   </Text>
@@ -78,6 +78,15 @@ export function FinancePanel() {
             )}
             {payments.map((p) => (
               <Table.Tr key={p.id}>
+                <Table.Td>
+                  {p.bookingId ? (
+                    <Text size="xs" ff="monospace">
+                      {p.bookingId.slice(0, 8)}…
+                    </Text>
+                  ) : (
+                    "—"
+                  )}
+                </Table.Td>
                 <Table.Td>{formatPrice(p.amountMinor, p.currency as "TRY")}</Table.Td>
                 <Table.Td>
                   <Badge>{paymentStatusLabels[p.status]}</Badge>

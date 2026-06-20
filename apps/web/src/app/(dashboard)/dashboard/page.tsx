@@ -25,7 +25,7 @@ import {
   IconMessage,
   IconVideo,
 } from "@tabler/icons-react";
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, gte, lte, or } from "drizzle-orm";
 import { auth } from "@/auth";
 import { getDb, isDbConfigured } from "@/lib/db";
 import {
@@ -34,7 +34,10 @@ import {
   inquiriesTable,
   mediaAssetsTable,
   restaurantsTable,
+  roomInventoryTable,
   roomsTable,
+  reviewsTable,
+  bookingsTable,
   toursTable,
 } from "@/lib/db/schema";
 import { moderationStatusColors, moderationStatusLabels } from "@/lib/labels";
@@ -108,6 +111,30 @@ async function getOverview() {
     .select({ n: count() })
     .from(restaurantsTable)
     .where(eq(restaurantsTable.hotelId, hotel.hotelId));
+  const [bookings] = await db
+    .select({ n: count() })
+    .from(bookingsTable)
+    .where(eq(bookingsTable.hotelId, hotel.hotelId));
+  const [pendingReviews] = await db
+    .select({ n: count() })
+    .from(reviewsTable)
+    .where(and(eq(reviewsTable.hotelId, hotel.hotelId), eq(reviewsTable.status, "beklemede")));
+
+  const today = new Date().toISOString().slice(0, 10);
+  const in14 = new Date();
+  in14.setDate(in14.getDate() + 13);
+  const toDate = in14.toISOString().slice(0, 10);
+  const [lowInventory] = await db
+    .select({ n: count() })
+    .from(roomInventoryTable)
+    .where(
+      and(
+        eq(roomInventoryTable.hotelId, hotel.hotelId),
+        gte(roomInventoryTable.date, today),
+        lte(roomInventoryTable.date, toDate),
+        or(eq(roomInventoryTable.stopSell, true), lte(roomInventoryTable.allotment, 1)),
+      ),
+    );
 
   return {
     hotel,
@@ -119,6 +146,9 @@ async function getOverview() {
       newInquiries: newInquiries.n,
       rooms: rooms.n,
       restaurants: restaurants.n,
+      bookings: bookings.n,
+      pendingReviews: pendingReviews.n,
+      lowInventoryDays: lowInventory.n,
     },
   } as const;
 }
@@ -216,12 +246,28 @@ export default async function DashboardHomePage() {
               value: data.counts.newInquiries,
               sub: "yanıt bekliyor",
             },
+            {
+              label: "Rezervasyon",
+              value: data.counts.bookings,
+              sub: "toplam kayıt",
+            },
+            {
+              label: "Bekleyen yorum",
+              value: data.counts.pendingReviews,
+              sub: "moderasyon",
+            },
+            {
+              label: "Düşük envanter",
+              value: data.counts.lowInventoryDays,
+              sub: "14 gün içinde uyarı",
+              warn: data.counts.lowInventoryDays > 0,
+            },
           ].map((c) => (
             <Paper key={c.label} withBorder p="md">
               <Text size="xs" c="dimmed" tt="uppercase" fw={700} lts="0.04em">
                 {c.label}
               </Text>
-              <Title order={1} mt={4}>
+              <Title order={1} mt={4} c={"warn" in c && c.warn ? "orange" : undefined}>
                 {c.value}
               </Title>
               <Text size="xs" c="dimmed" mt={2}>

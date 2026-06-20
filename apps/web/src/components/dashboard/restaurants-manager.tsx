@@ -29,6 +29,8 @@ import {
 import { notifications } from "@mantine/notifications";
 import {
   IconAlertCircle,
+  IconArrowDown,
+  IconArrowUp,
   IconPencil,
   IconPlus,
   IconToolsKitchen2,
@@ -190,6 +192,20 @@ export function RestaurantsManager() {
     }
   }
 
+  async function move(index: number, delta: -1 | 1) {
+    if (!hotel || !restaurants) return;
+    const target = index + delta;
+    if (target < 0 || target >= restaurants.length) return;
+    const next = [...restaurants];
+    [next[index], next[target]] = [next[target], next[index]];
+    setRestaurants(next);
+    await fetch(`/api/manager/hotels/${hotel.id}/restaurants/reorder`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sirali: next.map((r) => r.id) }),
+    });
+  }
+
   const f = editing?.form;
 
   return (
@@ -215,7 +231,7 @@ export function RestaurantsManager() {
       )}
 
       <Stack gap="sm">
-        {restaurants.map((r) => {
+        {restaurants.map((r, index) => {
           const itemCount = r.menu.reduce((n, s) => n + s.items.length, 0);
           return (
             <Paper key={r.id} withBorder p="md">
@@ -234,6 +250,24 @@ export function RestaurantsManager() {
                   </Text>
                 </Stack>
                 <Group gap={6}>
+                  <Tooltip label="Yukarı">
+                    <ActionIcon
+                      variant="subtle"
+                      disabled={index === 0}
+                      onClick={() => move(index, -1)}
+                    >
+                      <IconArrowUp size={15} />
+                    </ActionIcon>
+                  </Tooltip>
+                  <Tooltip label="Aşağı">
+                    <ActionIcon
+                      variant="subtle"
+                      disabled={index === restaurants.length - 1}
+                      onClick={() => move(index, 1)}
+                    >
+                      <IconArrowDown size={15} />
+                    </ActionIcon>
+                  </Tooltip>
                   <Tooltip label="Düzenle">
                     <ActionIcon
                       variant="light"

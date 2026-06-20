@@ -6,15 +6,20 @@
 import Link from "next/link";
 import { IconBed, IconRulerMeasure, IconUsers } from "@tabler/icons-react";
 import type { RoomWithRates } from "@/lib/hotels-repo";
-import { applyDiscount, formatPrice, resolveCurrentRate } from "@/lib/price";
+import { resolveGuestRoomPrice, type GuestPromotion, type GuestRatePlanPrice } from "@/lib/guest-pricing";
+import { formatPrice } from "@/lib/price";
 import { boardTypeLabels } from "@/lib/schemas/hotel-content";
 
 export function RoomsSection({
   hotelSlug,
   rooms,
+  promotions = [],
+  ratePlanPrices = [],
 }: {
   hotelSlug: string;
   rooms: RoomWithRates[];
+  promotions?: GuestPromotion[];
+  ratePlanPrices?: GuestRatePlanPrice[];
 }) {
   if (rooms.length === 0) return null;
 
@@ -38,12 +43,25 @@ export function RoomsSection({
         }}
       >
         {rooms.map((room) => {
-          const rate = resolveCurrentRate(room, room.rates);
+          const priced = resolveGuestRoomPrice({
+            room: {
+              id: room.id,
+              priceMinor: room.priceMinor,
+              currency: room.currency,
+              priceOnRequest: room.priceOnRequest,
+              discountPercent: room.discountPercent,
+              discountLabel: room.discountLabel,
+              minStayNights: room.minStayNights,
+            },
+            rates: room.rates,
+            promotions,
+            ratePlanPrices,
+          });
           const hasDiscount =
-            !rate.priceOnRequest && rate.priceMinor != null && room.discountPercent != null;
-          const finalMinor = hasDiscount
-            ? applyDiscount(rate.priceMinor as number, room.discountPercent as number)
-            : rate.priceMinor;
+            !priced.priceOnRequest &&
+            priced.priceMinor != null &&
+            priced.originalPriceMinor != null &&
+            priced.priceMinor < priced.originalPriceMinor;
           return (
           <Link
             key={room.id}
@@ -72,6 +90,25 @@ export function RoomsSection({
                     background: "linear-gradient(to top, rgba(11,15,18,0.55), transparent 60%)",
                   }}
                 />
+                {priced.hasCampaign && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: 12,
+                      left: 12,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      padding: "5px 10px",
+                      borderRadius: 4,
+                      background: "rgba(212,175,55,0.92)",
+                      color: "#1a1510",
+                    }}
+                  >
+                    Kampanya
+                  </span>
+                )}
               </div>
             )}
             <div style={{ padding: "20px 22px 22px", display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
@@ -102,7 +139,7 @@ export function RoomsSection({
                   </span>
                 )}
               </div>
-              {(room.boardType || room.discountLabel) && (
+              {(room.boardType || priced.discountLabel) && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {room.boardType && room.boardType !== "sadece-oda" && (
                     <span
@@ -118,7 +155,7 @@ export function RoomsSection({
                         room.boardType}
                     </span>
                   )}
-                  {hasDiscount && (
+                  {hasDiscount && priced.discountLabel && (
                     <span
                       style={{
                         fontSize: 11,
@@ -128,7 +165,7 @@ export function RoomsSection({
                         color: "var(--lux-gold)",
                       }}
                     >
-                      {room.discountLabel || `%${room.discountPercent} indirim`}
+                      {priced.discountLabel}
                     </span>
                   )}
                 </div>
@@ -145,12 +182,12 @@ export function RoomsSection({
                         marginRight: 8,
                       }}
                     >
-                      {formatPrice(rate.priceMinor, rate.currency, false)}
+                      {formatPrice(priced.originalPriceMinor, priced.currency, false)}
                     </span>
                   )}
-                  {formatPrice(finalMinor, rate.currency, rate.priceOnRequest)}
+                  {formatPrice(priced.priceMinor, priced.currency, priced.priceOnRequest)}
                 </span>
-                {!rate.priceOnRequest && (
+                {!priced.priceOnRequest && (
                   <span style={{ color: "var(--lux-dim)", fontSize: 12 }}>gecelik</span>
                 )}
               </div>

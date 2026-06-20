@@ -1,9 +1,11 @@
+import Link from "next/link";
 import { Group, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { count, eq } from "drizzle-orm";
 import { getDb, isDbConfigured } from "@/lib/db";
 import {
   hotelsTable,
   inquiriesTable,
+  reviewsTable,
   toursTable,
   usersTable,
 } from "@/lib/db/schema";
@@ -27,12 +29,17 @@ async function getCounts() {
     .select({ n: count() })
     .from(inquiriesTable)
     .where(eq(inquiriesTable.status, "yeni"));
+  const [pendingReviews] = await db
+    .select({ n: count() })
+    .from(reviewsTable)
+    .where(eq(reviewsTable.status, "beklemede"));
   return {
     hotels: hotels.n,
     pendingHotels: pendingHotels.n,
     pendingTours: pendingTours.n,
     users: users.n,
     newInquiries: newInquiries.n,
+    pendingReviews: pendingReviews.n,
   };
 }
 
@@ -41,11 +48,28 @@ export default async function AdminOverviewPage() {
 
   const cards = counts
     ? [
-        { label: "Toplam otel", value: counts.hotels },
-        { label: "İncelemede otel", value: counts.pendingHotels },
-        { label: "İncelemede tur", value: counts.pendingTours },
-        { label: "Kullanıcı", value: counts.users },
-        { label: "Yeni talep", value: counts.newInquiries },
+        { label: "Toplam otel", value: counts.hotels, href: "/admin/hotels" },
+        {
+          label: "İncelemede otel",
+          value: counts.pendingHotels,
+          href: "/admin/hotels?durum=incelemede",
+        },
+        {
+          label: "İncelemede tur",
+          value: counts.pendingTours,
+          href: "/admin/moderation",
+        },
+        { label: "Kullanıcı", value: counts.users, href: "/admin/users" },
+        {
+          label: "Yeni talep",
+          value: counts.newInquiries,
+          href: "/admin/inquiries?durum=yeni",
+        },
+        {
+          label: "Bekleyen yorum",
+          value: counts.pendingReviews,
+          href: "/admin/reviews?durum=beklemede",
+        },
       ]
     : [];
 
@@ -60,9 +84,17 @@ export default async function AdminOverviewPage() {
       {!counts && (
         <Text c="dimmed">Veritabanı yapılandırılmamış (DATABASE_URL eksik).</Text>
       )}
-      <SimpleGrid cols={{ base: 2, sm: 3, lg: 5 }}>
+      <SimpleGrid cols={{ base: 2, sm: 3, lg: 6 }}>
         {cards.map((c) => (
-          <Paper key={c.label} withBorder p="md" radius="md">
+          <Paper
+            key={c.label}
+            component={Link}
+            href={c.href}
+            withBorder
+            p="md"
+            radius="md"
+            style={{ textDecoration: "none", color: "inherit" }}
+          >
             <Group justify="space-between" align="flex-start">
               <div>
                 <Text size="xs" c="dimmed" tt="uppercase" fw={700}>

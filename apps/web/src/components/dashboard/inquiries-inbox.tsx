@@ -20,7 +20,7 @@ import {
   Textarea,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconDownload, IconMessage } from "@tabler/icons-react";
+import { IconAlertCircle, IconCalendarPlus, IconDownload, IconMessage } from "@tabler/icons-react";
 import { inquirySourceLabels, inquiryStatusColors, inquiryStatusLabels } from "@/lib/labels";
 import { useMyHotel } from "./use-my-hotel";
 
@@ -59,15 +59,27 @@ export function InquiriesInbox() {
   const [threadId, setThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [reply, setReply] = useState("");
+  const [roomSlugToId, setRoomSlugToId] = useState<Record<string, string>>({});
 
   const reload = useCallback(async () => {
     if (!hotel) return;
     const params = new URLSearchParams({ hotelId: hotel.id });
     if (durum) params.set("durum", durum);
     if (kaynak) params.set("kaynak", kaynak);
-    const res = await fetch(`/api/manager/inquiries?${params}`);
-    const json = await res.json();
+    const [inquiriesRes, roomsRes] = await Promise.all([
+      fetch(`/api/manager/inquiries?${params}`),
+      fetch(`/api/manager/hotels/${hotel.id}/rooms`),
+    ]);
+    const json = await inquiriesRes.json();
+    const roomsJson = await roomsRes.json();
     if (json.ok) setInquiries(json.inquiries);
+    if (roomsJson.ok) {
+      const map: Record<string, string> = {};
+      for (const r of roomsJson.rooms as { id: string; slug: string }[]) {
+        map[r.slug] = r.id;
+      }
+      setRoomSlugToId(map);
+    }
   }, [hotel, durum, kaynak]);
 
   useEffect(() => {
@@ -118,6 +130,37 @@ export function InquiriesInbox() {
       void reload();
     } else {
       notifications.show({ color: "red", message: json.error ?? "Güncelleme başarısız oldu." });
+    }
+  }
+
+  async function convertToBooking(q: InquiryRow) {
+    if (!hotel) return;
+    if (!q.checkIn || !q.checkOut) {
+      notifications.show({ color: "yellow", message: "Talepte giriş/çıkış tarihi gerekli." });
+      return;
+    }
+    const res = await fetch(`/api/manager/hotels/${hotel.id}/bookings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        inquiryId: q.id,
+        guestName: q.name,
+        guestEmail: q.email,
+        guestPhone: q.phone ?? undefined,
+        checkIn: q.checkIn,
+        checkOut: q.checkOut,
+        adults: q.adults ?? 2,
+        children: q.children ?? 0,
+        roomId: q.roomSlug ? roomSlugToId[q.roomSlug] ?? null : null,
+        notes: q.message.slice(0, 2000),
+      }),
+    });
+    const json = await res.json();
+    if (json.ok) {
+      notifications.show({ color: "green", message: "Rezervasyon oluşturuldu." });
+      await setStatus(q.id, "ilgileniliyor");
+    } else {
+      notifications.show({ color: "red", message: json.error ?? "Dönüştürülemedi." });
     }
   }
 
@@ -234,6 +277,17 @@ export function InquiriesInbox() {
                     >
                       Mesajlar
                     </Button>
+                    {q.checkIn && q.checkOut && q.status !== "kapatildi" && (
+                      <Button
+                        size="xs"
+                        variant="light"
+                        color="teal"
+                        leftSection={<IconCalendarPlus size={14} />}
+                        onClick={() => convertToBooking(q)}
+                      >
+                        Rezervasyona dönüştür
+                      </Button>
+                    )}
                     {q.status === "yeni" && (
                       <Button size="xs" variant="light" onClick={() => setStatus(q.id, "ilgileniliyor")}>
                         İlgileniliyor

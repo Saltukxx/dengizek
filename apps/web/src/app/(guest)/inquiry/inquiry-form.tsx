@@ -19,6 +19,7 @@ export function InquiryForm() {
   const sourceFromQuery = search.get("source") ?? "web";
 
   const [rooms, setRooms] = useState<RoomOption[]>([]);
+  const [cancellationSummary, setCancellationSummary] = useState<string | null>(null);
 
   const {
     register,
@@ -52,6 +53,11 @@ export function InquiryForm() {
       .then((r) => r.json())
       .then((j) => {
         if (j.ok) setRooms(j.rooms);
+      });
+    void fetch(`/api/public/hotels/${hotelFromQuery}/cancellation-summary`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.ok) setCancellationSummary(j.summary);
       });
     void trackEvent("inquiry_start", { hotelSlug: hotelFromQuery });
   }, [hotelFromQuery]);
@@ -142,6 +148,27 @@ export function InquiryForm() {
               · Oda: <strong>{roomFromQuery}</strong>
             </>
           )}
+        </div>
+      )}
+
+      {hotelFromQuery && cancellationSummary && (
+        <div
+          style={{
+            marginBottom: 24,
+            padding: "12px 16px",
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(208,197,178,0.18)",
+            borderRadius: 4,
+            fontFamily: "var(--lux-font-sans)",
+            fontSize: 13,
+            color: "var(--lux-muted)",
+            lineHeight: 1.55,
+          }}
+        >
+          <strong style={{ color: "var(--lux-text)", display: "block", marginBottom: 4 }}>
+            İptal koşulları
+          </strong>
+          {cancellationSummary}
         </div>
       )}
 
