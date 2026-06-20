@@ -5,6 +5,7 @@
 // ---------------------------------------------------------------------------
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Badge,
   Button,
@@ -124,10 +125,26 @@ export function HotelsTable() {
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
+            {hotels.length === 0 && (
+              <Table.Tr>
+                <Table.Td colSpan={4}>
+                  <Text c="dimmed" size="sm" py="sm">
+                    Henüz tesis yok. &quot;Yeni tesis&quot; ile başlayın.
+                  </Text>
+                </Table.Td>
+              </Table.Tr>
+            )}
             {hotels.map((h) => (
               <Table.Tr key={h.id}>
                 <Table.Td>
-                  <Text fw={500}>{h.name}</Text>
+                  <Text
+                    component={Link}
+                    href={`/admin/hotels/${h.id}`}
+                    fw={500}
+                    style={{ textDecoration: "none", color: "inherit" }}
+                  >
+                    {h.name}
+                  </Text>
                   <Text size="xs" c="dimmed">
                     {h.slug}
                   </Text>
@@ -146,7 +163,7 @@ export function HotelsTable() {
                   )}
                 </Table.Td>
                 <Table.Td>
-                  {h.status !== "yayinda" && (
+                  {h.status === "incelemede" && (
                     <Group gap="xs" justify="flex-end">
                       <Button
                         size="xs"

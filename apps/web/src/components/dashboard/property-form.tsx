@@ -33,6 +33,7 @@ import {
 } from "@/lib/schemas/hotel-content";
 import { moderationStatusColors, moderationStatusLabels } from "@/lib/labels";
 import { useMyHotel } from "./use-my-hotel";
+import { MediaPicker } from "./media-picker";
 
 // TagsInput önerileri — katalog kategorilere göre gruplanır, serbest metin de geçerli
 const amenitySuggestions = amenitiesCatalog.map((cat) => ({
@@ -214,10 +215,11 @@ export function PropertyForm() {
               onChange={(e) => set("country", e.currentTarget.value)}
             />
           </Group>
-          <TextInput
-            label="Kapak görseli (URL)"
+          <MediaPicker
+            hotelId={detail.id}
+            label="Kapak görseli"
             value={detail.imageUrl ?? ""}
-            onChange={(e) => set("imageUrl", e.currentTarget.value)}
+            onChange={(url) => set("imageUrl", url || null)}
           />
           <TextInput
             label="Fiyat etiketi"

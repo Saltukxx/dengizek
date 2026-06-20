@@ -33,6 +33,12 @@ export async function POST(_req: Request, { params }: RouteParams) {
   if (tour.status === "incelemede") {
     return NextResponse.json({ ok: false, error: "Tur zaten incelemede." }, { status: 409 });
   }
+  if (tour.status === "yayinda") {
+    return NextResponse.json(
+      { ok: false, error: "Yayındaki tur tekrar gönderilemez — önce yeni sürüm oluşturun." },
+      { status: 409 },
+    );
+  }
 
   // Taslak bütünlük kontrolü: manifest şeması + dal hedefleri
   const draft = await getManifestFromDB(guard.hotel.slug, tourId);

@@ -43,6 +43,16 @@ export async function POST(req: Request, { params }: RouteParams) {
     return NextResponse.json({ ok: false, error: "Tur bulunamadı." }, { status: 404 });
   }
 
+  if (tour.status !== "incelemede") {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `Yalnızca incelemedeki turlar onaylanabilir veya reddedilebilir (mevcut: ${tour.status}).`,
+      },
+      { status: 409 },
+    );
+  }
+
   const now = new Date();
 
   if (parsed.data.karar === "reddet") {

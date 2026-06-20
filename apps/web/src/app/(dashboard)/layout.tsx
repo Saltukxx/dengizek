@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { PanelProviders } from "@/components/panel-providers";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { HotelProvider } from "@/components/dashboard/hotel-context";
 
 export default async function DashboardLayout({
   children,
@@ -18,9 +19,11 @@ export default async function DashboardLayout({
 
   return (
     <PanelProviders>
-      <DashboardShell userName={session.user.name ?? session.user.email ?? undefined}>
-        {children}
-      </DashboardShell>
+      <HotelProvider>
+        <DashboardShell userName={session.user.name ?? session.user.email ?? undefined}>
+          {children}
+        </DashboardShell>
+      </HotelProvider>
     </PanelProviders>
   );
 }

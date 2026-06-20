@@ -20,7 +20,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconPencil, IconPlus, IconSend } from "@tabler/icons-react";
+import { IconAlertCircle, IconExternalLink, IconPencil, IconPlus, IconSend, IconTrash } from "@tabler/icons-react";
 import { moderationStatusColors, moderationStatusLabels } from "@/lib/labels";
 import { useMyHotel } from "./use-my-hotel";
 
@@ -98,6 +98,23 @@ export function ToursList() {
     }
   }
 
+  async function deleteTour(tourId: string, title: string) {
+    if (!hotel) return;
+    if (!confirm(`"${title}" turunu silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) {
+      return;
+    }
+    const res = await fetch(`/api/manager/hotels/${hotel.id}/tours/${tourId}`, {
+      method: "DELETE",
+    });
+    const json = await res.json();
+    if (json.ok) {
+      notifications.show({ color: "green", message: "Tur silindi." });
+      void reload();
+    } else {
+      notifications.show({ color: "red", message: json.error ?? "Silme başarısız oldu." });
+    }
+  }
+
   return (
     <Stack gap="md">
       <Group justify="space-between">
@@ -169,6 +186,42 @@ export function ToursList() {
                     >
                       Düzenle
                     </Button>
+                    {t.status !== "yayinda" && (
+                      <Button
+                        size="xs"
+                        variant="subtle"
+                        component={Link}
+                        href={`/dashboard/tours/${t.tourId}/preview`}
+                        target="_blank"
+                        leftSection={<IconExternalLink size={14} />}
+                      >
+                        Taslak önizle
+                      </Button>
+                    )}
+                    {t.status === "yayinda" && hotel && (
+                      <Button
+                        size="xs"
+                        variant="subtle"
+                        component={Link}
+                        href={`/tours/${hotel.slug}/${t.tourId}`}
+                        target="_blank"
+                        leftSection={<IconExternalLink size={14} />}
+                      >
+                        Önizle
+                      </Button>
+                    )}
+                    {hotel?.memberRole === "owner" &&
+                      (t.status === "taslak" || t.status === "reddedildi") && (
+                        <Button
+                          size="xs"
+                          color="red"
+                          variant="light"
+                          leftSection={<IconTrash size={14} />}
+                          onClick={() => deleteTour(t.tourId, t.title)}
+                        >
+                          Sil
+                        </Button>
+                      )}
                   </Group>
                 </Table.Td>
               </Table.Tr>

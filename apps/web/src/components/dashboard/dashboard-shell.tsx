@@ -13,6 +13,7 @@ import {
   Divider,
   Group,
   NavLink,
+  Menu,
   Text,
   Title,
   Tooltip,
@@ -23,6 +24,7 @@ import {
   IconBed,
   IconBedFlat,
   IconBuilding,
+  IconChevronDown,
   IconExternalLink,
   IconFolder,
   IconLayoutDashboard,
@@ -36,6 +38,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { ReactNode } from "react";
+import { useHotelContext } from "./hotel-context";
 
 const links = [
   { href: "/dashboard", label: "Genel bakış", icon: IconLayoutDashboard },
@@ -57,6 +60,7 @@ export function DashboardShell({
 }) {
   const path = usePathname();
   const [opened, { toggle, close }] = useDisclosure();
+  const { hotels, hotel, selectHotel, loading: hotelsLoading } = useHotelContext();
 
   const initials = (userName ?? "?")
     .split(" ")
@@ -109,6 +113,42 @@ export function DashboardShell({
             </div>
           </Group>
           <Group gap="xs" wrap="nowrap">
+            {!hotelsLoading && hotels.length > 1 && hotel && (
+              <Menu shadow="md" width={260} position="bottom-end">
+                <Menu.Target>
+                  <Button
+                    variant="light"
+                    color="indigo"
+                    size="xs"
+                    rightSection={<IconChevronDown size={14} />}
+                    leftSection={<IconBuilding size={14} />}
+                  >
+                    <Text span truncate maw={140}>
+                      {hotel.name}
+                    </Text>
+                  </Button>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Label>Aktif tesis</Menu.Label>
+                  {hotels.map((h) => (
+                    <Menu.Item
+                      key={h.id}
+                      leftSection={<IconBuilding size={14} />}
+                      onClick={() => selectHotel(h.id)}
+                      fw={h.id === hotel.id ? 600 : 400}
+                    >
+                      {h.name}
+                      {h.city ? ` — ${h.city}` : ""}
+                    </Menu.Item>
+                  ))}
+                </Menu.Dropdown>
+              </Menu>
+            )}
+            {!hotelsLoading && hotels.length === 1 && hotel && (
+              <Text size="xs" c="dimmed" visibleFrom="sm" truncate maw={160}>
+                {hotel.name}
+              </Text>
+            )}
             <Button
               component={Link}
               href="/"

@@ -6,7 +6,7 @@
 // Dallar (branches) ve AI metadata dahil tüm manifest alanları düzenlenebilir.
 // ---------------------------------------------------------------------------
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Accordion,
   ActionIcon,
@@ -33,13 +33,17 @@ import {
   IconArrowDown,
   IconArrowUp,
   IconDeviceFloppy,
+  IconExternalLink,
+  IconGripVertical,
   IconPlus,
   IconSend,
   IconTrash,
 } from "@tabler/icons-react";
-import type { TourStep, TourStepBranch } from "@/lib/schemas/tour-manifest";
+import Link from "next/link";
+import type { TourCallout, TourHotspot, TourStep, TourStepBranch } from "@/lib/schemas/tour-manifest";
 import { moderationStatusColors, moderationStatusLabels } from "@/lib/labels";
 import { useMyHotel } from "./use-my-hotel";
+import { MediaPicker } from "./media-picker";
 
 const kindOptions = [
   { value: "lobby", label: "Lobi" },
@@ -75,51 +79,61 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
   const [notFound, setNotFound] = useState(false);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+
+  const reloadTour = useCallback(async () => {
+    if (!hotel) return;
+    const res = await fetch(`/api/manager/hotels/${hotel.id}/tours/${tourId}`);
+    if (res.status === 404) {
+      setNotFound(true);
+      return;
+    }
+    const json = await res.json();
+    if (json.ok) {
+      setMeta(json.tour);
+      const loaded: TourStep[] = (json.steps as Array<Record<string, unknown>>).map(
+        (s, i) =>
+          ({
+            stepId: s.stepId,
+            order: i,
+            kind: s.kind,
+            title: s.title,
+            body: s.body ?? undefined,
+            requiresUserContinue: Boolean(s.requiresUserContinue),
+            media: {
+              mode: (s.media as { mode: "clip" | "window" }).mode,
+              src: s.mediaUrl as string,
+              startSec: (s.media as { startSec?: number }).startSec,
+              endSec: (s.media as { endSec?: number }).endSec,
+            },
+            captionsVttUrl: s.captionsVttUrl ?? undefined,
+            narrationUrl: s.narrationUrl ?? undefined,
+            branches:
+              Array.isArray(s.branches) && s.branches.length > 0
+                ? (s.branches as TourStepBranch[])
+                : undefined,
+            callouts:
+              Array.isArray(s.callouts) && s.callouts.length > 0
+                ? (s.callouts as TourCallout[])
+                : undefined,
+            hotspots:
+              Array.isArray(s.hotspots) && s.hotspots.length > 0
+                ? (s.hotspots as TourHotspot[])
+                : undefined,
+            aiTags: Array.isArray(s.aiTags) && s.aiTags.length > 0 ? (s.aiTags as string[]) : undefined,
+            aiDescription: (s.aiDescription as string) ?? undefined,
+            aiPromo: Array.isArray(s.aiPromo) && s.aiPromo.length > 0 ? (s.aiPromo as string[]) : undefined,
+            aiVisible: s.aiVisible === undefined ? true : Boolean(s.aiVisible),
+          }) as TourStep,
+      );
+      setSteps(loaded);
+    }
+  }, [hotel, tourId]);
 
   useEffect(() => {
     if (!hotel) return;
-    (async () => {
-      const res = await fetch(`/api/manager/hotels/${hotel.id}/tours/${tourId}`);
-      if (res.status === 404) {
-        setNotFound(true);
-        return;
-      }
-      const json = await res.json();
-      if (json.ok) {
-        setMeta(json.tour);
-        const loaded: TourStep[] = (json.steps as Array<Record<string, unknown>>).map(
-          (s, i) =>
-            ({
-              stepId: s.stepId,
-              order: i,
-              kind: s.kind,
-              title: s.title,
-              body: s.body ?? undefined,
-              requiresUserContinue: Boolean(s.requiresUserContinue),
-              media: {
-                mode: (s.media as { mode: "clip" | "window" }).mode,
-                src: s.mediaUrl as string,
-                startSec: (s.media as { startSec?: number }).startSec,
-                endSec: (s.media as { endSec?: number }).endSec,
-              },
-              captionsVttUrl: s.captionsVttUrl ?? undefined,
-              narrationUrl: s.narrationUrl ?? undefined,
-              branches:
-                Array.isArray(s.branches) && s.branches.length > 0
-                  ? (s.branches as TourStepBranch[])
-                  : undefined,
-              callouts: undefined,
-              hotspots: undefined,
-              aiTags: Array.isArray(s.aiTags) && s.aiTags.length > 0 ? (s.aiTags as string[]) : undefined,
-              aiDescription: (s.aiDescription as string) ?? undefined,
-              aiPromo: Array.isArray(s.aiPromo) && s.aiPromo.length > 0 ? (s.aiPromo as string[]) : undefined,
-              aiVisible: s.aiVisible === undefined ? true : Boolean(s.aiVisible),
-            }) as TourStep,
-        );
-        setSteps(loaded);
-      }
-    })();
-  }, [hotel, tourId]);
+    void reloadTour();
+  }, [hotel, reloadTour]);
 
   if (hotelLoading) return <Loader />;
   if (hotelError) {
@@ -166,6 +180,17 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
     setSteps((prev) => (prev ? [...prev, emptyStep(prev.length)] : prev));
   }
 
+  function reorderSteps(from: number, to: number) {
+    if (from === to) return;
+    setSteps((prev) => {
+      if (!prev) return prev;
+      const next = [...prev];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  }
+
   async function saveAll() {
     if (!hotel || !steps) return;
     if (steps.length === 0) {
@@ -183,6 +208,13 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
     setSaving(false);
     if (json.ok) {
       notifications.show({ color: "green", message: `${json.count} adım kaydedildi.` });
+      void reloadTour();
+    } else if (res.status === 409) {
+      notifications.show({
+        color: "orange",
+        message: `${json.error ?? "Çakışma"} — sunucudan güncel veri alınıyor.`,
+      });
+      void reloadTour();
     } else {
       notifications.show({
         color: "red",
@@ -202,6 +234,12 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
     if (json.ok) {
       notifications.show({ color: "blue", message: "Tur incelemeye gönderildi." });
       setMeta((m) => (m ? { ...m, status: json.status } : m));
+    } else if (res.status === 409) {
+      notifications.show({
+        color: "orange",
+        message: `${json.error ?? "Tur durumu değişti"} — sayfa yenileniyor.`,
+      });
+      void reloadTour();
     } else {
       notifications.show({ color: "red", message: json.error ?? "Gönderme başarısız oldu." });
     }
@@ -221,6 +259,30 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
           </Text>
         </Group>
         <Group gap="xs">
+          {steps.length > 0 && hotel && (
+            <Button
+              component={Link}
+              href={`/dashboard/tours/${tourId}/preview`}
+              target="_blank"
+              variant="default"
+              size="sm"
+              leftSection={<IconExternalLink size={16} />}
+            >
+              Taslak önizle
+            </Button>
+          )}
+          {meta.status === "yayinda" && hotel && (
+            <Button
+              component={Link}
+              href={`/tours/${hotel.slug}/${tourId}`}
+              target="_blank"
+              variant="default"
+              size="sm"
+              leftSection={<IconExternalLink size={16} />}
+            >
+              Yayın turu
+            </Button>
+          )}
           <Button variant="default" leftSection={<IconPlus size={16} />} onClick={addStep}>
             Adım ekle
           </Button>
@@ -248,10 +310,33 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
 
       <Accordion variant="separated" multiple>
         {steps.map((s, i) => (
-          <Accordion.Item key={`${s.stepId}-${i}`} value={`${s.stepId}-${i}`}>
+          <Accordion.Item
+            key={`${s.stepId}-${i}`}
+            value={`${s.stepId}-${i}`}
+            draggable
+            onDragStart={() => setDragIndex(i)}
+            onDragEnd={() => setDragIndex(null)}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (dragIndex !== null && dragIndex !== i) {
+                reorderSteps(dragIndex, i);
+                setDragIndex(i);
+              }
+            }}
+            style={{
+              opacity: dragIndex === i ? 0.6 : 1,
+              transition: "opacity 0.15s",
+            }}
+          >
             <Accordion.Control>
-              <Group gap="sm">
-                <Text fw={600}>
+              <Group gap="sm" wrap="nowrap">
+                <IconGripVertical
+                  size={16}
+                  stroke={1.5}
+                  style={{ cursor: "grab", flexShrink: 0, opacity: 0.45 }}
+                  aria-hidden
+                />
+                <Text fw={600} truncate>
                   {i + 1}. {s.title}
                 </Text>
                 <Text size="xs" c="dimmed">
@@ -312,15 +397,18 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
                 />
 
                 <Divider label="Medya" labelPosition="left" />
-                <Group grow>
-                  <TextInput
+                {hotel && (
+                  <MediaPicker
+                    hotelId={hotel.id}
+                    mediaType="video"
                     label="Video adresi"
-                    description="HTTPS URL veya /demo/... yolu"
                     value={s.media.src}
-                    onChange={(e) =>
-                      updateStep(i, { media: { ...s.media, src: e.currentTarget.value } })
+                    onChange={(url) =>
+                      updateStep(i, { media: { ...s.media, src: url } })
                     }
                   />
+                )}
+                <Group grow>
                   <Select
                     label="Oynatma modu"
                     data={[
@@ -330,6 +418,13 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
                     value={s.media.mode}
                     onChange={(v) =>
                       v && updateStep(i, { media: { ...s.media, mode: v as "clip" | "window" } })
+                    }
+                  />
+                  <TextInput
+                    label="Anlatım sesi (URL)"
+                    value={s.narrationUrl ?? ""}
+                    onChange={(e) =>
+                      updateStep(i, { narrationUrl: e.currentTarget.value || undefined })
                     }
                   />
                 </Group>
@@ -369,6 +464,138 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
                     updateStep(i, { requiresUserContinue: e.currentTarget.checked })
                   }
                 />
+
+                <Divider label="Bilgi kutuları (callout)" labelPosition="left" />
+                {(s.callouts ?? []).map((c, ci) => (
+                  <Group key={c.id} grow align="flex-end">
+                    <TextInput
+                      label="Başlık"
+                      value={c.title}
+                      onChange={(e) => {
+                        const callouts = [...(s.callouts ?? [])];
+                        callouts[ci] = { ...c, title: e.currentTarget.value };
+                        updateStep(i, { callouts });
+                      }}
+                    />
+                    <NumberInput
+                      label="Saniye"
+                      min={0}
+                      value={c.tSec}
+                      onChange={(v) => {
+                        const callouts = [...(s.callouts ?? [])];
+                        callouts[ci] = { ...c, tSec: typeof v === "number" ? v : 0 };
+                        updateStep(i, { callouts });
+                      }}
+                    />
+                    <TextInput
+                      label="Metin"
+                      value={c.body ?? ""}
+                      onChange={(e) => {
+                        const callouts = [...(s.callouts ?? [])];
+                        callouts[ci] = { ...c, body: e.currentTarget.value || undefined };
+                        updateStep(i, { callouts });
+                      }}
+                    />
+                    <ActionIcon
+                      color="red"
+                      variant="light"
+                      mb={6}
+                      onClick={() => {
+                        const callouts = (s.callouts ?? []).filter((_, x) => x !== ci);
+                        updateStep(i, { callouts: callouts.length ? callouts : undefined });
+                      }}
+                    >
+                      <IconTrash size={16} />
+                    </ActionIcon>
+                  </Group>
+                ))}
+                <Button
+                  size="xs"
+                  variant="default"
+                  w="fit-content"
+                  leftSection={<IconPlus size={14} />}
+                  onClick={() => {
+                    const callouts = [
+                      ...(s.callouts ?? []),
+                      {
+                        id: `c${(s.callouts?.length ?? 0) + 1}-${Date.now()}`,
+                        tSec: 0,
+                        title: "Yeni bilgi",
+                      },
+                    ];
+                    updateStep(i, { callouts });
+                  }}
+                >
+                  Callout ekle
+                </Button>
+
+                <Divider label="Hotspot (tıklanabilir nokta)" labelPosition="left" />
+                {(s.hotspots ?? []).map((h, hi) => (
+                  <Group key={h.id} grow align="flex-end">
+                    <TextInput
+                      label="Etiket"
+                      value={h.label}
+                      onChange={(e) => {
+                        const hotspots = [...(s.hotspots ?? [])];
+                        hotspots[hi] = { ...h, label: e.currentTarget.value };
+                        updateStep(i, { hotspots });
+                      }}
+                    />
+                    <NumberInput
+                      label="X %"
+                      min={0}
+                      max={100}
+                      value={h.xPct}
+                      onChange={(v) => {
+                        const hotspots = [...(s.hotspots ?? [])];
+                        hotspots[hi] = { ...h, xPct: typeof v === "number" ? v : 0 };
+                        updateStep(i, { hotspots });
+                      }}
+                    />
+                    <NumberInput
+                      label="Y %"
+                      min={0}
+                      max={100}
+                      value={h.yPct}
+                      onChange={(v) => {
+                        const hotspots = [...(s.hotspots ?? [])];
+                        hotspots[hi] = { ...h, yPct: typeof v === "number" ? v : 0 };
+                        updateStep(i, { hotspots });
+                      }}
+                    />
+                    <ActionIcon
+                      color="red"
+                      variant="light"
+                      mb={6}
+                      onClick={() => {
+                        const hotspots = (s.hotspots ?? []).filter((_, x) => x !== hi);
+                        updateStep(i, { hotspots: hotspots.length ? hotspots : undefined });
+                      }}
+                    >
+                      <IconTrash size={16} />
+                    </ActionIcon>
+                  </Group>
+                ))}
+                <Button
+                  size="xs"
+                  variant="default"
+                  w="fit-content"
+                  leftSection={<IconPlus size={14} />}
+                  onClick={() => {
+                    const hotspots = [
+                      ...(s.hotspots ?? []),
+                      {
+                        id: `h${(s.hotspots?.length ?? 0) + 1}-${Date.now()}`,
+                        xPct: 50,
+                        yPct: 50,
+                        label: "Yeni nokta",
+                      },
+                    ];
+                    updateStep(i, { hotspots });
+                  }}
+                >
+                  Hotspot ekle
+                </Button>
 
                 <Divider label="Dallanma (yol seçimi)" labelPosition="left" />
                 {(s.branches ?? []).map((b, bi) => (

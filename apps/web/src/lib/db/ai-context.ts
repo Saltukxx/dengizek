@@ -15,8 +15,48 @@ import {
 } from "@/lib/price";
 import { boardTypeLabels, paymentMethodLabels } from "@/lib/schemas/hotel-content";
 
+import type { HotelProfile } from "@/lib/schemas/tour-manifest";
+
 const MAX_FACTS = 50;
 const MAX_MENU_ITEMS_PER_RESTAURANT = 6;
+
+/**
+ * Otel profil alanlarını (persona, manuel facts/policies) canlı DB'den okur.
+ * Yalnızca `yayinda` oteller — misafir/AI aynı görünürlük kuralı.
+ */
+export async function getHotelAiProfile(hotelSlug: string): Promise<HotelProfile | undefined> {
+  if (!process.env.DATABASE_URL) return undefined;
+
+  try {
+    const { getDb } = await import("@/lib/db");
+    const { hotelsTable } = await import("@/lib/db/schema");
+    const { and, eq } = await import("drizzle-orm");
+    const db = getDb();
+
+    const [hotel] = await db
+      .select({
+        aiPersona: hotelsTable.aiPersona,
+        aiLanguage: hotelsTable.aiLanguage,
+        aiFacts: hotelsTable.aiFacts,
+        aiPolicies: hotelsTable.aiPolicies,
+      })
+      .from(hotelsTable)
+      .where(and(eq(hotelsTable.slug, hotelSlug), eq(hotelsTable.status, "yayinda")))
+      .limit(1);
+
+    if (!hotel) return undefined;
+
+    return {
+      aiPersona: hotel.aiPersona,
+      language: hotel.aiLanguage,
+      facts: hotel.aiFacts.length > 0 ? hotel.aiFacts : undefined,
+      policies: hotel.aiPolicies.length > 0 ? hotel.aiPolicies : undefined,
+    };
+  } catch (err) {
+    console.warn("[ai-context] Otel profili okunamadı:", err);
+    return undefined;
+  }
+}
 
 /**
  * Otelin yayınlanmış içeriğinden AI rehbere verilecek gerçek satırlarını üretir.

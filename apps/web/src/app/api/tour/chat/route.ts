@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getTourManifest } from "@/lib/mocks/hotels";
-import { getHotelAiFacts } from "@/lib/db/ai-context";
+import { getHotelAiFacts, getHotelAiProfile } from "@/lib/db/ai-context";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { streamText, tool, type ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -119,17 +119,28 @@ async function buildAuthoritativeContext(req: ChatRequest): Promise<Authoritativ
   const manifest = await getTourManifest(req.hotelSlug, req.tourId);
   if (!manifest) return null;
 
-  // Panel içeriğinden (odalar, restoranlar, ekstralar) üretilen gerçekler —
-  // sunucu tarafında eklenir, istemci asla enjekte edemez. DB'siz ortamda boş.
-  const contentFacts = await getHotelAiFacts(req.hotelSlug);
-  const hotelProfile = manifest.hotelProfile
-    ? {
-        ...manifest.hotelProfile,
-        facts: [...(manifest.hotelProfile.facts ?? []), ...contentFacts],
-      }
-    : contentFacts.length > 0
-      ? { facts: contentFacts }
-      : undefined;
+  // Canlı otel profili + panel içeriğinden türetilen gerçekler — sunucu tarafında;
+  // istemci asla enjekte edemez. DB yoksa manifest/demo fallback kullanılır.
+  const [liveProfile, contentFacts] = await Promise.all([
+    getHotelAiProfile(req.hotelSlug),
+    getHotelAiFacts(req.hotelSlug),
+  ]);
+
+  const snapshotProfile = manifest.hotelProfile;
+  const hotelProfile = {
+    aiPersona:
+      liveProfile?.aiPersona ??
+      snapshotProfile?.aiPersona ??
+      "Yapay Zeka Rehberi",
+    language: liveProfile?.language ?? snapshotProfile?.language ?? "tr",
+    facts: [
+      ...(liveProfile?.facts ?? snapshotProfile?.facts ?? []),
+      ...contentFacts,
+    ],
+    policies:
+      (liveProfile?.policies?.length ? liveProfile.policies : undefined) ??
+      snapshotProfile?.policies,
+  };
 
   return {
     ...req,

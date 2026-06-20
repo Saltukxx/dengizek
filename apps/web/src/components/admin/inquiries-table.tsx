@@ -6,7 +6,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  Badge,
   Group,
   Loader,
   Paper,
@@ -15,6 +14,7 @@ import {
   Table,
   Text,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { inquiryStatusColors, inquiryStatusLabels } from "@/lib/labels";
 
 interface AdminInquiry {
@@ -45,6 +45,20 @@ export function InquiriesTable() {
   }, [reload]);
 
   if (!inquiries) return <Loader />;
+
+  async function setStatus(id: string, yeniDurum: AdminInquiry["status"]) {
+    const res = await fetch(`/api/admin/inquiries/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ durum: yeniDurum }),
+    });
+    const json = await res.json();
+    if (json.ok) {
+      void reload();
+    } else {
+      notifications.show({ color: "red", message: json.error ?? "Güncelleme başarısız oldu." });
+    }
+  }
 
   return (
     <Stack gap="md">
@@ -98,9 +112,17 @@ export function InquiriesTable() {
                   </Text>
                 </Table.Td>
                 <Table.Td>
-                  <Badge color={inquiryStatusColors[q.status]}>
-                    {inquiryStatusLabels[q.status]}
-                  </Badge>
+                  <Select
+                    size="xs"
+                    data={[
+                      { value: "yeni", label: inquiryStatusLabels.yeni },
+                      { value: "ilgileniliyor", label: inquiryStatusLabels.ilgileniliyor },
+                      { value: "kapatildi", label: inquiryStatusLabels.kapatildi },
+                    ]}
+                    value={q.status}
+                    onChange={(v) => v && setStatus(q.id, v as AdminInquiry["status"])}
+                    w={140}
+                  />
                 </Table.Td>
                 <Table.Td>
                   <Text size="xs" c="dimmed">

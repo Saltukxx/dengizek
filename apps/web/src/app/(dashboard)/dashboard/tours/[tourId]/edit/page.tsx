@@ -8,9 +8,9 @@ export default async function DashboardTourEditPage({ params }: PageProps) {
   return (
     <Stack gap="md" py="sm">
       <div>
-        <Title order={2}>Tur düzenleyici — {tourId}</Title>
+        <Title order={2}>Tur düzenleyici</Title>
         <Text c="dimmed" size="sm">
-          Adımları düzenleyin, sıralayın ve hazır olduğunuzda incelemeye gönderin.
+          Adımları düzenleyin, sıralayın (sürükleyerek veya oklarla) ve hazır olduğunuzda incelemeye gönderin.
         </Text>
       </div>
       <TourStepEditor tourId={tourId} />

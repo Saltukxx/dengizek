@@ -38,6 +38,16 @@ export async function POST(req: Request, { params }: RouteParams) {
     return NextResponse.json({ ok: false, error: "Tesis bulunamadı." }, { status: 404 });
   }
 
+  if (hotel.status !== "incelemede") {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `Yalnızca incelemedeki tesisler onaylanabilir veya reddedilebilir (mevcut: ${hotel.status}).`,
+      },
+      { status: 409 },
+    );
+  }
+
   const yeniDurum = parsed.data.karar === "onayla" ? "yayinda" : "reddedildi";
   const now = new Date();
 

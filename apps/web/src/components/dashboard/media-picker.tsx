@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import {
   Button,
+  Box,
   Group,
   Image,
   Modal,
@@ -32,25 +33,33 @@ export function MediaPicker({
   value,
   onChange,
   label = "Görsel (URL)",
+  mediaType = "image",
 }: {
   hotelId: string;
   value: string;
   onChange: (url: string) => void;
   label?: string;
+  /** image: kapak/galeri; video: tur adımı klipleri */
+  mediaType?: "image" | "video";
 }) {
   const [open, setOpen] = useState(false);
   const [assets, setAssets] = useState<MediaAssetLite[] | null>(null);
 
   useEffect(() => {
-    if (!open || assets) return;
+    if (!open) return;
     (async () => {
       const res = await fetch(`/api/manager/media?hotelId=${hotelId}`);
       const json = await res.json();
       if (json.ok) setAssets(json.media);
     })();
-  }, [open, assets, hotelId]);
+  }, [open, hotelId]);
 
-  const usable = (assets ?? []).filter((a) => a.thumbnailUrl || a.playbackUrl);
+  const usable = (assets ?? []).filter((a) => {
+    if (mediaType === "video") {
+      return a.type === "video" && a.playbackUrl;
+    }
+    return a.thumbnailUrl || (a.type === "image" && a.playbackUrl);
+  });
 
   return (
     <>
@@ -77,13 +86,16 @@ export function MediaPicker({
       <Modal opened={open} onClose={() => setOpen(false)} title="Medya kütüphanesi" size="lg">
         {usable.length === 0 ? (
           <Text c="dimmed" size="sm">
-            Kütüphanede kullanılabilir görsel yok. Yukarıdaki alana doğrudan URL
-            yapıştırabilirsiniz.
+            Kütüphanede kullanılabilir {mediaType === "video" ? "video" : "görsel"} yok.
+            Yukarıdaki alana doğrudan URL yapıştırabilirsiniz.
           </Text>
         ) : (
           <SimpleGrid cols={3} spacing="sm">
             {usable.map((a) => {
-              const url = a.thumbnailUrl ?? a.playbackUrl ?? "";
+              const url =
+                mediaType === "video"
+                  ? (a.playbackUrl ?? "")
+                  : (a.thumbnailUrl ?? a.playbackUrl ?? "");
               return (
                 <Paper
                   key={a.id}
@@ -96,7 +108,21 @@ export function MediaPicker({
                   }}
                 >
                   <Stack gap={4}>
-                    <Image src={a.thumbnailUrl ?? undefined} alt={a.title} h={80} fit="cover" radius="sm" />
+                    {mediaType === "video" ? (
+                      <Box
+                        h={80}
+                        style={{
+                          display: "grid",
+                          placeItems: "center",
+                          background: "var(--mantine-color-gray-1)",
+                          borderRadius: "var(--mantine-radius-sm)",
+                        }}
+                      >
+                        <IconPhoto size={24} stroke={1.5} />
+                      </Box>
+                    ) : (
+                      <Image src={a.thumbnailUrl ?? undefined} alt={a.title} h={80} fit="cover" radius="sm" />
+                    )}
                     <Text size="xs" truncate>
                       {a.title}
                     </Text>
