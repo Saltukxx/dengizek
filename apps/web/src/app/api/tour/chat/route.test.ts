@@ -1,9 +1,14 @@
 // ---------------------------------------------------------------------------
-// AI tur sohbeti route testleri — akış (streamText) sürümü
-// streamText mock'lanır; OpenAI'ye gerçek istek atılmaz.
+// AI tur sohbeti route testleri — UI message stream sürümü
 // ---------------------------------------------------------------------------
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const queryRoomPricesMock = vi.fn().mockResolvedValue({ ok: true, cards: [] });
+
+vi.mock("@/lib/ai/price-engine", () => ({
+  queryRoomPrices: (...args: unknown[]) => queryRoomPricesMock(...args),
+}));
 
 const streamTextMock = vi.fn();
 vi.mock("ai", () => ({
@@ -35,13 +40,24 @@ function makeRequest(body: unknown, ip = "1.2.3.4") {
   });
 }
 
+function mockStreamResult() {
+  return {
+    toUIMessageStreamResponse: () =>
+      new Response("data: {}\n\n", {
+        status: 200,
+        headers: {
+          "x-vercel-ai-ui-message-stream": "v1",
+          "content-type": "text/event-stream",
+        },
+      }),
+  };
+}
+
 beforeEach(() => {
   streamTextMock.mockReset();
-  streamTextMock.mockReturnValue({
-    toTextStreamResponse: () => new Response("akış", { status: 200 }),
-  });
+  queryRoomPricesMock.mockClear();
+  streamTextMock.mockReturnValue(mockStreamResult());
   vi.stubEnv("OPENAI_API_KEY", "test-key");
-  // Testler DB'siz çalışır — manifest demo mock'tan gelir
   vi.stubEnv("DATABASE_URL", "");
 });
 
@@ -64,7 +80,10 @@ describe("POST /api/tour/chat", () => {
       makeRequest({ ...baseBody, hotelSlug: "olmayan-otel", tourId: "yok" }),
     );
     expect(res.status).toBe(404);
-    await expect(res.json()).resolves.toMatchObject({ message: "Tur bulunamadı." });
+    await expect(res.json()).resolves.toMatchObject({
+      ok: false,
+      error: "Tur bulunamadı.",
+    });
   });
 
   it("OPENAI_API_KEY yokken 503 döner", async () => {
@@ -72,23 +91,26 @@ describe("POST /api/tour/chat", () => {
     const res = await POST(makeRequest(baseBody));
     expect(res.status).toBe(503);
     await expect(res.json()).resolves.toMatchObject({
-      message: "Yapay zeka servisi yapılandırılmamış.",
+      ok: false,
+      error: "Yapay zeka servisi yapılandırılmamış.",
     });
   });
 
-  it("geçerli istekte akış yanıtı döner ve bağlam sunucudan kurulur", async () => {
+  it("geçerli istekte UI message stream döner ve bağlam sunucudan kurulur", async () => {
     const res = await POST(makeRequest(baseBody));
     expect(res.status).toBe(200);
+    expect(res.headers.get("x-vercel-ai-ui-message-stream")).toBe("v1");
     expect(streamTextMock).toHaveBeenCalledTimes(1);
 
     const call = streamTextMock.mock.calls[0][0] as {
       system: string;
-      tools: Record<string, unknown>;
+      tools: Record<string, { execute?: (input: unknown) => Promise<unknown> }>;
+      experimental_transform?: unknown;
     };
-    // Sunucu-taraflı bağlam: otel verisi system prompt'a gömülür,
-    // istemciden gelen hiçbir bağlam kullanılmaz
     expect(call.system).toContain("Yapay Zeka Rehberi");
     expect(call.system).toContain("s1");
+    expect(call.system).toContain("Tur ilerlemesi");
+    expect(call.experimental_transform).toBeDefined();
     expect(Object.keys(call.tools)).toEqual(
       expect.arrayContaining([
         "navigateTo",
@@ -96,8 +118,35 @@ describe("POST /api/tour/chat", () => {
         "openInquiry",
         "autoTourNext",
         "endAutoTour",
+        "getRoomPrice",
+        "citeFact",
       ]),
     );
+  });
+
+  it("fiyat sorusunda system prompt tool ipucu içerir", async () => {
+    await POST(
+      makeRequest({
+        ...baseBody,
+        messages: [{ role: "user", content: "Gecelik fiyat ne kadar?" }],
+      }),
+    );
+    const call = streamTextMock.mock.calls[0][0] as { system: string };
+    expect(call.system).toContain("getRoomPrice");
+  });
+
+  it("getRoomPrice execute fiyat motorunu çağırır", async () => {
+    await POST(
+      makeRequest({
+        ...baseBody,
+        messages: [{ role: "user", content: "Gecelik fiyat ne kadar?" }],
+      }),
+    );
+    const call = streamTextMock.mock.calls[0][0] as {
+      tools: { getRoomPrice: { execute: (input: unknown) => Promise<unknown> } };
+    };
+    await call.tools.getRoomPrice.execute({ roomSlug: "deluxe" });
+    expect(queryRoomPricesMock).toHaveBeenCalledWith("aurelia-bay", { roomSlug: "deluxe" });
   });
 
   it("hız sınırı aşıldığında 429 ve Türkçe mesaj döner", async () => {

@@ -153,7 +153,9 @@ export const hotelsTable = pgTable("hotels", {
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  statusIdx: index("hotels_status_idx").on(table.status),
+}));
 
 // ---------------------------------------------------------------------------
 // hotel_members — kullanıcı ↔ otel üyeliği (çoklu kullanıcı / çoklu otel)
@@ -168,6 +170,7 @@ export const hotelMembersTable = pgTable("hotel_members", {
 }, (table) => ({
   userHotelUnique: uniqueIndex("hotel_members_user_hotel_unique").on(table.userId, table.hotelId),
   hotelIdx:        index("hotel_members_hotel_idx").on(table.hotelId),
+  userIdx:         index("hotel_members_user_idx").on(table.userId),
 }));
 
 // ---------------------------------------------------------------------------
@@ -667,6 +670,7 @@ export const bookingsTable = pgTable("bookings", {
 }, (table) => ({
   hotelIdx: index("bookings_hotel_idx").on(table.hotelId),
   statusIdx: index("bookings_status_idx").on(table.status),
+  hotelCreatedIdx: index("bookings_hotel_created_idx").on(table.hotelId, table.createdAt),
 }));
 
 // ---------------------------------------------------------------------------
@@ -706,6 +710,20 @@ export const paymentsTable = pgTable("payments", {
 }, (table) => ({
   bookingIdx: index("payments_booking_idx").on(table.bookingId),
   hotelIdx: index("payments_hotel_idx").on(table.hotelId),
+  hotelCreatedIdx: index("payments_hotel_created_idx").on(table.hotelId, table.createdAt),
+}));
+
+// ---------------------------------------------------------------------------
+// hotel_ical_feeds — channel manager / iCal
+// ---------------------------------------------------------------------------
+
+export const rateLimitBucketsTable = pgTable("rate_limit_buckets", {
+  bucketKey: text("bucket_key").notNull(),
+  name:      text("name").notNull(),
+  count:     integer("count").notNull().default(0),
+  resetAt:   timestamp("reset_at").notNull(),
+}, (table) => ({
+  pk: uniqueIndex("rate_limit_buckets_key_name_unique").on(table.bucketKey, table.name),
 }));
 
 // ---------------------------------------------------------------------------

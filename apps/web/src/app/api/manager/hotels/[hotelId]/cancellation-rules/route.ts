@@ -8,6 +8,7 @@ import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { cancellationRulesTable } from "@/lib/db/schema";
 import { cancellationRulePatchSchema, cancellationRuleSchema } from "@/lib/schemas/hotel-panel";
+import { logAudit } from "@/lib/audit";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -46,6 +47,14 @@ export async function POST(req: Request, { params }: RouteParams) {
     .values({ ...parsed.data, hotelId: guard.hotel.id })
     .returning();
 
+  await logAudit({
+    actor: guard.user,
+    action: "iptal_kurali.olusturuldu",
+    entityType: "hotel",
+    entityId: guard.hotel.id,
+    meta: { ruleId: rule.id },
+  });
+
   return NextResponse.json({ ok: true, rule }, { status: 201 });
 }
 
@@ -76,6 +85,13 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   if (!updated) {
     return NextResponse.json({ ok: false, error: "Kural bulunamadı." }, { status: 404 });
   }
+  await logAudit({
+    actor: guard.user,
+    action: "iptal_kurali.guncellendi",
+    entityType: "hotel",
+    entityId: guard.hotel.id,
+    meta: { ruleId: updated.id },
+  });
   return NextResponse.json({ ok: true, rule: updated });
 }
 
@@ -96,6 +112,14 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     .where(
       and(eq(cancellationRulesTable.id, id), eq(cancellationRulesTable.hotelId, guard.hotel.id)),
     );
+
+  await logAudit({
+    actor: guard.user,
+    action: "iptal_kurali.silindi",
+    entityType: "hotel",
+    entityId: guard.hotel.id,
+    meta: { ruleId: id },
+  });
 
   return NextResponse.json({ ok: true });
 }

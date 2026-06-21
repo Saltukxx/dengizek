@@ -24,6 +24,7 @@ import { IconAlertCircle, IconPlus, IconWallet } from "@tabler/icons-react";
 import { bookingStatusLabels } from "@/lib/labels";
 import { formatPrice, toMinor } from "@/lib/price";
 import { useMyHotel } from "./use-my-hotel";
+import { ListPagination } from "./list-pagination";
 
 interface BookingRow {
   id: string;
@@ -59,6 +60,10 @@ export function BookingsManager() {
   const [rooms, setRooms] = useState<RoomOption[]>([]);
   const [plans, setPlans] = useState<PlanOption[]>([]);
   const [durum, setDurum] = useState<string | null>(null);
+  const [sayfa, setSayfa] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [limit] = useState(50);
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<BookingRow | null>(null);
   const [form, setForm] = useState({
@@ -77,16 +82,23 @@ export function BookingsManager() {
 
   const reload = useCallback(async () => {
     if (!hotel) return;
-    const params = durum ? `?durum=${durum}` : "";
+    const params = new URLSearchParams();
+    if (durum) params.set("durum", durum);
+    params.set("sayfa", String(sayfa));
+    const qs = params.toString();
     const [bookingsRes, roomsRes, plansRes] = await Promise.all([
-      fetch(`/api/manager/hotels/${hotel.id}/bookings${params}`),
+      fetch(`/api/manager/hotels/${hotel.id}/bookings?${qs}`),
       fetch(`/api/manager/hotels/${hotel.id}/rooms`),
       fetch(`/api/manager/hotels/${hotel.id}/rate-plans`),
     ]);
     const bookingsJson = await bookingsRes.json();
     const roomsJson = await roomsRes.json();
     const plansJson = await plansRes.json();
-    if (bookingsJson.ok) setBookings(bookingsJson.bookings);
+    if (bookingsJson.ok) {
+      setBookings(bookingsJson.bookings);
+      setTotalCount(bookingsJson.totalCount ?? bookingsJson.bookings.length);
+      setHasMore(bookingsJson.hasMore ?? false);
+    }
     if (roomsJson.ok) {
       setRooms(
         (roomsJson.rooms as { id: string; name: string }[]).map((r) => ({
@@ -103,7 +115,11 @@ export function BookingsManager() {
         })),
       );
     }
-  }, [hotel, durum]);
+  }, [hotel, durum, sayfa]);
+
+  useEffect(() => {
+    setSayfa(1);
+  }, [durum]);
 
   useEffect(() => {
     void reload();
@@ -308,6 +324,13 @@ export function BookingsManager() {
             ))}
           </Table.Tbody>
         </Table>
+        <ListPagination
+          sayfa={sayfa}
+          hasMore={hasMore}
+          totalCount={totalCount}
+          limit={limit}
+          onSayfaChange={setSayfa}
+        />
       </Paper>
 
       <Modal opened={open} onClose={() => setOpen(false)} title="Yeni rezervasyon" size="md">

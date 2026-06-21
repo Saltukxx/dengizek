@@ -1,4 +1,4 @@
-/** E-posta gönderimi — MVP: console log; production: Resend/SendGrid env ile genişletilir */
+/** E-posta gönderimi — production'da Resend zorunlu */
 
 export async function sendEmail(input: {
   to: string;
@@ -23,8 +23,12 @@ export async function sendEmail(input: {
     });
     return res.ok;
   }
-  if (process.env.NODE_ENV === "development") {
-    console.info("[email:mock]", input.to, input.subject);
+
+  if (process.env.NODE_ENV === "production") {
+    console.error("[email] RESEND_API_KEY veya EMAIL_FROM eksik — e-posta gönderilmedi.");
+    return false;
   }
+
+  console.info("[email:mock]", input.to, input.subject);
   return true;
 }

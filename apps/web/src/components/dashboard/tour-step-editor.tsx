@@ -662,10 +662,16 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
                 />
                 <Textarea
                   label="AI açıklaması"
-                  description="Rehberin bu alanı anlatırken kullanacağı bağlam"
+                  description="Rehberin bu alanı anlatırken kullanacağı bağlam (en az 20 karakter önerilir)"
                   autosize
                   minRows={2}
                   value={s.aiDescription ?? ""}
+                  error={
+                    s.aiVisible !== false &&
+                    (s.aiDescription?.trim().length ?? 0) < 20
+                      ? "Boş veya kısa açıklama tur tamamlama oranını düşürür."
+                      : undefined
+                  }
                   onChange={(e) =>
                     updateStep(i, { aiDescription: e.currentTarget.value || undefined })
                   }

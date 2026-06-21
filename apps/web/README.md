@@ -6,7 +6,7 @@ Next.js 15 (App Router) + TypeScript + Mantine 7. Tailwind yok. **Arayüz dili: 
 
 - `npm run dev` — geliştirme sunucusu (Turbopack)
 - `npm run build` — üretim derlemesi
-- `npm run test:ci` — Vitest birim testleri (54 test)
+- `npm run test:ci` — Vitest birim testleri
 - `npm run test:e2e` — Playwright duman testleri (dev sunucusunu başlatır)
 - `npm run db:generate` / `db:push` — Drizzle şema migrasyonu
 - `npm run db:seed` — demo veri + geliştirme kullanıcıları
@@ -15,7 +15,8 @@ Next.js 15 (App Router) + TypeScript + Mantine 7. Tailwind yok. **Arayüz dili: 
 
 Bkz. [.env.example](.env.example): `DATABASE_URL` (Neon), `AUTH_SECRET` (Auth.js),
 `OPENAI_API_KEY` (AI rehber), `BUNNY_STREAM_*` (medya — boşsa mock mod).
-DB veya OpenAI yoksa uygulama mock veriyle çalışmaya devam eder.
+Geliştirmede DB veya OpenAI yoksa mock veri kullanılabilir (`USE_MOCK_DATA=true`).
+**Production'da** mock fallback kapalıdır — `DATABASE_URL` ve gerekli servisler zorunludur.
 
 ## Geliştirme kullanıcıları (seed)
 

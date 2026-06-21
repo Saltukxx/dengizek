@@ -16,11 +16,16 @@ interface NotificationRow {
 
 export function NotificationBell() {
   const [items, setItems] = useState<NotificationRow[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const bellLimit = 8;
 
   const reload = useCallback(async () => {
-    const res = await fetch("/api/manager/notifications");
+    const res = await fetch(`/api/manager/notifications?sayfa=1&limit=${bellLimit}`);
     const json = await res.json();
-    if (json.ok) setItems(json.notifications);
+    if (json.ok) {
+      setItems(json.notifications);
+      setHasMore(json.hasMore ?? false);
+    }
   }, []);
 
   useEffect(() => {
@@ -57,7 +62,7 @@ export function NotificationBell() {
             </Text>
           </Menu.Item>
         )}
-        {items.slice(0, 8).map((n) => (
+        {items.map((n) => (
           <Menu.Item key={n.id} onClick={() => void markRead(n.id)}>
             {n.link ? (
               <Link href={n.link} style={{ textDecoration: "none", color: "inherit" }}>
@@ -84,6 +89,13 @@ export function NotificationBell() {
             )}
           </Menu.Item>
         ))}
+        {hasMore && (
+          <Menu.Item component={Link} href="/dashboard">
+            <Text size="sm" c="dimmed">
+              Daha fazla bildirim…
+            </Text>
+          </Menu.Item>
+        )}
       </Menu.Dropdown>
     </Menu>
   );

@@ -8,6 +8,7 @@ import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { hotelAvailabilityNotesTable } from "@/lib/db/schema";
 import { availabilityNotePatchSchema, availabilityNoteSchema } from "@/lib/schemas/hotel-panel";
+import { logAudit } from "@/lib/audit";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -52,6 +53,14 @@ export async function POST(req: Request, { params }: RouteParams) {
     })
     .returning();
 
+  await logAudit({
+    actor: guard.user,
+    action: "musaitlik_notu.olusturuldu",
+    entityType: "hotel",
+    entityId: guard.hotel.id,
+    meta: { noteId: note.id },
+  });
+
   return NextResponse.json({ ok: true, note }, { status: 201 });
 }
 
@@ -85,6 +94,13 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   if (!updated) {
     return NextResponse.json({ ok: false, error: "Not bulunamadı." }, { status: 404 });
   }
+  await logAudit({
+    actor: guard.user,
+    action: "musaitlik_notu.guncellendi",
+    entityType: "hotel",
+    entityId: guard.hotel.id,
+    meta: { noteId: updated.id },
+  });
   return NextResponse.json({ ok: true, note: updated });
 }
 
@@ -108,6 +124,14 @@ export async function DELETE(req: Request, { params }: RouteParams) {
         eq(hotelAvailabilityNotesTable.hotelId, guard.hotel.id),
       ),
     );
+
+  await logAudit({
+    actor: guard.user,
+    action: "musaitlik_notu.silindi",
+    entityType: "hotel",
+    entityId: guard.hotel.id,
+    meta: { noteId: id },
+  });
 
   return NextResponse.json({ ok: true });
 }

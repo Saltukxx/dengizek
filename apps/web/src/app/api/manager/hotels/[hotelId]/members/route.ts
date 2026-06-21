@@ -8,6 +8,7 @@ import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { hotelMembersTable, usersTable } from "@/lib/db/schema";
 import { hotelMemberAddSchema, hotelMemberRemoveSchema } from "@/lib/schemas/hotel-panel";
+import { logAudit } from "@/lib/audit";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -66,6 +67,13 @@ export async function POST(req: Request, { params }: RouteParams) {
         role: parsed.data.role,
       })
       .returning();
+    await logAudit({
+      actor: guard.user,
+      action: "uye.eklendi",
+      entityType: "hotel",
+      entityId: guard.hotel.id,
+      meta: { memberId: member.id, email: parsed.data.email, role: parsed.data.role },
+    });
     return NextResponse.json({ ok: true, member }, { status: 201 });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "";
@@ -118,6 +126,14 @@ export async function DELETE(req: Request, { params }: RouteParams) {
         eq(hotelMembersTable.userId, parsed.data.userId),
       ),
     );
+
+  await logAudit({
+    actor: guard.user,
+    action: "uye.kaldirildi",
+    entityType: "hotel",
+    entityId: guard.hotel.id,
+    meta: { userId: parsed.data.userId },
+  });
 
   return NextResponse.json({ ok: true });
 }

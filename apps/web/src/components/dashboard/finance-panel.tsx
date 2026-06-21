@@ -6,6 +6,7 @@ import { IconAlertCircle } from "@tabler/icons-react";
 import { paymentStatusLabels } from "@/lib/labels";
 import { formatPrice } from "@/lib/price";
 import { useMyHotel } from "./use-my-hotel";
+import { ListPagination } from "./list-pagination";
 
 interface PaymentRow {
   id: string;
@@ -22,16 +23,22 @@ export function FinancePanel() {
   const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
   const [payments, setPayments] = useState<PaymentRow[] | null>(null);
   const [totalMinor, setTotalMinor] = useState(0);
+  const [sayfa, setSayfa] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const limit = 50;
 
   const reload = useCallback(async () => {
     if (!hotel) return;
-    const res = await fetch(`/api/manager/hotels/${hotel.id}/finance`);
+    const res = await fetch(`/api/manager/hotels/${hotel.id}/finance?sayfa=${sayfa}`);
     const json = await res.json();
     if (json.ok) {
       setPayments(json.payments);
       setTotalMinor(json.totalMinor);
+      setTotalCount(json.totalCount ?? json.payments.length);
+      setHasMore(json.hasMore ?? false);
     }
-  }, [hotel]);
+  }, [hotel, sayfa]);
 
   useEffect(() => {
     void reload();
@@ -101,6 +108,13 @@ export function FinancePanel() {
             ))}
           </Table.Tbody>
         </Table>
+        <ListPagination
+          sayfa={sayfa}
+          hasMore={hasMore}
+          totalCount={totalCount}
+          limit={limit}
+          onSayfaChange={setSayfa}
+        />
       </Paper>
     </Stack>
   );

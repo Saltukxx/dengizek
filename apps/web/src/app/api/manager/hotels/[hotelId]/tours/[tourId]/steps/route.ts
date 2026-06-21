@@ -8,6 +8,7 @@
 
 import { NextResponse } from "next/server";
 import { and, eq, notInArray } from "drizzle-orm";
+import { clearFactCatalogCache } from "@/lib/ai/fact-store";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { tourStepsTable, toursTable } from "@/lib/db/schema";
@@ -166,6 +167,8 @@ export async function PUT(req: Request, { params }: RouteParams) {
     .update(toursTable)
     .set({ updatedAt: new Date() })
     .where(eq(toursTable.id, tour.id));
+
+  clearFactCatalogCache(guard.hotel.slug);
 
   return NextResponse.json({ ok: true, count: steps.length });
 }

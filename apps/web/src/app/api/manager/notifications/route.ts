@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { userNotificationsTable } from "@/lib/db/schema";
 import { notificationPatchSchema } from "@/lib/schemas/hotel-panel";
+import { parsePagination, paginatedQuery } from "@/lib/pagination";
 
 export async function GET(req: Request) {
   const guard = await requireUser();
@@ -15,6 +16,7 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const unreadOnly = url.searchParams.get("okunmamis") === "1";
+  const pagination = parsePagination(url);
 
   const db = getDb();
   const filters = [eq(userNotificationsTable.userId, guard.user.id)];
@@ -22,14 +24,23 @@ export async function GET(req: Request) {
     filters.push(isNull(userNotificationsTable.readAt));
   }
 
-  const notifications = await db
-    .select()
-    .from(userNotificationsTable)
-    .where(and(...filters))
-    .orderBy(desc(userNotificationsTable.createdAt))
-    .limit(50);
+  const where = and(...filters);
+  const result = await paginatedQuery({
+    db,
+    table: userNotificationsTable,
+    where,
+    orderBy: desc(userNotificationsTable.createdAt),
+    pagination,
+  });
 
-  return NextResponse.json({ ok: true, notifications });
+  return NextResponse.json({
+    ok: true,
+    notifications: result.items,
+    sayfa: result.sayfa,
+    limit: result.limit,
+    totalCount: result.totalCount,
+    hasMore: result.hasMore,
+  });
 }
 
 export async function PATCH(req: Request) {

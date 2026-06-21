@@ -20,10 +20,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function TourPage({ params }: PageProps) {
   const { hotelSlug, tourId } = await params;
-  const [manifest, hotel] = await Promise.all([
-    getTourManifest(hotelSlug, tourId),
-    getPublishedHotelBySlug(hotelSlug),
-  ]);
+
+  let manifest;
+  try {
+    manifest = await getTourManifest(hotelSlug, tourId);
+  } catch {
+    notFound();
+  }
+
+  const hotel = await getPublishedHotelBySlug(hotelSlug);
   if (!manifest || !hotel) notFound();
 
   return (

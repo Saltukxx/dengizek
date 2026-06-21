@@ -40,6 +40,7 @@ export function AuditTable() {
   const [entries, setEntries] = useState<AuditEntry[] | null>(null);
   const [entityType, setEntityType] = useState<string | null>(null);
   const [sayfa, setSayfa] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
 
   const reload = useCallback(async () => {
     const params = new URLSearchParams();
@@ -47,7 +48,10 @@ export function AuditTable() {
     params.set("sayfa", String(sayfa));
     const res = await fetch(`/api/admin/audit-log?${params}`);
     const json = await res.json();
-    if (json.ok) setEntries(json.entries);
+    if (json.ok) {
+      setEntries(json.entries);
+      setHasMore(json.hasMore ?? false);
+    }
   }, [entityType, sayfa]);
 
   useEffect(() => {
@@ -84,7 +88,7 @@ export function AuditTable() {
           <Button
             variant="default"
             size="xs"
-            disabled={entries.length < 50}
+            disabled={!hasMore}
             onClick={() => setSayfa((s) => s + 1)}
           >
             Sonraki

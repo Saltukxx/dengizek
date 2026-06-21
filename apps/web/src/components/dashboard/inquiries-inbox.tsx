@@ -23,6 +23,7 @@ import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconCalendarPlus, IconDownload, IconMessage } from "@tabler/icons-react";
 import { inquirySourceLabels, inquiryStatusColors, inquiryStatusLabels } from "@/lib/labels";
 import { useMyHotel } from "./use-my-hotel";
+import { ListPagination } from "./list-pagination";
 
 interface InquiryRow {
   id: string;
@@ -54,6 +55,10 @@ interface MessageRow {
 export function InquiriesInbox() {
   const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
   const [inquiries, setInquiries] = useState<InquiryRow[] | null>(null);
+  const [sayfa, setSayfa] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const limit = 50;
   const [durum, setDurum] = useState<string | null>(null);
   const [kaynak, setKaynak] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -63,7 +68,7 @@ export function InquiriesInbox() {
 
   const reload = useCallback(async () => {
     if (!hotel) return;
-    const params = new URLSearchParams({ hotelId: hotel.id });
+    const params = new URLSearchParams({ hotelId: hotel.id, sayfa: String(sayfa) });
     if (durum) params.set("durum", durum);
     if (kaynak) params.set("kaynak", kaynak);
     const [inquiriesRes, roomsRes] = await Promise.all([
@@ -72,7 +77,11 @@ export function InquiriesInbox() {
     ]);
     const json = await inquiriesRes.json();
     const roomsJson = await roomsRes.json();
-    if (json.ok) setInquiries(json.inquiries);
+    if (json.ok) {
+      setInquiries(json.inquiries);
+      setTotalCount(json.totalCount ?? json.inquiries.length);
+      setHasMore(json.hasMore ?? false);
+    }
     if (roomsJson.ok) {
       const map: Record<string, string> = {};
       for (const r of roomsJson.rooms as { id: string; slug: string }[]) {
@@ -80,7 +89,11 @@ export function InquiriesInbox() {
       }
       setRoomSlugToId(map);
     }
-  }, [hotel, durum, kaynak]);
+  }, [hotel, durum, kaynak, sayfa]);
+
+  useEffect(() => {
+    setSayfa(1);
+  }, [durum, kaynak]);
 
   useEffect(() => {
     void reload();
@@ -177,14 +190,18 @@ export function InquiriesInbox() {
             clearable
             data={Object.entries(inquiryStatusLabels).map(([v, l]) => ({ value: v, label: l }))}
             value={durum}
-            onChange={setDurum}
+            onChange={(v) => {
+              setDurum(v);
+            }}
           />
           <Select
             placeholder="Kaynak"
             clearable
             data={Object.entries(inquirySourceLabels).map(([v, l]) => ({ value: v, label: l }))}
             value={kaynak}
-            onChange={setKaynak}
+            onChange={(v) => {
+              setKaynak(v);
+            }}
           />
         </Group>
         {hotel && (
@@ -304,6 +321,13 @@ export function InquiriesInbox() {
             ))}
           </Table.Tbody>
         </Table>
+        <ListPagination
+          sayfa={sayfa}
+          hasMore={hasMore}
+          totalCount={totalCount}
+          limit={limit}
+          onSayfaChange={setSayfa}
+        />
       </Paper>
 
       <Drawer

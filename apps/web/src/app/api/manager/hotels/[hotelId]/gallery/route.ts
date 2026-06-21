@@ -8,6 +8,7 @@ import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { hotelGalleryImagesTable } from "@/lib/db/schema";
 import { galleryImageSchema, galleryPatchSchema } from "@/lib/schemas/hotel-panel";
+import { logAudit } from "@/lib/audit";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -58,6 +59,14 @@ export async function POST(req: Request, { params }: RouteParams) {
     })
     .returning();
 
+  await logAudit({
+    actor: guard.user,
+    action: "galeri.gorsel_eklendi",
+    entityType: "hotel",
+    entityId: guard.hotel.id,
+    meta: { imageId: image.id },
+  });
+
   return NextResponse.json({ ok: true, image }, { status: 201 });
 }
 
@@ -88,6 +97,13 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   if (!updated) {
     return NextResponse.json({ ok: false, error: "Görsel bulunamadı." }, { status: 404 });
   }
+  await logAudit({
+    actor: guard.user,
+    action: "galeri.gorsel_guncellendi",
+    entityType: "hotel",
+    entityId: guard.hotel.id,
+    meta: { imageId: updated.id },
+  });
   return NextResponse.json({ ok: true, image: updated });
 }
 
@@ -108,6 +124,14 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     .where(
       and(eq(hotelGalleryImagesTable.id, id), eq(hotelGalleryImagesTable.hotelId, guard.hotel.id)),
     );
+
+  await logAudit({
+    actor: guard.user,
+    action: "galeri.gorsel_silindi",
+    entityType: "hotel",
+    entityId: guard.hotel.id,
+    meta: { imageId: id },
+  });
 
   return NextResponse.json({ ok: true });
 }

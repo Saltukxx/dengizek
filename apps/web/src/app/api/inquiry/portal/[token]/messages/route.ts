@@ -2,13 +2,13 @@
 // GET/POST /api/inquiry/portal/[token]/messages — misafir mesaj portalı
 // ---------------------------------------------------------------------------
 
-import { NextResponse } from "next/server";
 import { asc, eq } from "drizzle-orm";
 import { getDb, isDbConfigured } from "@/lib/db";
 import { inquiriesTable, inquiryMessagesTable } from "@/lib/db/schema";
 import { inquiryMessageSchema } from "@/lib/schemas/hotel-panel";
 import { notifyHotelMembers } from "@/lib/notifications";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
+import { apiRateLimited, apiServiceUnavailable, apiFail, apiNotFound, apiOk } from "@/lib/api-response";
 
 type RouteParams = { params: Promise<{ token: string }> };
 
@@ -24,13 +24,13 @@ async function findByToken(token: string) {
 
 export async function GET(_req: Request, { params }: RouteParams) {
   if (!isDbConfigured()) {
-    return NextResponse.json({ ok: false, error: "Servis kullanılamıyor." }, { status: 503 });
+    return apiServiceUnavailable("Servis kullanılamıyor.");
   }
 
   const { token } = await params;
   const inquiry = await findByToken(token);
   if (!inquiry) {
-    return NextResponse.json({ ok: false, error: "Geçersiz bağlantı." }, { status: 404 });
+    return apiNotFound("Geçersiz bağlantı.");
   }
 
   const db = getDb();
@@ -40,8 +40,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
     .where(eq(inquiryMessagesTable.inquiryId, inquiry.id))
     .orderBy(asc(inquiryMessagesTable.createdAt));
 
-  return NextResponse.json({
-    ok: true,
+  return apiOk({
     inquiry: {
       id: inquiry.id,
       name: inquiry.name,
@@ -54,35 +53,29 @@ export async function GET(_req: Request, { params }: RouteParams) {
 
 export async function POST(req: Request, { params }: RouteParams) {
   if (!isDbConfigured()) {
-    return NextResponse.json({ ok: false, error: "Servis kullanılamıyor." }, { status: 503 });
+    return apiServiceUnavailable("Servis kullanılamıyor.");
   }
 
   const { token } = await params;
   const inquiry = await findByToken(token);
   if (!inquiry) {
-    return NextResponse.json({ ok: false, error: "Geçersiz bağlantı." }, { status: 404 });
+    return apiNotFound("Geçersiz bağlantı.");
   }
 
   if (
-    !checkRateLimit(`${token}:${requestIp(req)}`, {
+    !(await checkRateLimit(`${token}:${requestIp(req)}`, {
       name: "portal-msg",
       windowMs: 60_000,
       limit: 10,
-    })
+    }))
   ) {
-    return NextResponse.json(
-      { ok: false, error: "Çok fazla mesaj gönderdiniz, lütfen biraz bekleyin." },
-      { status: 429 },
-    );
+    return apiRateLimited();
   }
 
   const body = await req.json().catch(() => null);
   const parsed = inquiryMessageSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return apiFail("Doğrulama başarısız", 400, { issues: parsed.error.flatten() });
   }
 
   const db = getDb();
@@ -105,5 +98,5 @@ export async function POST(req: Request, { params }: RouteParams) {
     });
   }
 
-  return NextResponse.json({ ok: true, message }, { status: 201 });
+  return apiOk({ message }, 201);
 }

@@ -113,26 +113,30 @@ export function getDemoTourManifest(
 // Manifest çözücü: DB-önce, mock-fallback
 // ---------------------------------------------------------------------------
 
+function shouldUseMockFallback(): boolean {
+  return process.env.NODE_ENV !== "production" || process.env.USE_MOCK_DATA === "true";
+}
+
 /**
  * hotelSlug + tourId için MİSAFİR manifesti döner.
  * - DATABASE_URL tanımlıysa → yalnızca YAYIMLANMIŞ snapshot (tours.publishedManifest)
  * - DATABASE_URL yoksa → demo JSON mock'a düşer (local geliştirme)
- * Taslak adımlar misafire asla gösterilmez — yayın admin onayıyla olur.
+ * - Production'da DB hatası → throw (mock yalnızca dev / USE_MOCK_DATA)
  */
 export async function getTourManifest(
   hotelSlug: string,
   tourId: string,
 ): Promise<TourManifest | undefined> {
-  // DB varsa yalnızca yayımlanmış sürüm
   if (process.env.DATABASE_URL) {
     try {
       const { getPublishedManifest } = await import("@/lib/db/manifest");
       return await getPublishedManifest(hotelSlug, tourId);
     } catch (err) {
-      // DB bağlantı hatası — mock'a düş, logla
-      console.warn("[hotels] DB manifest sorgusu başarısız, mock'a düşülüyor:", err);
+      console.warn("[hotels] DB manifest sorgusu başarısız:", err);
+      if (!shouldUseMockFallback()) {
+        throw err instanceof Error ? err : new Error(String(err));
+      }
     }
   }
-  // Fallback: statik mock (sadece aurelia-bay/demo-lobby)
   return getDemoTourManifest(hotelSlug, tourId);
 }

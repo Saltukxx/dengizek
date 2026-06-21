@@ -1,7 +1,8 @@
 "use client";
 
-import { Box, Loader, Text } from "@mantine/core";
+import { Box, Loader, Stack, Text } from "@mantine/core";
 import type { GuideMessage } from "@/lib/tour/use-tour-guide";
+import { TourGuideFactCards, TourGuidePriceCards } from "./tour-guide-cards";
 
 interface TourGuideMessageProps {
   message: GuideMessage;
@@ -65,27 +66,34 @@ export function TourGuideMessage({ message }: TourGuideMessageProps) {
       )}
       <Box
         style={{
+          flex: 1,
+          minWidth: 0,
           padding: isUser ? "16px 20px" : "3px 0",
           borderRadius: isUser ? 8 : 0,
-          borderBottomRightRadius: isUser ? 0 : 0,
-          background: isUser
-            ? "rgba(51,53,53,0.82)"
-            : "transparent",
+          background: isUser ? "rgba(51,53,53,0.82)" : "transparent",
           border: isUser ? "0.5px solid rgba(153,144,126,0.32)" : "none",
         }}
       >
-        <Text
-          size="sm"
-          style={{
-            color: isUser ? "var(--lux-text)" : "var(--lux-muted)",
-            lineHeight: 1.72,
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-            fontFamily: "var(--lux-font-sans)",
-          }}
-        >
-          {message.content}
-        </Text>
+        <Stack gap={0}>
+          <Text
+            size="sm"
+            style={{
+              color: isUser ? "var(--lux-text)" : "var(--lux-muted)",
+              lineHeight: 1.72,
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              fontFamily: "var(--lux-font-sans)",
+            }}
+          >
+            {message.content}
+          </Text>
+          {!isUser && message.priceCards && message.priceCards.length > 0 && (
+            <TourGuidePriceCards cards={message.priceCards} />
+          )}
+          {!isUser && message.factCards && message.factCards.length > 0 && (
+            <TourGuideFactCards cards={message.factCards} />
+          )}
+        </Stack>
       </Box>
     </Box>
   );

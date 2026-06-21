@@ -38,6 +38,7 @@ export function PropertyGallerySection({ hotelId }: { hotelId: string }) {
   async function uploadFile(file: File) {
     const form = new FormData();
     form.append("file", file);
+    form.append("hotelId", hotelId);
     const res = await fetch("/api/manager/media/upload-image", { method: "POST", body: form });
     const json = await res.json();
     if (!json.ok) {

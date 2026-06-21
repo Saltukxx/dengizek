@@ -6,6 +6,7 @@
 
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
+import { clearFactCatalogCache } from "@/lib/ai/fact-store";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { hotelsTable } from "@/lib/db/schema";
@@ -51,6 +52,21 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     .set({ ...parsed.data, updatedAt: new Date() })
     .where(eq(hotelsTable.id, guard.hotel.id))
     .returning();
+
+  const aiCacheFields = [
+    "aiFacts",
+    "aiPolicies",
+    "aiPersona",
+    "cancellationPolicy",
+    "childPolicy",
+    "petsAllowed",
+    "checkInTime",
+    "checkOutTime",
+    "amenities",
+  ] as const;
+  if (aiCacheFields.some((f) => f in parsed.data)) {
+    clearFactCatalogCache(guard.hotel.slug);
+  }
 
   return NextResponse.json({ ok: true, hotel: updated });
 }

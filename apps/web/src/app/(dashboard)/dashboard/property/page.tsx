@@ -1,4 +1,5 @@
 import { Stack, Text, Title } from "@mantine/core";
+import { AiTourMetrics } from "@/components/dashboard/ai-tour-metrics";
 import { PropertyForm } from "@/components/dashboard/property-form";
 
 export default function DashboardPropertyPage() {
@@ -11,6 +12,7 @@ export default function DashboardPropertyPage() {
         </Text>
       </div>
       <PropertyForm />
+      <AiTourMetrics />
     </Stack>
   );
 }

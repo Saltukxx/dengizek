@@ -8,6 +8,7 @@ import { generateAccessToken, trackEvent } from "@/lib/analytics";
 import { notifyHotelMembers } from "@/lib/notifications";
 import { sendEmail } from "@/lib/email";
 import { validateStayDates } from "@/lib/stay-dates";
+import { apiRateLimited, apiServiceUnavailable, apiFail } from "@/lib/api-response";
 
 async function insertInquiryWithToken(
   db: ReturnType<typeof getDb>,
@@ -30,27 +31,24 @@ async function insertInquiryWithToken(
 }
 
 export async function POST(req: Request) {
-  if (!checkRateLimit(requestIp(req), { name: "inquiry", windowMs: 60_000, limit: 5 })) {
-    return NextResponse.json(
-      { ok: false, error: "Çok fazla istek gönderdiniz, lütfen biraz bekleyin." },
-      { status: 429 },
-    );
+  if (
+    !(await checkRateLimit(requestIp(req), { name: "inquiry", windowMs: 60_000, limit: 5 }))
+  ) {
+    return apiRateLimited();
   }
 
   const body = await req.json().catch(() => null);
   const parsed = inquiryFormSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return apiFail("Doğrulama başarısız", 400, { issues: parsed.error.flatten() });
   }
 
   if (!isDbConfigured()) {
-    if (process.env.NODE_ENV === "development") {
+    if (process.env.NODE_ENV === "development" || process.env.USE_MOCK_DATA === "true") {
       console.info("[inquiry:mock]", parsed.data);
+      return NextResponse.json({ ok: true, id: `mock-${Date.now()}`, emailSent: false });
     }
-    return NextResponse.json({ ok: true, id: `mock-${Date.now()}` });
+    return apiServiceUnavailable("Talep kaydı yapılandırılmamış.");
   }
 
   const db = getDb();
@@ -128,11 +126,11 @@ export async function POST(req: Request) {
   }
 
   const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/inquiry/portal/${inquiry.accessToken}`;
-  void sendEmail({
+  const emailSent = await sendEmail({
     to: data.email,
     subject: "Talebiniz alındı — Dengizek",
     text: `Merhaba ${data.name},\n\nTalebiniz otele iletildi. Yanıtları takip etmek için: ${portalUrl}`,
   });
 
-  return NextResponse.json({ ok: true, id: inquiry.id });
+  return NextResponse.json({ ok: true, id: inquiry.id, emailSent });
 }

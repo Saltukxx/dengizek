@@ -26,6 +26,7 @@ import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconRefresh, IconTrash, IconUpload } from "@tabler/icons-react";
 import { mediaStatusColors, mediaStatusLabels } from "@/lib/labels";
 import { useMyHotel } from "./use-my-hotel";
+import { ListPagination } from "./list-pagination";
 
 interface MediaAsset {
   id: string;
@@ -41,6 +42,10 @@ interface MediaAsset {
 export function MediaUploader() {
   const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
   const [media, setMedia] = useState<MediaAsset[] | null>(null);
+  const [sayfa, setSayfa] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const limit = 50;
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [uploadPct, setUploadPct] = useState<number | null>(null);
@@ -48,10 +53,14 @@ export function MediaUploader() {
 
   const reload = useCallback(async () => {
     if (!hotel) return;
-    const res = await fetch(`/api/manager/media?hotelId=${hotel.id}`);
+    const res = await fetch(`/api/manager/media?hotelId=${hotel.id}&sayfa=${sayfa}`);
     const json = await res.json();
-    if (json.ok) setMedia(json.media);
-  }, [hotel]);
+    if (json.ok) {
+      setMedia(json.media);
+      setTotalCount(json.totalCount ?? json.media.length);
+      setHasMore(json.hasMore ?? false);
+    }
+  }, [hotel, sayfa]);
 
   useEffect(() => {
     void reload();
@@ -254,6 +263,13 @@ export function MediaUploader() {
             ))}
           </Table.Tbody>
         </Table>
+        <ListPagination
+          sayfa={sayfa}
+          hasMore={hasMore}
+          totalCount={totalCount}
+          limit={limit}
+          onSayfaChange={setSayfa}
+        />
       </Paper>
     </Stack>
   );

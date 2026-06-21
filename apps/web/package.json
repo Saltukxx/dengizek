@@ -37,6 +37,7 @@
     "react-dom": "19.1.0",
     "react-hook-form": "^7.73.1",
     "tus-js-client": "^4.3.1",
+    "ws": "^8.21.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -49,6 +50,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.7.0",
     "dotenv": "^16.4.7",
     "drizzle-kit": "^0.31.0",

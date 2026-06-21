@@ -11,31 +11,12 @@ import { authConfig } from "@/auth.config";
 import { getDb } from "@/lib/db";
 import { usersTable } from "@/lib/db/schema";
 import { verifyPassword } from "@/lib/auth/password";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });
-
-// ---------------------------------------------------------------------------
-// Giriş denemesi sınırlayıcı (in-memory MVP) — IP+e-posta başına 10 deneme/10dk
-// ---------------------------------------------------------------------------
-const loginAttempts = new Map<string, { count: number; resetTime: number }>();
-
-function checkLoginRateLimit(key: string): boolean {
-  const now = Date.now();
-  const windowMs = 10 * 60 * 1000;
-  const limit = 10;
-
-  let record = loginAttempts.get(key);
-  if (!record || record.resetTime < now) {
-    record = { count: 0, resetTime: now + windowMs };
-    loginAttempts.set(key, record);
-  }
-  if (record.count >= limit) return false;
-  record.count += 1;
-  return true;
-}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -51,7 +32,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!parsed.success) return null;
 
         const email = parsed.data.email.toLowerCase().trim();
-        if (!checkLoginRateLimit(email)) {
+        if (
+          !(await checkRateLimit(email, {
+            name: "login",
+            windowMs: 10 * 60 * 1000,
+            limit: 10,
+          }))
+        ) {
           // Auth.js authorize null dönerse genel hata gösterilir;
           // brute-force'a karşı sessizce reddediyoruz.
           return null;

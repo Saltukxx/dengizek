@@ -33,6 +33,8 @@ import {
   getClipStartSec,
   isPastClipEnd,
 } from "@/lib/tour/tour-clip-helpers";
+import { computeCompletionState } from "@/lib/ai/completion-engine";
+import { trackEvent } from "@/lib/analytics-client";
 import { useTourGuide } from "@/lib/tour/use-tour-guide";
 import { TourCalloutLayer } from "./tour-callout-layer";
 import { TourGuidePanel } from "./TourGuidePanel";
@@ -82,14 +84,18 @@ export function TourPlayer({
   const [playbackSec, setPlaybackSec] = useState(0);
   const [fileDuration, setFileDuration] = useState(0);
   const [stepsSeen, setStepsSeen] = useState<string[]>([]);
+  const tourCompleteTrackedRef = useRef(false);
+  const trackedStepViewsRef = useRef(new Set<string>());
 
-  // Görülen adımları takip et
+  const visibleStepList = manifest.steps
+    .filter((s) => s.aiVisible !== false)
+    .sort((a, b) => a.order - b.order);
+
   useEffect(() => {
     if (currentStep && !stepsSeen.includes(currentStep.stepId)) {
       setStepsSeen((prev) => [...prev, currentStep.stepId]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep?.stepId]);
+  }, [currentStep, stepsSeen]);
 
   // Otel adı: hotelSlug'dan türet
   const hotelName = manifest.hotelSlug
@@ -124,6 +130,47 @@ export function TourPlayer({
       router.push(`/inquiry?${params.toString()}`);
     },
   });
+
+  useEffect(() => {
+    if (!currentStep || trackedStepViewsRef.current.has(currentStep.stepId)) return;
+    if (!stepsSeen.includes(currentStep.stepId)) return;
+
+    trackedStepViewsRef.current.add(currentStep.stepId);
+    const completion = computeCompletionState(
+      visibleStepList.map((s) => ({ stepId: s.stepId, title: s.title })),
+      stepsSeen,
+      currentStep.stepId,
+    );
+
+    void trackEvent(
+      "tour_step_view",
+      {
+        tourId: manifest.tourId,
+        stepId: currentStep.stepId,
+        stepsSeenCount: completion.seenCount,
+        totalSteps: completion.totalCount,
+        progressRatio: completion.progressRatio,
+        isAutoTour,
+      },
+      manifest.hotelSlug,
+    );
+
+    if (completion.isComplete && !tourCompleteTrackedRef.current) {
+      tourCompleteTrackedRef.current = true;
+      void trackEvent(
+        "tour_complete",
+        {
+          tourId: manifest.tourId,
+          stepsSeenCount: completion.seenCount,
+          totalSteps: completion.totalCount,
+          progressRatio: 1,
+          isAutoTour,
+        },
+        manifest.hotelSlug,
+      );
+    }
+  }, [currentStep, isAutoTour, manifest.hotelSlug, manifest.tourId, stepsSeen, visibleStepList]);
+
   const clipSequenceDoneRef = useRef(false);
   const notifiedStepStartRef = useRef<string | null>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);

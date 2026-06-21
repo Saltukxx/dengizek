@@ -8,6 +8,7 @@ import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { promotionsTable } from "@/lib/db/schema";
 import { promotionPatchSchema, promotionSchema } from "@/lib/schemas/hotel-panel";
+import { logAudit } from "@/lib/audit";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -46,6 +47,14 @@ export async function POST(req: Request, { params }: RouteParams) {
     .values({ ...parsed.data, hotelId: guard.hotel.id })
     .returning();
 
+  await logAudit({
+    actor: guard.user,
+    action: "kampanya.olusturuldu",
+    entityType: "hotel",
+    entityId: guard.hotel.id,
+    meta: { promotionId: promotion.id, name: promotion.name },
+  });
+
   return NextResponse.json({ ok: true, promotion }, { status: 201 });
 }
 
@@ -74,6 +83,13 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   if (!updated) {
     return NextResponse.json({ ok: false, error: "Kampanya bulunamadı." }, { status: 404 });
   }
+  await logAudit({
+    actor: guard.user,
+    action: "kampanya.guncellendi",
+    entityType: "hotel",
+    entityId: guard.hotel.id,
+    meta: { promotionId: updated.id },
+  });
   return NextResponse.json({ ok: true, promotion: updated });
 }
 
@@ -92,6 +108,14 @@ export async function DELETE(req: Request, { params }: RouteParams) {
   await db
     .delete(promotionsTable)
     .where(and(eq(promotionsTable.id, id), eq(promotionsTable.hotelId, guard.hotel.id)));
+
+  await logAudit({
+    actor: guard.user,
+    action: "kampanya.silindi",
+    entityType: "hotel",
+    entityId: guard.hotel.id,
+    meta: { promotionId: id },
+  });
 
   return NextResponse.json({ ok: true });
 }

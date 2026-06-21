@@ -8,6 +8,7 @@ import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { ratePlansTable } from "@/lib/db/schema";
 import { ratePlanPatchSchema, ratePlanSchema } from "@/lib/schemas/hotel-panel";
+import { logAudit } from "@/lib/audit";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -52,6 +53,14 @@ export async function POST(req: Request, { params }: RouteParams) {
     .values({ ...parsed.data, hotelId: guard.hotel.id })
     .returning();
 
+  await logAudit({
+    actor: guard.user,
+    action: "fiyat_plani.olusturuldu",
+    entityType: "hotel",
+    entityId: guard.hotel.id,
+    meta: { planId: plan.id },
+  });
+
   return NextResponse.json({ ok: true, plan }, { status: 201 });
 }
 
@@ -86,6 +95,13 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   if (!updated) {
     return NextResponse.json({ ok: false, error: "Plan bulunamadı." }, { status: 404 });
   }
+  await logAudit({
+    actor: guard.user,
+    action: "fiyat_plani.guncellendi",
+    entityType: "hotel",
+    entityId: guard.hotel.id,
+    meta: { planId: updated.id },
+  });
   return NextResponse.json({ ok: true, plan: updated });
 }
 
@@ -104,6 +120,14 @@ export async function DELETE(req: Request, { params }: RouteParams) {
   await db
     .delete(ratePlansTable)
     .where(and(eq(ratePlansTable.id, id), eq(ratePlansTable.hotelId, guard.hotel.id)));
+
+  await logAudit({
+    actor: guard.user,
+    action: "fiyat_plani.silindi",
+    entityType: "hotel",
+    entityId: guard.hotel.id,
+    meta: { planId: id },
+  });
 
   return NextResponse.json({ ok: true });
 }

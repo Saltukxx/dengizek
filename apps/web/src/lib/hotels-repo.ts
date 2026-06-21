@@ -17,6 +17,17 @@ function isDbAvailable(): boolean {
   return Boolean(process.env.DATABASE_URL);
 }
 
+function shouldUseMockFallback(): boolean {
+  return process.env.NODE_ENV !== "production" || process.env.USE_MOCK_DATA === "true";
+}
+
+function rethrowUnlessMockAllowed(context: string, err: unknown): void {
+  console.warn(`[hotels-repo] ${context}:`, err);
+  if (!shouldUseMockFallback()) {
+    throw err instanceof Error ? err : new Error(String(err));
+  }
+}
+
 /** DB satırını misafir sayfalarının beklediği HotelMock şekline eşler. */
 function toGuestHotel(row: {
   slug: string;
@@ -110,9 +121,10 @@ export async function getPublishedHotelsForBrowse(): Promise<BrowseHotelRow[]> {
         .where(eq(hotelsTable.status, "yayinda"))
         .orderBy(hotelsTable.name);
     } catch (err) {
-      console.warn("[hotels-repo] DB sorgusu başarısız, mock'a düşülüyor:", err);
+      rethrowUnlessMockAllowed("DB sorgusu başarısız", err);
     }
   }
+  if (!shouldUseMockFallback()) return [];
   return getMockHotels().map((h) => ({
     slug: h.slug,
     name: h.name,
@@ -145,9 +157,10 @@ export async function getPublishedHotelBySlug(
         .limit(1);
       return row ? toGuestHotel(row) : undefined;
     } catch (err) {
-      console.warn("[hotels-repo] DB sorgusu başarısız, mock'a düşülüyor:", err);
+      rethrowUnlessMockAllowed("DB sorgusu başarısız", err);
     }
   }
+  if (!shouldUseMockFallback()) return undefined;
   return getMockHotelBySlug(slug);
 }
 
@@ -401,7 +414,7 @@ export async function getPublishedHotelContent(
       })),
     };
   } catch (err) {
-    console.warn("[hotels-repo] İçerik sorgusu başarısız, boş içerik dönülüyor:", err);
+    rethrowUnlessMockAllowed("İçerik sorgusu başarısız", err);
     return emptyContent;
   }
 }
@@ -531,9 +544,11 @@ export async function getPublishedRoom(
         }
       }
     } catch (err) {
-      console.warn("[hotels-repo] Oda sorgusu başarısız, mock'a düşülüyor:", err);
+      rethrowUnlessMockAllowed("Oda sorgusu başarısız", err);
     }
   }
+
+  if (!shouldUseMockFallback()) return undefined;
 
   const mock = getMockRoomBySlugs(hotelSlug, roomSlug);
   if (!mock) return undefined;

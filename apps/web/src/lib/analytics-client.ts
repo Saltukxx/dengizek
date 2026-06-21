@@ -1,9 +1,11 @@
 "use client";
 
+import type { AnalyticsTrackInput } from "@/lib/schemas/analytics";
+
 /** Client-side analytics — POST to public API */
 
 export async function trackEvent(
-  eventType: string,
+  eventType: AnalyticsTrackInput["eventType"],
   payload: Record<string, unknown> = {},
   hotelSlug?: string,
 ) {

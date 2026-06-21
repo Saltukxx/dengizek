@@ -4,10 +4,11 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { desc, eq } from "drizzle-orm";
+import { count, desc, eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { auditLogTable } from "@/lib/db/schema";
+import { parsePagination, paginatedMeta } from "@/lib/pagination";
 
 export async function GET(req: Request) {
   const guard = await requireAdmin();
@@ -15,18 +16,36 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const entityType = url.searchParams.get("entityType");
-  const sayfa = Math.max(1, Number(url.searchParams.get("sayfa") ?? "1") || 1);
-  const limit = 50;
+  const pagination = parsePagination(url);
 
   const db = getDb();
-  const base = db.select().from(auditLogTable);
+  const where = entityType ? eq(auditLogTable.entityType, entityType) : undefined;
 
-  const entries = await (entityType
-    ? base.where(eq(auditLogTable.entityType, entityType))
-    : base)
-    .orderBy(desc(auditLogTable.createdAt))
-    .limit(limit)
-    .offset((sayfa - 1) * limit);
+  const countQuery = db.select({ value: count() }).from(auditLogTable);
+  const dataQuery = db.select().from(auditLogTable);
 
-  return NextResponse.json({ ok: true, entries, sayfa });
+  const [countRow] = where ? await countQuery.where(where) : await countQuery;
+  const totalCount = Number(countRow?.value ?? 0);
+
+  const entries = where
+    ? await dataQuery
+        .where(where)
+        .orderBy(desc(auditLogTable.createdAt))
+        .limit(pagination.limit)
+        .offset(pagination.offset)
+    : await dataQuery
+        .orderBy(desc(auditLogTable.createdAt))
+        .limit(pagination.limit)
+        .offset(pagination.offset);
+
+  const result = paginatedMeta(entries, { ...pagination, totalCount });
+
+  return NextResponse.json({
+    ok: true,
+    entries: result.items,
+    sayfa: result.sayfa,
+    limit: result.limit,
+    totalCount: result.totalCount,
+    hasMore: result.hasMore,
+  });
 }

@@ -1,13 +1,14 @@
 // ---------------------------------------------------------------------------
 // Drizzle DB client
-// - Neon / uzak Postgres → HTTP (Neon serverless)
-// - localhost / Docker postgres → postgres.js (TCP)
+// - Neon / uzak Postgres → Pool (WebSocket, transaction destekli)
+// - localhost / Docker postgres → postgres.js (TCP, transaction destekli)
 // ---------------------------------------------------------------------------
 
-import { neon } from "@neondatabase/serverless";
-import { drizzle as drizzleNeon } from "drizzle-orm/neon-http";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import { drizzle as drizzleNeon } from "drizzle-orm/neon-serverless";
 import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import ws from "ws";
 import * as schema from "./schema";
 
 export type Db = ReturnType<typeof buildDb>;
@@ -29,10 +30,11 @@ function buildDb() {
     const client = postgres(url, { max: 10 });
     return drizzlePostgres(client, { schema });
   }
-  return drizzleNeon(neon(url), { schema });
+  neonConfig.webSocketConstructor = ws;
+  const pool = new Pool({ connectionString: url });
+  return drizzleNeon(pool, { schema });
 }
 
-// Sunucu-tarafı singleton (module cache)
 let _db: Db | null = null;
 
 export function getDb(): Db {
@@ -40,7 +42,9 @@ export function getDb(): Db {
   return _db;
 }
 
-/** DATABASE_URL tanımlı mı? (DB olmadan mock'a düşmek için) */
 export function isDbConfigured(): boolean {
   return !!process.env.DATABASE_URL;
 }
+
+/** Transaction callback'inde kullanılan DB tipi. */
+export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];

@@ -2,7 +2,24 @@
 
 **Proje:** Dengizek  
 **Tarih:** Nisan 2026  
-**Durum:** Faz 1 + Faz 2 + Faz 3 tamamlandı — Faz 4 (Veritabanı Entegrasyonu) sırada
+**Durum:** Faz 1–6 uygulandı — completion engine, response guard, AI analytics, ai-metrics panel, fact cache, context router, readiness score, production manifest hardening
+
+### Uygulanan Değişiklikler (Haziran 2026 — AI motor KPI)
+
+| Dosya | Durum | Açıklama |
+|-------|-------|----------|
+| `src/lib/ai/completion-engine.ts` | ✅ | Deterministik `computeCompletionState`, openInquiry %80 gate |
+| `src/lib/ai/response-guard.ts` | ✅ | Serbest metin fiyat blok + tool keyword hints |
+| `src/lib/ai/context-router.ts` | ✅ | Prompt fact alt kümesi (~15 entry) |
+| `src/lib/ai/readiness-score.ts` | ✅ | Panel veri kalitesi skoru 0–100 |
+| `src/lib/ai/fact-store.ts` | ✅ | TTL cache + otel ifadesi etiketi |
+| `src/app/api/tour/chat/route.ts` | ✅ | completionMeta, guard stream, tool execute |
+| `src/lib/tour/use-tour-guide.ts` | ✅ | openInquiry client gate, analytics, completionMeta |
+| `src/components/tour-player/TourPlayer.tsx` | ✅ | tour_step_view / tour_complete analytics |
+| `src/lib/schemas/analytics.ts` | ✅ | AI-only event allowlist |
+| `src/app/api/manager/.../ai-metrics/route.ts` | ✅ | 30 günlük AI tur metrikleri + readiness |
+| `src/components/dashboard/ai-tour-metrics.tsx` | ✅ | Panel kartı (property sayfası) |
+| `src/lib/mocks/hotels.ts` | ✅ | Production'da manifest mock kapalı |
 
 ### Uygulanan Değişiklikler (28 Nisan 2026)
 

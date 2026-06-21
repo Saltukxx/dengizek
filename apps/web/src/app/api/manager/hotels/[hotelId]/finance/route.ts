@@ -3,28 +3,46 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { paymentsTable } from "@/lib/db/schema";
+import { parsePagination, paginatedQuery } from "@/lib/pagination";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
-export async function GET(_req: Request, { params }: RouteParams) {
+export async function GET(req: Request, { params }: RouteParams) {
   const { hotelId } = await params;
   const guard = await requireHotelAccess(hotelId);
   if (guard.response) return guard.response;
 
+  const pagination = parsePagination(new URL(req.url));
   const db = getDb();
-  const payments = await db
-    .select()
-    .from(paymentsTable)
-    .where(eq(paymentsTable.hotelId, guard.hotel.id))
-    .orderBy(desc(paymentsTable.createdAt));
+  const where = eq(paymentsTable.hotelId, guard.hotel.id);
 
-  const totalMinor = payments
-    .filter((p) => p.status === "odendi")
-    .reduce((sum, p) => sum + p.amountMinor, 0);
+  const [result, paidRows] = await Promise.all([
+    paginatedQuery({
+      db,
+      table: paymentsTable,
+      where,
+      orderBy: desc(paymentsTable.createdAt),
+      pagination,
+    }),
+    db
+      .select({ amountMinor: paymentsTable.amountMinor })
+      .from(paymentsTable)
+      .where(and(where, eq(paymentsTable.status, "odendi"))),
+  ]);
 
-  return NextResponse.json({ ok: true, payments, totalMinor });
+  const totalMinor = paidRows.reduce((sum, p) => sum + p.amountMinor, 0);
+
+  return NextResponse.json({
+    ok: true,
+    payments: result.items,
+    totalMinor,
+    sayfa: result.sayfa,
+    limit: result.limit,
+    totalCount: result.totalCount,
+    hasMore: result.hasMore,
+  });
 }

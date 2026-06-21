@@ -9,13 +9,22 @@ import { getDb } from "@/lib/db";
 import { bookingsTable } from "@/lib/db/schema";
 import { bookingCreateSchema, bookingPatchSchema } from "@/lib/schemas/hotel-panel";
 import {
-  adjustInventoryForBooking,
-  assertInventoryAvailable,
-  findOverlappingBooking,
+  approveBooking,
+  BookingServiceError,
+  createPendingBooking,
+  releaseApprovedBooking,
 } from "@/lib/bookings";
 import { logAudit } from "@/lib/audit";
+import { parsePagination, paginatedQuery } from "@/lib/pagination";
+import { apiFail, apiOk } from "@/lib/api-response";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
+
+function bookingErrorResponse(err: BookingServiceError) {
+  const status =
+    err.code === "not_found" ? 404 : err.code === "invalid_state" ? 400 : 409;
+  return apiFail(err.message, status);
+}
 
 export async function GET(req: Request, { params }: RouteParams) {
   const { hotelId } = await params;
@@ -24,6 +33,7 @@ export async function GET(req: Request, { params }: RouteParams) {
 
   const url = new URL(req.url);
   const status = url.searchParams.get("durum");
+  const pagination = parsePagination(url);
 
   const db = getDb();
   const filters = [eq(bookingsTable.hotelId, guard.hotel.id)];
@@ -31,13 +41,23 @@ export async function GET(req: Request, { params }: RouteParams) {
     filters.push(eq(bookingsTable.status, status as "beklemede" | "onaylandi" | "iptal" | "no_show"));
   }
 
-  const bookings = await db
-    .select()
-    .from(bookingsTable)
-    .where(and(...filters))
-    .orderBy(desc(bookingsTable.createdAt));
+  const where = and(...filters);
+  const result = await paginatedQuery({
+    db,
+    table: bookingsTable,
+    where,
+    orderBy: desc(bookingsTable.createdAt),
+    pagination,
+  });
 
-  return NextResponse.json({ ok: true, bookings });
+  return NextResponse.json({
+    ok: true,
+    bookings: result.items,
+    sayfa: result.sayfa,
+    limit: result.limit,
+    totalCount: result.totalCount,
+    hasMore: result.hasMore,
+  });
 }
 
 export async function POST(req: Request, { params }: RouteParams) {
@@ -48,33 +68,18 @@ export async function POST(req: Request, { params }: RouteParams) {
   const body = await req.json().catch(() => null);
   const parsed = bookingCreateSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return apiFail("Doğrulama başarısız", 400, { issues: parsed.error.flatten() });
   }
 
-  const db = getDb();
-  const overlap = await findOverlappingBooking(
-    db,
-    guard.hotel.id,
-    parsed.data.roomId,
-    parsed.data.checkIn,
-    parsed.data.checkOut,
-  );
-  if (overlap) {
-    return NextResponse.json(
-      { ok: false, error: "Bu tarihlerde çakışan bir rezervasyon var." },
-      { status: 409 },
-    );
+  try {
+    const booking = await createPendingBooking(guard.hotel.id, parsed.data);
+    return apiOk({ booking }, 201);
+  } catch (err) {
+    if (err instanceof BookingServiceError && err.code === "overlap") {
+      return apiFail(err.message, 409);
+    }
+    throw err;
   }
-
-  const [booking] = await db
-    .insert(bookingsTable)
-    .values({ ...parsed.data, hotelId: guard.hotel.id, status: "beklemede" })
-    .returning();
-
-  return NextResponse.json({ ok: true, booking }, { status: 201 });
 }
 
 export async function PATCH(req: Request, { params }: RouteParams) {
@@ -85,10 +90,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   const body = await req.json().catch(() => null);
   const parsed = bookingPatchSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return apiFail("Doğrulama başarısız", 400, { issues: parsed.error.flatten() });
   }
 
   const { id, ...fields } = parsed.data;
@@ -104,54 +106,38 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     return NextResponse.json({ ok: false, error: "Rezervasyon bulunamadı." }, { status: 404 });
   }
 
-  if (fields.status === "onaylandi" && existing.status !== "onaylandi") {
-    const overlap = await findOverlappingBooking(
-      db,
-      guard.hotel.id,
-      existing.roomId,
-      String(existing.checkIn),
-      String(existing.checkOut),
-      existing.id,
-    );
-    if (overlap) {
-      return NextResponse.json(
-        { ok: false, error: "Onaylanamaz: tarih çakışması var." },
-        { status: 409 },
-      );
+  try {
+    if (fields.status === "onaylandi" && existing.status !== "onaylandi") {
+      const updated = await approveBooking(guard.hotel.id, id);
+      await logAudit({
+        actor: guard.user,
+        action: "rezervasyon.onaylandi",
+        entityType: "hotel",
+        entityId: id,
+        meta: { hotelId: guard.hotel.id },
+      });
+      return NextResponse.json({ ok: true, booking: updated });
     }
 
-    const inv = await assertInventoryAvailable(
-      db,
-      existing.roomId,
-      String(existing.checkIn),
-      String(existing.checkOut),
-    );
-    if (!inv.ok) {
-      return NextResponse.json({ ok: false, error: inv.error }, { status: 409 });
+    if (
+      (fields.status === "iptal" || fields.status === "no_show") &&
+      existing.status === "onaylandi"
+    ) {
+      const updated = await releaseApprovedBooking(guard.hotel.id, id, fields.status);
+      await logAudit({
+        actor: guard.user,
+        action: `rezervasyon.${fields.status}`,
+        entityType: "hotel",
+        entityId: id,
+        meta: { hotelId: guard.hotel.id },
+      });
+      return NextResponse.json({ ok: true, booking: updated });
     }
-
-    await adjustInventoryForBooking(
-      db,
-      guard.hotel.id,
-      existing.roomId,
-      String(existing.checkIn),
-      String(existing.checkOut),
-      -1,
-    );
-  }
-
-  if (
-    (fields.status === "iptal" || fields.status === "no_show") &&
-    existing.status === "onaylandi"
-  ) {
-    await adjustInventoryForBooking(
-      db,
-      guard.hotel.id,
-      existing.roomId,
-      String(existing.checkIn),
-      String(existing.checkOut),
-      1,
-    );
+  } catch (err) {
+    if (err instanceof BookingServiceError) {
+      return bookingErrorResponse(err);
+    }
+    throw err;
   }
 
   const [updated] = await db

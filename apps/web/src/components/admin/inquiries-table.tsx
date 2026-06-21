@@ -66,6 +66,7 @@ export function InquiriesTable() {
   const [hotelId, setHotelId] = useState<string | null>(null);
   const [kaynak, setKaynak] = useState<string | null>(null);
   const [sayfa, setSayfa] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [detail, setDetail] = useState<AdminInquiry | null>(null);
   const [messages, setMessages] = useState<MessageRow[]>([]);
@@ -81,6 +82,7 @@ export function InquiriesTable() {
     if (json.ok) {
       setInquiries(json.inquiries);
       setHotels(json.hotels ?? []);
+      setHasMore(json.hasMore ?? false);
     }
   }, [durum, hotelId, kaynak, sayfa]);
 
@@ -265,7 +267,7 @@ export function InquiriesTable() {
         <Text size="sm" c="dimmed">
           Sayfa {sayfa}
         </Text>
-        <Button variant="default" disabled={inquiries.length < 50} onClick={() => setSayfa((p) => p + 1)}>
+        <Button variant="default" disabled={!hasMore} onClick={() => setSayfa((p) => p + 1)}>
           Sonraki
         </Button>
       </Group>

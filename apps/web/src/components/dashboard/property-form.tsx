@@ -467,14 +467,14 @@ export function PropertyForm() {
             />
           </Group>
           <TagsInput
-            label="Otel gerçekleri"
-            description="Enter ile ekleyin — örn. '5 yıldız otel', '200 oda kapasitesi'"
+            label="Otel ifadesi"
+            description="AI kartında 'Otel ifadesi' etiketiyle gösterilir; doğrulanmış panel verisi değildir."
             value={detail.aiFacts}
             onChange={(v) => set("aiFacts", v)}
           />
           <TagsInput
-            label="Politikalar"
-            description="Örn. 'Check-in saati: 14:00'"
+            label="Politika"
+            description="Örn. 'Check-in saati: 14:00' — citeFact politika kartında gösterilir."
             value={detail.aiPolicies}
             onChange={(v) => set("aiPolicies", v)}
           />

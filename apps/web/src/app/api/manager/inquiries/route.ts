@@ -3,10 +3,11 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { and, desc, eq, type SQL } from "drizzle-orm";
+import { and, desc, eq, count, type SQL } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
-import { hotelsTable, inquiriesTable, inquirySourceEnum, inquiryStatusEnum } from "@/lib/db/schema";
+import { inquiriesTable, inquirySourceEnum, inquiryStatusEnum } from "@/lib/db/schema";
+import { parsePagination, paginatedMeta } from "@/lib/pagination";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -23,8 +24,7 @@ export async function GET(req: Request) {
 
   const durum = url.searchParams.get("durum");
   const kaynak = url.searchParams.get("kaynak");
-  const sayfa = Math.max(1, Number(url.searchParams.get("sayfa") ?? "1") || 1);
-  const limit = 50;
+  const pagination = parsePagination(url);
 
   const isValidStatus = (v: string): v is (typeof inquiryStatusEnum.enumValues)[number] =>
     (inquiryStatusEnum.enumValues as readonly string[]).includes(v);
@@ -36,13 +36,28 @@ export async function GET(req: Request) {
   if (kaynak && isValidSource(kaynak)) filters.push(eq(inquiriesTable.source, kaynak));
 
   const db = getDb();
-  const inquiries = await db
-    .select()
-    .from(inquiriesTable)
-    .where(and(...filters))
-    .orderBy(desc(inquiriesTable.createdAt))
-    .limit(limit)
-    .offset((sayfa - 1) * limit);
+  const where = and(...filters);
 
-  return NextResponse.json({ ok: true, inquiries, sayfa });
+  const [inquiries, [countRow]] = await Promise.all([
+    db
+      .select()
+      .from(inquiriesTable)
+      .where(where)
+      .orderBy(desc(inquiriesTable.createdAt))
+      .limit(pagination.limit)
+      .offset(pagination.offset),
+    db.select({ value: count() }).from(inquiriesTable).where(where),
+  ]);
+
+  const totalCount = Number(countRow?.value ?? 0);
+  const result = paginatedMeta(inquiries, { ...pagination, totalCount });
+
+  return NextResponse.json({
+    ok: true,
+    inquiries: result.items,
+    sayfa: result.sayfa,
+    limit: result.limit,
+    totalCount: result.totalCount,
+    hasMore: result.hasMore,
+  });
 }

@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { desc, eq, and, type SQL } from "drizzle-orm";
+import { desc, eq, and, count, type SQL } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { hotelsTable, inquiriesTable, inquirySourceEnum, inquiryStatusEnum } from "@/lib/db/schema";
@@ -60,10 +60,23 @@ export async function GET(req: Request) {
     .limit(limit)
     .offset((sayfa - 1) * limit);
 
+  const countQuery = db.select({ value: count() }).from(inquiriesTable);
+  const [countRow] =
+    filters.length > 0 ? await countQuery.where(and(...filters)) : await countQuery;
+  const totalCount = Number(countRow?.value ?? 0);
+
   const hotels = await db
     .select({ id: hotelsTable.id, name: hotelsTable.name, slug: hotelsTable.slug })
     .from(hotelsTable)
     .orderBy(hotelsTable.name);
 
-  return NextResponse.json({ ok: true, inquiries, hotels, sayfa });
+  return NextResponse.json({
+    ok: true,
+    inquiries,
+    hotels,
+    sayfa,
+    limit,
+    totalCount,
+    hasMore: sayfa * limit < totalCount,
+  });
 }

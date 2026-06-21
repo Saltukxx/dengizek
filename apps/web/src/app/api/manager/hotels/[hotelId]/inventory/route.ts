@@ -8,6 +8,7 @@ import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { roomInventoryTable } from "@/lib/db/schema";
 import { inventoryPutSchema } from "@/lib/schemas/hotel-panel";
+import { logAudit } from "@/lib/audit";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -66,6 +67,14 @@ export async function PUT(req: Request, { params }: RouteParams) {
         },
       });
   }
+
+  await logAudit({
+    actor: guard.user,
+    action: "envanter.guncellendi",
+    entityType: "hotel",
+    entityId: guard.hotel.id,
+    meta: { kayit: parsed.data.entries.length },
+  });
 
   return NextResponse.json({ ok: true, count: parsed.data.entries.length });
 }
