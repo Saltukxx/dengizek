@@ -9,6 +9,8 @@ import { getDb } from "@/lib/db";
 import { roomsTable } from "@/lib/db/schema";
 import { roomUpsertSchema } from "@/lib/schemas/hotel-content";
 import { logAudit } from "@/lib/audit";
+import { withTransaction } from "@/lib/db/transaction";
+import { syncSystemInventoryCapacity } from "@/lib/inventory-seed";
 
 type RouteParams = { params: Promise<{ hotelId: string; roomId: string }> };
 
@@ -43,8 +45,8 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
   const db = getDb();
   try {
-    const [updated] = await db
-      .update(roomsTable)
+    const updated = await withTransaction(async (tx) => {
+      const [row] = await tx.update(roomsTable)
       .set({
         ...parsed.data,
         imageUrl: parsed.data.imageUrl || null,
@@ -52,6 +54,9 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       })
       .where(eq(roomsTable.id, room.id))
       .returning();
+      if (row.unitCount !== room.unitCount) await syncSystemInventoryCapacity(tx, room.id, row.unitCount);
+      return row;
+    });
     return NextResponse.json({ ok: true, room: updated });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "";

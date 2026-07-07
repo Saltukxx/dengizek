@@ -9,6 +9,7 @@ import { getDb } from "@/lib/db";
 import { inquiriesTable, inquiryMessagesTable } from "@/lib/db/schema";
 import { inquiryMessageSchema } from "@/lib/schemas/hotel-panel";
 import { sendEmail } from "@/lib/email";
+import { rotateInquiryPortalToken } from "@/lib/inquiry-portal-token";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -74,8 +75,9 @@ export async function POST(req: Request, { params }: RouteParams) {
     })
     .returning();
 
-  if (inquiry.accessToken) {
-    const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/inquiry/portal/${inquiry.accessToken}`;
+  {
+    const token = await rotateInquiryPortalToken(db, inquiry.id);
+    const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/inquiry/portal/${token}`;
     await sendEmail({
       to: inquiry.email,
       subject: "Tesisinizden yeni mesaj — Dengizek",

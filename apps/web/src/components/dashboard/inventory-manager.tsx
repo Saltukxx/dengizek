@@ -31,12 +31,16 @@ interface InventoryRow {
   allotment: number;
   stopSell: boolean;
   minStay: number | null;
+  cta: boolean;
+  ctd: boolean;
 }
 
 type DayDraft = {
   allotment: number;
   stopSell: boolean;
   minStay: number | null;
+  cta: boolean;
+  ctd: boolean;
 };
 
 const MONTH_NAMES = [
@@ -104,13 +108,15 @@ export function InventoryManager() {
     if (json.ok) {
       const map: Record<string, DayDraft> = {};
       for (const d of dates) {
-        map[d] = { allotment: 0, stopSell: false, minStay: null };
+        map[d] = { allotment: 0, stopSell: false, minStay: null, cta: false, ctd: false };
       }
       for (const row of json.inventory as InventoryRow[]) {
         map[row.date] = {
           allotment: row.allotment,
           stopSell: row.stopSell,
           minStay: row.minStay,
+          cta: row.cta,
+          ctd: row.ctd,
         };
       }
       setDraft(map);
@@ -155,8 +161,8 @@ export function InventoryManager() {
       allotment: draft[date]?.allotment ?? 0,
       stopSell: draft[date]?.stopSell ?? false,
       minStay: draft[date]?.minStay ?? null,
-      cta: false,
-      ctd: false,
+      cta: draft[date]?.cta ?? false,
+      ctd: draft[date]?.ctd ?? false,
     }));
     const res = await fetch(`/api/manager/hotels/${hotel.id}/inventory`, {
       method: "PUT",
@@ -226,11 +232,13 @@ export function InventoryManager() {
                     <Table.Th>Kontenjan</Table.Th>
                     <Table.Th>Stop-sell</Table.Th>
                     <Table.Th>Min. gece</Table.Th>
+                    <Table.Th>Girişe kapalı</Table.Th>
+                    <Table.Th>Çıkışa kapalı</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
                   {dates.map((date) => {
-                    const row = draft[date] ?? { allotment: 0, stopSell: false, minStay: null };
+                    const row = draft[date] ?? { allotment: 0, stopSell: false, minStay: null, cta: false, ctd: false };
                     const dayNum = new Date(date + "T12:00:00").getDate();
                     const weekday = new Date(date + "T12:00:00").toLocaleDateString("tr-TR", {
                       weekday: "short",
@@ -245,6 +253,8 @@ export function InventoryManager() {
                             {date}
                           </Text>
                         </Table.Td>
+                        <Table.Td><Switch size="sm" checked={row.cta} onChange={(e) => patchDay(date, { cta: e.currentTarget.checked })} /></Table.Td>
+                        <Table.Td><Switch size="sm" checked={row.ctd} onChange={(e) => patchDay(date, { ctd: e.currentTarget.checked })} /></Table.Td>
                         <Table.Td>
                           <NumberInput
                             min={0}

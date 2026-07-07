@@ -98,6 +98,10 @@ export const reviewCreateSchema = z.object({
   guestName: z.string().min(1).max(120),
   stayDate: z.string().regex(datePattern).nullable().optional(),
   inquiryId: uuid.nullable().optional(),
+  bookingId: uuid.nullable().optional(),
+  source: z.enum(["verified_guest", "hotel_import"]).default("hotel_import"),
+}).refine((value) => value.source === "hotel_import" || Boolean(value.inquiryId || value.bookingId), {
+  message: "Doğrulanmış yorum rezervasyon veya talebe bağlı olmalıdır.", path: ["source"],
 });
 
 export const reviewPatchSchema = z.object({
@@ -134,10 +138,11 @@ export const bookingCreateSchema = z
 
 export const bookingPatchSchema = z.object({
   id: uuid,
-  status: z.enum(["beklemede", "onaylandi", "iptal", "no_show"]).optional(),
+  action: z.enum(["approve", "cancel", "mark_no_show", "reopen"]).optional(),
+  idempotencyKey: z.string().min(8).max(120).optional(),
   notes: z.string().max(2000).optional(),
   totalMinor: z.number().int().nonnegative().nullable().optional(),
-});
+}).refine((value) => !value.action || Boolean(value.idempotencyKey), { message: "Durum değişikliği için idempotencyKey gerekli.", path: ["idempotencyKey"] });
 
 export const inventoryEntrySchema = z.object({
   roomId: uuid,

@@ -8,7 +8,8 @@ import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { reviewsTable } from "@/lib/db/schema";
 import { reviewCreateSchema, reviewPatchSchema } from "@/lib/schemas/hotel-panel";
-import { assertInquiryBelongsToHotel } from "@/lib/tenant-integrity";
+import { assertBookingBelongsToHotel, assertInquiryBelongsToHotel } from "@/lib/tenant-integrity";
+import { logAudit } from "@/lib/audit";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -43,6 +44,9 @@ export async function POST(req: Request, { params }: RouteParams) {
   if (!(await assertInquiryBelongsToHotel(guard.hotel.id, parsed.data.inquiryId))) {
     return NextResponse.json({ ok: false, error: "Talep bulunamadı." }, { status: 404 });
   }
+  if (!(await assertBookingBelongsToHotel(guard.hotel.id, parsed.data.bookingId))) {
+    return NextResponse.json({ ok: false, error: "Rezervasyon bulunamadı." }, { status: 404 });
+  }
 
   const db = getDb();
   const [review] = await db
@@ -51,8 +55,11 @@ export async function POST(req: Request, { params }: RouteParams) {
       ...parsed.data,
       hotelId: guard.hotel.id,
       status: "beklemede",
+      createdBy: guard.user.id,
     })
     .returning();
+
+  await logAudit({ actor: guard.user, action: "yorum.olusturuldu", entityType: "hotel", entityId: guard.hotel.id, meta: { reviewId: review.id, source: review.source } });
 
   return NextResponse.json({ ok: true, review }, { status: 201 });
 }

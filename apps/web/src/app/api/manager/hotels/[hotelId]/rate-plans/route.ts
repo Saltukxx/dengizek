@@ -47,10 +47,12 @@ export async function POST(req: Request, { params }: RouteParams) {
   }
 
   const plan = await withTransaction(async (db) => {
-    if (parsed.data.isDefault) {
+    const existing = await db.select({ id: ratePlansTable.id }).from(ratePlansTable).where(eq(ratePlansTable.hotelId, guard.hotel.id));
+    const makeDefault = parsed.data.isDefault || existing.length === 0;
+    if (makeDefault) {
       await db.update(ratePlansTable).set({ isDefault: false }).where(eq(ratePlansTable.hotelId, guard.hotel.id));
     }
-    const [created] = await db.insert(ratePlansTable).values({ ...parsed.data, hotelId: guard.hotel.id }).returning();
+    const [created] = await db.insert(ratePlansTable).values({ ...parsed.data, isDefault: makeDefault, hotelId: guard.hotel.id }).returning();
     return created;
   });
 
@@ -83,6 +85,10 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   }
 
   const { id, ...fields } = parsed.data;
+  if (fields.isDefault === false) {
+    const [current] = await getDb().select({ isDefault: ratePlansTable.isDefault }).from(ratePlansTable).where(and(eq(ratePlansTable.id, id), eq(ratePlansTable.hotelId, guard.hotel.id))).limit(1);
+    if (current?.isDefault) return NextResponse.json({ ok: false, error: "Varsayılan plan kapatılamaz; önce başka bir planı varsayılan yapın." }, { status: 409 });
+  }
   const updated = await withTransaction(async (tx) => {
     if (fields.isDefault === true) {
       await tx.update(ratePlansTable).set({ isDefault: false }).where(eq(ratePlansTable.hotelId, guard.hotel.id));
@@ -117,6 +123,9 @@ export async function DELETE(req: Request, { params }: RouteParams) {
   }
 
   const db = getDb();
+  const [target] = await db.select({ isDefault: ratePlansTable.isDefault }).from(ratePlansTable).where(and(eq(ratePlansTable.id, id), eq(ratePlansTable.hotelId, guard.hotel.id))).limit(1);
+  if (!target) return NextResponse.json({ ok: false, error: "Plan bulunamadı." }, { status: 404 });
+  if (target.isDefault) return NextResponse.json({ ok: false, error: "Varsayılan plan silinemez; önce başka bir planı varsayılan yapın." }, { status: 409 });
   await db
     .delete(ratePlansTable)
     .where(and(eq(ratePlansTable.id, id), eq(ratePlansTable.hotelId, guard.hotel.id)));

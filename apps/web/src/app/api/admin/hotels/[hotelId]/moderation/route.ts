@@ -62,7 +62,7 @@ export async function POST(req: Request, { params }: RouteParams) {
       reviewedAt: now,
       reviewedBy: guard.user.id,
       updatedAt: now,
-      ...(parsed.data.karar === "onayla" ? { publishedSnapshot: hotel.submittedSnapshot } : {}),
+      ...(parsed.data.karar === "onayla" ? { publishedSnapshot: hotel.submittedSnapshot, publishedRevision: hotel.submittedRevision } : {}),
     })
     .where(and(eq(hotelsTable.id, hotel.id), eq(hotelsTable.status, "incelemede"), eq(hotelsTable.submittedRevision, parsed.data.submittedRevision)))
     .returning();

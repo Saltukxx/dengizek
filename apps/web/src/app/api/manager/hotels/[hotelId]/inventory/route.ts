@@ -69,6 +69,8 @@ export async function PUT(req: Request, { params }: RouteParams) {
           minStay: entry.minStay ?? null,
           cta: entry.cta,
           ctd: entry.ctd,
+          source: "manual",
+          manualOverride: true,
         },
       });
     }

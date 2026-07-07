@@ -10,6 +10,7 @@ import { getDb } from "@/lib/db";
 import { hotelsTable } from "@/lib/db/schema";
 import { logAudit } from "@/lib/audit";
 import { withTransaction } from "@/lib/db/transaction";
+import { buildHotelContentSnapshot } from "@/lib/hotel-content-snapshot";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -31,12 +32,14 @@ export async function POST(_req: Request, { params }: RouteParams) {
     );
   }
 
-  const snapshot = { ...hotel, submittedSnapshot: undefined, publishedSnapshot: undefined };
   const updated = await withTransaction(async (tx) => {
+    const [lockedHotel] = await tx.select().from(hotelsTable).where(eq(hotelsTable.id, guard.hotel.id)).for("update");
+    if (!lockedHotel) throw new Error("Tesis bulunamadı.");
+    const snapshot = await buildHotelContentSnapshot(tx, guard.hotel.id);
     const [row] = await tx.update(hotelsTable).set({
       status: "incelemede",
       submittedAt: new Date(),
-      submittedRevision: hotel.draftRevision,
+      submittedRevision: lockedHotel.draftRevision,
       submittedSnapshot: snapshot,
       updatedAt: new Date(),
     }).where(eq(hotelsTable.id, guard.hotel.id)).returning();

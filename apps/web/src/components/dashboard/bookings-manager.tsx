@@ -25,6 +25,7 @@ import { bookingStatusLabels } from "@/lib/labels";
 import { formatPrice, toMinor } from "@/lib/price";
 import { useMyHotel } from "./use-my-hotel";
 import { ListPagination } from "./list-pagination";
+import { newIdempotencyKey } from "@/lib/api-client";
 
 interface BookingRow {
   id: string;
@@ -170,10 +171,11 @@ export function BookingsManager() {
 
   async function setStatus(id: string, status: BookingRow["status"]) {
     if (!hotel) return;
+    const action = status === "onaylandi" ? "approve" : status === "no_show" ? "mark_no_show" : status === "beklemede" ? "reopen" : "cancel";
     const res = await fetch(`/api/manager/hotels/${hotel.id}/bookings`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status }),
+      body: JSON.stringify({ id, action, idempotencyKey: newIdempotencyKey(action, id) }),
     });
     const json = await res.json();
     if (json.ok) {

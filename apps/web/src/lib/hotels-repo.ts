@@ -12,6 +12,7 @@ import {
 } from "@/lib/mocks/hotels";
 import type { Extra, Promotion, Restaurant, Room, RoomRate } from "@/lib/db/schema";
 import type { GuestPromotion, GuestRatePlanPrice } from "@/lib/guest-pricing";
+import { parseHotelContentSnapshot } from "@/lib/schemas/hotel-content-snapshot";
 
 function isDbAvailable(): boolean {
   return Boolean(process.env.DATABASE_URL);
@@ -38,9 +39,10 @@ function toGuestHotel(row: {
   longDescription: string | null;
   imageUrl: string | null;
   priceLabel: string | null;
-  publishedSnapshot?: Record<string, unknown> | null;
+  publishedSnapshot?: unknown;
 }): HotelMock {
-  const snapshot = row.publishedSnapshot ?? {};
+  const parsed = parseHotelContentSnapshot(row.publishedSnapshot);
+  const snapshot = parsed.success ? parsed.data.hotel : {};
   const value = <T>(key: string, fallback: T) => (key in snapshot ? snapshot[key] as T : fallback);
   // Oda tipleri henüz DB'de modellenmedi — mock'ta varsa oradan tamamlanır
   const mock = getMockHotelBySlug(row.slug);
@@ -125,7 +127,8 @@ export async function getPublishedHotelsForBrowse(): Promise<BrowseHotelRow[]> {
         .where(eq(hotelsTable.status, "yayinda"))
         .orderBy(hotelsTable.name);
       return rows.map((row) => {
-        const snapshot = row.publishedSnapshot ?? {};
+        const parsed = parseHotelContentSnapshot(row.publishedSnapshot);
+        const snapshot = parsed.success ? parsed.data.hotel : {};
         const value = <T>(key: string, fallback: T) => key in snapshot ? snapshot[key] as T : fallback;
         return {
           ...row,
@@ -139,6 +142,10 @@ export async function getPublishedHotelsForBrowse(): Promise<BrowseHotelRow[]> {
           starRating: value("starRating", row.starRating),
           amenities: value("amenities", row.amenities),
           petsAllowed: value("petsAllowed", row.petsAllowed),
+          minPriceMinor: parsed.success
+            ? parsed.data.rooms.filter((room) => room.isActive !== false && room.priceOnRequest !== true && typeof room.priceMinor === "number")
+                .reduce<number | null>((min, room) => min == null ? room.priceMinor as number : Math.min(min, room.priceMinor as number), null)
+            : row.minPriceMinor,
         };
       });
     } catch (err) {
@@ -283,6 +290,49 @@ export async function getPublishedHotelContent(
     } = await import("@/lib/db/schema");
     const { and, asc, eq, or, isNull, lte, gte } = await import("drizzle-orm");
     const db = getDb();
+
+    const [snapshotRow] = await db.select({ publishedSnapshot: hotelsTable.publishedSnapshot })
+      .from(hotelsTable)
+      .where(and(eq(hotelsTable.slug, slug), eq(hotelsTable.status, "yayinda")))
+      .limit(1);
+    const parsedSnapshot = parseHotelContentSnapshot(snapshotRow?.publishedSnapshot);
+    if (parsedSnapshot.success) {
+      const snapshot = parsedSnapshot.data;
+      const hotel = snapshot.hotel;
+      const rooms = snapshot.rooms as unknown as Room[];
+      const rates = snapshot.roomRates as unknown as RoomRate[];
+      const ratesByRoom = new Map<string, RoomRate[]>();
+      for (const rate of rates) ratesByRoom.set(rate.roomId, [...(ratesByRoom.get(rate.roomId) ?? []), rate]);
+      const defaultPlan = snapshot.ratePlans.find((plan) => plan.isDefault === true);
+      const prices = snapshot.ratePlanPrices.filter((price) => price.ratePlanId === defaultPlan?.id);
+      return {
+        rooms: rooms.filter((room) => room.isActive).sort((a, b) => a.orderIndex - b.orderIndex).map((room) => ({ ...room, rates: ratesByRoom.get(room.id) ?? [] })),
+        restaurants: (snapshot.restaurants as unknown as Restaurant[]).filter((item) => item.isActive).sort((a, b) => a.orderIndex - b.orderIndex),
+        extras: (snapshot.extras as unknown as Extra[]).filter((item) => item.isActive).sort((a, b) => a.orderIndex - b.orderIndex),
+        amenities: (hotel.amenities as string[] | undefined) ?? [],
+        specs: {
+          starRating: (hotel.starRating as number | null) ?? null,
+          totalRooms: (hotel.totalRooms as number | null) ?? null,
+          checkInTime: (hotel.checkInTime as string | null) ?? null,
+          checkOutTime: (hotel.checkOutTime as string | null) ?? null,
+          cancellationPolicy: (hotel.cancellationPolicy as string | null) ?? null,
+          childPolicy: (hotel.childPolicy as string | null) ?? null,
+          petsAllowed: (hotel.petsAllowed as boolean | null) ?? null,
+          paymentMethods: (hotel.paymentMethods as string[] | undefined) ?? [],
+          address: (hotel.address as string | null) ?? null,
+          phone: (hotel.phone as string | null) ?? null,
+          contactEmail: (hotel.contactEmail as string | null) ?? null,
+          airportDistanceKm: (hotel.airportDistanceKm as number | null) ?? null,
+          blackoutText: (hotel.blackoutText as string | null) ?? null,
+        },
+        gallery: snapshot.gallery.map((item) => ({ url: String(item.url), caption: item.caption == null ? null : String(item.caption) })),
+        latitude: (hotel.latitude as string | null) ?? null,
+        longitude: (hotel.longitude as string | null) ?? null,
+        availabilityNotes: snapshot.availabilityNotes.map((item) => ({ label: String(item.label), startDate: item.startDate == null ? null : String(item.startDate), endDate: item.endDate == null ? null : String(item.endDate), isBlackout: Boolean(item.isBlackout) })),
+        promotions: (snapshot.promotions as unknown as Promotion[]).filter((item) => item.isActive).map((item) => ({ name: item.name, discountPercent: item.discountPercent, validFrom: item.validFrom ? String(item.validFrom) : null, validTo: item.validTo ? String(item.validTo) : null, minNights: item.minNights, roomIds: item.roomIds, isActive: item.isActive })),
+        ratePlanPrices: prices.map((item) => ({ roomId: String(item.roomId), name: String(item.name), startDate: String(item.startDate), endDate: String(item.endDate), priceMinor: Number(item.priceMinor), currency: String(item.currency), minStayNights: item.minStayNights == null ? null : Number(item.minStayNights) })),
+      };
+    }
 
     const [hotel] = await db
       .select({
@@ -505,12 +555,33 @@ export async function getPublishedRoom(
           slug: hotelsTable.slug,
           name: hotelsTable.name,
           imageUrl: hotelsTable.imageUrl,
+          publishedSnapshot: hotelsTable.publishedSnapshot,
         })
         .from(hotelsTable)
         .where(and(eq(hotelsTable.slug, hotelSlug), eq(hotelsTable.status, "yayinda")))
         .limit(1);
 
       if (hotel) {
+        const published = parseHotelContentSnapshot(hotel.publishedSnapshot);
+        if (published.success) {
+          const hotelData = published.data.hotel;
+          const room = published.data.rooms.find((item) => item.slug === roomSlug && item.isActive !== false);
+          if (!room) return undefined;
+          const rates = published.data.roomRates.filter((item) => item.roomId === room.id) as unknown as GuestRoomRate[];
+          const content = await getPublishedHotelContent(hotelSlug);
+          return {
+            hotel: { slug: hotelSlug, name: String(hotelData.name ?? hotel.name), imageUrl: String(hotelData.imageUrl ?? "") },
+            promotions: content.promotions,
+            ratePlanPrices: content.ratePlanPrices,
+            room: {
+              id: String(room.id), slug: String(room.slug), name: String(room.name), tagline: room.tagline == null ? null : String(room.tagline), description: room.description == null ? null : String(room.description),
+              sizeSqm: room.sizeSqm == null ? null : Number(room.sizeSqm), capacityAdults: room.capacityAdults == null ? null : Number(room.capacityAdults), capacityChildren: room.capacityChildren == null ? null : Number(room.capacityChildren),
+              bedConfig: room.bedConfig == null ? null : String(room.bedConfig), viewType: room.viewType == null ? null : String(room.viewType), imageUrl: room.imageUrl == null ? null : String(room.imageUrl), amenities: (room.amenities as string[] | undefined) ?? [],
+              boardType: room.boardType == null ? null : String(room.boardType), unitCount: room.unitCount == null ? null : Number(room.unitCount), minStayNights: room.minStayNights == null ? null : Number(room.minStayNights), pricingNotes: room.pricingNotes == null ? null : String(room.pricingNotes),
+              priceMinor: room.priceMinor == null ? null : Number(room.priceMinor), currency: String(room.currency ?? "TRY"), priceOnRequest: Boolean(room.priceOnRequest), discountPercent: room.discountPercent == null ? null : Number(room.discountPercent), discountLabel: room.discountLabel == null ? null : String(room.discountLabel), rates,
+            },
+          };
+        }
         const [room] = await db
           .select()
           .from(roomsTable)

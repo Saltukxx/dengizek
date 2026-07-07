@@ -1,7 +1,7 @@
 import { and, eq, gt, inArray, ne, sql } from "drizzle-orm";
 import type { Db, Tx } from "@/lib/db";
 import { withTransaction } from "@/lib/db/transaction";
-import { bookingsTable, roomInventoryTable, roomsTable } from "@/lib/db/schema";
+import { bookingsTable, bookingTransitionsTable, roomInventoryTable, roomsTable } from "@/lib/db/schema";
 import { eachStayNight, stayRangesOverlap } from "@/lib/stay-dates";
 
 const ACTIVE_STATUSES = ["beklemede", "onaylandi"] as const;
@@ -188,7 +188,7 @@ export async function createPendingBooking(
 }
 
 /** Rezervasyonu atomik olarak onaylar. */
-export async function approveBooking(hotelId: string, bookingId: string) {
+export async function approveBooking(hotelId: string, bookingId: string, idempotencyKey = `approve:${bookingId}`) {
   return withTransaction(async (tx) => {
     const [existing] = await tx
       .select()
@@ -224,6 +224,8 @@ export async function approveBooking(hotelId: string, bookingId: string) {
       .where(eq(bookingsTable.id, bookingId))
       .returning();
 
+    await tx.insert(bookingTransitionsTable).values({ bookingId, hotelId, action: "approve", idempotencyKey, fromStatus: "beklemede", toStatus: "onaylandi" }).onConflictDoNothing();
+
     return updated;
   });
 }
@@ -233,6 +235,7 @@ export async function releaseApprovedBooking(
   hotelId: string,
   bookingId: string,
   status: "iptal" | "no_show",
+  idempotencyKey = `${status}:${bookingId}`,
 ) {
   return withTransaction(async (tx) => {
     const [existing] = await tx
@@ -243,6 +246,12 @@ export async function releaseApprovedBooking(
 
     if (!existing) {
       throw new BookingServiceError("Rezervasyon bulunamadı.", "not_found");
+    }
+    if (existing.status === status) return existing;
+    if (existing.status === "beklemede" && status === "iptal") {
+      const [updated] = await tx.update(bookingsTable).set({ status, updatedAt: new Date() }).where(eq(bookingsTable.id, bookingId)).returning();
+      await tx.insert(bookingTransitionsTable).values({ bookingId, hotelId, action: "cancel", idempotencyKey, fromStatus: "beklemede", toStatus: "iptal" }).onConflictDoNothing();
+      return updated;
     }
     if (existing.status !== "onaylandi") {
       throw new BookingServiceError("Yalnızca onaylı rezervasyon iptal edilebilir.", "invalid_state");
@@ -264,6 +273,22 @@ export async function releaseApprovedBooking(
       .where(eq(bookingsTable.id, bookingId))
       .returning();
 
+    await tx.insert(bookingTransitionsTable).values({ bookingId, hotelId, action: status === "iptal" ? "cancel" : "mark_no_show", idempotencyKey, fromStatus: "onaylandi", toStatus: status }).onConflictDoNothing();
+
+    return updated;
+  });
+}
+
+export async function reopenBooking(hotelId: string, bookingId: string, idempotencyKey: string) {
+  return withTransaction(async (tx) => {
+    const [existing] = await tx.select().from(bookingsTable)
+      .where(and(eq(bookingsTable.id, bookingId), eq(bookingsTable.hotelId, hotelId))).for("update");
+    if (!existing) throw new BookingServiceError("Rezervasyon bulunamadı.", "not_found");
+    if (existing.status === "beklemede") return existing;
+    if (existing.status !== "iptal" && existing.status !== "no_show") throw new BookingServiceError("Yalnızca terminal rezervasyon yeniden açılabilir.", "invalid_state");
+    const [updated] = await tx.update(bookingsTable).set({ status: "beklemede", updatedAt: new Date() })
+      .where(eq(bookingsTable.id, bookingId)).returning();
+    await tx.insert(bookingTransitionsTable).values({ bookingId, hotelId, action: "reopen", idempotencyKey, fromStatus: existing.status, toStatus: "beklemede" }).onConflictDoNothing();
     return updated;
   });
 }

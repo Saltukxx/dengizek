@@ -13,6 +13,7 @@ import {
   BookingServiceError,
   createPendingBooking,
   releaseApprovedBooking,
+  reopenBooking,
 } from "@/lib/bookings";
 import { logAudit } from "@/lib/audit";
 import { parsePagination, paginatedQuery } from "@/lib/pagination";
@@ -100,7 +101,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     return apiFail("Doğrulama başarısız", 400, { issues: parsed.error.flatten() });
   }
 
-  const { id, ...fields } = parsed.data;
+  const { id, action, idempotencyKey, ...fields } = parsed.data;
   const db = getDb();
 
   const [existing] = await db
@@ -114,8 +115,8 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   }
 
   try {
-    if (fields.status === "onaylandi" && existing.status !== "onaylandi") {
-      const updated = await approveBooking(guard.hotel.id, id);
+    if (action === "approve") {
+      const updated = await approveBooking(guard.hotel.id, id, idempotencyKey!);
       await logAudit({
         actor: guard.user,
         action: "rezervasyon.onaylandi",
@@ -126,18 +127,20 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       return NextResponse.json({ ok: true, booking: updated });
     }
 
-    if (
-      (fields.status === "iptal" || fields.status === "no_show") &&
-      existing.status === "onaylandi"
-    ) {
-      const updated = await releaseApprovedBooking(guard.hotel.id, id, fields.status);
+    if (action === "cancel" || action === "mark_no_show") {
+      const nextStatus = action === "cancel" ? "iptal" : "no_show";
+      const updated = await releaseApprovedBooking(guard.hotel.id, id, nextStatus, idempotencyKey!);
       await logAudit({
         actor: guard.user,
-        action: `rezervasyon.${fields.status}`,
+        action: `rezervasyon.${nextStatus}`,
         entityType: "hotel",
         entityId: id,
         meta: { hotelId: guard.hotel.id },
       });
+      return NextResponse.json({ ok: true, booking: updated });
+    }
+    if (action === "reopen") {
+      const updated = await reopenBooking(guard.hotel.id, id, idempotencyKey!);
       return NextResponse.json({ ok: true, booking: updated });
     }
   } catch (err) {
@@ -152,16 +155,6 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     .set({ ...fields, updatedAt: new Date() })
     .where(and(eq(bookingsTable.id, id), eq(bookingsTable.hotelId, guard.hotel.id)))
     .returning();
-
-  if (fields.status) {
-    await logAudit({
-      actor: guard.user,
-      action: `rezervasyon.${fields.status}`,
-      entityType: "hotel",
-      entityId: id,
-      meta: { hotelId: guard.hotel.id },
-    });
-  }
 
   return NextResponse.json({ ok: true, booking: updated });
 }

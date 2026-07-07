@@ -9,6 +9,8 @@ import { getDb } from "@/lib/db";
 import { roomRatesTable, roomsTable } from "@/lib/db/schema";
 import { roomUpsertSchema } from "@/lib/schemas/hotel-content";
 import { logAudit } from "@/lib/audit";
+import { withTransaction } from "@/lib/db/transaction";
+import { seedRoomInventory } from "@/lib/inventory-seed";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -67,15 +69,16 @@ export async function POST(req: Request, { params }: RouteParams) {
   const nextOrder = existing.reduce((max, r) => Math.max(max, r.orderIndex + 1), 0);
 
   try {
-    const [room] = await db
-      .insert(roomsTable)
-      .values({
+    const room = await withTransaction(async (tx) => {
+      const [created] = await tx.insert(roomsTable).values({
         ...parsed.data,
         imageUrl: parsed.data.imageUrl || null,
         hotelId: guard.hotel.id,
         orderIndex: nextOrder,
-      })
-      .returning();
+      }).returning();
+      await seedRoomInventory(tx, guard.hotel.id, created.id, created.unitCount);
+      return created;
+    });
 
     await logAudit({
       actor: guard.user,

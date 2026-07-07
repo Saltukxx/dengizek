@@ -5,6 +5,7 @@ import {
   inquiriesTable,
   ratePlansTable,
   roomsTable,
+  bookingsTable,
 } from "@/lib/db/schema";
 
 function unique(ids: readonly (string | null | undefined)[]) {
@@ -41,6 +42,14 @@ export async function assertCancellationRuleBelongsToHotel(hotelId: string, rule
   if (!ruleId) return true;
   const rows = await getDb().select({ id: cancellationRulesTable.id }).from(cancellationRulesTable).where(
     and(eq(cancellationRulesTable.hotelId, hotelId), eq(cancellationRulesTable.id, ruleId)),
+  ).limit(1);
+  return rows.length === 1;
+}
+
+export async function assertBookingBelongsToHotel(hotelId: string, bookingId?: string | null) {
+  if (!bookingId) return true;
+  const rows = await getDb().select({ id: bookingsTable.id }).from(bookingsTable).where(
+    and(eq(bookingsTable.hotelId, hotelId), eq(bookingsTable.id, bookingId)),
   ).limit(1);
   return rows.length === 1;
 }

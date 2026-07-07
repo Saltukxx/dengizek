@@ -4,11 +4,12 @@ import { inquiryFormSchema } from "@/lib/schemas/inquiry";
 import { getDb, isDbConfigured } from "@/lib/db";
 import { hotelsTable, inquiriesTable, roomsTable } from "@/lib/db/schema";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
-import { generateAccessToken, trackEvent } from "@/lib/analytics";
+import { trackEvent } from "@/lib/analytics";
 import { notifyHotelMembers } from "@/lib/notifications";
 import { sendEmail } from "@/lib/email";
 import { validateStayDates } from "@/lib/stay-dates";
 import { apiRateLimited, apiServiceUnavailable, apiFail } from "@/lib/api-response";
+import { generatePortalToken, hashPortalToken, portalTokenExpiry } from "@/lib/inquiry-portal-token";
 
 async function insertInquiryWithToken(
   db: ReturnType<typeof getDb>,
@@ -17,11 +18,12 @@ async function insertInquiryWithToken(
 ) {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
+      const token = generatePortalToken();
       const [inquiry] = await db
         .insert(inquiriesTable)
-        .values({ ...values, accessToken: values.accessToken ?? generateAccessToken() })
+        .values({ ...values, accessToken: null, accessTokenHash: hashPortalToken(token), accessTokenExpiresAt: portalTokenExpiry() })
         .returning();
-      return inquiry;
+      return { inquiry, token };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (!/unique|duplicate/i.test(msg) || attempt === maxAttempts - 1) throw err;
@@ -88,7 +90,7 @@ export async function POST(req: Request) {
     roomSlug = null;
   }
 
-  const inquiry = await insertInquiryWithToken(db, {
+  const { inquiry, token: portalToken } = await insertInquiryWithToken(db, {
     hotelId,
     hotelSlug: data.hotelSlug ?? null,
     name: data.name,
@@ -106,7 +108,6 @@ export async function POST(req: Request) {
     stepKey: data.stepKey ?? null,
     source: data.source ?? "web",
     locale: data.locale ?? "tr",
-    accessToken: generateAccessToken(),
   });
 
   void trackEvent(
@@ -125,7 +126,7 @@ export async function POST(req: Request) {
     });
   }
 
-  const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/inquiry/portal/${inquiry.accessToken}`;
+  const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/inquiry/portal/${portalToken}`;
   const emailSent = await sendEmail({
     to: data.email,
     subject: "Talebiniz alındı — Dengizek",

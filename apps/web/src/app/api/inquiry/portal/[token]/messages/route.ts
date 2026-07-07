@@ -2,13 +2,14 @@
 // GET/POST /api/inquiry/portal/[token]/messages — misafir mesaj portalı
 // ---------------------------------------------------------------------------
 
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, or } from "drizzle-orm";
 import { getDb, isDbConfigured } from "@/lib/db";
 import { inquiriesTable, inquiryMessagesTable } from "@/lib/db/schema";
 import { inquiryMessageSchema } from "@/lib/schemas/hotel-panel";
 import { notifyHotelMembers } from "@/lib/notifications";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { apiRateLimited, apiServiceUnavailable, apiFail, apiNotFound, apiOk } from "@/lib/api-response";
+import { hashPortalToken } from "@/lib/inquiry-portal-token";
 
 type RouteParams = { params: Promise<{ token: string }> };
 
@@ -17,9 +18,13 @@ async function findByToken(token: string) {
   const [inquiry] = await db
     .select()
     .from(inquiriesTable)
-    .where(eq(inquiriesTable.accessToken, token))
+    .where(or(eq(inquiriesTable.accessTokenHash, hashPortalToken(token)), eq(inquiriesTable.accessToken, token)))
     .limit(1);
   return inquiry;
+}
+
+function tokenUnavailable(inquiry: typeof inquiriesTable.$inferSelect) {
+  return Boolean(inquiry.accessTokenRevokedAt || !inquiry.accessTokenExpiresAt || inquiry.accessTokenExpiresAt.getTime() < Date.now());
 }
 
 export async function GET(_req: Request, { params }: RouteParams) {
@@ -29,7 +34,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
 
   const { token } = await params;
   const inquiry = await findByToken(token);
-  if (!inquiry) {
+  if (!inquiry || tokenUnavailable(inquiry)) {
     return apiNotFound("Geçersiz bağlantı.");
   }
 
@@ -58,9 +63,10 @@ export async function POST(req: Request, { params }: RouteParams) {
 
   const { token } = await params;
   const inquiry = await findByToken(token);
-  if (!inquiry) {
+  if (!inquiry || tokenUnavailable(inquiry)) {
     return apiNotFound("Geçersiz bağlantı.");
   }
+  if (inquiry.status === "kapatildi") return apiFail("Talep kapatıldığı için portal salt okunurdur.", 409, { code: "PORTAL_READ_ONLY" });
 
   if (
     !(await checkRateLimit(`${token}:${requestIp(req)}`, {
@@ -90,7 +96,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     .returning();
 
   if (inquiry.hotelId) {
-    void notifyHotelMembers(inquiry.hotelId, {
+    await notifyHotelMembers(inquiry.hotelId, {
       type: "mesaj",
       title: "Misafirden yeni mesaj",
       body: parsed.data.body.slice(0, 80),

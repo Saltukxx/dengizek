@@ -17,6 +17,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import type { TourManifest } from "@/lib/schemas/tour-manifest";
+import type { HotelContentSnapshot } from "@/lib/schemas/hotel-content-snapshot";
 
 // ---------------------------------------------------------------------------
 // Enum'lar — DB etiketleri ASCII tutulur (Postgres enum etiketlerinde Türkçe
@@ -156,8 +157,9 @@ export const hotelsTable = pgTable("hotels", {
   // misafir yüzü yalnızca publishedSnapshot okur.
   draftRevision:     integer("draft_revision").default(1).notNull(),
   submittedRevision: integer("submitted_revision"),
-  submittedSnapshot: jsonb("submitted_snapshot").$type<Record<string, unknown>>(),
-  publishedSnapshot: jsonb("published_snapshot").$type<Record<string, unknown>>(),
+  submittedSnapshot: jsonb("submitted_snapshot").$type<HotelContentSnapshot>(),
+  publishedSnapshot: jsonb("published_snapshot").$type<HotelContentSnapshot>(),
+  publishedRevision: integer("published_revision"),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -469,6 +471,9 @@ export const inquiriesTable = pgTable("inquiries", {
   source:    inquirySourceEnum("source").default("web").notNull(),
   locale:    text("locale").default("tr"),
   accessToken: text("access_token").unique(),
+  accessTokenHash: text("access_token_hash").unique(),
+  accessTokenExpiresAt: timestamp("access_token_expires_at"),
+  accessTokenRevokedAt: timestamp("access_token_revoked_at"),
 
   status:    inquiryStatusEnum("status").default("yeni").notNull(),
   handledBy: uuid("handled_by").references(() => usersTable.id, { onDelete: "set null" }),
@@ -488,6 +493,7 @@ export const hotelGalleryImagesTable = pgTable("hotel_gallery_images", {
   hotelId:   uuid("hotel_id").notNull().references(() => hotelsTable.id, { onDelete: "cascade" }),
   roomId:    uuid("room_id").references(() => roomsTable.id, { onDelete: "set null" }),
   url:       text("url").notNull(),
+  objectKey: text("object_key"),
   caption:   text("caption"),
   sortOrder: integer("sort_order").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -623,6 +629,9 @@ export const reviewsTable = pgTable("reviews", {
   id:         uuid("id").defaultRandom().primaryKey(),
   hotelId:    uuid("hotel_id").notNull().references(() => hotelsTable.id, { onDelete: "cascade" }),
   inquiryId:  uuid("inquiry_id").references(() => inquiriesTable.id, { onDelete: "set null" }),
+  bookingId:  uuid("booking_id").references(() => bookingsTable.id, { onDelete: "set null" }),
+  source:     text("source").default("verified_guest").notNull(),
+  createdBy:  uuid("created_by").references(() => usersTable.id, { onDelete: "set null" }),
   rating:     integer("rating").notNull(),
   title:      text("title"),
   body:       text("body").notNull(),
@@ -698,6 +707,8 @@ export const roomInventoryTable = pgTable("room_inventory", {
   minStay:    integer("min_stay"),
   cta:        boolean("cta").default(false).notNull(),
   ctd:        boolean("ctd").default(false).notNull(),
+  source:     text("source").default("manual").notNull(),
+  manualOverride: boolean("manual_override").default(true).notNull(),
 }, (table) => ({
   roomDateUnique: uniqueIndex("room_inventory_room_date_unique").on(table.roomId, table.date),
   hotelDateIdx: index("room_inventory_hotel_date_idx").on(table.hotelId, table.date),
@@ -769,10 +780,26 @@ export const emailOutboxTable = pgTable("email_outbox", {
   nextAttemptAt: timestamp("next_attempt_at").defaultNow().notNull(),
   sentAt:      timestamp("sent_at"),
   lastError:   text("last_error"),
+  processingAt: timestamp("processing_at"),
+  leaseUntil:  timestamp("lease_until"),
+  workerId:    text("worker_id"),
   createdAt:   timestamp("created_at").defaultNow().notNull(),
   updatedAt:   timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
   pendingIdx: index("email_outbox_pending_idx").on(table.status, table.nextAttemptAt),
+}));
+
+export const bookingTransitionsTable = pgTable("booking_transitions", {
+  id:             uuid("id").defaultRandom().primaryKey(),
+  bookingId:      uuid("booking_id").notNull().references(() => bookingsTable.id, { onDelete: "cascade" }),
+  hotelId:        uuid("hotel_id").notNull().references(() => hotelsTable.id, { onDelete: "cascade" }),
+  action:         text("action").notNull(),
+  idempotencyKey: text("idempotency_key").notNull(),
+  fromStatus:     bookingStatusEnum("from_status").notNull(),
+  toStatus:       bookingStatusEnum("to_status").notNull(),
+  createdAt:      timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  idempotencyUnique: uniqueIndex("booking_transition_idempotency_unique").on(table.bookingId, table.idempotencyKey),
 }));
 
 // ---------------------------------------------------------------------------
