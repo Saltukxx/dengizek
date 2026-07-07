@@ -19,6 +19,7 @@ export const tourCreateSchema = z.object({
 
 export const tourUpdateSchema = z.object({
   title: z.string().min(1, "Tur başlığı gerekli").max(200),
+  expectedRevision: z.number().int().positive(),
 });
 
 /**
@@ -26,10 +27,12 @@ export const tourUpdateSchema = z.object({
  * `order` alanı dizideki sıraya göre sunucuda yeniden yazılır.
  */
 export const stepsBulkSaveSchema = z.object({
+  expectedRevision: z.number().int().positive(),
   steps: z.array(tourStepSchema).min(1, "En az bir adım gerekli").max(100),
 });
 
 export const stepsReorderSchema = z.object({
+  expectedRevision: z.number().int().positive(),
   sirali: z
     .array(z.string().min(1))
     .min(1, "Sıralama listesi boş olamaz")

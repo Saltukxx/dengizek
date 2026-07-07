@@ -1,7 +1,7 @@
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { requireAdmin } from "@/lib/auth/guards";
 import { PanelProviders } from "@/components/panel-providers";
 import { AdminShell } from "@/components/admin/admin-shell";
 
@@ -11,17 +11,17 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   // Middleware'e ek sunucu tarafı savunma — yalnızca admin
-  const session = await auth();
-  if (!session?.user) {
+  const guard = await requireAdmin();
+  if (guard.response?.status === 401) {
     redirect("/giris?callbackUrl=/admin");
   }
-  if (session.user.role !== "admin") {
+  if (guard.response || !guard.user) {
     redirect("/dashboard");
   }
 
   return (
     <PanelProviders>
-      <AdminShell userName={session.user.name ?? session.user.email ?? undefined}>
+      <AdminShell userName={guard.user.name || guard.user.email || undefined}>
         {children}
       </AdminShell>
     </PanelProviders>

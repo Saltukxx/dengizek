@@ -12,7 +12,6 @@ import {
   Select,
   Stack,
   Table,
-  Text,
   TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";

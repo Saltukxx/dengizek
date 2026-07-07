@@ -42,6 +42,7 @@ interface HotelDetail {
   status: "taslak" | "incelemede" | "yayinda" | "reddedildi";
   moderationNote: string | null;
   submittedAt: string | null;
+  submittedRevision: number | null;
   imageUrl: string | null;
   shortDescription: string | null;
 }
@@ -87,13 +88,14 @@ export function HotelDetailPanel({ hotelId }: { hotelId: string }) {
   if (!hotel) return <Loader />;
 
   const resolvedHotelId = hotel.id;
+  const submittedRevision = hotel.submittedRevision;
 
   async function moderate(karar: "onayla" | "reddet", not?: string) {
     setBusy(true);
     const res = await fetch(`/api/admin/hotels/${resolvedHotelId}/moderation`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ karar, not }),
+      body: JSON.stringify({ karar, not, submittedRevision }),
     });
     const json = await res.json();
     setBusy(false);

@@ -20,7 +20,7 @@ vi.mock("@/lib/db", () => ({
     select: () => ({
       from: () => ({
         where: () => ({
-          limit: () => [{ id: "hotel-1", status: "incelemede", slug: "aurelia-bay" }],
+          limit: () => [{ id: "hotel-1", status: "incelemede", slug: "aurelia-bay", submittedRevision: 2, submittedSnapshot: { name: "Aurelia" } }],
         }),
       }),
     }),
@@ -72,7 +72,7 @@ describe("POST /api/admin/hotels/[hotelId]/moderation", () => {
 
   it("notsuz reddetmeyi 400 ile geri çevirir", async () => {
     requireAdminMock.mockResolvedValue(adminGuard);
-    const res = await POST(makeRequest({ karar: "reddet" }), routeParams);
+    const res = await POST(makeRequest({ karar: "reddet", submittedRevision: 2 }), routeParams);
     expect(res.status).toBe(400);
     const json = await res.json();
     expect(JSON.stringify(json.issues)).toContain("Red nedeni belirtilmelidir.");
@@ -81,7 +81,7 @@ describe("POST /api/admin/hotels/[hotelId]/moderation", () => {
 
   it("onaylamada yayinda yapar ve audit yazar", async () => {
     requireAdminMock.mockResolvedValue(adminGuard);
-    const res = await POST(makeRequest({ karar: "onayla" }), routeParams);
+    const res = await POST(makeRequest({ karar: "onayla", submittedRevision: 2 }), routeParams);
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({ ok: true, status: "yayinda" });
     expect(logAuditMock).toHaveBeenCalledWith(
@@ -92,7 +92,7 @@ describe("POST /api/admin/hotels/[hotelId]/moderation", () => {
   it("notlu reddetmede reddedildi yapar ve audit yazar", async () => {
     requireAdminMock.mockResolvedValue(adminGuard);
     const res = await POST(
-      makeRequest({ karar: "reddet", not: "Görseller eksik." }),
+      makeRequest({ karar: "reddet", not: "Görseller eksik.", submittedRevision: 2 }),
       routeParams,
     );
     expect(res.status).toBe(200);

@@ -4,7 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { tourStepsTable, toursTable } from "@/lib/db/schema";
@@ -70,9 +70,10 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   const db = getDb();
   const [updated] = await db
     .update(toursTable)
-    .set({ title: parsed.data.title, updatedAt: new Date() })
-    .where(eq(toursTable.id, tour.id))
+    .set({ title: parsed.data.title, draftRevision: sql`${toursTable.draftRevision} + 1`, updatedAt: new Date() })
+    .where(and(eq(toursTable.id, tour.id), eq(toursTable.draftRevision, parsed.data.expectedRevision)))
     .returning();
+  if (!updated) return NextResponse.json({ ok: false, code: "REVISION_CONFLICT", currentRevision: tour.draftRevision }, { status: 409 });
 
   return NextResponse.json({ ok: true, tour: updated });
 }

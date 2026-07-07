@@ -30,6 +30,7 @@ interface AdminTour {
   moderationNote: string | null;
   version: number;
   submittedAt: string | null;
+  submittedRevision: number | null;
   publishedAt: string | null;
   hotelSlug: string;
   hotelName: string;
@@ -78,7 +79,7 @@ export function ModerationQueue() {
     const res = await fetch(`/api/admin/tours/${tour.id}/moderation`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ karar, not }),
+      body: JSON.stringify({ karar, not, submittedRevision: tour.submittedRevision }),
     });
     const json = await res.json();
     setBusy(false);

@@ -9,7 +9,7 @@ import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { mediaAssetsTable } from "@/lib/db/schema";
 import { createVideoSchema } from "@/lib/schemas/media";
-import { buildTusCredentials, createVideo } from "@/lib/bunny/client";
+import { buildTusCredentials, createVideo, deleteVideo } from "@/lib/bunny/client";
 import { logAudit } from "@/lib/audit";
 
 export async function POST(req: Request) {
@@ -37,17 +37,23 @@ export async function POST(req: Request) {
   }
 
   const db = getDb();
-  const [asset] = await db
-    .insert(mediaAssetsTable)
-    .values({
+  let asset: typeof mediaAssetsTable.$inferSelect;
+  try {
+    [asset] = await db.insert(mediaAssetsTable).values({
       hotelId: guard.hotel.id,
       type: "video",
       status: "yuklendi",
       title: parsed.data.title,
       bunnyVideoGuid: created.guid,
       createdBy: guard.user.id,
-    })
-    .returning();
+    }).returning();
+    if (!asset) throw new Error("Medya kaydı oluşturulamadı.");
+  } catch (err) {
+    try { await deleteVideo(created.guid); } catch (cleanupError) {
+      console.error("[media] orphan Bunny video temizlenemedi:", cleanupError);
+    }
+    throw err;
+  }
 
   await logAudit({
     actor: guard.user,

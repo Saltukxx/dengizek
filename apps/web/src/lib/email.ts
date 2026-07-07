@@ -1,34 +1,75 @@
-/** E-posta gönderimi — production'da Resend zorunlu */
+import { and, asc, eq, lte } from "drizzle-orm";
+import { getDb, isDbConfigured } from "@/lib/db";
+import { emailOutboxTable } from "@/lib/db/schema";
 
-export async function sendEmail(input: {
+export interface EmailInput {
   to: string;
   subject: string;
   text: string;
   html?: string;
-}) {
-  if (process.env.RESEND_API_KEY && process.env.EMAIL_FROM) {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: process.env.EMAIL_FROM,
-        to: input.to,
-        subject: input.subject,
-        text: input.text,
-        html: input.html ?? input.text.replace(/\n/g, "<br>"),
-      }),
-    });
-    return res.ok;
-  }
+}
 
-  if (process.env.NODE_ENV === "production") {
-    console.error("[email] RESEND_API_KEY veya EMAIL_FROM eksik — e-posta gönderilmedi.");
-    return false;
+async function deliver(input: EmailInput) {
+  if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
+    if (process.env.NODE_ENV === "production") throw new Error("EMAIL_NOT_CONFIGURED");
+    console.info("[email:mock]", input.to, input.subject);
+    return;
   }
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: process.env.EMAIL_FROM,
+      to: input.to,
+      subject: input.subject,
+      text: input.text,
+      html: input.html ?? input.text.replace(/\n/g, "<br>"),
+    }),
+  });
+  if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
+}
 
-  console.info("[email:mock]", input.to, input.subject);
+/** E-postayı kalıcı kuyruğa alır. DB'siz geliştirmede doğrudan teslim eder. */
+export async function sendEmail(input: EmailInput) {
+  if (!isDbConfigured()) {
+    try { await deliver(input); return true; } catch (err) { console.error("[email]", err); return false; }
+  }
+  await getDb().insert(emailOutboxTable).values({
+    to: input.to,
+    subject: input.subject,
+    text: input.text,
+    html: input.html ?? null,
+  });
   return true;
+}
+
+/** Cron/worker giriş noktası: pending kayıtları retry/backoff ile teslim eder. */
+export async function deliverPendingEmails(limit = 25) {
+  if (!isDbConfigured()) return { sent: 0, failed: 0 };
+  const db = getDb();
+  const rows = await db.select().from(emailOutboxTable).where(and(
+    eq(emailOutboxTable.status, "pending"),
+    lte(emailOutboxTable.nextAttemptAt, new Date()),
+  )).orderBy(asc(emailOutboxTable.createdAt)).limit(limit);
+  let sent = 0;
+  let failed = 0;
+  for (const row of rows) {
+    try {
+      await deliver({ to: row.to, subject: row.subject, text: row.text, html: row.html ?? undefined });
+      await db.update(emailOutboxTable).set({ status: "sent", sentAt: new Date(), updatedAt: new Date() }).where(eq(emailOutboxTable.id, row.id));
+      sent += 1;
+    } catch (err) {
+      const attempts = row.attempts + 1;
+      const terminal = attempts >= 8;
+      await db.update(emailOutboxTable).set({
+        status: terminal ? "failed" : "pending",
+        attempts,
+        lastError: err instanceof Error ? err.message.slice(0, 2000) : "Bilinmeyen hata",
+        nextAttemptAt: new Date(Date.now() + Math.min(3_600_000, 30_000 * 2 ** attempts)),
+        updatedAt: new Date(),
+      }).where(eq(emailOutboxTable.id, row.id));
+      failed += 1;
+    }
+  }
+  return { sent, failed };
 }

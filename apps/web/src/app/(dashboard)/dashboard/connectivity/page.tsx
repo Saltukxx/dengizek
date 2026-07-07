@@ -7,7 +7,7 @@ export default function DashboardConnectivityPage() {
       <div>
         <Title order={2}>Bağlantılar</Title>
         <Text c="dimmed" size="sm">
-          iCal feed'leri ve kanal yöneticisi entegrasyonu.
+          iCal feed&apos;leri ve kanal yöneticisi entegrasyonu.
         </Text>
       </div>
       <ConnectivityPanel />

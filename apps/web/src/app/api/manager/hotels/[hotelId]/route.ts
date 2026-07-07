@@ -5,12 +5,13 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { clearFactCatalogCache } from "@/lib/ai/fact-store";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { hotelsTable } from "@/lib/db/schema";
 import { hotelUpdateSchema } from "@/lib/schemas/hotel-admin";
+import { assertCancellationRuleBelongsToHotel } from "@/lib/tenant-integrity";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -45,13 +46,30 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       { status: 400 },
     );
   }
+  if (!(await assertCancellationRuleBelongsToHotel(guard.hotel.id, parsed.data.cancellationRuleId))) {
+    return NextResponse.json({ ok: false, error: "İptal kuralı bulunamadı." }, { status: 404 });
+  }
 
   const db = getDb();
+  const { expectedRevision, ...fields } = parsed.data;
+  const [current] = await db.select({ draftRevision: hotelsTable.draftRevision })
+    .from(hotelsTable).where(eq(hotelsTable.id, guard.hotel.id)).limit(1);
+  if (!current || current.draftRevision !== expectedRevision) {
+    return NextResponse.json(
+      { ok: false, code: "REVISION_CONFLICT", currentRevision: current?.draftRevision },
+      { status: 409 },
+    );
+  }
   const [updated] = await db
     .update(hotelsTable)
-    .set({ ...parsed.data, updatedAt: new Date() })
-    .where(eq(hotelsTable.id, guard.hotel.id))
+    .set({ ...fields, draftRevision: sql`${hotelsTable.draftRevision} + 1`, updatedAt: new Date() })
+    .where(and(eq(hotelsTable.id, guard.hotel.id), eq(hotelsTable.draftRevision, expectedRevision)))
     .returning();
+  if (!updated) {
+    const [latest] = await db.select({ draftRevision: hotelsTable.draftRevision })
+      .from(hotelsTable).where(eq(hotelsTable.id, guard.hotel.id)).limit(1);
+    return NextResponse.json({ ok: false, code: "REVISION_CONFLICT", currentRevision: latest?.draftRevision }, { status: 409 });
+  }
 
   const aiCacheFields = [
     "aiFacts",
@@ -64,7 +82,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     "checkOutTime",
     "amenities",
   ] as const;
-  if (aiCacheFields.some((f) => f in parsed.data)) {
+  if (aiCacheFields.some((f) => f in fields)) {
     clearFactCatalogCache(guard.hotel.slug);
   }
 

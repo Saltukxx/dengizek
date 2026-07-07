@@ -14,7 +14,7 @@ import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { getDb } from "@/lib/db";
-import { hotelMembersTable, hotelsTable } from "@/lib/db/schema";
+import { hotelMembersTable, hotelsTable, usersTable } from "@/lib/db/schema";
 import type { MemberRole } from "@/lib/db/schema";
 
 export interface SessionUser {
@@ -22,6 +22,7 @@ export interface SessionUser {
   email: string;
   name: string;
   role: "admin" | "manager";
+  tokenVersion: number;
 }
 
 type GuardResult =
@@ -35,6 +36,13 @@ function unauthorized(): NextResponse {
   );
 }
 
+function sessionRevoked(): NextResponse {
+  return NextResponse.json(
+    { ok: false, code: "SESSION_REVOKED", error: "Oturumunuz geçersiz kılındı. Lütfen tekrar giriş yapın." },
+    { status: 401 },
+  );
+}
+
 function forbidden(message: string): NextResponse {
   return NextResponse.json({ ok: false, error: message }, { status: 403 });
 }
@@ -44,12 +52,29 @@ export async function requireUser(): Promise<GuardResult> {
   const session = await auth();
   const u = session?.user;
   if (!u?.id) return { user: null, response: unauthorized() };
+  const db = getDb();
+  const [current] = await db
+    .select({
+      id: usersTable.id,
+      email: usersTable.email,
+      name: usersTable.name,
+      role: usersTable.role,
+      isActive: usersTable.isActive,
+      tokenVersion: usersTable.tokenVersion,
+    })
+    .from(usersTable)
+    .where(eq(usersTable.id, u.id))
+    .limit(1);
+  if (!current?.isActive || current.tokenVersion !== u.tokenVersion) {
+    return { user: null, response: sessionRevoked() };
+  }
   return {
     user: {
-      id: u.id,
-      email: u.email ?? "",
-      name: u.name ?? "",
-      role: u.role,
+      id: current.id,
+      email: current.email,
+      name: current.name,
+      role: current.role,
+      tokenVersion: current.tokenVersion,
     },
     response: null,
   };
@@ -69,7 +94,7 @@ export async function requireAdmin(): Promise<GuardResult> {
 }
 
 type HotelGuardResult =
-  | { user: SessionUser; hotel: { id: string; slug: string; name: string }; response: null }
+  | { user: SessionUser; hotel: { id: string; slug: string; name: string; aiPersona: string; aiPolicies: string[]; cancellationPolicy: string | null }; response: null }
   | { user: null; hotel: null; response: NextResponse };
 
 /**
@@ -94,7 +119,7 @@ export async function requireHotelAccess(
     hotelIdOrSlug,
   );
   const [hotel] = await db
-    .select({ id: hotelsTable.id, slug: hotelsTable.slug, name: hotelsTable.name })
+    .select({ id: hotelsTable.id, slug: hotelsTable.slug, name: hotelsTable.name, aiPersona: hotelsTable.aiPersona, aiPolicies: hotelsTable.aiPolicies, cancellationPolicy: hotelsTable.cancellationPolicy })
     .from(hotelsTable)
     .where(isUuid ? eq(hotelsTable.id, hotelIdOrSlug) : eq(hotelsTable.slug, hotelIdOrSlug))
     .limit(1);

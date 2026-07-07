@@ -1,7 +1,7 @@
 import { and, eq, gt, inArray, ne, sql } from "drizzle-orm";
 import type { Db, Tx } from "@/lib/db";
 import { withTransaction } from "@/lib/db/transaction";
-import { bookingsTable, roomInventoryTable } from "@/lib/db/schema";
+import { bookingsTable, roomInventoryTable, roomsTable } from "@/lib/db/schema";
 import { eachStayNight, stayRangesOverlap } from "@/lib/stay-dates";
 
 const ACTIVE_STATUSES = ["beklemede", "onaylandi"] as const;
@@ -75,7 +75,18 @@ async function assertInventoryAvailableTx(
     if (row.allotment <= 0) {
       throw new BookingServiceError(`${date} tarihinde müsait oda yok.`, "inventory");
     }
+    if (date === checkIn && row.cta) {
+      throw new BookingServiceError(`${date} tarihinde girişe kapalı.`, "inventory");
+    }
+    if (row.minStay && nights.length < row.minStay) {
+      throw new BookingServiceError(`Minimum konaklama ${row.minStay} gecedir.`, "inventory");
+    }
   }
+  const [departure] = await db.select({ ctd: roomInventoryTable.ctd })
+    .from(roomInventoryTable)
+    .where(and(eq(roomInventoryTable.roomId, roomId), eq(roomInventoryTable.date, checkOut)))
+    .limit(1);
+  if (departure?.ctd) throw new BookingServiceError(`${checkOut} tarihinde çıkışa kapalı.`, "inventory");
 }
 
 async function deductInventoryTx(
@@ -156,32 +167,11 @@ export async function createPendingBooking(
   >,
 ) {
   return withTransaction(async (tx) => {
-    const candidates = await tx
-      .select({
-        id: bookingsTable.id,
-        checkIn: bookingsTable.checkIn,
-        checkOut: bookingsTable.checkOut,
-        roomId: bookingsTable.roomId,
-        status: bookingsTable.status,
-      })
-      .from(bookingsTable)
-      .where(
-        and(
-          eq(bookingsTable.hotelId, hotelId),
-          inArray(bookingsTable.status, [...ACTIVE_STATUSES]),
-          input.roomId ? eq(bookingsTable.roomId, input.roomId) : undefined,
-        ),
-      )
-      .for("update");
-
-    const checkIn = String(input.checkIn);
-    const checkOut = String(input.checkOut);
-
-    const overlap = candidates.find((b) =>
-      stayRangesOverlap(checkIn, checkOut, String(b.checkIn), String(b.checkOut)),
-    );
-    if (overlap) {
-      throw new BookingServiceError("Bu tarihlerde çakışan bir rezervasyon var.", "overlap");
+    if (input.roomId) {
+      const [room] = await tx.select({ id: roomsTable.id }).from(roomsTable).where(
+        and(eq(roomsTable.id, input.roomId), eq(roomsTable.hotelId, hotelId)),
+      ).limit(1);
+      if (!room) throw new BookingServiceError("Oda bulunamadı.", "not_found");
     }
 
     const [booking] = await tx
@@ -219,19 +209,11 @@ export async function approveBooking(hotelId: string, bookingId: string) {
     const checkIn = String(existing.checkIn);
     const checkOut = String(existing.checkOut);
 
-    const overlap = await findOverlappingBooking(
-      tx,
-      hotelId,
-      existing.roomId,
-      checkIn,
-      checkOut,
-      existing.id,
-    );
-    if (overlap) {
-      throw new BookingServiceError("Onaylanamaz: tarih çakışması var.", "overlap");
-    }
-
     if (existing.roomId) {
+      const [room] = await tx.select({ id: roomsTable.id }).from(roomsTable).where(
+        and(eq(roomsTable.id, existing.roomId), eq(roomsTable.hotelId, hotelId)),
+      ).limit(1);
+      if (!room) throw new BookingServiceError("Oda bulunamadı.", "not_found");
       await assertInventoryAvailableTx(tx, existing.roomId, checkIn, checkOut);
       await deductInventoryTx(tx, hotelId, existing.roomId, checkIn, checkOut);
     }

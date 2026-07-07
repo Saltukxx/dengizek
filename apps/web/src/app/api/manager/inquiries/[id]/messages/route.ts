@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { and, asc, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { inquiriesTable, inquiryMessagesTable } from "@/lib/db/schema";
@@ -76,7 +76,7 @@ export async function POST(req: Request, { params }: RouteParams) {
 
   if (inquiry.accessToken) {
     const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/inquiry/portal/${inquiry.accessToken}`;
-    void sendEmail({
+    await sendEmail({
       to: inquiry.email,
       subject: "Tesisinizden yeni mesaj — Dengizek",
       text: `Merhaba ${inquiry.name},\n\nTesisinizden yeni bir mesaj var:\n\n${parsed.data.body}\n\nYanıtlamak için: ${portalUrl}`,

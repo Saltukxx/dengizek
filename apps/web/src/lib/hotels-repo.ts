@@ -38,18 +38,21 @@ function toGuestHotel(row: {
   longDescription: string | null;
   imageUrl: string | null;
   priceLabel: string | null;
+  publishedSnapshot?: Record<string, unknown> | null;
 }): HotelMock {
+  const snapshot = row.publishedSnapshot ?? {};
+  const value = <T>(key: string, fallback: T) => (key in snapshot ? snapshot[key] as T : fallback);
   // Oda tipleri henüz DB'de modellenmedi — mock'ta varsa oradan tamamlanır
   const mock = getMockHotelBySlug(row.slug);
   return {
     slug: row.slug,
-    name: row.name,
-    city: row.city ?? "",
-    country: row.country ?? "",
-    shortDescription: row.shortDescription ?? "",
-    longDescription: row.longDescription ?? "",
-    imageUrl: row.imageUrl ?? "",
-    priceLabel: row.priceLabel ?? undefined,
+    name: value("name", row.name),
+    city: value("city", row.city) ?? "",
+    country: value("country", row.country) ?? "",
+    shortDescription: value("shortDescription", row.shortDescription) ?? "",
+    longDescription: value("longDescription", row.longDescription) ?? "",
+    imageUrl: value("imageUrl", row.imageUrl) ?? "",
+    priceLabel: value("priceLabel", row.priceLabel) ?? undefined,
     roomTypes: mock?.roomTypes ?? [],
   };
 }
@@ -94,8 +97,8 @@ export async function getPublishedHotelsForBrowse(): Promise<BrowseHotelRow[]> {
     try {
       const { getDb } = await import("@/lib/db");
       const { hotelsTable, roomsTable } = await import("@/lib/db/schema");
-      const { eq, sql, and } = await import("drizzle-orm");
-      return await getDb()
+      const { eq, sql } = await import("drizzle-orm");
+      const rows = await getDb()
         .select({
           slug: hotelsTable.slug,
           name: hotelsTable.name,
@@ -108,6 +111,7 @@ export async function getPublishedHotelsForBrowse(): Promise<BrowseHotelRow[]> {
           starRating: hotelsTable.starRating,
           amenities: hotelsTable.amenities,
           petsAllowed: hotelsTable.petsAllowed,
+          publishedSnapshot: hotelsTable.publishedSnapshot,
           minPriceMinor: sql<number | null>`(
             SELECT min(${roomsTable.priceMinor})
             FROM ${roomsTable}
@@ -120,6 +124,23 @@ export async function getPublishedHotelsForBrowse(): Promise<BrowseHotelRow[]> {
         .from(hotelsTable)
         .where(eq(hotelsTable.status, "yayinda"))
         .orderBy(hotelsTable.name);
+      return rows.map((row) => {
+        const snapshot = row.publishedSnapshot ?? {};
+        const value = <T>(key: string, fallback: T) => key in snapshot ? snapshot[key] as T : fallback;
+        return {
+          ...row,
+          name: value("name", row.name),
+          city: value("city", row.city),
+          country: value("country", row.country),
+          shortDescription: value("shortDescription", row.shortDescription),
+          longDescription: value("longDescription", row.longDescription),
+          imageUrl: value("imageUrl", row.imageUrl),
+          priceLabel: value("priceLabel", row.priceLabel),
+          starRating: value("starRating", row.starRating),
+          amenities: value("amenities", row.amenities),
+          petsAllowed: value("petsAllowed", row.petsAllowed),
+        };
+      });
     } catch (err) {
       rethrowUnlessMockAllowed("DB sorgusu başarısız", err);
     }

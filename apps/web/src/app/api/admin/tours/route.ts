@@ -27,6 +27,7 @@ export async function GET(req: Request) {
     moderationNote: toursTable.moderationNote,
     version: toursTable.version,
     submittedAt: toursTable.submittedAt,
+    submittedRevision: toursTable.submittedRevision,
     publishedAt: toursTable.publishedAt,
     hotelSlug: toursTable.hotelSlug,
     hotelName: hotelsTable.name,

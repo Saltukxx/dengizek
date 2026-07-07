@@ -3,7 +3,6 @@
 // ---------------------------------------------------------------------------
 
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { paymentsTable } from "@/lib/db/schema";
@@ -43,6 +42,9 @@ function mapStripeStatus(eventType: string): "odendi" | "basarisiz" | "beklemede
 }
 
 export async function POST(req: Request) {
+  if (process.env.PAYMENTS_ENABLED !== "true") {
+    return apiFail("Ödeme özelliği kapalı.", 503, { code: "PAYMENTS_DISABLED" });
+  }
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) {
     return apiFail("Webhook yapılandırılmamış.", 503);

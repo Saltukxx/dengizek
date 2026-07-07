@@ -50,6 +50,7 @@ export async function GET(req: Request) {
       status: hotelsTable.status,
       moderationNote: hotelsTable.moderationNote,
       submittedAt: hotelsTable.submittedAt,
+      submittedRevision: hotelsTable.submittedRevision,
       reviewedAt: hotelsTable.reviewedAt,
       createdAt: hotelsTable.createdAt,
     })

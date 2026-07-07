@@ -30,9 +30,6 @@ export async function POST(_req: Request, { params }: RouteParams) {
   if (!tour) {
     return NextResponse.json({ ok: false, error: "Tur bulunamadı." }, { status: 404 });
   }
-  if (tour.status === "incelemede") {
-    return NextResponse.json({ ok: false, error: "Tur zaten incelemede." }, { status: 409 });
-  }
   if (tour.status === "yayinda") {
     return NextResponse.json(
       { ok: false, error: "Yayındaki tur tekrar gönderilemez — önce yeni sürüm oluşturun." },
@@ -76,6 +73,8 @@ export async function POST(_req: Request, { params }: RouteParams) {
     .update(toursTable)
     .set({
       status: "incelemede",
+      submittedManifest: validated.data,
+      submittedRevision: tour.draftRevision,
       submittedAt: new Date(),
       moderationNote: null,
       updatedAt: new Date(),
@@ -91,5 +90,5 @@ export async function POST(_req: Request, { params }: RouteParams) {
     meta: { hotelSlug: guard.hotel.slug, tourId, eskiDurum: tour.status },
   });
 
-  return NextResponse.json({ ok: true, status: updated.status });
+  return NextResponse.json({ ok: true, status: updated.status, submittedRevision: updated.submittedRevision });
 }

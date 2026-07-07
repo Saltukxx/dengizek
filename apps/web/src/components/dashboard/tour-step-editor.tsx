@@ -59,6 +59,7 @@ interface TourMeta {
   status: "taslak" | "incelemede" | "yayinda" | "reddedildi";
   moderationNote: string | null;
   version: number;
+  draftRevision: number;
 }
 
 function emptyStep(index: number): TourStep {
@@ -192,7 +193,7 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
   }
 
   async function saveAll() {
-    if (!hotel || !steps) return;
+    if (!hotel || !steps || !meta) return;
     if (steps.length === 0) {
       notifications.show({ color: "red", message: "En az bir adım gerekli." });
       return;
@@ -202,7 +203,7 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
     const res = await fetch(`/api/manager/hotels/${hotel.id}/tours/${tourId}/steps`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ steps: payload }),
+      body: JSON.stringify({ steps: payload, expectedRevision: meta.draftRevision }),
     });
     const json = await res.json();
     setSaving(false);

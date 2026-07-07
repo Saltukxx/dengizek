@@ -17,6 +17,7 @@ import {
 import { logAudit } from "@/lib/audit";
 import { parsePagination, paginatedQuery } from "@/lib/pagination";
 import { apiFail, apiOk } from "@/lib/api-response";
+import { assertInquiryBelongsToHotel, assertRatePlanBelongsToHotel, assertRoomsBelongToHotel } from "@/lib/tenant-integrity";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -70,6 +71,12 @@ export async function POST(req: Request, { params }: RouteParams) {
   if (!parsed.success) {
     return apiFail("Doğrulama başarısız", 400, { issues: parsed.error.flatten() });
   }
+  const refsValid = await Promise.all([
+    assertRoomsBelongToHotel(guard.hotel.id, [parsed.data.roomId]),
+    assertRatePlanBelongsToHotel(guard.hotel.id, parsed.data.ratePlanId),
+    assertInquiryBelongsToHotel(guard.hotel.id, parsed.data.inquiryId),
+  ]);
+  if (refsValid.some((ok) => !ok)) return apiFail("İlişkili kayıt bulunamadı.", 404);
 
   try {
     const booking = await createPendingBooking(guard.hotel.id, parsed.data);

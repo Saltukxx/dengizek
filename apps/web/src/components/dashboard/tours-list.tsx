@@ -20,7 +20,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconCopy, IconExternalLink, IconPencil, IconPlus, IconSend, IconTrash, IconVersions } from "@tabler/icons-react";
+import { IconAlertCircle, IconExternalLink, IconPencil, IconPlus, IconSend, IconTrash, IconVersions } from "@tabler/icons-react";
 import { moderationStatusColors, moderationStatusLabels } from "@/lib/labels";
 import { useMyHotel } from "./use-my-hotel";
 
@@ -32,6 +32,7 @@ interface TourRow {
   moderationNote: string | null;
   version: number;
   publishedAt: string | null;
+  draftRevision: number;
 }
 
 export function ToursList() {

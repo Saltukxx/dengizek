@@ -8,6 +8,7 @@ import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { ratePlansTable, roomRatePlanPricesTable } from "@/lib/db/schema";
 import { ratePlanPricePatchSchema, ratePlanPriceSchema } from "@/lib/schemas/hotel-panel";
+import { assertRoomsBelongToHotel } from "@/lib/tenant-integrity";
 
 type RouteParams = { params: Promise<{ hotelId: string; planId: string }> };
 
@@ -64,6 +65,9 @@ export async function POST(req: Request, { params }: RouteParams) {
       { status: 400 },
     );
   }
+  if (!(await assertRoomsBelongToHotel(guard.hotel.id, [parsed.data.roomId]))) {
+    return NextResponse.json({ ok: false, error: "Oda bulunamadı." }, { status: 404 });
+  }
 
   const db = getDb();
   const [price] = await db
@@ -90,6 +94,9 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
       { status: 400 },
     );
+  }
+  if (!(await assertRoomsBelongToHotel(guard.hotel.id, [parsed.data.roomId]))) {
+    return NextResponse.json({ ok: false, error: "Oda bulunamadı." }, { status: 404 });
   }
 
   const { id, ...fields } = parsed.data;

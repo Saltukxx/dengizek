@@ -9,6 +9,7 @@ import { getDb } from "@/lib/db";
 import { promotionsTable } from "@/lib/db/schema";
 import { promotionPatchSchema, promotionSchema } from "@/lib/schemas/hotel-panel";
 import { logAudit } from "@/lib/audit";
+import { assertRoomsBelongToHotel } from "@/lib/tenant-integrity";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -40,6 +41,9 @@ export async function POST(req: Request, { params }: RouteParams) {
       { status: 400 },
     );
   }
+  if (!(await assertRoomsBelongToHotel(guard.hotel.id, parsed.data.roomIds))) {
+    return NextResponse.json({ ok: false, error: "Oda bulunamadı." }, { status: 404 });
+  }
 
   const db = getDb();
   const [promotion] = await db
@@ -70,6 +74,9 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
       { status: 400 },
     );
+  }
+  if (parsed.data.roomIds && !(await assertRoomsBelongToHotel(guard.hotel.id, parsed.data.roomIds))) {
+    return NextResponse.json({ ok: false, error: "Oda bulunamadı." }, { status: 404 });
   }
 
   const { id, ...fields } = parsed.data;

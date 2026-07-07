@@ -9,6 +9,7 @@ import { getDb } from "@/lib/db";
 import { hotelMembersTable, hotelsTable, usersTable } from "@/lib/db/schema";
 import { assignMemberSchema, removeMemberSchema } from "@/lib/schemas/member";
 import { logAudit } from "@/lib/audit";
+import { withTransaction } from "@/lib/db/transaction";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -78,15 +79,22 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     );
   }
 
-  const db = getDb();
-  await db
-    .delete(hotelMembersTable)
-    .where(
-      and(
-        eq(hotelMembersTable.userId, userId),
-        eq(hotelMembersTable.hotelId, parsed.data.hotelId),
-      ),
-    );
+  const removed = await withTransaction(async (db) => {
+    const members = await db.select({ userId: hotelMembersTable.userId, role: hotelMembersTable.role })
+      .from(hotelMembersTable)
+      .where(eq(hotelMembersTable.hotelId, parsed.data.hotelId))
+      .for("update");
+    const target = members.find((m) => m.userId === userId);
+    if (!target) return "missing" as const;
+    if (target.role === "owner" && members.filter((m) => m.role === "owner").length <= 1) return "last_owner" as const;
+    await db.delete(hotelMembersTable).where(and(
+      eq(hotelMembersTable.userId, userId),
+      eq(hotelMembersTable.hotelId, parsed.data.hotelId),
+    ));
+    return "removed" as const;
+  });
+  if (removed === "missing") return NextResponse.json({ ok: false, error: "Üyelik bulunamadı." }, { status: 404 });
+  if (removed === "last_owner") return NextResponse.json({ ok: false, error: "Son tesis sahibi kaldırılamaz." }, { status: 409 });
 
   await logAudit({
     actor: guard.user,

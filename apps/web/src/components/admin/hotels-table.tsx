@@ -32,6 +32,7 @@ interface AdminHotel {
   status: "taslak" | "incelemede" | "yayinda" | "reddedildi";
   moderationNote: string | null;
   submittedAt: string | null;
+  submittedRevision: number | null;
 }
 
 export function HotelsTable() {
@@ -61,7 +62,7 @@ export function HotelsTable() {
     const res = await fetch(`/api/admin/hotels/${hotel.id}/moderation`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ karar, not }),
+      body: JSON.stringify({ karar, not, submittedRevision: hotel.submittedRevision }),
     });
     const json = await res.json();
     setBusy(false);

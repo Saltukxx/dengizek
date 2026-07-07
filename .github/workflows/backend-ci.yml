@@ -1,0 +1,45 @@
+name: Backend CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: dev
+          POSTGRES_DB: dengizek
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dengizek"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      DATABASE_URL: postgresql://postgres:dev@127.0.0.1:5432/dengizek
+      AUTH_SECRET: ci-only-secret-ci-only-secret-ci-only
+      PAYMENTS_ENABLED: "false"
+      USE_MOCK_DATA: "false"
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3333
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npx drizzle-kit push --force
+      - run: npm run db:seed
+      - run: npm run lint
+      - run: npm run test:ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e

@@ -4,7 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { toursTable } from "@/lib/db/schema";
@@ -36,8 +36,8 @@ export async function POST(_req: Request, { params }: RouteParams) {
   const [updated] = await db
     .update(toursTable)
     .set({
-      version: tour.version + 1,
       status: "taslak",
+      draftRevision: sql`${toursTable.draftRevision} + 1`,
       moderationNote: null,
       submittedAt: null,
       updatedAt: new Date(),

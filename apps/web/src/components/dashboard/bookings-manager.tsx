@@ -55,6 +55,7 @@ interface PlanOption {
 }
 
 export function BookingsManager() {
+  const paymentsEnabled = false;
   const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
   const [bookings, setBookings] = useState<BookingRow[] | null>(null);
   const [rooms, setRooms] = useState<RoomOption[]>([]);
@@ -307,7 +308,7 @@ export function BookingsManager() {
                         </Button>
                       </>
                     )}
-                    {b.status === "onaylandi" && b.totalMinor != null && (
+                    {paymentsEnabled && b.status === "onaylandi" && b.totalMinor != null && (
                       <Button
                         size="xs"
                         variant="light"
@@ -476,7 +477,7 @@ export function BookingsManager() {
                   </Button>
                 </>
               )}
-              {detail.status === "onaylandi" && detail.totalMinor != null && (
+              {paymentsEnabled && detail.status === "onaylandi" && detail.totalMinor != null && (
                 <Button
                   size="sm"
                   color="teal"

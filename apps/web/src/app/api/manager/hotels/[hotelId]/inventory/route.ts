@@ -9,6 +9,8 @@ import { getDb } from "@/lib/db";
 import { roomInventoryTable } from "@/lib/db/schema";
 import { inventoryPutSchema } from "@/lib/schemas/hotel-panel";
 import { logAudit } from "@/lib/audit";
+import { assertRoomsBelongToHotel } from "@/lib/tenant-integrity";
+import { withTransaction } from "@/lib/db/transaction";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -51,9 +53,12 @@ export async function PUT(req: Request, { params }: RouteParams) {
     );
   }
 
-  const db = getDb();
-  for (const entry of parsed.data.entries) {
-    await db
+  if (!(await assertRoomsBelongToHotel(guard.hotel.id, parsed.data.entries.map((e) => e.roomId)))) {
+    return NextResponse.json({ ok: false, error: "Oda bulunamadı." }, { status: 404 });
+  }
+  await withTransaction(async (db) => {
+    for (const entry of parsed.data.entries) {
+      await db
       .insert(roomInventoryTable)
       .values({ ...entry, hotelId: guard.hotel.id })
       .onConflictDoUpdate({
@@ -66,7 +71,8 @@ export async function PUT(req: Request, { params }: RouteParams) {
           ctd: entry.ctd,
         },
       });
-  }
+    }
+  });
 
   await logAudit({
     actor: guard.user,

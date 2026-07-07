@@ -7,11 +7,10 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { toursTable } from "@/lib/db/schema";
-import { getManifestFromDB } from "@/lib/db/manifest";
 import { tourManifestSchema } from "@/lib/schemas/tour-manifest";
 import { moderationDecisionSchema } from "@/lib/schemas/hotel-admin";
 import { logAudit } from "@/lib/audit";
@@ -52,11 +51,14 @@ export async function POST(req: Request, { params }: RouteParams) {
       { status: 409 },
     );
   }
+  if (!tour.submittedManifest || tour.submittedRevision !== parsed.data.submittedRevision) {
+    return NextResponse.json({ ok: false, code: "REVISION_CONFLICT", currentRevision: tour.submittedRevision }, { status: 409 });
+  }
 
   const now = new Date();
 
   if (parsed.data.karar === "reddet") {
-    await db
+    const rejected = await db
       .update(toursTable)
       .set({
         status: "reddedildi",
@@ -65,7 +67,9 @@ export async function POST(req: Request, { params }: RouteParams) {
         reviewedBy: guard.user.id,
         updatedAt: now,
       })
-      .where(eq(toursTable.id, tour.id));
+      .where(and(eq(toursTable.id, tour.id), eq(toursTable.status, "incelemede"), eq(toursTable.submittedRevision, parsed.data.submittedRevision)))
+      .returning();
+    if (rejected.length === 0) return NextResponse.json({ ok: false, code: "REVISION_CONFLICT" }, { status: 409 });
 
     await logAudit({
       actor: guard.user,
@@ -79,22 +83,14 @@ export async function POST(req: Request, { params }: RouteParams) {
   }
 
   // Onay — taslaktan yayın anlık görüntüsü üret
-  const draft = await getManifestFromDB(tour.hotelSlug, tour.tourId);
-  if (!draft) {
-    return NextResponse.json(
-      { ok: false, error: "Tur adımları bulunamadı — onaylanamaz." },
-      { status: 400 },
-    );
-  }
-
   const newVersion = tour.version + 1;
   const manifest = tourManifestSchema.parse({
-    ...draft,
+    ...tour.submittedManifest,
     version: newVersion,
     title: tour.title,
   });
 
-  await db
+  const approved = await db
     .update(toursTable)
     .set({
       status: "yayinda",
@@ -106,7 +102,9 @@ export async function POST(req: Request, { params }: RouteParams) {
       reviewedBy: guard.user.id,
       updatedAt: now,
     })
-    .where(eq(toursTable.id, tour.id));
+    .where(and(eq(toursTable.id, tour.id), eq(toursTable.status, "incelemede"), eq(toursTable.submittedRevision, parsed.data.submittedRevision)))
+    .returning();
+  if (approved.length === 0) return NextResponse.json({ ok: false, code: "REVISION_CONFLICT" }, { status: 409 });
 
   await logAudit({
     actor: guard.user,

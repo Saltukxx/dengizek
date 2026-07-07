@@ -9,6 +9,8 @@ import { getDb } from "@/lib/db";
 import { ratePlansTable } from "@/lib/db/schema";
 import { ratePlanPatchSchema, ratePlanSchema } from "@/lib/schemas/hotel-panel";
 import { logAudit } from "@/lib/audit";
+import { assertCancellationRuleBelongsToHotel } from "@/lib/tenant-integrity";
+import { withTransaction } from "@/lib/db/transaction";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -40,18 +42,17 @@ export async function POST(req: Request, { params }: RouteParams) {
       { status: 400 },
     );
   }
-
-  const db = getDb();
-  if (parsed.data.isDefault) {
-    await db
-      .update(ratePlansTable)
-      .set({ isDefault: false })
-      .where(eq(ratePlansTable.hotelId, guard.hotel.id));
+  if (!(await assertCancellationRuleBelongsToHotel(guard.hotel.id, parsed.data.cancellationRuleId))) {
+    return NextResponse.json({ ok: false, error: "İptal kuralı bulunamadı." }, { status: 404 });
   }
-  const [plan] = await db
-    .insert(ratePlansTable)
-    .values({ ...parsed.data, hotelId: guard.hotel.id })
-    .returning();
+
+  const plan = await withTransaction(async (db) => {
+    if (parsed.data.isDefault) {
+      await db.update(ratePlansTable).set({ isDefault: false }).where(eq(ratePlansTable.hotelId, guard.hotel.id));
+    }
+    const [created] = await db.insert(ratePlansTable).values({ ...parsed.data, hotelId: guard.hotel.id }).returning();
+    return created;
+  });
 
   await logAudit({
     actor: guard.user,
@@ -77,20 +78,19 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       { status: 400 },
     );
   }
+  if (!(await assertCancellationRuleBelongsToHotel(guard.hotel.id, parsed.data.cancellationRuleId))) {
+    return NextResponse.json({ ok: false, error: "İptal kuralı bulunamadı." }, { status: 404 });
+  }
 
   const { id, ...fields } = parsed.data;
-  const db = getDb();
-  if (fields.isDefault === true) {
-    await db
-      .update(ratePlansTable)
-      .set({ isDefault: false })
-      .where(eq(ratePlansTable.hotelId, guard.hotel.id));
-  }
-  const [updated] = await db
-    .update(ratePlansTable)
-    .set(fields)
-    .where(and(eq(ratePlansTable.id, id), eq(ratePlansTable.hotelId, guard.hotel.id)))
-    .returning();
+  const updated = await withTransaction(async (tx) => {
+    if (fields.isDefault === true) {
+      await tx.update(ratePlansTable).set({ isDefault: false }).where(eq(ratePlansTable.hotelId, guard.hotel.id));
+    }
+    const [row] = await tx.update(ratePlansTable).set(fields)
+      .where(and(eq(ratePlansTable.id, id), eq(ratePlansTable.hotelId, guard.hotel.id))).returning();
+    return row;
+  });
 
   if (!updated) {
     return NextResponse.json({ ok: false, error: "Plan bulunamadı." }, { status: 404 });

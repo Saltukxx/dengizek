@@ -4,7 +4,7 @@
 // Taslak tur önizlemesi — TourPlayer + uyarı bandı
 // ---------------------------------------------------------------------------
 
-import { Alert, Box, Button, Group, Loader, Stack, Text, Title } from "@mantine/core";
+import { Alert, Box, Button, Group, Loader, Stack, Text } from "@mantine/core";
 import { IconAlertTriangle, IconArrowLeft } from "@tabler/icons-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";

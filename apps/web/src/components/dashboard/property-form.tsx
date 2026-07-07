@@ -77,6 +77,7 @@ interface HotelDetail {
   cancellationRuleId: string | null;
   status: "taslak" | "incelemede" | "yayinda" | "reddedildi";
   moderationNote: string | null;
+  draftRevision: number;
 }
 
 export function PropertyForm() {
@@ -121,6 +122,7 @@ export function PropertyForm() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        expectedRevision: detail.draftRevision,
         name: detail.name,
         city: detail.city ?? undefined,
         country: detail.country ?? undefined,

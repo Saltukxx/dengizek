@@ -9,6 +9,7 @@ import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { hotelsTable } from "@/lib/db/schema";
 import { logAudit } from "@/lib/audit";
+import { withTransaction } from "@/lib/db/transaction";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -18,20 +19,10 @@ export async function POST(_req: Request, { params }: RouteParams) {
   if (guard.response) return guard.response;
 
   const db = getDb();
-  const [hotel] = await db
-    .select({ status: hotelsTable.status })
-    .from(hotelsTable)
-    .where(eq(hotelsTable.id, guard.hotel.id))
-    .limit(1);
+  const [hotel] = await db.select().from(hotelsTable).where(eq(hotelsTable.id, guard.hotel.id)).limit(1);
 
   if (!hotel) {
     return NextResponse.json({ ok: false, error: "Tesis bulunamadı." }, { status: 404 });
-  }
-  if (hotel.status === "incelemede") {
-    return NextResponse.json(
-      { ok: false, error: "Tesis zaten incelemede." },
-      { status: 409 },
-    );
   }
   if (hotel.status === "yayinda") {
     return NextResponse.json(
@@ -40,11 +31,17 @@ export async function POST(_req: Request, { params }: RouteParams) {
     );
   }
 
-  const [updated] = await db
-    .update(hotelsTable)
-    .set({ status: "incelemede", submittedAt: new Date(), updatedAt: new Date() })
-    .where(eq(hotelsTable.id, guard.hotel.id))
-    .returning();
+  const snapshot = { ...hotel, submittedSnapshot: undefined, publishedSnapshot: undefined };
+  const updated = await withTransaction(async (tx) => {
+    const [row] = await tx.update(hotelsTable).set({
+      status: "incelemede",
+      submittedAt: new Date(),
+      submittedRevision: hotel.draftRevision,
+      submittedSnapshot: snapshot,
+      updatedAt: new Date(),
+    }).where(eq(hotelsTable.id, guard.hotel.id)).returning();
+    return row;
+  });
 
   await logAudit({
     actor: guard.user,
@@ -54,5 +51,5 @@ export async function POST(_req: Request, { params }: RouteParams) {
     meta: { eskiDurum: hotel.status, yeniDurum: "incelemede" },
   });
 
-  return NextResponse.json({ ok: true, status: updated.status });
+  return NextResponse.json({ ok: true, status: updated.status, submittedRevision: updated.submittedRevision });
 }

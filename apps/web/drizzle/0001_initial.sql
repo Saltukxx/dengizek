@@ -1,3 +1,5 @@
+-- LEGACY / UYGULAMAYIN: Drizzle journal zincirinin parçası değildir.
+-- Yalnız tarihsel referans için tutulur; aktif zincir 0000_aberrant_logan ile başlar.
 -- Dengizek — ilk migration
 -- Neon / PostgreSQL üzerinde çalıştır
 

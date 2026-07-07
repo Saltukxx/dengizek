@@ -86,9 +86,7 @@ export function RatePlanPricesEditor({
         name: r.name,
       }));
       setRooms(list);
-      if (list.length > 0 && !form.roomId) {
-        setForm((f) => ({ ...f, roomId: list[0].id }));
-      }
+      if (list.length > 0) setForm((f) => f.roomId ? f : { ...f, roomId: list[0].id });
     }
   }, [hotelId, planId, opened]);
 

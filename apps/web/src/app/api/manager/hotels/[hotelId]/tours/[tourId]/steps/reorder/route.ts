@@ -8,8 +8,9 @@ import { NextResponse } from "next/server";
 import { and, eq, sql } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
-import { tourStepsTable } from "@/lib/db/schema";
+import { tourStepsTable, toursTable } from "@/lib/db/schema";
 import { stepsReorderSchema } from "@/lib/schemas/tour-editor";
+import { withTransaction } from "@/lib/db/transaction";
 
 type RouteParams = { params: Promise<{ hotelId: string; tourId: string }> };
 
@@ -61,7 +62,14 @@ export async function POST(req: Request, { params }: RouteParams) {
   // Tek atomik UPDATE — unnest WITH ORDINALITY ile sıra indeksleri.
   // Dizi parametresi jsonb olarak bağlanır (drizzle JS dizisini tuple'a
   // çevirdiği için doğrudan ::text[] cast edilemez).
-  await db.execute(sql`
+  const reordered = await withTransaction(async (tx) => {
+    const [tour] = await tx.select({ id: toursTable.id }).from(toursTable).where(and(
+      eq(toursTable.hotelId, guard.hotel.id),
+      eq(toursTable.tourId, tourId),
+      eq(toursTable.draftRevision, parsed.data.expectedRevision),
+    )).for("update");
+    if (!tour) return false;
+    await tx.execute(sql`
     UPDATE tour_steps AS ts
     SET order_index = v.ord - 1
     FROM unnest(
@@ -70,7 +78,11 @@ export async function POST(req: Request, { params }: RouteParams) {
     WHERE ts.hotel_slug = ${guard.hotel.slug}
       AND ts.tour_id = ${tourId}
       AND ts.step_id = v.step_id
-  `);
+    `);
+    await tx.update(toursTable).set({ draftRevision: sql`${toursTable.draftRevision} + 1`, updatedAt: new Date() }).where(eq(toursTable.id, tour.id));
+    return true;
+  });
+  if (!reordered) return NextResponse.json({ ok: false, code: "REVISION_CONFLICT" }, { status: 409 });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, draftRevision: parsed.data.expectedRevision + 1 });
 }

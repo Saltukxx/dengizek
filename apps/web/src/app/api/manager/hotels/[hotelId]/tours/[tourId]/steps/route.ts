@@ -7,13 +7,14 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { and, eq, notInArray } from "drizzle-orm";
+import { and, eq, notInArray, sql } from "drizzle-orm";
 import { clearFactCatalogCache } from "@/lib/ai/fact-store";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { tourStepsTable, toursTable } from "@/lib/db/schema";
 import { stepsBulkSaveSchema } from "@/lib/schemas/tour-editor";
 import type { TourStep } from "@/lib/schemas/tour-manifest";
+import { withTransaction } from "@/lib/db/transaction";
 
 type RouteParams = { params: Promise<{ hotelId: string; tourId: string }> };
 
@@ -78,6 +79,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
   }
 
   const steps = parsed.data.steps;
+  const expectedRevision = parsed.data.expectedRevision;
 
   // stepId benzersizliği
   const ids = steps.map((s) => s.stepId);
@@ -115,8 +117,15 @@ export async function PUT(req: Request, { params }: RouteParams) {
     return NextResponse.json({ ok: false, error: "Tur bulunamadı." }, { status: 404 });
   }
 
-  // Upsert — order dizideki sıraya göre yeniden yazılır
-  for (const [index, s] of steps.entries()) {
+  const result = await withTransaction(async (tx) => {
+    const [locked] = await tx.select({ id: toursTable.id, draftRevision: toursTable.draftRevision })
+      .from(toursTable)
+      .where(and(eq(toursTable.id, tour.id), eq(toursTable.draftRevision, expectedRevision)))
+      .for("update");
+    if (!locked) return null;
+
+    // Upsert — order dizideki sıraya göre yeniden yazılır
+    for (const [index, s] of steps.entries()) {
     const row = {
       hotelSlug: guard.hotel.slug,
       tourId,
@@ -143,17 +152,17 @@ export async function PUT(req: Request, { params }: RouteParams) {
       aiVisible: s.aiVisible ?? true,
     };
 
-    await db
+      await tx
       .insert(tourStepsTable)
       .values(row)
       .onConflictDoUpdate({
         target: [tourStepsTable.hotelSlug, tourStepsTable.tourId, tourStepsTable.stepId],
         set: { ...row },
       });
-  }
+    }
 
   // Listede olmayan adımları temizle
-  await db
+    await tx
     .delete(tourStepsTable)
     .where(
       and(
@@ -163,12 +172,19 @@ export async function PUT(req: Request, { params }: RouteParams) {
       ),
     );
 
-  await db
+    const [updatedTour] = await tx
     .update(toursTable)
-    .set({ updatedAt: new Date() })
-    .where(eq(toursTable.id, tour.id));
+    .set({ draftRevision: sql`${toursTable.draftRevision} + 1`, updatedAt: new Date() })
+    .where(eq(toursTable.id, tour.id))
+    .returning();
+    return updatedTour;
+  });
+  if (!result) {
+    const [latest] = await db.select({ draftRevision: toursTable.draftRevision }).from(toursTable).where(eq(toursTable.id, tour.id)).limit(1);
+    return NextResponse.json({ ok: false, code: "REVISION_CONFLICT", currentRevision: latest?.draftRevision }, { status: 409 });
+  }
 
   clearFactCatalogCache(guard.hotel.slug);
 
-  return NextResponse.json({ ok: true, count: steps.length });
+  return NextResponse.json({ ok: true, count: steps.length, draftRevision: expectedRevision + 1 });
 }

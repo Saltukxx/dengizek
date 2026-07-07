@@ -28,13 +28,7 @@ export const authConfig = {
       const { pathname } = request.nextUrl;
       const user = auth?.user;
 
-      if (pathname.startsWith("/admin")) {
-        if (!user) return false; // /giris'e yönlendirilir
-        if (user.role !== "admin") {
-          return Response.redirect(new URL("/dashboard", request.nextUrl));
-        }
-        return true;
-      }
+      if (pathname.startsWith("/admin")) return !!user;
 
       if (pathname.startsWith("/dashboard")) {
         return !!user;
@@ -47,6 +41,7 @@ export const authConfig = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.tokenVersion = user.tokenVersion;
       }
       return token;
     },
@@ -55,6 +50,7 @@ export const authConfig = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as "admin" | "manager";
+        session.user.tokenVersion = token.tokenVersion as number;
       }
       return session;
     },

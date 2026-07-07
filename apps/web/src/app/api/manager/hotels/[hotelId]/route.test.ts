@@ -17,7 +17,7 @@ vi.mock("@/lib/db", () => ({
       from: () => ({
         where: () => ({
           limit: () => [
-            { id: "hotel-1", slug: "aurelia-bay", name: "Aurelia Bay Otel" },
+            { id: "hotel-1", slug: "aurelia-bay", name: "Aurelia Bay Otel", draftRevision: 1 },
           ],
         }),
       }),
@@ -103,7 +103,7 @@ describe("PATCH /api/manager/hotels/[hotelId]", () => {
   it("geçerli gövdede günceller", async () => {
     requireHotelAccessMock.mockResolvedValue(okGuard);
     returningMock.mockResolvedValue([{ id: "hotel-1", name: "Yeni Ad" }]);
-    const res = await PATCH(makePatch({ name: "Yeni Ad" }), makeParams("aurelia-bay"));
+    const res = await PATCH(makePatch({ name: "Yeni Ad", expectedRevision: 1 }), makeParams("aurelia-bay"));
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
       ok: true,

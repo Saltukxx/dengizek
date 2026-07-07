@@ -12,6 +12,12 @@ import { paymentIntentSchema } from "@/lib/schemas/hotel-panel";
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
 export async function POST(req: Request, { params }: RouteParams) {
+  if (process.env.PAYMENTS_ENABLED !== "true") {
+    return NextResponse.json(
+      { ok: false, code: "PAYMENTS_DISABLED", error: "Ödeme özelliği şu anda kapalı." },
+      { status: 503 },
+    );
+  }
   const { hotelId } = await params;
   const guard = await requireHotelAccess(hotelId);
   if (guard.response) return guard.response;
@@ -38,10 +44,13 @@ export async function POST(req: Request, { params }: RouteParams) {
   }
 
   const stripeKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeKey) {
+    return NextResponse.json({ ok: false, code: "PAYMENTS_DISABLED", error: "Ödeme sağlayıcısı yapılandırılmamış." }, { status: 503 });
+  }
   let providerRef: string;
   let clientSecret: string | null = null;
 
-  if (stripeKey) {
+  {
     const res = await fetch("https://api.stripe.com/v1/payment_intents", {
       method: "POST",
       headers: {
@@ -64,8 +73,6 @@ export async function POST(req: Request, { params }: RouteParams) {
     }
     providerRef = stripeData.id!;
     clientSecret = stripeData.client_secret ?? null;
-  } else {
-    providerRef = `stub_${Date.now()}`;
   }
 
   const [payment] = await db
@@ -76,7 +83,7 @@ export async function POST(req: Request, { params }: RouteParams) {
       amountMinor: parsed.data.amountMinor,
       currency: parsed.data.currency,
       status: "beklemede",
-      provider: stripeKey ? "stripe" : "stub",
+      provider: "stripe",
       providerRef,
     })
     .returning();
@@ -85,6 +92,6 @@ export async function POST(req: Request, { params }: RouteParams) {
     ok: true,
     payment,
     clientSecret,
-    stub: !stripeKey,
+    stub: false,
   });
 }

@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { usersTable } from "@/lib/db/schema";
@@ -50,12 +50,16 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   if (password) {
     updates.passwordHash = await hashPassword(password);
   }
+  if (password || parsed.data.role !== undefined || parsed.data.isActive !== undefined) {
+    updates.tokenVersion = sql`${usersTable.tokenVersion} + 1`;
+  }
 
   const [user] = await db
     .update(usersTable)
     .set(updates)
     .where(eq(usersTable.id, id))
     .returning();
+  const safeUser = { id: user.id, email: user.email, name: user.name, role: user.role, isActive: user.isActive, createdAt: user.createdAt, updatedAt: user.updatedAt };
 
   await logAudit({
     actor: guard.user,
@@ -69,5 +73,5 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     },
   });
 
-  return NextResponse.json({ ok: true, user });
+  return NextResponse.json({ ok: true, user: safeUser });
 }

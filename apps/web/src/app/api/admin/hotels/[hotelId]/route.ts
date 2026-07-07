@@ -31,6 +31,9 @@ export async function GET(_req: Request, { params }: RouteParams) {
   if (!hotel) {
     return NextResponse.json({ ok: false, error: "Tesis bulunamadı." }, { status: 404 });
   }
+  const reviewSnapshot = hotel.status === "incelemede" ? hotel.submittedSnapshot : null;
+  const snapshotValue = <T>(key: string, fallback: T) =>
+    reviewSnapshot && key in reviewSnapshot ? reviewSnapshot[key] as T : fallback;
 
   const members = await db
     .select({
@@ -53,6 +56,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
       status: toursTable.status,
       version: toursTable.version,
       submittedAt: toursTable.submittedAt,
+      submittedRevision: toursTable.submittedRevision,
       publishedAt: toursTable.publishedAt,
     })
     .from(toursTable)
@@ -64,16 +68,17 @@ export async function GET(_req: Request, { params }: RouteParams) {
     hotel: {
       id: hotel.id,
       slug: hotel.slug,
-      name: hotel.name,
-      city: hotel.city,
-      country: hotel.country,
+      name: snapshotValue("name", hotel.name),
+      city: snapshotValue("city", hotel.city),
+      country: snapshotValue("country", hotel.country),
       status: hotel.status,
       moderationNote: hotel.moderationNote,
       submittedAt: hotel.submittedAt,
+      submittedRevision: hotel.submittedRevision,
       reviewedAt: hotel.reviewedAt,
       createdAt: hotel.createdAt,
-      imageUrl: hotel.imageUrl,
-      shortDescription: hotel.shortDescription,
+      imageUrl: snapshotValue("imageUrl", hotel.imageUrl),
+      shortDescription: snapshotValue("shortDescription", hotel.shortDescription),
     },
     members,
     tours,

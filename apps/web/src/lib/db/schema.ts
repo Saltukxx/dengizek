@@ -93,6 +93,7 @@ export const usersTable = pgTable("users", {
   name:         text("name").notNull(),
   role:         userRoleEnum("role").default("manager").notNull(),
   isActive:     boolean("is_active").default(true).notNull(),
+  tokenVersion: integer("token_version").default(1).notNull(),
   createdAt:    timestamp("created_at").defaultNow().notNull(),
   updatedAt:    timestamp("updated_at").defaultNow().notNull(),
 });
@@ -151,6 +152,13 @@ export const hotelsTable = pgTable("hotels", {
   reviewedAt:     timestamp("reviewed_at"),
   reviewedBy:     uuid("reviewed_by").references(() => usersTable.id, { onDelete: "set null" }),
 
+  // Taslak / inceleme / yayın ayrımı. Mevcut kolonlar çalışma kopyasıdır;
+  // misafir yüzü yalnızca publishedSnapshot okur.
+  draftRevision:     integer("draft_revision").default(1).notNull(),
+  submittedRevision: integer("submitted_revision"),
+  submittedSnapshot: jsonb("submitted_snapshot").$type<Record<string, unknown>>(),
+  publishedSnapshot: jsonb("published_snapshot").$type<Record<string, unknown>>(),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -191,6 +199,9 @@ export const toursTable = pgTable("tours", {
   moderationNote: text("moderation_note"),
   version:        integer("version").default(1).notNull(),
   publishedManifest: jsonb("published_manifest").$type<TourManifest>(),
+  submittedManifest: jsonb("submitted_manifest").$type<TourManifest>(),
+  draftRevision:     integer("draft_revision").default(1).notNull(),
+  submittedRevision: integer("submitted_revision"),
   publishedAt: timestamp("published_at"),
   submittedAt: timestamp("submitted_at"),
   reviewedAt:  timestamp("reviewed_at"),
@@ -744,6 +755,27 @@ export const hotelIcalFeedsTable = pgTable("hotel_ical_feeds", {
 }));
 
 // ---------------------------------------------------------------------------
+// email_outbox — API başarısından bağımsız, tekrar denenebilir e-posta kuyruğu
+// ---------------------------------------------------------------------------
+
+export const emailOutboxTable = pgTable("email_outbox", {
+  id:          uuid("id").defaultRandom().primaryKey(),
+  to:          text("to_address").notNull(),
+  subject:     text("subject").notNull(),
+  text:        text("text_body").notNull(),
+  html:        text("html_body"),
+  status:      text("status").default("pending").notNull(),
+  attempts:    integer("attempts").default(0).notNull(),
+  nextAttemptAt: timestamp("next_attempt_at").defaultNow().notNull(),
+  sentAt:      timestamp("sent_at"),
+  lastError:   text("last_error"),
+  createdAt:   timestamp("created_at").defaultNow().notNull(),
+  updatedAt:   timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  pendingIdx: index("email_outbox_pending_idx").on(table.status, table.nextAttemptAt),
+}));
+
+// ---------------------------------------------------------------------------
 // audit_log — admin ve kritik yönetici işlemlerinin denetim kaydı
 // action: nokta-ayrımlı ASCII anahtar ("otel.onaylandi", "tur.reddedildi" vb.)
 // ---------------------------------------------------------------------------
@@ -792,6 +824,7 @@ export type Booking = typeof bookingsTable.$inferSelect;
 export type RoomInventory = typeof roomInventoryTable.$inferSelect;
 export type Payment = typeof paymentsTable.$inferSelect;
 export type HotelIcalFeed = typeof hotelIcalFeedsTable.$inferSelect;
+export type EmailOutbox = typeof emailOutboxTable.$inferSelect;
 
 export type ModerationStatus = (typeof moderationStatusEnum.enumValues)[number];
 export type MediaStatus      = (typeof mediaStatusEnum.enumValues)[number];

@@ -8,6 +8,7 @@ import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { reviewsTable } from "@/lib/db/schema";
 import { reviewCreateSchema, reviewPatchSchema } from "@/lib/schemas/hotel-panel";
+import { assertInquiryBelongsToHotel } from "@/lib/tenant-integrity";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -39,6 +40,9 @@ export async function POST(req: Request, { params }: RouteParams) {
       { status: 400 },
     );
   }
+  if (!(await assertInquiryBelongsToHotel(guard.hotel.id, parsed.data.inquiryId))) {
+    return NextResponse.json({ ok: false, error: "Talep bulunamadı." }, { status: 404 });
+  }
 
   const db = getDb();
   const [review] = await db
@@ -67,13 +71,12 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     );
   }
 
-  const { id, reply, status } = parsed.data;
+  const { id, reply } = parsed.data;
   const db = getDb();
   const [updated] = await db
     .update(reviewsTable)
     .set({
       ...(reply !== undefined ? { reply, repliedAt: new Date() } : {}),
-      ...(status !== undefined ? { status } : {}),
     })
     .where(and(eq(reviewsTable.id, id), eq(reviewsTable.hotelId, guard.hotel.id)))
     .returning();

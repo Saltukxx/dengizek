@@ -20,14 +20,15 @@ export const galleryPatchSchema = galleryImageSchema.partial().extend({
   id: uuid,
 });
 
-export const availabilityNoteSchema = z.object({
+const availabilityNoteBaseSchema = z.object({
   label: z.string().min(1).max(200),
   startDate: z.string().regex(datePattern).nullable().optional(),
   endDate: z.string().regex(datePattern).nullable().optional(),
   isBlackout: z.boolean().default(false),
 });
+export const availabilityNoteSchema = availabilityNoteBaseSchema.refine((v) => !v.startDate || !v.endDate || v.endDate >= v.startDate, { message: "Bitiş tarihi başlangıçtan önce olamaz.", path: ["endDate"] });
 
-export const availabilityNotePatchSchema = availabilityNoteSchema.partial().extend({
+export const availabilityNotePatchSchema = availabilityNoteBaseSchema.partial().extend({
   id: uuid,
 });
 
@@ -55,7 +56,7 @@ export const ratePlanPatchSchema = ratePlanSchema.partial().extend({
   id: uuid,
 });
 
-export const ratePlanPriceSchema = z.object({
+const ratePlanPriceBaseSchema = z.object({
   roomId: uuid,
   name: z.string().min(1).max(120),
   startDate: z.string().regex(datePattern),
@@ -64,12 +65,13 @@ export const ratePlanPriceSchema = z.object({
   currency: z.string().length(3).default("TRY"),
   minStayNights: z.number().int().positive().nullable().optional(),
 });
+export const ratePlanPriceSchema = ratePlanPriceBaseSchema.refine((v) => v.endDate >= v.startDate, { message: "Bitiş tarihi başlangıçtan önce olamaz.", path: ["endDate"] });
 
-export const ratePlanPricePatchSchema = ratePlanPriceSchema.partial().extend({
+export const ratePlanPricePatchSchema = ratePlanPriceBaseSchema.partial().extend({
   id: uuid,
 });
 
-export const promotionSchema = z.object({
+const promotionBaseSchema = z.object({
   name: z.string().min(1).max(120),
   discountPercent: z.number().int().min(1).max(90),
   validFrom: z.string().regex(datePattern).nullable().optional(),
@@ -78,8 +80,9 @@ export const promotionSchema = z.object({
   roomIds: z.array(uuid).default([]),
   isActive: z.boolean().default(true),
 });
+export const promotionSchema = promotionBaseSchema.refine((v) => !v.validFrom || !v.validTo || v.validTo >= v.validFrom, { message: "Bitiş tarihi başlangıçtan önce olamaz.", path: ["validTo"] });
 
-export const promotionPatchSchema = promotionSchema.partial().extend({
+export const promotionPatchSchema = promotionBaseSchema.partial().extend({
   id: uuid,
 });
 
@@ -100,7 +103,6 @@ export const reviewCreateSchema = z.object({
 export const reviewPatchSchema = z.object({
   id: uuid,
   reply: z.string().max(5000).optional(),
-  status: z.enum(["beklemede", "yayinda", "reddedildi"]).optional(),
 });
 
 export const reviewModerationSchema = z.object({

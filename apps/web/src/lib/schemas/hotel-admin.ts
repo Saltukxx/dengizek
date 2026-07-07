@@ -8,6 +8,7 @@ import { hotelSpecsSchema } from "./hotel-content";
 // ---------------------------------------------------------------------------
 
 export const hotelUpdateSchema = hotelSpecsSchema.extend({
+  expectedRevision: z.number().int().positive(),
   name: z.string().min(1, "Tesis adı gerekli").max(200).optional(),
   city: z.string().max(120).optional(),
   country: z.string().max(120).optional(),
@@ -29,6 +30,7 @@ export const moderationDecisionSchema = z
   .object({
     karar: z.enum(["onayla", "reddet"], { message: "Karar 'onayla' veya 'reddet' olmalı" }),
     not: z.string().max(2000).optional(),
+    submittedRevision: z.number().int().positive(),
   })
   .refine((v) => v.karar !== "reddet" || (v.not && v.not.trim().length > 0), {
     message: "Red nedeni belirtilmelidir.",

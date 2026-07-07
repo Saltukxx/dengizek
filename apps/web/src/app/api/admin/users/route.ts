@@ -92,6 +92,7 @@ export async function POST(req: Request) {
       passwordHash,
     })
     .returning();
+  const safeUser = { id: user.id, email: user.email, name: user.name, role: user.role, isActive: user.isActive, createdAt: user.createdAt, updatedAt: user.updatedAt };
 
   await logAudit({
     actor: guard.user,
@@ -101,5 +102,5 @@ export async function POST(req: Request) {
     meta: { email: user.email, role: user.role },
   });
 
-  return NextResponse.json({ ok: true, user }, { status: 201 });
+  return NextResponse.json({ ok: true, user: safeUser }, { status: 201 });
 }

@@ -4,7 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { hotelsTable } from "@/lib/db/schema";
@@ -29,7 +29,7 @@ export async function POST(req: Request, { params }: RouteParams) {
 
   const db = getDb();
   const [hotel] = await db
-    .select({ id: hotelsTable.id, status: hotelsTable.status, slug: hotelsTable.slug })
+    .select({ id: hotelsTable.id, status: hotelsTable.status, slug: hotelsTable.slug, submittedRevision: hotelsTable.submittedRevision, submittedSnapshot: hotelsTable.submittedSnapshot })
     .from(hotelsTable)
     .where(eq(hotelsTable.id, hotelId))
     .limit(1);
@@ -47,6 +47,9 @@ export async function POST(req: Request, { params }: RouteParams) {
       { status: 409 },
     );
   }
+  if (!hotel.submittedSnapshot || hotel.submittedRevision !== parsed.data.submittedRevision) {
+    return NextResponse.json({ ok: false, code: "REVISION_CONFLICT", currentRevision: hotel.submittedRevision }, { status: 409 });
+  }
 
   const yeniDurum = parsed.data.karar === "onayla" ? "yayinda" : "reddedildi";
   const now = new Date();
@@ -59,9 +62,11 @@ export async function POST(req: Request, { params }: RouteParams) {
       reviewedAt: now,
       reviewedBy: guard.user.id,
       updatedAt: now,
+      ...(parsed.data.karar === "onayla" ? { publishedSnapshot: hotel.submittedSnapshot } : {}),
     })
-    .where(eq(hotelsTable.id, hotel.id))
+    .where(and(eq(hotelsTable.id, hotel.id), eq(hotelsTable.status, "incelemede"), eq(hotelsTable.submittedRevision, parsed.data.submittedRevision)))
     .returning();
+  if (!updated) return NextResponse.json({ ok: false, code: "REVISION_CONFLICT" }, { status: 409 });
 
   await logAudit({
     actor: guard.user,

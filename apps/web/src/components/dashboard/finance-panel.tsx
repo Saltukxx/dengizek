@@ -22,7 +22,7 @@ interface PaymentRow {
 export function FinancePanel() {
   const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
   const [payments, setPayments] = useState<PaymentRow[] | null>(null);
-  const [totalMinor, setTotalMinor] = useState(0);
+  const [totalsByCurrency, setTotalsByCurrency] = useState<Record<string, number>>({});
   const [sayfa, setSayfa] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -34,7 +34,7 @@ export function FinancePanel() {
     const json = await res.json();
     if (json.ok) {
       setPayments(json.payments);
-      setTotalMinor(json.totalMinor);
+      setTotalsByCurrency(json.totalsByCurrency ?? {});
       setTotalCount(json.totalCount ?? json.payments.length);
       setHasMore(json.hasMore ?? false);
     }
@@ -57,7 +57,11 @@ export function FinancePanel() {
   return (
     <Stack gap="md">
       <Paper withBorder p="lg" radius="md">
-        <Title order={4}>{formatPrice(totalMinor, "TRY")}</Title>
+        <Title order={4}>
+          {Object.entries(totalsByCurrency).length > 0
+            ? Object.entries(totalsByCurrency).map(([currency, amount]) => formatPrice(amount, currency as "TRY")).join(" · ")
+            : formatPrice(0, "TRY")}
+        </Title>
         <Text c="dimmed" size="sm">
           Toplam tahsil edilen (son 30 gün sınırı yok — tüm ödenenler)
         </Text>

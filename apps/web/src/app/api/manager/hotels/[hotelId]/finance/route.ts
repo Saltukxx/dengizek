@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { paymentsTable } from "@/lib/db/schema";
@@ -29,17 +29,20 @@ export async function GET(req: Request, { params }: RouteParams) {
       pagination,
     }),
     db
-      .select({ amountMinor: paymentsTable.amountMinor })
+      .select({ amountMinor: paymentsTable.amountMinor, currency: paymentsTable.currency })
       .from(paymentsTable)
-      .where(and(where, eq(paymentsTable.status, "odendi"))),
+      .where(and(where, eq(paymentsTable.status, "odendi"), sql`${paymentsTable.provider} <> 'stub'`)),
   ]);
 
-  const totalMinor = paidRows.reduce((sum, p) => sum + p.amountMinor, 0);
+  const totalsByCurrency = paidRows.reduce<Record<string, number>>((totals, p) => {
+    totals[p.currency] = (totals[p.currency] ?? 0) + p.amountMinor;
+    return totals;
+  }, {});
 
   return NextResponse.json({
     ok: true,
     payments: result.items,
-    totalMinor,
+    totalsByCurrency,
     sayfa: result.sayfa,
     limit: result.limit,
     totalCount: result.totalCount,

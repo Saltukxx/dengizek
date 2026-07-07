@@ -17,8 +17,14 @@ const eslintConfig = [
       ".next/**",
       "out/**",
       "build/**",
+      "scripts/*.cjs",
       "next-env.d.ts",
     ],
+  },
+  {
+    rules: {
+      "@next/next/no-page-custom-font": "off",
+    },
   },
 ];
 

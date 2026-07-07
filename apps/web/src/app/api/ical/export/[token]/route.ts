@@ -13,6 +13,19 @@ function formatIcalDate(dateStr: string) {
   return dateStr.replace(/-/g, "");
 }
 
+function escapeIcalText(value: string) {
+  return value.replace(/\\/g, "\\\\").replace(/\r?\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
+}
+
+function foldIcalLine(line: string) {
+  const chunks = line.match(/.{1,73}/gu) ?? [line];
+  return chunks.join("\r\n ");
+}
+
+function safeFilename(value: string) {
+  return value.replace(/[\r\n"\\/]/g, "-").replace(/[^\p{L}\p{N}._ -]/gu, "").trim().slice(0, 80) || "takvim";
+}
+
 export async function GET(_req: Request, { params }: RouteParams) {
   if (!isDbConfigured()) {
     return new NextResponse("Servis kullanılamıyor.", { status: 503 });
@@ -59,7 +72,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
         `UID:${uid}`,
         `DTSTART;VALUE=DATE:${formatIcalDate(b.checkIn)}`,
         `DTEND;VALUE=DATE:${formatIcalDate(b.checkOut)}`,
-        `SUMMARY:${b.guestName} — ${b.status}`,
+        foldIcalLine(`SUMMARY:${escapeIcalText(`${b.guestName} — ${b.status}`)}`),
         "END:VEVENT",
       ].join("\r\n");
     })
@@ -77,7 +90,8 @@ export async function GET(_req: Request, { params }: RouteParams) {
   return new NextResponse(ical, {
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${feed.name}.ics"`,
+      "Content-Disposition": `attachment; filename="${safeFilename(feed.name)}.ics"`,
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

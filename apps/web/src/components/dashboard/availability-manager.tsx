@@ -16,7 +16,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconAlertCircle, IconPlus } from "@tabler/icons-react";
 import { useMyHotel } from "./use-my-hotel";
 
 interface NoteRow {

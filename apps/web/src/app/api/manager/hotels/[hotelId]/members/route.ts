@@ -9,6 +9,7 @@ import { getDb } from "@/lib/db";
 import { hotelMembersTable, usersTable } from "@/lib/db/schema";
 import { hotelMemberAddSchema, hotelMemberRemoveSchema } from "@/lib/schemas/hotel-panel";
 import { logAudit } from "@/lib/audit";
+import { withTransaction } from "@/lib/db/transaction";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -98,34 +99,27 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     );
   }
 
-  const db = getDb();
-
-  const owners = await db
-    .select({ userId: hotelMembersTable.userId, role: hotelMembersTable.role })
-    .from(hotelMembersTable)
-    .where(eq(hotelMembersTable.hotelId, guard.hotel.id));
-
-  const target = owners.find((m) => m.userId === parsed.data.userId);
-  if (!target) {
+  const removal = await withTransaction(async (tx) => {
+    const owners = await tx.select({ userId: hotelMembersTable.userId, role: hotelMembersTable.role })
+      .from(hotelMembersTable).where(eq(hotelMembersTable.hotelId, guard.hotel.id)).for("update");
+    const target = owners.find((m) => m.userId === parsed.data.userId);
+    if (!target) return "missing" as const;
+    if (target.role === "owner" && owners.filter((m) => m.role === "owner").length <= 1) return "last_owner" as const;
+    await tx.delete(hotelMembersTable).where(and(
+      eq(hotelMembersTable.hotelId, guard.hotel.id),
+      eq(hotelMembersTable.userId, parsed.data.userId),
+    ));
+    return "removed" as const;
+  });
+  if (removal === "missing") {
     return NextResponse.json({ ok: false, error: "Üye bulunamadı." }, { status: 404 });
   }
-
-  const ownerCount = owners.filter((m) => m.role === "owner").length;
-  if (target.role === "owner" && ownerCount <= 1) {
+  if (removal === "last_owner") {
     return NextResponse.json(
       { ok: false, error: "Son sahip silinemez. Önce başka bir sahip atayın." },
       { status: 409 },
     );
   }
-
-  await db
-    .delete(hotelMembersTable)
-    .where(
-      and(
-        eq(hotelMembersTable.hotelId, guard.hotel.id),
-        eq(hotelMembersTable.userId, parsed.data.userId),
-      ),
-    );
 
   await logAudit({
     actor: guard.user,
