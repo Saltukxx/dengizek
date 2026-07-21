@@ -211,23 +211,15 @@ export function BookingsManager() {
       notifications.show({ color: "yellow", message: "Tahsilat için toplam tutar gerekli." });
       return;
     }
+    // Tutar sunucuda rezervasyon kaydından belirlenir — istemci göndermez.
     const res = await fetch(`/api/manager/hotels/${hotel.id}/payments/create-intent`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        bookingId: booking.id,
-        amountMinor: booking.totalMinor,
-        currency: booking.currency,
-      }),
+      body: JSON.stringify({ bookingId: booking.id }),
     });
     const json = await res.json();
     if (json.ok) {
-      notifications.show({
-        color: "green",
-        message: json.stub
-          ? "Tahsilat kaydı oluşturuldu (test modu)."
-          : "Ödeme niyeti oluşturuldu.",
-      });
+      notifications.show({ color: "green", message: "Ödeme niyeti oluşturuldu." });
     } else {
       notifications.show({ color: "red", message: json.error ?? "Tahsilat başlatılamadı." });
     }

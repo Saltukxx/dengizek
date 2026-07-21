@@ -28,6 +28,7 @@ export async function POST(req: Request) {
       name: "reset-password-ip",
       windowMs: 60_000,
       limit: 10,
+      failClosed: true,
     }))
   ) {
     return apiRateLimited();
@@ -35,21 +36,11 @@ export async function POST(req: Request) {
 
   const db = getDb();
   const tokenHash = hashResetToken(parsed.data.token);
-
-  const [user] = await db
-    .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name, role: usersTable.role })
-    .from(usersTable)
-    .where(and(eq(usersTable.resetTokenHash, tokenHash), gt(usersTable.resetTokenExpiresAt, new Date())))
-    .limit(1);
-
-  if (!user) {
-    return apiFail("Bağlantının süresi dolmuş veya geçersiz. Yeniden şifre sıfırlama talep edin.", 400, {
-      code: "INVALID_TOKEN",
-    });
-  }
-
   const passwordHash = await hashPassword(parsed.data.password);
-  await db
+
+  // Tek atomik UPDATE: koşul (hash + süre) WHERE'de olduğundan aynı token'la
+  // eşzamanlı iki istekten yalnızca biri geçer — SELECT-sonra-UPDATE yarışı yok.
+  const [user] = await db
     .update(usersTable)
     .set({
       passwordHash,
@@ -58,7 +49,14 @@ export async function POST(req: Request) {
       tokenVersion: sql`${usersTable.tokenVersion} + 1`,
       updatedAt: new Date(),
     })
-    .where(eq(usersTable.id, user.id));
+    .where(and(eq(usersTable.resetTokenHash, tokenHash), gt(usersTable.resetTokenExpiresAt, new Date())))
+    .returning();
+
+  if (!user) {
+    return apiFail("Bağlantının süresi dolmuş veya geçersiz. Yeniden şifre sıfırlama talep edin.", 400, {
+      code: "INVALID_TOKEN",
+    });
+  }
 
   await logAudit({
     actor: { id: user.id, email: user.email, name: user.name, role: user.role, tokenVersion: 0 },

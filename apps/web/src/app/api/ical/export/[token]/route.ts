@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { and, eq, gte, lte } from "drizzle-orm";
 import { getDb, isDbConfigured } from "@/lib/db";
 import { bookingsTable, hotelIcalFeedsTable } from "@/lib/db/schema";
+import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 
 type RouteParams = { params: Promise<{ token: string }> };
 
@@ -26,9 +27,20 @@ function safeFilename(value: string) {
   return value.replace(/[\r\n"\\/]/g, "-").replace(/[^\p{L}\p{N}._ -]/gu, "").trim().slice(0, 80) || "takvim";
 }
 
-export async function GET(_req: Request, { params }: RouteParams) {
+export async function GET(req: Request, { params }: RouteParams) {
   if (!isDbConfigured()) {
     return new NextResponse("Servis kullanılamıyor.", { status: 503 });
+  }
+
+  // Token'lı herkese açık uç — brute-force taramasını yavaşlat.
+  if (
+    !(await checkRateLimit(`ical:${requestIp(req)}`, {
+      name: "ical-export",
+      windowMs: 60_000,
+      limit: 30,
+    }))
+  ) {
+    return new NextResponse("Çok fazla istek.", { status: 429 });
   }
 
   const { token } = await params;

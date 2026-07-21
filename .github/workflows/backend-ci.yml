@@ -43,6 +43,9 @@ jobs:
       - run: npx drizzle-kit push --force
       - run: npm run db:seed
       - run: npm run lint
+      # next build tüm dosyaları tip-taramaz (yalnızca kullanılanları) —
+      # tsc --noEmit test/script dosyaları dahil her şeyi doğrular.
+      - run: npx tsc --noEmit
       - run: npm run test:ci
       - run: npm run build
       - run: npx playwright install --with-deps chromium

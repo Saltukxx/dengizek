@@ -57,7 +57,7 @@ tablosu) ve sürüm artar. Misafir oynatıcı ile AI sohbeti yalnızca snapshot 
 ## Medya hattı (Bunny Stream)
 
 `create-video` (sunucu, TUS imzası) → `tus-js-client` (tarayıcı → Bunny) →
-`/api/webhooks/bunny?secret=...` (durum: yüklendi → işleniyor → hazır | hata).
+`/api/webhooks/bunny` — secret `x-webhook-secret` başlığıyla gönderilir (durum: yüklendi → işleniyor → hazır | hata).
 `BUNNY_STREAM_*` env yoksa mock mod: kayıt oluşur, gerçek yükleme atlanır.
 
 ## Bu makineye özgü notlar

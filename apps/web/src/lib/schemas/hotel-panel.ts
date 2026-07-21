@@ -159,10 +159,9 @@ export const inventoryPutSchema = z.object({
   entries: z.array(inventoryEntrySchema).min(1).max(500),
 });
 
+// Tutar/para birimi kasıtlı olarak yok — sunucu rezervasyon kaydından okur.
 export const paymentIntentSchema = z.object({
   bookingId: uuid,
-  amountMinor: z.number().int().positive(),
-  currency: z.string().length(3).default("TRY"),
 });
 
 export const icalFeedSchema = z.object({

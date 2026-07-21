@@ -17,6 +17,13 @@ export interface RateLimitOptions {
   name: string;
   windowMs: number;
   limit: number;
+  /**
+   * true → DB hatasında istek REDDEDİLİR (fail closed). Bellek fallback'i
+   * örnek başına saydığından gerçek limit ~örnek sayısı kadar katlanır;
+   * kötüye kullanım/maliyet hassas uçlarda (login, chat) kapalı kalmak
+   * daha güvenlidir. Varsayılan false (kullanılabilirlik öncelikli).
+   */
+  failClosed?: boolean;
 }
 
 export function requestIp(req: Request): string {
@@ -95,6 +102,10 @@ export async function checkRateLimit(key: string, options: RateLimitOptions): Pr
   try {
     return await checkRateLimitDb(key, options);
   } catch (err) {
+    if (options.failClosed) {
+      console.warn("[rate-limit] DB hatası, fail-closed reddedildi:", err);
+      return false;
+    }
     console.warn("[rate-limit] DB hatası, bellek fallback:", err);
     return checkRateLimitMemory(key, options);
   }

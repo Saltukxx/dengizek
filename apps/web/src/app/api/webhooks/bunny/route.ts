@@ -1,5 +1,6 @@
 // ---------------------------------------------------------------------------
-// POST /api/webhooks/bunny?secret=... — Bunny Stream durum webhook'u
+// POST /api/webhooks/bunny — Bunny Stream durum webhook'u
+// Secret yalnızca x-webhook-secret başlığıyla kabul edilir (URL'de taşınmaz).
 //
 // Doğrulama: Bunny webhook imzalamaz → paylaşılan sır query/header ile gelir,
 // sabit-zamanlı karşılaştırma yapılır (BUNNY_WEBHOOK_SECRET).
@@ -34,9 +35,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const url = new URL(req.url);
-  const provided =
-    url.searchParams.get("secret") ?? req.headers.get("x-webhook-secret") ?? "";
+  // Yalnızca header — query string'deki secret CDN/proxy loglarına sızar.
+  const provided = req.headers.get("x-webhook-secret") ?? "";
   if (!secretsMatch(provided, expected)) {
     return NextResponse.json({ ok: false, error: "Yetkisiz." }, { status: 401 });
   }

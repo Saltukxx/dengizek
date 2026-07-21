@@ -28,10 +28,12 @@ vi.mock("@/lib/db", () => ({
 import { POST } from "./route";
 
 function makeRequest(body: unknown, secret?: string) {
-  const qs = secret ? `?secret=${secret}` : "";
-  return new Request(`http://localhost/api/webhooks/bunny${qs}`, {
+  return new Request("http://localhost/api/webhooks/bunny", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(secret ? { "x-webhook-secret": secret } : {}),
+    },
     body: JSON.stringify(body),
   });
 }
@@ -57,6 +59,17 @@ describe("POST /api/webhooks/bunny", () => {
 
   it("secret yoksa 401 döner", async () => {
     const res = await POST(makeRequest(validBody));
+    expect(res.status).toBe(401);
+  });
+
+  it("query string'deki secret kabul edilmez (yalnızca header)", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/webhooks/bunny?secret=test-secret", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(validBody),
+      }),
+    );
     expect(res.status).toBe(401);
   });
 

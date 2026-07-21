@@ -204,6 +204,23 @@ export function useTourGuide({
 
   const { messages: chatMessages, sendMessage: chatSendMessage, status } = useChat({
     transport: new DefaultChatTransport({ api: "/api/tour/chat" }),
+    // Sunucu hatası / timeout / rate limit — sohbet sessizce takılı kalmasın,
+    // kullanıcıya görünür bir geri dönüş mesajı ver. Tur oynatma etkilenmez.
+    onError(error) {
+      if (!isMountedRef.current) return;
+      const raw = error?.message ?? "";
+      const isRateLimited = raw.includes("429") || raw.toLowerCase().includes("rate");
+      setLocalMessages((prev) => [
+        ...prev,
+        {
+          id: uid(),
+          role: "assistant",
+          content: isRateLimited
+            ? "Çok fazla mesaj gönderildi — lütfen kısa bir süre bekleyip tekrar deneyin."
+            : "Rehber şu an yanıt veremiyor. Tura devam edebilirsiniz; birazdan tekrar deneyin.",
+        },
+      ]);
+    },
     onToolCall({ toolCall }) {
       if (!isMountedRef.current) return;
       const { toolName, input } = toolCall;

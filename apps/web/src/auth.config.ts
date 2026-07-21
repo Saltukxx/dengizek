@@ -13,6 +13,9 @@ export const authConfig = {
   },
   session: {
     strategy: "jwt",
+    // 7 gün — tokenVersion kontrolü (guards.ts) şifre/rol değişiminde zaten
+    // anında geçersiz kılar; maxAge üst sınırı belirler.
+    maxAge: 7 * 24 * 60 * 60,
   },
   providers: [
     // Boş bırakıldı — Credentials provider yalnızca src/auth.ts'te tanımlanır.
@@ -28,7 +31,7 @@ export const authConfig = {
       const { pathname } = request.nextUrl;
       const user = auth?.user;
 
-      if (pathname.startsWith("/admin")) return !!user;
+      if (pathname.startsWith("/admin")) return user?.role === "admin";
 
       if (pathname.startsWith("/dashboard")) {
         return !!user;

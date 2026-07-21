@@ -27,9 +27,20 @@ function tokenUnavailable(inquiry: typeof inquiriesTable.$inferSelect) {
   return Boolean(inquiry.accessTokenRevokedAt || !inquiry.accessTokenExpiresAt || inquiry.accessTokenExpiresAt.getTime() < Date.now());
 }
 
-export async function GET(_req: Request, { params }: RouteParams) {
+export async function GET(req: Request, { params }: RouteParams) {
   if (!isDbConfigured()) {
     return apiServiceUnavailable("Servis kullanılamıyor.");
+  }
+
+  // Token'lı herkese açık uç — brute-force taramasını yavaşlat.
+  if (
+    !(await checkRateLimit(`portal-get:${requestIp(req)}`, {
+      name: "portal-get",
+      windowMs: 60_000,
+      limit: 60,
+    }))
+  ) {
+    return apiRateLimited();
   }
 
   const { token } = await params;

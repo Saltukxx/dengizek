@@ -3,10 +3,10 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
-import { bookingsTable } from "@/lib/db/schema";
+import { bookingsTable, paymentsTable } from "@/lib/db/schema";
 import { bookingCreateSchema, bookingPatchSchema } from "@/lib/schemas/hotel-panel";
 import {
   approveBooking,
@@ -148,6 +148,27 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       return bookingErrorResponse(err);
     }
     throw err;
+  }
+
+  // Tutar kilidi: açık/tahsil edilmiş ödeme varken totalMinor değiştirilemez —
+  // aksi halde tahsil edilen tutar ile rezervasyon tutarı sessizce ayrışır.
+  if (fields.totalMinor !== undefined && fields.totalMinor !== existing.totalMinor) {
+    const livePayments = await db
+      .select({ id: paymentsTable.id })
+      .from(paymentsTable)
+      .where(
+        and(
+          eq(paymentsTable.bookingId, id),
+          inArray(paymentsTable.status, ["odendi", "beklemede"]),
+        ),
+      )
+      .limit(1);
+    if (livePayments.length > 0) {
+      return apiFail(
+        "Bu rezervasyona bağlı açık veya tahsil edilmiş ödeme var — tutar değiştirilemez.",
+        409,
+      );
+    }
   }
 
   const [updated] = await db

@@ -10,7 +10,7 @@ import { z } from "zod";
 import { authConfig } from "@/auth.config";
 import { getDb } from "@/lib/db";
 import { usersTable } from "@/lib/db/schema";
-import { verifyPassword } from "@/lib/auth/password";
+import { burnPasswordVerification, verifyPassword } from "@/lib/auth/password";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 const credentialsSchema = z.object({
@@ -37,6 +37,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             name: "login",
             windowMs: 10 * 60 * 1000,
             limit: 10,
+            // Brute-force hassas uç: DB düşerse bellek fallback'i örnek
+            // başına saydığından limit katlanır — kapalı kalmak güvenli.
+            failClosed: true,
           }))
         ) {
           // Auth.js authorize null dönerse genel hata gösterilir;
@@ -51,7 +54,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           .where(eq(usersTable.email, email))
           .limit(1);
 
-        if (!user || !user.isActive) return null;
+        if (!user || !user.isActive) {
+          // Hesap yokken de bcrypt maliyeti öde — yanıt süresi hesabın
+          // varlığını ele vermesin (kullanıcı numaralandırma koruması).
+          await burnPasswordVerification(parsed.data.password);
+          return null;
+        }
 
         const valid = await verifyPassword(parsed.data.password, user.passwordHash);
         if (!valid) return null;

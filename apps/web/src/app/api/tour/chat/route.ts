@@ -21,12 +21,19 @@ import {
 } from "@/lib/ai/response-guard";
 import type { AiFactCatalogEntry } from "@/lib/ai/types";
 import type { CompletionState } from "@/lib/ai/completion-engine";
-import { getPublishedHotelContent } from "@/lib/hotels-repo";
+import { getHotelIdBySlug, getPublishedHotelContent } from "@/lib/hotels-repo";
 import { trackEvent } from "@/lib/analytics";
+import { checkAiBudget } from "@/lib/ai/budget";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { apiRateLimited, apiNotFound, apiServiceUnavailable } from "@/lib/api-response";
 import { streamText, tool, type ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
+
+// Vercel fonksiyon üst sınırı — takılı bir OpenAI stream'i fonksiyonu
+// süresiz kilitleyemesin. Model çağrısının kendi iptali aşağıda
+// AbortSignal.timeout ile daha erken (45s) kesilir.
+export const maxDuration = 60;
+const STREAM_TIMEOUT_MS = 45_000;
 
 // ---------------------------------------------------------------------------
 // Request schema
@@ -256,11 +263,16 @@ export async function buildAuthoritativeContext(req: ChatRequest): Promise<Autho
   const manifest = await getTourManifest(req.hotelSlug, req.tourId);
   if (!manifest) return null;
 
-  const [liveProfile, fullCatalog, content] = await Promise.all([
+  // Profil ve içerik bir kez okunur, katalog builder'a geçilir — cache miss
+  // durumunda aynı isteğin 2× profil + 2× içerik okuması yapması önlenir.
+  const [liveProfile, content] = await Promise.all([
     getHotelAiProfile(req.hotelSlug),
-    buildFactCatalog(req.hotelSlug),
     getPublishedHotelContent(req.hotelSlug),
   ]);
+  const fullCatalog = await buildFactCatalog(req.hotelSlug, {
+    profile: liveProfile,
+    content,
+  });
 
   // snapshotProfile: tur yayına alınırken donmuş hotelProfile — getHotelAiProfile
   // (artık publishedSnapshot tabanlı) başarısız olursa (DB hatası vb.) son çare
@@ -426,11 +438,14 @@ export function buildTools(data: AuthoritativeContext, toolFlags: ToolFlags) {
 }
 
 export async function POST(req: Request) {
+  // OpenAI maliyetine giden uç — DB düşerse bellek fallback'i örnek başına
+  // saydığından limit fiilen katlanır; burada fail-closed tercih edilir.
   if (
     !(await checkRateLimit(requestIp(req), {
       name: "chat",
       windowMs: 10 * 60 * 1000,
       limit: 30,
+      failClosed: true,
     }))
   ) {
     return apiRateLimited();
@@ -445,10 +460,25 @@ export async function POST(req: Request) {
     );
   }
 
+  // IP limitine ek otel-kapsamlı kova: dağıtık IP'lerle (NAT, rotasyon) tek
+  // otelin harcamasının şişirilmesini sınırlar.
+  if (
+    !(await checkRateLimit(`chat-hotel:${parsed.data.hotelSlug}`, {
+      name: "chat-hotel",
+      windowMs: 10 * 60 * 1000,
+      limit: 600,
+      failClosed: true,
+    }))
+  ) {
+    return apiRateLimited();
+  }
+
   const data = await buildAuthoritativeContext(parsed.data);
   if (!data) {
     return apiNotFound("Tur bulunamadı.");
   }
+
+  const hotelId = await getHotelIdBySlug(data.hotelSlug);
 
   if (parsed.data.completionMeta) {
     const clientRatio = parsed.data.completionMeta.progressRatio;
@@ -464,7 +494,7 @@ export async function POST(req: Request) {
       void trackEvent(
         "ai_completion_drift",
         { tourId: data.tourId, clientRatio, serverRatio, delta },
-        null,
+        hotelId,
         data.hotelSlug,
       );
     }
@@ -473,6 +503,18 @@ export async function POST(req: Request) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return apiServiceUnavailable("Yapay zeka servisi yapılandırılmamış.");
+  }
+
+  // Günlük bütçe tavanı — OpenAI'ye gitmeden önce kontrol edilir.
+  const budget = await checkAiBudget(data.hotelSlug);
+  if (!budget.allowed) {
+    console.warn("[chat] AI bütçe tavanı aşıldı", {
+      hotelSlug: data.hotelSlug,
+      scope: budget.scope,
+      spentUsd: budget.spentUsd,
+      capUsd: budget.capUsd,
+    });
+    return apiServiceUnavailable("Rehber şu an yoğunlukta — lütfen daha sonra tekrar deneyin.");
   }
 
   const openai = createOpenAI({ apiKey });
@@ -514,6 +556,10 @@ export async function POST(req: Request) {
     system: systemPrompt,
     messages,
     temperature: 0.7,
+    // Takılı/uzayan model çağrısı burada kesilir; istemci onError ile
+    // kullanıcıya geri dönüş mesajı gösterir.
+    abortSignal: AbortSignal.timeout(STREAM_TIMEOUT_MS),
+    maxRetries: 1,
     prepareStep: ({ stepNumber }) => {
       if (stepNumber > 0) return {};
       const toolChoice = decideToolChoice(toolHints, toolFlags);
@@ -525,7 +571,7 @@ export async function POST(req: Request) {
       void trackEvent(
         "ai_guard_triggered",
         { tourId, originalLength },
-        null,
+        hotelId,
         hotelSlug,
       );
     }),
@@ -539,7 +585,7 @@ export async function POST(req: Request) {
           outputTokens: totalUsage.outputTokens ?? 0,
           model: "gpt-4o-mini",
         },
-        null,
+        hotelId,
         hotelSlug,
       );
     },

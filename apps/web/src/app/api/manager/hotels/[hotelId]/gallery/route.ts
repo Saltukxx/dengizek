@@ -14,6 +14,16 @@ import { deleteObject } from "@/lib/object-storage";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
+/**
+ * objectKey İSTEMCİDEN gelir — başka bir otelin anahtarını bağlayıp sildirerek
+ * cross-tenant obje silme yapılmasın diye anahtar bu otelin prefix'ine
+ * kilitlenir (yükleme yolu da hotels/{hotelId}/ altına yazar).
+ */
+function objectKeyBelongsToHotel(objectKey: string | undefined | null, hotelId: string): boolean {
+  if (!objectKey) return true;
+  return objectKey.startsWith(`hotels/${hotelId}/`);
+}
+
 export async function GET(_req: Request, { params }: RouteParams) {
   const { hotelId } = await params;
   const guard = await requireHotelAccess(hotelId);
@@ -44,6 +54,12 @@ export async function POST(req: Request, { params }: RouteParams) {
   }
   if (!(await assertRoomsBelongToHotel(guard.hotel.id, [parsed.data.roomId]))) {
     return NextResponse.json({ ok: false, error: "Oda bulunamadı." }, { status: 404 });
+  }
+  if (!objectKeyBelongsToHotel(parsed.data.objectKey, guard.hotel.id)) {
+    return NextResponse.json(
+      { ok: false, error: "objectKey bu otele ait değil." },
+      { status: 400 },
+    );
   }
 
   const db = getDb();
@@ -97,6 +113,12 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   }
   if (!(await assertRoomsBelongToHotel(guard.hotel.id, [parsed.data.roomId]))) {
     return NextResponse.json({ ok: false, error: "Oda bulunamadı." }, { status: 404 });
+  }
+  if (!objectKeyBelongsToHotel(parsed.data.objectKey, guard.hotel.id)) {
+    return NextResponse.json(
+      { ok: false, error: "objectKey bu otele ait değil." },
+      { status: 400 },
+    );
   }
 
   const { id, ...fields } = parsed.data;

@@ -1,29 +1,64 @@
-import { and, eq, lte } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
+import { withTransaction } from "@/lib/db/transaction";
 import { mediaCleanupQueueTable } from "@/lib/db/schema";
 import { deleteObject } from "@/lib/object-storage";
 
+/**
+ * Bekleyen medya nesnelerini depodan siler. Eşzamanlı cron çalışmalarında
+ * aynı kaydın iki kez işlenmemesi için email_outbox ile aynı
+ * FOR UPDATE SKIP LOCKED + lease deseni kullanılır: satır önce 'processing'
+ * olarak kiralanır; ölen worker'ın kirası dolunca kayıt yeniden alınabilir.
+ */
 export async function cleanupMediaObjects(limit = 25) {
   const db = getDb();
-  const rows = await db.select().from(mediaCleanupQueueTable)
-    .where(and(eq(mediaCleanupQueueTable.status, "pending"), lte(mediaCleanupQueueTable.nextAttemptAt, new Date())))
-    .limit(limit);
+  const leaseUntil = new Date(Date.now() + 5 * 60_000);
+
+  const claimed = await withTransaction(async (tx) => tx.execute(sql`
+    WITH candidates AS (
+      SELECT id FROM media_cleanup_queue
+      WHERE ((status = 'pending' AND next_attempt_at <= now())
+        OR (status = 'processing' AND lease_until < now()))
+      ORDER BY created_at
+      FOR UPDATE SKIP LOCKED
+      LIMIT ${limit}
+    )
+    UPDATE media_cleanup_queue m
+    SET status = 'processing', lease_until = ${leaseUntil}, updated_at = now()
+    FROM candidates c WHERE m.id = c.id
+    RETURNING m.*
+  `));
+  const rows = (Array.isArray(claimed)
+    ? claimed
+    : (claimed as unknown as { rows?: unknown[] }).rows ?? []) as Array<{
+    id: string;
+    object_key: string;
+    attempts: number;
+  }>;
+
   let deleted = 0;
   let failed = 0;
   for (const row of rows) {
     try {
-      await deleteObject(row.objectKey);
-      await db.update(mediaCleanupQueueTable).set({ status: "deleted", updatedAt: new Date() }).where(eq(mediaCleanupQueueTable.id, row.id));
+      await deleteObject(row.object_key);
+      await db
+        .update(mediaCleanupQueueTable)
+        .set({ status: "deleted", leaseUntil: null, updatedAt: new Date() })
+        .where(eq(mediaCleanupQueueTable.id, row.id));
       deleted += 1;
     } catch (error) {
       const attempts = row.attempts + 1;
-      await db.update(mediaCleanupQueueTable).set({
-        status: attempts >= 8 ? "failed" : "pending",
-        attempts,
-        lastError: error instanceof Error ? error.message.slice(0, 2000) : "Bilinmeyen hata",
-        nextAttemptAt: new Date(Date.now() + Math.min(3_600_000, 30_000 * 2 ** attempts)),
-        updatedAt: new Date(),
-      }).where(eq(mediaCleanupQueueTable.id, row.id));
+      await db
+        .update(mediaCleanupQueueTable)
+        .set({
+          status: attempts >= 8 ? "failed" : "pending",
+          attempts,
+          leaseUntil: null,
+          lastError: error instanceof Error ? error.message.slice(0, 2000) : "Bilinmeyen hata",
+          nextAttemptAt: new Date(Date.now() + Math.min(3_600_000, 30_000 * 2 ** attempts)),
+          updatedAt: new Date(),
+        })
+        .where(eq(mediaCleanupQueueTable.id, row.id));
       failed += 1;
     }
   }

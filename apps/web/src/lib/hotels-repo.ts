@@ -279,6 +279,34 @@ const emptyContent: PublishedHotelContent = {
  * DB yoksa veya otel yayında değilse boş içerik döner — sayfalar mock'la
  * çalışmaya devam eder.
  */
+// slug→id eşlemesi değişmez — analytics atıfları için küçük süreç-içi cache.
+const hotelIdBySlugCache = new Map<string, string | null>();
+
+/** Yayındaki otelin uuid'sini döner (analytics hotel_id atfı için). */
+export async function getHotelIdBySlug(slug: string): Promise<string | null> {
+  if (!isDbAvailable()) return null;
+  const cached = hotelIdBySlugCache.get(slug);
+  if (cached !== undefined) return cached;
+  try {
+    // Dosya genelindeki kalıp: db/schema modülleri mock modda hiç yüklenmesin
+    // diye dinamik import edilir.
+    const { getDb } = await import("@/lib/db");
+    const { hotelsTable } = await import("@/lib/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const db = getDb();
+    const [row] = await db
+      .select({ id: hotelsTable.id })
+      .from(hotelsTable)
+      .where(eq(hotelsTable.slug, slug))
+      .limit(1);
+    const id = row?.id ?? null;
+    hotelIdBySlugCache.set(slug, id);
+    return id;
+  } catch {
+    return null;
+  }
+}
+
 export async function getPublishedHotelContent(
   slug: string,
 ): Promise<PublishedHotelContent> {

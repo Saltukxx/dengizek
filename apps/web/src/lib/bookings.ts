@@ -1,12 +1,23 @@
 import { and, eq, gt, inArray, ne, sql } from "drizzle-orm";
 import type { Db, Tx } from "@/lib/db";
 import { withTransaction } from "@/lib/db/transaction";
-import { bookingsTable, bookingTransitionsTable, roomInventoryTable, roomsTable } from "@/lib/db/schema";
+import {
+  bookingsTable,
+  bookingTransitionsTable,
+  paymentsTable,
+  roomInventoryTable,
+  roomsTable,
+} from "@/lib/db/schema";
 import { eachStayNight, stayRangesOverlap } from "@/lib/stay-dates";
 
 const ACTIVE_STATUSES = ["beklemede", "onaylandi"] as const;
 
-export type BookingErrorCode = "not_found" | "overlap" | "inventory" | "invalid_state";
+export type BookingErrorCode =
+  | "not_found"
+  | "overlap"
+  | "inventory"
+  | "invalid_state"
+  | "payment_conflict";
 
 export class BookingServiceError extends Error {
   constructor(
@@ -230,6 +241,22 @@ export async function approveBooking(hotelId: string, bookingId: string, idempot
   });
 }
 
+/**
+ * Rezervasyona bağlı finansal olarak "canlı" ödemeleri döner.
+ * odendi → iade yapılmadan iptal/yeniden açma engellenmeli.
+ */
+async function findLivePayments(db: DbLike, bookingId: string) {
+  return db
+    .select({ id: paymentsTable.id, status: paymentsTable.status })
+    .from(paymentsTable)
+    .where(
+      and(
+        eq(paymentsTable.bookingId, bookingId),
+        inArray(paymentsTable.status, ["odendi", "beklemede"]),
+      ),
+    );
+}
+
 /** Onaylı rezervasyonu iptal/no_show ile atomik olarak günceller ve envanteri iade eder. */
 export async function releaseApprovedBooking(
   hotelId: string,
@@ -255,6 +282,16 @@ export async function releaseApprovedBooking(
     }
     if (existing.status !== "onaylandi") {
       throw new BookingServiceError("Yalnızca onaylı rezervasyon iptal edilebilir.", "invalid_state");
+    }
+
+    // Tahsilatı yapılmış rezervasyon önce iade edilmeden kapatılamaz —
+    // aksi halde ödenmiş para finansal olarak görünmez hale gelir.
+    const livePayments = await findLivePayments(tx, bookingId);
+    if (livePayments.some((p) => p.status === "odendi")) {
+      throw new BookingServiceError(
+        "Bu rezervasyonun tahsilatı yapılmış — iptal etmeden önce iade işlemini tamamlayın.",
+        "payment_conflict",
+      );
     }
 
     if (existing.roomId) {
@@ -286,6 +323,15 @@ export async function reopenBooking(hotelId: string, bookingId: string, idempote
     if (!existing) throw new BookingServiceError("Rezervasyon bulunamadı.", "not_found");
     if (existing.status === "beklemede") return existing;
     if (existing.status !== "iptal" && existing.status !== "no_show") throw new BookingServiceError("Yalnızca terminal rezervasyon yeniden açılabilir.", "invalid_state");
+    // Açık veya tahsil edilmiş ödemesi olan rezervasyon finansal olarak kirli —
+    // önce ödeme durumu netleşmeli (iade / iptal).
+    const livePayments = await findLivePayments(tx, bookingId);
+    if (livePayments.length > 0) {
+      throw new BookingServiceError(
+        "Bu rezervasyona bağlı açık veya tahsil edilmiş ödeme var — önce ödeme durumunu netleştirin.",
+        "payment_conflict",
+      );
+    }
     const [updated] = await tx.update(bookingsTable).set({ status: "beklemede", updatedAt: new Date() })
       .where(eq(bookingsTable.id, bookingId)).returning();
     await tx.insert(bookingTransitionsTable).values({ bookingId, hotelId, action: "reopen", idempotencyKey, fromStatus: existing.status, toStatus: "beklemede" }).onConflictDoNothing();

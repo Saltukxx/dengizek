@@ -1,12 +1,23 @@
 // ---------------------------------------------------------------------------
 // POST /api/webhooks/stripe — PaymentIntent durum güncellemeleri
+//
+// Güvenlik / doğruluk garantileri:
+//  - İmza: HMAC-SHA256 + sabit-zamanlı karşılaştırma, TÜM v1 imzaları denenir
+//    (anahtar rotasyonunda Stripe iki imza gönderir) ve ±5 dk zaman toleransı
+//    uygulanır (yakalanmış imzalı gövdenin tekrar oynatılmasını engeller).
+//  - Durum makinesi monotoniktir: "odendi" webhook ile asla geri alınamaz —
+//    yalnızca açık iade akışı "iade"ye çevirebilir. Geç gelen/ters sıralı
+//    payment_failed/canceled olayları ödenmiş kaydı bozamaz.
+//  - Tutar doğrulaması: intent amount/currency ödeme kaydıyla uyuşmalı.
+//  - Ödeme özelliği kapalıyken 200 döner (ignored) — 503 Stripe'ın retry
+//    fırtınasını tetikler.
 // ---------------------------------------------------------------------------
 
-import { createHmac, timingSafeEqual } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { paymentsTable } from "@/lib/db/schema";
 import { apiFail, apiOk } from "@/lib/api-response";
+import { verifyStripeSignature } from "@/lib/stripe-webhook";
 
 const HANDLED_EVENTS = new Set([
   "payment_intent.succeeded",
@@ -14,36 +25,16 @@ const HANDLED_EVENTS = new Set([
   "payment_intent.canceled",
 ]);
 
-function verifyStripeSignature(payload: string, signatureHeader: string, secret: string): boolean {
-  const parts = signatureHeader.split(",").reduce<Record<string, string>>((acc, part) => {
-    const [k, v] = part.split("=");
-    if (k && v) acc[k.trim()] = v.trim();
-    return acc;
-  }, {});
-
-  const timestamp = parts.t;
-  const signature = parts.v1;
-  if (!timestamp || !signature) return false;
-
-  const signedPayload = `${timestamp}.${payload}`;
-  const expected = createHmac("sha256", secret).update(signedPayload, "utf8").digest("hex");
-
-  try {
-    return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
-  } catch {
-    return false;
-  }
-}
-
-function mapStripeStatus(eventType: string): "odendi" | "basarisiz" | "beklemede" {
+function mapStripeStatus(eventType: string): "odendi" | "basarisiz" {
   if (eventType === "payment_intent.succeeded") return "odendi";
-  if (eventType === "payment_intent.payment_failed") return "basarisiz";
-  return "beklemede";
+  // payment_failed ve canceled: intent bu haliyle tahsil edilemez.
+  return "basarisiz";
 }
 
 export async function POST(req: Request) {
   if (process.env.PAYMENTS_ENABLED !== "true") {
-    return apiFail("Ödeme özelliği kapalı.", 503, { code: "PAYMENTS_DISABLED" });
+    // 200: özellik kapalıyken Stripe retry kuyruğu büyümesin.
+    return apiOk({ received: true, ignored: true, reason: "PAYMENTS_DISABLED" });
   }
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) {
@@ -60,7 +51,18 @@ export async function POST(req: Request) {
     return apiFail("Geçersiz imza.", 400);
   }
 
-  let event: { id?: string; type?: string; data?: { object?: { id?: string; metadata?: Record<string, string> } } };
+  let event: {
+    id?: string;
+    type?: string;
+    data?: {
+      object?: {
+        id?: string;
+        amount?: number;
+        currency?: string;
+        metadata?: Record<string, string>;
+      };
+    };
+  };
   try {
     event = JSON.parse(payload) as typeof event;
   } catch {
@@ -88,20 +90,50 @@ export async function POST(req: Request) {
     return apiOk({ received: true, matched: false });
   }
 
+  // Metadata / tutar doğrulaması — intent kaydımızla uyuşmalı.
+  const metaHotelId = intent?.metadata?.hotelId;
+  if (metaHotelId && metaHotelId !== payment.hotelId) {
+    return apiFail("Otel metadata uyuşmazlığı.", 400);
+  }
+  const metaBookingId = intent?.metadata?.bookingId;
+  if (metaBookingId && payment.bookingId && metaBookingId !== payment.bookingId) {
+    return apiFail("Rezervasyon metadata uyuşmazlığı.", 400);
+  }
+  if (
+    event.type === "payment_intent.succeeded" &&
+    (intent?.amount !== payment.amountMinor ||
+      intent?.currency?.toLowerCase() !== payment.currency.toLowerCase())
+  ) {
+    console.error(
+      `[stripe-webhook] Tutar uyuşmazlığı: payment=${payment.id} beklenen=${payment.amountMinor} ${payment.currency}, intent=${intent?.amount} ${intent?.currency}`,
+    );
+    return apiFail("Tutar uyuşmazlığı.", 400);
+  }
+
   const nextStatus = mapStripeStatus(event.type);
   if (payment.status === nextStatus) {
     return apiOk({ received: true, idempotent: true });
   }
 
-  const metaHotelId = intent?.metadata?.hotelId;
-  if (metaHotelId && metaHotelId !== payment.hotelId) {
-    return apiFail("Otel metadata uyuşmazlığı.", 400);
-  }
-
-  await db
+  // Monotonik geçiş: yalnızca terminal olmayan durumlardan güncelle.
+  // "odendi" ve "iade" webhook ile değişmez — koşul WHERE'de olduğu için
+  // eşzamanlı teslimatlarda da yarış olmaz.
+  const updated = await db
     .update(paymentsTable)
     .set({ status: nextStatus })
-    .where(and(eq(paymentsTable.id, payment.id), eq(paymentsTable.providerRef, providerRef)));
+    .where(
+      and(
+        eq(paymentsTable.id, payment.id),
+        eq(paymentsTable.providerRef, providerRef),
+        inArray(paymentsTable.status, ["beklemede", "basarisiz"]),
+      ),
+    )
+    .returning();
+
+  if (updated.length === 0) {
+    // Terminal durumda — geç gelen olay yok sayılır.
+    return apiOk({ received: true, ignored: true, reason: "TERMINAL_STATUS" });
+  }
 
   return apiOk({ received: true, paymentId: payment.id, status: nextStatus });
 }

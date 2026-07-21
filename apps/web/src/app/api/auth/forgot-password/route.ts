@@ -29,11 +29,13 @@ export async function POST(req: Request) {
       name: "forgot-password-ip",
       windowMs: 60_000,
       limit: 5,
+      failClosed: true,
     })) ||
     !(await checkRateLimit(`forgot-password:${parsed.data.email.toLowerCase()}`, {
       name: "forgot-password-email",
       windowMs: 15 * 60_000,
       limit: 3,
+      failClosed: true,
     }))
   ) {
     return apiRateLimited();

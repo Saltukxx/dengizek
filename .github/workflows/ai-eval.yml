@@ -11,7 +11,19 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Fork'larda / secret tanımsız repolarda eval'i boşuna başlatma —
+  # secrets job-level if'te okunamadığından ayrı bir gate job'ı kullanılır.
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      has-key: ${{ steps.check.outputs.has-key }}
+    steps:
+      - id: check
+        run: echo "has-key=${{ secrets.OPENAI_API_KEY != '' }}" >> "$GITHUB_OUTPUT"
+
   eval:
+    needs: gate
+    if: needs.gate.outputs.has-key == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:

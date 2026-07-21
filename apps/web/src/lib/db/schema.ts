@@ -3,6 +3,7 @@
 // Dialect: PostgreSQL (Neon Serverless)
 // ---------------------------------------------------------------------------
 
+import { isNull } from "drizzle-orm";
 import {
   boolean,
   date,
@@ -627,6 +628,7 @@ export const analyticsEventsTable = pgTable("analytics_events", {
 }, (table) => ({
   hotelEventIdx: index("analytics_hotel_event_idx").on(table.hotelId, table.eventType),
   createdAtIdx:  index("analytics_created_at_idx").on(table.createdAt),
+  hotelCreatedIdx: index("analytics_hotel_created_idx").on(table.hotelId, table.createdAt),
 }));
 
 // ---------------------------------------------------------------------------
@@ -685,6 +687,9 @@ export const userNotificationsTable = pgTable("user_notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   userIdx: index("user_notifications_user_idx").on(table.userId),
+  userUnreadIdx: index("user_notifications_user_unread_idx")
+    .on(table.userId)
+    .where(isNull(table.readAt)),
 }));
 
 // ---------------------------------------------------------------------------
@@ -818,6 +823,7 @@ export const mediaCleanupQueueTable = pgTable("media_cleanup_queue", {
   status: text("status").default("pending").notNull(),
   attempts: integer("attempts").default(0).notNull(),
   nextAttemptAt: timestamp("next_attempt_at").defaultNow().notNull(),
+  leaseUntil: timestamp("lease_until"),
   lastError: text("last_error"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

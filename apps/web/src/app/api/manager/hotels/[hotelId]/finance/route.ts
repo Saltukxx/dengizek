@@ -13,7 +13,8 @@ type RouteParams = { params: Promise<{ hotelId: string }> };
 
 export async function GET(req: Request, { params }: RouteParams) {
   const { hotelId } = await params;
-  const guard = await requireHotelAccess(hotelId);
+  // Finansal veriler yalnızca tesis sahibine (admin dahil) görünür.
+  const guard = await requireHotelAccess(hotelId, "owner");
   if (guard.response) return guard.response;
 
   const pagination = parsePagination(new URL(req.url));

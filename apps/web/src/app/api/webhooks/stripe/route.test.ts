@@ -1,33 +1,52 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
+import { verifyStripeSignature } from "@/lib/stripe-webhook";
 
-function verifyStripeSignature(payload: string, signatureHeader: string, secret: string): boolean {
-  const parts = signatureHeader.split(",").reduce<Record<string, string>>((acc, part) => {
-    const [k, v] = part.split("=");
-    if (k && v) acc[k.trim()] = v.trim();
-    return acc;
-  }, {});
+const SECRET = "whsec_test";
 
-  const timestamp = parts.t;
-  const signature = parts.v1;
-  if (!timestamp || !signature) return false;
-
-  const signedPayload = `${timestamp}.${payload}`;
-  const expected = createHmac("sha256", secret).update(signedPayload, "utf8").digest("hex");
-  return expected === signature;
+function sign(payload: string, ts: number, secret = SECRET): string {
+  return createHmac("sha256", secret).update(`${ts}.${payload}`, "utf8").digest("hex");
 }
 
 describe("Stripe webhook imza", () => {
+  const payload = '{"id":"evt_1"}';
+  const now = 1_700_000_000;
+
   it("geçerli imzayı doğrular", () => {
-    const secret = "whsec_test";
-    const payload = '{"id":"evt_1"}';
-    const ts = "1234567890";
-    const sig = createHmac("sha256", secret).update(`${ts}.${payload}`, "utf8").digest("hex");
-    const header = `t=${ts},v1=${sig}`;
-    expect(verifyStripeSignature(payload, header, secret)).toBe(true);
+    const sig = sign(payload, now);
+    expect(verifyStripeSignature(payload, `t=${now},v1=${sig}`, SECRET, now)).toBe(true);
   });
 
   it("hatalı imzayı reddeder", () => {
-    expect(verifyStripeSignature("{}", "t=1,v1=bad", "secret")).toBe(false);
+    expect(verifyStripeSignature("{}", `t=${now},v1=bad`, SECRET, now)).toBe(false);
+  });
+
+  it("tolerans dışı (eski) zaman damgasını reddeder — replay koruması", () => {
+    const oldTs = now - 600;
+    const sig = sign(payload, oldTs);
+    expect(verifyStripeSignature(payload, `t=${oldTs},v1=${sig}`, SECRET, now)).toBe(false);
+  });
+
+  it("tolerans içindeki zaman damgasını kabul eder", () => {
+    const ts = now - 200;
+    const sig = sign(payload, ts);
+    expect(verifyStripeSignature(payload, `t=${ts},v1=${sig}`, SECRET, now)).toBe(true);
+  });
+
+  it("anahtar rotasyonunda birden çok v1 imzasından herhangi biri yeterli", () => {
+    const goodSig = sign(payload, now);
+    const staleSig = sign(payload, now, "whsec_old");
+    const header = `t=${now},v1=${staleSig},v1=${goodSig}`;
+    expect(verifyStripeSignature(payload, header, SECRET, now)).toBe(true);
+  });
+
+  it("t veya v1 eksikse reddeder", () => {
+    expect(verifyStripeSignature(payload, `v1=${sign(payload, now)}`, SECRET, now)).toBe(false);
+    expect(verifyStripeSignature(payload, `t=${now}`, SECRET, now)).toBe(false);
+  });
+
+  it("sayısal olmayan zaman damgasını reddeder", () => {
+    const sig = sign(payload, now);
+    expect(verifyStripeSignature(payload, `t=abc,v1=${sig}`, SECRET, now)).toBe(false);
   });
 });
