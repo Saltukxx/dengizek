@@ -2,7 +2,7 @@
 // GET/POST /api/inquiry/portal/[token]/messages — misafir mesaj portalı
 // ---------------------------------------------------------------------------
 
-import { asc, eq, or } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { getDb, isDbConfigured } from "@/lib/db";
 import { inquiriesTable, inquiryMessagesTable } from "@/lib/db/schema";
 import { inquiryMessageSchema } from "@/lib/schemas/hotel-panel";
@@ -18,7 +18,7 @@ async function findByToken(token: string) {
   const [inquiry] = await db
     .select()
     .from(inquiriesTable)
-    .where(or(eq(inquiriesTable.accessTokenHash, hashPortalToken(token)), eq(inquiriesTable.accessToken, token)))
+    .where(eq(inquiriesTable.accessTokenHash, hashPortalToken(token)))
     .limit(1);
   return inquiry;
 }

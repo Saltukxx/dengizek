@@ -1,11 +1,43 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { TextStreamPart, ToolSet } from "ai";
 import {
   GUARD_FALLBACK_MESSAGE,
   buildToolHintPrompt,
+  createGuardStreamTransform,
+  decideToolChoice,
   detectToolHints,
-  guardAssistantText,
   textContainsPriceLikeContent,
 } from "@/lib/ai/response-guard";
+
+type Chunk = TextStreamPart<ToolSet>;
+
+async function runTransform(
+  flags: { hadPriceTool: boolean; hadFactTool: boolean },
+  chunks: Chunk[],
+  onGuardTriggered?: (info: { originalLength: number }) => void,
+): Promise<Chunk[]> {
+  const ts = createGuardStreamTransform(flags, onGuardTriggered)();
+  const writer = ts.writable.getWriter();
+  const readerPromise = (async () => {
+    const out: Chunk[] = [];
+    const reader = ts.readable.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      out.push(value);
+    }
+    return out;
+  })();
+  for (const c of chunks) await writer.write(c);
+  await writer.close();
+  return readerPromise;
+}
+
+function deltaTexts(chunks: Chunk[]): string[] {
+  return chunks
+    .filter((c): c is Extract<Chunk, { type: "text-delta" }> => c.type === "text-delta")
+    .map((c) => c.text);
+}
 
 describe("textContainsPriceLikeContent", () => {
   it("₺ ve TL patternlerini yakalar", () => {
@@ -15,33 +47,95 @@ describe("textContainsPriceLikeContent", () => {
   });
 });
 
-describe("guardAssistantText", () => {
-  it("tool yokken fiyatlı metni bloklar", () => {
-    const result = guardAssistantText("Gecelik 4500 ₺", {
-      hadPriceTool: false,
-      hadFactTool: false,
-    });
-    expect(result.triggered).toBe(true);
-    expect(result.text).toBe(GUARD_FALLBACK_MESSAGE);
+describe("createGuardStreamTransform", () => {
+  it("tek delta'da gelen fiyatlı metni engeller ve gerçek uzunluğu bildirir", async () => {
+    const onGuardTriggered = vi.fn();
+    const original = "Gecelik 4500 ₺";
+    const out = await runTransform(
+      { hadPriceTool: false, hadFactTool: false },
+      [
+        { type: "text-start", id: "1" },
+        { type: "text-delta", id: "1", text: original },
+        { type: "text-end", id: "1" },
+      ],
+      onGuardTriggered,
+    );
+    expect(deltaTexts(out)).toEqual([` ${GUARD_FALLBACK_MESSAGE}`]);
+    expect(onGuardTriggered).toHaveBeenCalledWith({ originalLength: original.length });
   });
 
-  it("getRoomPrice sonrası metne dokunmaz", () => {
-    const original = "İşte fiyat bilgisi.";
-    const result = guardAssistantText(original, {
-      hadPriceTool: true,
-      hadFactTool: false,
-    });
-    expect(result.triggered).toBe(false);
-    expect(result.text).toBe(original);
+  it("fiyat pattern'i iki delta'ya bölünse bile kayan pencerede yakalar (streaming-buffer edge case)", async () => {
+    const onGuardTriggered = vi.fn();
+    const out = await runTransform(
+      { hadPriceTool: false, hadFactTool: false },
+      [
+        { type: "text-start", id: "1" },
+        { type: "text-delta", id: "1", text: "Gecelik fiyatımız 45" },
+        { type: "text-delta", id: "1", text: "00 ₺ civarında." },
+        { type: "text-end", id: "1" },
+      ],
+      onGuardTriggered,
+    );
+    // İlk delta akmıştır (henüz fiyat pattern'i tamamlanmadı), ikinci
+    // delta'da pattern tamamlanınca guard devreye girer ve akışı keser.
+    expect(deltaTexts(out)).toEqual(["Gecelik fiyatımız 45", ` ${GUARD_FALLBACK_MESSAGE}`]);
+    expect(onGuardTriggered).toHaveBeenCalledTimes(1);
   });
 
-  it("citeFact sonrası fiyatlı metin yine bloklanır", () => {
-    const result = guardAssistantText("Gecelik 4500 ₺", {
-      hadPriceTool: false,
-      hadFactTool: true,
-    });
-    expect(result.triggered).toBe(true);
-    expect(result.text).toBe(GUARD_FALLBACK_MESSAGE);
+  it("tetiklendikten sonra aynı blokta gelen ek delta'ları da bastırır", async () => {
+    const out = await runTransform(
+      { hadPriceTool: false, hadFactTool: false },
+      [
+        { type: "text-start", id: "1" },
+        { type: "text-delta", id: "1", text: "4500 ₺" },
+        { type: "text-delta", id: "1", text: " ve devamı yazı." },
+        { type: "text-end", id: "1" },
+      ],
+    );
+    expect(deltaTexts(out)).toEqual([` ${GUARD_FALLBACK_MESSAGE}`]);
+  });
+
+  it("getRoomPrice çağrıldıysa fiyatlı metne dokunmaz", async () => {
+    const original = "Gecelik 4500 ₺ tutuyor.";
+    const out = await runTransform(
+      { hadPriceTool: true, hadFactTool: false },
+      [
+        { type: "text-start", id: "1" },
+        { type: "text-delta", id: "1", text: original },
+        { type: "text-end", id: "1" },
+      ],
+    );
+    expect(deltaTexts(out)).toEqual([original]);
+  });
+
+  it("fiyatsız metne dokunmaz ve guard tetiklenmez", async () => {
+    const onGuardTriggered = vi.fn();
+    const out = await runTransform(
+      { hadPriceTool: false, hadFactTool: false },
+      [
+        { type: "text-start", id: "1" },
+        { type: "text-delta", id: "1", text: "Merhaba, hoş geldiniz." },
+        { type: "text-end", id: "1" },
+      ],
+      onGuardTriggered,
+    );
+    expect(deltaTexts(out)).toEqual(["Merhaba, hoş geldiniz."]);
+    expect(onGuardTriggered).not.toHaveBeenCalled();
+  });
+
+  it("yeni metin bloğu (text-start) önceki bloğun bastırma durumunu sıfırlar", async () => {
+    const out = await runTransform(
+      { hadPriceTool: false, hadFactTool: false },
+      [
+        { type: "text-start", id: "1" },
+        { type: "text-delta", id: "1", text: "4500 ₺" },
+        { type: "text-end", id: "1" },
+        { type: "text-start", id: "2" },
+        { type: "text-delta", id: "2", text: "Merhaba tekrar." },
+        { type: "text-end", id: "2" },
+      ],
+    );
+    expect(deltaTexts(out)).toEqual([` ${GUARD_FALLBACK_MESSAGE}`, "Merhaba tekrar."]);
   });
 });
 
@@ -52,5 +146,40 @@ describe("detectToolHints", () => {
     expect(hints.needsFactTool).toBe(true);
     expect(buildToolHintPrompt(hints)).toContain("getRoomPrice");
     expect(buildToolHintPrompt(hints)).toContain("citeFact");
+  });
+});
+
+describe("decideToolChoice", () => {
+  const noFlags = { hadPriceTool: false, hadFactTool: false };
+
+  it("fiyat ipucu varsa ve henüz çağrılmadıysa getRoomPrice'ı zorlar", () => {
+    expect(decideToolChoice({ needsPriceTool: true, needsFactTool: false }, noFlags)).toEqual({
+      type: "tool",
+      toolName: "getRoomPrice",
+    });
+  });
+
+  it("fact ipucu varsa ve henüz çağrılmadıysa citeFact'i zorlar", () => {
+    expect(decideToolChoice({ needsPriceTool: false, needsFactTool: true }, noFlags)).toEqual({
+      type: "tool",
+      toolName: "citeFact",
+    });
+  });
+
+  it("her iki ipucu da varsa fiyat önceliklidir", () => {
+    expect(decideToolChoice({ needsPriceTool: true, needsFactTool: true }, noFlags)).toEqual({
+      type: "tool",
+      toolName: "getRoomPrice",
+    });
+  });
+
+  it("tool zaten çağrıldıysa tekrar zorlamaz", () => {
+    expect(
+      decideToolChoice({ needsPriceTool: true, needsFactTool: false }, { hadPriceTool: true, hadFactTool: false }),
+    ).toBeUndefined();
+  });
+
+  it("hiçbir ipucu yoksa undefined döner (serbest seçim)", () => {
+    expect(decideToolChoice({ needsPriceTool: false, needsFactTool: false }, noFlags)).toBeUndefined();
   });
 });

@@ -47,7 +47,7 @@ const room = {
   capacityChildren: 0,
 };
 
-describe("golden price/fact queries", () => {
+describe("fact/price lookup (deterministic, model çağrısı yok)", () => {
   beforeEach(() => {
     clearFactCatalogCache();
     vi.clearAllMocks();

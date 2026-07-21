@@ -13,6 +13,18 @@ ALTER TABLE "email_outbox" ADD COLUMN IF NOT EXISTS "processing_at" timestamp;
 ALTER TABLE "email_outbox" ADD COLUMN IF NOT EXISTS "lease_until" timestamp;
 ALTER TABLE "email_outbox" ADD COLUMN IF NOT EXISTS "worker_id" text;
 
+CREATE TABLE IF NOT EXISTS "media_cleanup_queue" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+  "object_key" text NOT NULL,
+  "status" text DEFAULT 'pending' NOT NULL,
+  "attempts" integer DEFAULT 0 NOT NULL,
+  "next_attempt_at" timestamp DEFAULT now() NOT NULL,
+  "last_error" text,
+  "created_at" timestamp DEFAULT now() NOT NULL,
+  "updated_at" timestamp DEFAULT now() NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "media_cleanup_pending_idx" ON "media_cleanup_queue" ("status", "next_attempt_at");
+
 CREATE TABLE IF NOT EXISTS "booking_transitions" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   "booking_id" uuid NOT NULL REFERENCES "bookings"("id") ON DELETE CASCADE,

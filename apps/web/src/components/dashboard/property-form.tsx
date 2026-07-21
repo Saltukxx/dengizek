@@ -26,7 +26,7 @@ import {
   Title,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconSend } from "@tabler/icons-react";
+import { IconAlertCircle, IconRefresh, IconSend } from "@tabler/icons-react";
 import { amenitiesCatalog, amenityLabel } from "@/lib/amenities-catalog";
 import {
   paymentMethodLabels,
@@ -78,6 +78,8 @@ interface HotelDetail {
   status: "taslak" | "incelemede" | "yayinda" | "reddedildi";
   moderationNote: string | null;
   draftRevision: number;
+  submittedRevision: number | null;
+  publishedRevision: number | null;
 }
 
 export function PropertyForm() {
@@ -86,6 +88,7 @@ export function PropertyForm() {
   const [cancellationRules, setCancellationRules] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [versioning, setVersioning] = useState(false);
 
   useEffect(() => {
     if (!myHotel) return;
@@ -175,13 +178,41 @@ export function PropertyForm() {
     setSubmitting(false);
     if (json.ok) {
       notifications.show({ color: "blue", message: "Tesis incelemeye gönderildi." });
-      set("status", json.status);
+      setDetail((current) => current ? {
+        ...current,
+        status: json.status,
+        submittedRevision: json.submittedRevision,
+      } : current);
     } else {
       notifications.show({ color: "red", message: json.error ?? "Gönderme başarısız oldu." });
     }
   }
 
-  const canSubmit = detail.status === "taslak" || detail.status === "reddedildi";
+  async function startNewVersion() {
+    if (!detail) return;
+    setVersioning(true);
+    const res = await fetch(`/api/manager/hotels/${detail.id}/new-version`, { method: "POST" });
+    const json = await res.json();
+    setVersioning(false);
+    if (json.ok) {
+      notifications.show({ color: "blue", message: "Yeni taslak sürüm oluşturuldu." });
+      setDetail((current) => current ? {
+        ...current,
+        status: json.hotel.status,
+        draftRevision: json.hotel.draftRevision,
+        moderationNote: null,
+      } : current);
+    } else {
+      notifications.show({ color: "red", message: json.error ?? "Yeni sürüm oluşturulamadı." });
+    }
+  }
+
+  const submittedIsStale = detail.submittedRevision !== null && detail.draftRevision > detail.submittedRevision;
+  // Yayındaki bir tesis doğrudan yeniden incelemeye gönderilemez (backend 409
+  // döner) — önce "Yeni sürüm oluştur" ile taslağa alınmalı.
+  const canSubmit =
+    detail.status !== "yayinda" &&
+    (detail.status !== "incelemede" || submittedIsStale);
 
   return (
     <Stack gap="md">
@@ -191,8 +222,22 @@ export function PropertyForm() {
           <Badge color={moderationStatusColors[detail.status]}>
             {moderationStatusLabels[detail.status]}
           </Badge>
+          <Badge variant="light" color="gray">Yayın v{detail.publishedRevision ?? "—"}</Badge>
+          <Badge variant="light" color="blue">Taslak v{detail.draftRevision}</Badge>
+          {detail.submittedRevision !== null && <Badge variant="light" color="violet">Gönderilen v{detail.submittedRevision}</Badge>}
         </Group>
         <Group gap="xs">
+          {detail.status === "yayinda" && (
+            <Button
+              variant="light"
+              color="gray"
+              leftSection={<IconRefresh size={16} />}
+              loading={versioning}
+              onClick={startNewVersion}
+            >
+              Yeni sürüm oluştur
+            </Button>
+          )}
           {canSubmit && (
             <Button
               variant="light"
@@ -200,7 +245,7 @@ export function PropertyForm() {
               loading={submitting}
               onClick={submitForReview}
             >
-              İncelemeye gönder
+              {submittedIsStale ? "İncelemeyi güncelle" : "İncelemeye gönder"}
             </Button>
           )}
           <Button loading={saving} onClick={save}>
@@ -212,6 +257,18 @@ export function PropertyForm() {
       {detail.status === "reddedildi" && detail.moderationNote && (
         <Alert color="red" title="Reddedilme nedeni" icon={<IconAlertCircle size={16} />}>
           {detail.moderationNote}
+        </Alert>
+      )}
+      {submittedIsStale && (
+        <Alert color="yellow" title="Yayınlanmamış değişiklikler var">
+          Gönderilmiş inceleme sürümünden sonra taslak değiştirildi. Adminin yeni içeriği değerlendirmesi için incelemeyi güncelleyin.
+        </Alert>
+      )}
+      {detail.status === "yayinda" && (
+        <Alert color="blue" title="Bu tesis yayında">
+          AI rehber profili dahil aşağıdaki tüm alanlar şu anda misafirlerin gördüğü onaylı sürümü
+          yansıtıyor. Değişiklik yapmak için önce &quot;Yeni sürüm oluştur&quot;a basın, ardından
+          düzenleyip incelemeye gönderin — admin onayından sonra yayına yansır.
         </Alert>
       )}
 

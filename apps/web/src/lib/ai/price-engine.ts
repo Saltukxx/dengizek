@@ -14,6 +14,7 @@ export interface RoomPriceQuery {
   checkIn?: string;
   checkOut?: string;
   guestCount?: number;
+  childAges?: number[];
 }
 
 function mapRates(rates: {
@@ -24,6 +25,7 @@ function mapRates(rates: {
   currency: string;
   minStayNights?: number | null;
   occupancyPrices?: { guestCount: number; priceMinor: number }[] | null;
+  childAgePrices?: RateLike["childAgePrices"] | null;
 }[]): RateLike[] {
   return rates.map((r) => ({
     name: r.name,
@@ -33,6 +35,7 @@ function mapRates(rates: {
     currency: r.currency,
     minStayNights: r.minStayNights,
     occupancyPrices: r.occupancyPrices ?? undefined,
+    childAgePrices: r.childAgePrices ?? undefined,
   }));
 }
 
@@ -40,6 +43,7 @@ function buildPricingInput(
   content: Awaited<ReturnType<typeof getPublishedHotelContent>>,
   room: (typeof content.rooms)[number],
   guestCount?: number,
+  childAges?: number[],
 ): GuestRoomPricingInput {
   return {
     room: {
@@ -50,11 +54,13 @@ function buildPricingInput(
       discountPercent: room.discountPercent,
       discountLabel: room.discountLabel,
       minStayNights: room.minStayNights,
+      childAgePrices: room.childAgePrices ?? undefined,
     },
     rates: mapRates(room.rates),
     promotions: content.promotions,
     ratePlanPrices: content.ratePlanPrices,
     guestCount,
+    childAges,
   };
 }
 
@@ -66,19 +72,31 @@ function formatGuestPrice(price: ReturnType<typeof resolveGuestRoomPrice>): stri
   return formatPrice(price.priceMinor, price.currency, false);
 }
 
+function formatChildBreakdownLine(price: ReturnType<typeof resolveGuestRoomPrice>): string | null {
+  if (!price.childBreakdown?.length) return null;
+  return price.childBreakdown
+    .map((c) => `${c.age} yaş: ${formatPrice(c.priceMinor, price.currency, false)}`)
+    .join(" · ");
+}
+
 function buildSingleNightCard(
   room: Awaited<ReturnType<typeof getPublishedHotelContent>>["rooms"][number],
   content: Awaited<ReturnType<typeof getPublishedHotelContent>>,
   guestCount?: number,
   dateLabel = "Bugün (gecelik)",
+  childAges?: number[],
 ): AiPriceCard {
-  const base = buildPricingInput(content, room, guestCount);
+  const base = buildPricingInput(content, room, guestCount, childAges);
   const resolved = resolveGuestRoomPrice({ ...base, nights: 1 });
 
   const lines: AiPriceCard["lines"] = [{ label: dateLabel, value: formatGuestPrice(resolved) }];
 
   if (guestCount) {
     lines.unshift({ label: "Kişi sayısı", value: String(guestCount) });
+  }
+  const childLine = formatChildBreakdownLine(resolved);
+  if (childLine) {
+    lines.push({ label: "Çocuk fiyatları", value: childLine });
   }
   if (resolved.rateName) {
     lines.push({ label: "Dönem", value: resolved.rateName });
@@ -107,14 +125,16 @@ function buildStayTotalCard(
   checkIn: string,
   checkOut: string,
   guestCount?: number,
+  childAges?: number[],
 ): AiPriceCard {
   const nights = eachStayNight(checkIn, checkOut);
-  const base = buildPricingInput(content, room, guestCount);
+  const base = buildPricingInput(content, room, guestCount, childAges);
 
   let totalMinor = 0;
   let currency = room.currency;
   let priceOnRequest = false;
   const nightly: string[] = [];
+  let firstNightChildLine: string | null = null;
 
   for (const date of nights) {
     const resolved = resolveGuestRoomPrice({
@@ -130,6 +150,7 @@ function buildStayTotalCard(
     totalMinor += resolved.priceMinor;
     currency = resolved.currency;
     nightly.push(`${date}: ${formatGuestPrice(resolved)}`);
+    if (!firstNightChildLine) firstNightChildLine = formatChildBreakdownLine(resolved);
   }
 
   const lines: AiPriceCard["lines"] = [
@@ -139,6 +160,9 @@ function buildStayTotalCard(
 
   if (guestCount) {
     lines.push({ label: "Kişi sayısı", value: String(guestCount) });
+  }
+  if (firstNightChildLine) {
+    lines.push({ label: "Çocuk fiyatları (gecelik)", value: firstNightChildLine });
   }
 
   if (priceOnRequest) {
@@ -187,6 +211,7 @@ export async function queryRoomPrices(
   }
 
   const guestCount = query.guestCount;
+  const childAges = query.childAges;
 
   if (query.checkIn || query.checkOut) {
     const validated = validateStayDates(query.checkIn, query.checkOut);
@@ -195,12 +220,12 @@ export async function queryRoomPrices(
     }
     if (validated.checkIn && validated.checkOut) {
       const cards = rooms.map((room) =>
-        buildStayTotalCard(room, content, validated.checkIn!, validated.checkOut!, guestCount),
+        buildStayTotalCard(room, content, validated.checkIn!, validated.checkOut!, guestCount, childAges),
       );
       return { ok: true, cards };
     }
   }
 
-  const cards = rooms.map((room) => buildSingleNightCard(room, content, guestCount));
+  const cards = rooms.map((room) => buildSingleNightCard(room, content, guestCount, undefined, childAges));
   return { ok: true, cards };
 }

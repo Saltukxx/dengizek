@@ -6,10 +6,11 @@ import { NextResponse } from "next/server";
 import { and, asc, eq } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
-import { hotelGalleryImagesTable } from "@/lib/db/schema";
+import { hotelGalleryImagesTable, mediaCleanupQueueTable } from "@/lib/db/schema";
 import { galleryImageSchema, galleryPatchSchema } from "@/lib/schemas/hotel-panel";
 import { logAudit } from "@/lib/audit";
 import { assertRoomsBelongToHotel } from "@/lib/tenant-integrity";
+import { deleteObject } from "@/lib/object-storage";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -52,16 +53,23 @@ export async function POST(req: Request, { params }: RouteParams) {
     .where(eq(hotelGalleryImagesTable.hotelId, guard.hotel.id));
   const nextOrder = parsed.data.sortOrder ?? existing.reduce((m, r) => Math.max(m, r.sortOrder + 1), 0);
 
-  const [image] = await db
-    .insert(hotelGalleryImagesTable)
-    .values({
-      hotelId: guard.hotel.id,
-      url: parsed.data.url,
-      caption: parsed.data.caption ?? null,
-      roomId: parsed.data.roomId ?? null,
-      sortOrder: nextOrder,
-    })
-    .returning();
+  let image: typeof hotelGalleryImagesTable.$inferSelect;
+  try {
+    [image] = await db
+      .insert(hotelGalleryImagesTable)
+      .values({
+        hotelId: guard.hotel.id,
+        url: parsed.data.url,
+        objectKey: parsed.data.objectKey ?? null,
+        caption: parsed.data.caption ?? null,
+        roomId: parsed.data.roomId ?? null,
+        sortOrder: nextOrder,
+      })
+      .returning();
+  } catch (error) {
+    if (parsed.data.objectKey) await deleteObject(parsed.data.objectKey).catch(() => undefined);
+    throw error;
+  }
 
   await logAudit({
     actor: guard.user,
@@ -126,11 +134,17 @@ export async function DELETE(req: Request, { params }: RouteParams) {
   }
 
   const db = getDb();
-  await db
+  const [deleted] = await db
     .delete(hotelGalleryImagesTable)
     .where(
       and(eq(hotelGalleryImagesTable.id, id), eq(hotelGalleryImagesTable.hotelId, guard.hotel.id)),
-    );
+    )
+    .returning();
+
+  if (!deleted) return NextResponse.json({ ok: false, error: "Görsel bulunamadı." }, { status: 404 });
+  if (deleted.objectKey) {
+    await db.insert(mediaCleanupQueueTable).values({ objectKey: deleted.objectKey });
+  }
 
   await logAudit({
     actor: guard.user,

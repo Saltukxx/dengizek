@@ -1,6 +1,11 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    # pgvector/pgvector:pg16 = postgres:16 + pgvector uzantısı (dosyaları
+    # kurulu gelir, DB içinde ayrıca "CREATE EXTENSION IF NOT EXISTS vector;"
+    # çalıştırılması gerekir — bkz. src/lib/db/schema.ts hotelFactEmbeddingsTable).
+    # NOT: mevcut bir dengizek_pg_data volume'ünde image değişikliği tek
+    # başına yetmez, extension'ı elle etkinleştirin (aşağıdaki komutla).
+    image: pgvector/pgvector:pg16
     container_name: dengizek-pg
     restart: unless-stopped
     environment:

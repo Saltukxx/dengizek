@@ -26,10 +26,19 @@ export async function GET() {
         country: hotelsTable.country,
         status: hotelsTable.status,
         moderationNote: hotelsTable.moderationNote,
+        publishedRevision: hotelsTable.publishedRevision,
+        draftRevision: hotelsTable.draftRevision,
+        submittedRevision: hotelsTable.submittedRevision,
       })
       .from(hotelsTable)
       .orderBy(hotelsTable.name);
-    return NextResponse.json({ ok: true, hotels });
+    return NextResponse.json({
+      ok: true,
+      hotels: hotels.map((hotel) => ({
+        ...hotel,
+        hasUnpublishedChanges: hotel.draftRevision !== (hotel.publishedRevision ?? 0),
+      })),
+    });
   }
 
   const hotels = await db
@@ -41,6 +50,9 @@ export async function GET() {
       country: hotelsTable.country,
       status: hotelsTable.status,
       moderationNote: hotelsTable.moderationNote,
+      publishedRevision: hotelsTable.publishedRevision,
+      draftRevision: hotelsTable.draftRevision,
+      submittedRevision: hotelsTable.submittedRevision,
       memberRole: hotelMembersTable.role,
     })
     .from(hotelMembersTable)
@@ -48,5 +60,11 @@ export async function GET() {
     .where(eq(hotelMembersTable.userId, user.id))
     .orderBy(hotelsTable.name);
 
-  return NextResponse.json({ ok: true, hotels });
+  return NextResponse.json({
+    ok: true,
+    hotels: hotels.map((hotel) => ({
+      ...hotel,
+      hasUnpublishedChanges: hotel.draftRevision !== (hotel.publishedRevision ?? 0),
+    })),
+  });
 }

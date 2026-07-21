@@ -20,7 +20,7 @@ import {
   Textarea,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconCalendarPlus, IconDownload, IconMessage } from "@tabler/icons-react";
+import { IconAlertCircle, IconCalendarPlus, IconDownload, IconLinkOff, IconMessage } from "@tabler/icons-react";
 import { inquirySourceLabels, inquiryStatusColors, inquiryStatusLabels } from "@/lib/labels";
 import { useMyHotel } from "./use-my-hotel";
 import { ListPagination } from "./list-pagination";
@@ -104,6 +104,20 @@ export function InquiriesInbox() {
     const res = await fetch(`/api/manager/inquiries/${id}/messages`);
     const json = await res.json();
     if (json.ok) setMessages(json.messages);
+  }
+
+  async function revokePortalLink() {
+    if (!threadId) return;
+    if (!confirm("Misafirin portal bağlantısını hemen iptal etmek istediğinize emin misiniz? Misafir eski linke tekrar erişemez.")) {
+      return;
+    }
+    const res = await fetch(`/api/manager/inquiries/${threadId}/portal-token`, { method: "DELETE" });
+    const json = await res.json();
+    if (json.ok) {
+      notifications.show({ color: "green", message: "Portal bağlantısı iptal edildi." });
+    } else {
+      notifications.show({ color: "red", message: json.error ?? "İptal edilemedi." });
+    }
   }
 
   async function sendReply() {
@@ -338,6 +352,17 @@ export function InquiriesInbox() {
         size="md"
       >
         <Stack gap="sm">
+          <Group justify="flex-end">
+            <Button
+              size="xs"
+              variant="subtle"
+              color="red"
+              leftSection={<IconLinkOff size={14} />}
+              onClick={revokePortalLink}
+            >
+              Portal linkini iptal et
+            </Button>
+          </Group>
           {messages.map((m) => (
             <Paper key={m.id} p="sm" radius="md" bg={m.senderRole === "hotel" ? "indigo.0" : "gray.0"}>
               <Text size="xs" c="dimmed">

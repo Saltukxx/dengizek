@@ -5,7 +5,9 @@
 import { NextResponse } from "next/server";
 import { and, eq, gte, inArray } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
+import { computeFactEmbeddingFreshness } from "@/lib/ai/fact-store";
 import { computeAiReadinessScore } from "@/lib/ai/readiness-score";
+import { estimateCostUsd } from "@/lib/ai/token-cost";
 import { getDb } from "@/lib/db";
 import { analyticsEventsTable, roomsTable, tourStepsTable, toursTable } from "@/lib/db/schema";
 
@@ -20,6 +22,8 @@ const AI_EVENT_TYPES = [
   "ai_tool_price",
   "ai_tool_fact",
   "ai_guard_triggered",
+  "ai_completion_drift",
+  "ai_usage",
 ] as const;
 
 function payloadNum(payload: Record<string, unknown>, key: string): number | null {
@@ -114,12 +118,19 @@ export async function GET(_req: Request, { params }: RouteParams) {
         ) / 1000
       : null;
 
+  const usageEvents = aiEvents.filter((e) => e.eventType === "ai_usage");
+  const inputTokens = usageEvents.reduce((sum, e) => sum + (payloadNum(e.payload ?? {}, "inputTokens") ?? 0), 0);
+  const outputTokens = usageEvents.reduce((sum, e) => sum + (payloadNum(e.payload ?? {}, "outputTokens") ?? 0), 0);
+
   const autoStarts = byType.tour_auto_start ?? 0;
   const autoCompletes = aiEvents.filter(
     (e) => e.eventType === "tour_complete" && e.payload?.isAutoTour === true,
   ).length;
   const autoCompletionRate =
     autoStarts > 0 ? Math.round((autoCompletes / autoStarts) * 1000) / 10 : null;
+
+  // RAG lexical fallback'e mi düşüyor? Yayındaki katalog vs. embedding tablosu.
+  const embeddingFreshness = await computeFactEmbeddingFreshness(hotel.slug);
 
   const readiness = computeAiReadinessScore({
     aiPersona: hotel.aiPersona,
@@ -147,6 +158,13 @@ export async function GET(_req: Request, { params }: RouteParams) {
       fact: byType.ai_tool_fact ?? 0,
     },
     guardTriggered: byType.ai_guard_triggered ?? 0,
+    completionDrift: byType.ai_completion_drift ?? 0,
+    tokenUsage: {
+      inputTokens,
+      outputTokens,
+      estimatedCostUsd: Math.round(estimateCostUsd(inputTokens, outputTokens) * 10000) / 10000,
+    },
+    embeddingFreshness,
     readinessScore: readiness.score,
     readinessIssues: readiness.issues,
     byType,

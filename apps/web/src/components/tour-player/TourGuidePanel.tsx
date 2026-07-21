@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ActionIcon,
   Box,
   Divider,
   Group,
@@ -9,22 +10,38 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { IconSend } from "@tabler/icons-react";
+import { IconMicrophone, IconMicrophoneOff, IconSend } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import type { GuideMessage } from "@/lib/tour/use-tour-guide";
 import { AutoTourButton } from "./auto-tour-button";
+import { guideStrings, speechLocaleFor } from "./tour-guide-i18n";
 import { TourGuideChips } from "./tour-guide-chips";
 import { TourGuideMessage } from "./tour-guide-message";
+import { useSpeechInput } from "./use-speech-input";
 
 interface TourGuidePanelProps {
   messages: GuideMessage[];
   isThinking: boolean;
   isAutoTour: boolean;
   hotelName?: string;
+  /** Otelin yayınlanmış AI persona adı (manifest.hotelProfile.aiPersona). */
+  personaName?: string;
+  /** Sohbette tespit edilen dil (tr/en) — panel metinleri ve STT dili buna uyar. */
+  detectedLanguage?: string;
   onSendMessage: (text: string) => void;
   onChipClick: (chip: string) => void;
   onStartAutoTour: () => void;
   onStopAutoTour: () => void;
+}
+
+/** Persona adından avatar baş harfleri — ilk iki kelimenin ilk harfleri. */
+export function personaInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  return words
+    .slice(0, 2)
+    .map((w) => w.charAt(0))
+    .join("")
+    .toLocaleUpperCase("tr-TR");
 }
 
 export function TourGuidePanel({
@@ -32,6 +49,8 @@ export function TourGuidePanel({
   isThinking,
   isAutoTour,
   hotelName,
+  personaName,
+  detectedLanguage,
   onSendMessage,
   onChipClick,
   onStartAutoTour,
@@ -40,6 +59,18 @@ export function TourGuidePanel({
   const [inputValue, setInputValue] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const strings = guideStrings(detectedLanguage);
+
+  // Ses girişi — transkript input alanına yazılır, kullanıcı gözden geçirip
+  // kendisi gönderir (v1'de otomatik gönderme yok, kasıtlı olarak).
+  // STT dili sohbette tespit edilen dile bağlanır; henüz tespit yoksa
+  // use-speech-input tarayıcı diline düşer.
+  const { isListening, isSupported: speechSupported, start: startListening, stop: stopListening } =
+    useSpeechInput({
+      lang: speechLocaleFor(detectedLanguage),
+      onResult: (text) => setInputValue(text),
+    });
 
   // Yeni mesaj gelince en alta kaydır
   useEffect(() => {
@@ -61,6 +92,8 @@ export function TourGuidePanel({
       handleSend();
     }
   };
+
+  const displayPersona = personaName?.trim() || strings.defaultPersona;
 
   // Son mesajın chip'lerini göster
   const lastAssistantMessage = [...messages]
@@ -109,7 +142,7 @@ export function TourGuidePanel({
                 fontSize: 13,
               }}
             >
-              AE
+              {personaInitials(displayPersona)}
             </Box>
             <Stack gap={0}>
               <Text
@@ -118,11 +151,11 @@ export function TourGuidePanel({
                 lh={1.2}
                 style={{ letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--lux-text)" }}
               >
-                Aurelia Concierge
+                {displayPersona}
               </Text>
               {hotelName && (
                 <Text size="xs" lh={1.2} mt={5} style={{ color: "rgba(212,175,55,0.72)" }}>
-                  Sizin için buradayım
+                  {strings.hereForYou}
                 </Text>
               )}
             </Stack>
@@ -146,11 +179,11 @@ export function TourGuidePanel({
         <Stack gap={28} style={{ padding: "28px 32px", minHeight: "100%", justifyContent: "flex-end" }}>
           {messages.length === 0 && !isThinking && (
             <Text size="sm" ta="center" py="md" style={{ color: "rgba(208,197,178,0.62)" }}>
-              Rehberiniz hazırlanıyor…
+              {strings.preparing}
             </Text>
           )}
           {messages.map((msg) => (
-            <TourGuideMessage key={msg.id} message={msg} />
+            <TourGuideMessage key={msg.id} message={msg} detectedLanguage={detectedLanguage} />
           ))}
         </Stack>
       </ScrollArea>
@@ -177,31 +210,47 @@ export function TourGuidePanel({
           value={inputValue}
           onChange={(e) => setInputValue(e.currentTarget.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Bir soru sorun..."
+          placeholder={strings.inputPlaceholder}
           disabled={isThinking}
           size="sm"
           radius={0}
+          rightSectionWidth={speechSupported ? 64 : 32}
           rightSection={
-            <Box
-              component="button"
-              onClick={handleSend}
-              disabled={!inputValue.trim() || isThinking}
-              aria-label="Gönder"
-              style={{
-                background: "none",
-                border: "none",
-                cursor: inputValue.trim() && !isThinking ? "pointer" : "default",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: inputValue.trim() && !isThinking
-                  ? "var(--lux-gold)"
-                  : "rgba(208,197,178,0.42)",
-                padding: 4,
-              }}
-            >
-              <IconSend size={16} />
-            </Box>
+            <Group gap={2} wrap="nowrap" pr={4}>
+              {speechSupported && (
+                <ActionIcon
+                  type="button"
+                  variant="subtle"
+                  size="sm"
+                  disabled={isThinking}
+                  onClick={() => (isListening ? stopListening() : startListening())}
+                  aria-label={isListening ? strings.voiceStop : strings.voiceStart}
+                  style={{ color: isListening ? "var(--lux-gold)" : "rgba(208,197,178,0.55)" }}
+                >
+                  {isListening ? <IconMicrophoneOff size={15} /> : <IconMicrophone size={15} />}
+                </ActionIcon>
+              )}
+              <Box
+                component="button"
+                onClick={handleSend}
+                disabled={!inputValue.trim() || isThinking}
+                aria-label={strings.send}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: inputValue.trim() && !isThinking ? "pointer" : "default",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: inputValue.trim() && !isThinking
+                    ? "var(--lux-gold)"
+                    : "rgba(208,197,178,0.42)",
+                  padding: 4,
+                }}
+              >
+                <IconSend size={16} />
+              </Box>
+            </Group>
           }
           styles={{
             input: {

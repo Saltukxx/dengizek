@@ -57,6 +57,14 @@ export interface OccupancyPriceLike {
   priceMinor: number;
 }
 
+export interface ChildAgePriceLike {
+  ageFrom: number;
+  ageTo: number;
+  mode: "ucretsiz" | "sabit" | "yuzde";
+  priceMinor?: number | null;
+  percent?: number | null;
+}
+
 export interface RateLike {
   name: string;
   startDate: string; // YYYY-MM-DD
@@ -65,6 +73,7 @@ export interface RateLike {
   currency: string;
   minStayNights?: number | null;
   occupancyPrices?: OccupancyPriceLike[];
+  childAgePrices?: ChildAgePriceLike[];
 }
 
 /** Kişi sayısına göre dönem fiyatını çözer; eşleşme yoksa baz fiyat döner. */

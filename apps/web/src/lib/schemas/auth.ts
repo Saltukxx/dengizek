@@ -34,5 +34,19 @@ export const updateUserSchema = z
     message: "Güncellenecek en az bir alan gönderin.",
   });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Geçerli bir e-posta girin").max(254),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(20).max(200),
+  password: z
+    .string()
+    .min(8, "Şifre en az 8 karakter olmalı")
+    .max(128, "Şifre en fazla 128 karakter olabilir"),
+});
+
 export type CreateUserValues = z.infer<typeof createUserSchema>;
 export type UpdateUserValues = z.infer<typeof updateUserSchema>;
+export type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;

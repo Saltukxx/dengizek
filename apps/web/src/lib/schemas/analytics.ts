@@ -11,6 +11,8 @@ export const ANALYTICS_EVENT_TYPES = [
   "ai_tool_price",
   "ai_tool_fact",
   "ai_guard_triggered",
+  "ai_completion_drift",
+  "ai_usage",
   "inquiry_start",
   "inquiry_submit",
   "room_view",

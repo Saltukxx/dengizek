@@ -103,6 +103,7 @@ export async function POST(req: Request, { params }: RouteParams) {
         currency: r.currency as "TRY" | "EUR" | "USD",
         minStayNights: r.minStayNights,
         occupancyPrices: r.occupancyPrices ?? [],
+        childAgePrices: r.childAgePrices ?? [],
       })),
       {
         name: period.name,
@@ -112,6 +113,7 @@ export async function POST(req: Request, { params }: RouteParams) {
         currency: period.currency,
         minStayNights: period.minStayNights ?? null,
         occupancyPrices: period.occupancyPrices ?? [],
+        childAgePrices: period.childAgePrices ?? [],
       },
     ];
 

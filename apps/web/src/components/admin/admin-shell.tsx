@@ -21,6 +21,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import {
   IconBuilding,
+  IconCalendarEvent,
   IconChecklist,
   IconClipboardList,
   IconExternalLink,
@@ -42,6 +43,7 @@ const links = [
   { href: "/admin/hotels", label: "Oteller", icon: IconBuilding },
   { href: "/admin/moderation", label: "İnceleme kuyruğu", icon: IconChecklist },
   { href: "/admin/users", label: "Kullanıcılar", icon: IconUsers },
+  { href: "/admin/bookings", label: "Rezervasyonlar", icon: IconCalendarEvent },
   { href: "/admin/inquiries", label: "Talepler", icon: IconMessage },
   { href: "/admin/reviews", label: "Yorumlar", icon: IconStar },
   { href: "/admin/analytics", label: "Analitik", icon: IconChartBar },

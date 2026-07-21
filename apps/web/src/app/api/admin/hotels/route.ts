@@ -51,8 +51,11 @@ export async function GET(req: Request) {
       moderationNote: hotelsTable.moderationNote,
       submittedAt: hotelsTable.submittedAt,
       submittedRevision: hotelsTable.submittedRevision,
+      publishedRevision: hotelsTable.publishedRevision,
+      draftRevision: hotelsTable.draftRevision,
       reviewedAt: hotelsTable.reviewedAt,
       createdAt: hotelsTable.createdAt,
+      suspendedAt: hotelsTable.suspendedAt,
     })
     .from(hotelsTable);
 
@@ -64,7 +67,13 @@ export async function GET(req: Request) {
       ? await baseQuery.where(eq(hotelsTable.status, durum)).orderBy(hotelsTable.name)
       : await baseQuery.orderBy(hotelsTable.name);
 
-  return NextResponse.json({ ok: true, hotels });
+  return NextResponse.json({
+    ok: true,
+    hotels: hotels.map((hotel) => ({
+      ...hotel,
+      hasUnpublishedChanges: hotel.draftRevision !== (hotel.publishedRevision ?? 0),
+    })),
+  });
 }
 
 export async function POST(req: Request) {

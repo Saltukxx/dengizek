@@ -5,16 +5,23 @@ import {
   Box,
   Button,
   Group,
+  Loader,
   Stack,
   Text,
   Title,
+  UnstyledButton,
   VisuallyHidden,
 } from "@mantine/core";
 import { useFullscreen, useMediaQuery, useMergedRef, useReducedMotion } from "@mantine/hooks";
 import {
   IconArrowLeft,
+  IconChevronDown,
+  IconChevronUp,
   IconMaximize,
   IconMinimize,
+  IconPlayerPlayFilled,
+  IconRefresh,
+  IconVolume,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -36,6 +43,7 @@ import {
 import { computeCompletionState } from "@/lib/ai/completion-engine";
 import { trackEvent } from "@/lib/analytics-client";
 import { useTourGuide } from "@/lib/tour/use-tour-guide";
+import { useGuestSession } from "@/lib/tour/use-guest-session";
 import { TourCalloutLayer } from "./tour-callout-layer";
 import { TourGuidePanel } from "./TourGuidePanel";
 import { TourHeader } from "./TourHeader";
@@ -43,6 +51,10 @@ import { TourVideoControls } from "./TourVideoControls";
 import { TourHotspotLayer } from "./tour-hotspot-layer";
 import { TourVideoInteractionInfo } from "./tour-video-info-boxes";
 import { useTourPlayerMachine } from "./use-tour-player-machine";
+import { useVideoSource } from "./use-video-source";
+
+// Kapalı mobil çekmece yüksekliği — panel header'ı + metin girişi görünür kalır.
+const GUIDE_PEEK_HEIGHT = 210;
 
 type TourPlayerProps = {
   manifest: TourManifest;
@@ -84,8 +96,26 @@ export function TourPlayer({
   const [playbackSec, setPlaybackSec] = useState(0);
   const [fileDuration, setFileDuration] = useState(0);
   const [stepsSeen, setStepsSeen] = useState<string[]>([]);
+  // Otomatik oynatma politikası: engellenirse önce sessiz dene, o da olmazsa
+  // dokun-oynat katmanı göster.
+  const [startedMuted, setStartedMuted] = useState(false);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
+  // Mobil rehber çekmecesi: kapalıyken peek bar (header + input), açıkken 58dvh.
+  const [guideExpanded, setGuideExpanded] = useState(false);
+
+  const { retry: retryVideoSource, usingHls } = useVideoSource({
+    src: currentStep?.media.src ?? "",
+    stepId: currentStep?.stepId ?? "",
+    videoRef,
+    onFatalError: setError,
+  });
   const tourCompleteTrackedRef = useRef(false);
   const trackedStepViewsRef = useRef(new Set<string>());
+  const { resumeAvailable, persistProgress, dismissResume } = useGuestSession(
+    manifest.hotelSlug,
+    manifest.tourId,
+  );
 
   const visibleStepList = manifest.steps
     .filter((s) => s.aiVisible !== false)
@@ -97,6 +127,18 @@ export function TourPlayer({
     }
   }, [currentStep, stepsSeen]);
 
+  useEffect(() => {
+    if (stepsSeen.length === 0) return;
+    persistProgress(stepsSeen, currentStep?.stepId ?? null);
+  }, [stepsSeen, currentStep, persistProgress]);
+
+  const acceptResume = useCallback(() => {
+    if (!resumeAvailable) return;
+    setStepsSeen(resumeAvailable.stepsSeen);
+    if (resumeAvailable.lastStepId) goToStepId(resumeAvailable.lastStepId);
+    dismissResume();
+  }, [resumeAvailable, dismissResume, goToStepId]);
+
   // Otel adı: hotelSlug'dan türet
   const hotelName = manifest.hotelSlug
     .split("-")
@@ -107,6 +149,7 @@ export function TourPlayer({
     messages: guideMessages,
     isThinking: guideThinking,
     isAutoTour,
+    detectedLanguage,
     sendMessage,
     handleChipClick,
     startAutoTour,
@@ -181,6 +224,8 @@ export function TourPlayer({
 
   useEffect(() => {
     clipSequenceDoneRef.current = false;
+    setAutoplayBlocked(false);
+    setIsBuffering(false);
   }, [currentStep?.stepId]);
 
   useEffect(() => {
@@ -273,6 +318,51 @@ export function TourPlayer({
     markClipSequenceComplete();
   }, [markClipSequenceComplete]);
 
+  const attemptAutoplay = useCallback(
+    async (video: HTMLVideoElement) => {
+      // Kullanıcı önceki adımda sessiz başlatmayı kabul ettiyse (video elementi
+      // her adımda remount olduğundan) muted durumunu yeniden uygula.
+      if (startedMuted) video.muted = true;
+      try {
+        await video.play();
+        setAutoplayBlocked(false);
+      } catch {
+        // Otomatik oynatma engellendi — bir kez sessiz dene.
+        video.muted = true;
+        try {
+          await video.play();
+          setStartedMuted(true);
+          setAutoplayBlocked(false);
+        } catch {
+          // Sessiz oynatma da engellendi — dokun-oynat katmanı göster.
+          setAutoplayBlocked(true);
+        }
+      }
+    },
+    [startedMuted],
+  );
+
+  const unmute = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = false;
+    setStartedMuted(false);
+  }, [videoRef]);
+
+  const tapToPlay = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    setAutoplayBlocked(false);
+    void v.play().catch(() => {
+      setAutoplayBlocked(true);
+    });
+  }, [videoRef]);
+
+  const retryPlayback = useCallback(() => {
+    setIsBuffering(false);
+    retryVideoSource();
+  }, [retryVideoSource]);
+
   const onSeek = useCallback(
     (t: number) => {
       const v = videoRef.current;
@@ -290,7 +380,7 @@ export function TourPlayer({
       const tag = (e.target as HTMLElement)?.tagName;
       if (
         e.target !== document.body &&
-        (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT")
+        (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON")
       )
         return;
       if (e.key === " " || e.code === "Space") {
@@ -301,6 +391,15 @@ export function TourPlayer({
       }
       if (e.key === "Enter" && machine.phase === "pausedForInteraction") {
         e.preventDefault();
+        if (currentStep?.branches?.length) {
+          // Dallı adımda Enter seçimi atlamamalı — ilk dal seçeneğine odaklan,
+          // kullanıcı ok/Tab + Enter ile seçsin.
+          const firstBranch = videoContainerRef.current?.querySelector<HTMLButtonElement>(
+            '[data-testid^="tour-branch-"]',
+          );
+          firstBranch?.focus();
+          return;
+        }
         continueFromPause();
       }
       if (e.key === "ArrowLeft" && canStepBack) {
@@ -315,6 +414,7 @@ export function TourPlayer({
     [
       machine.phase,
       continueFromPause,
+      currentStep,
       togglePlay,
       videoRef,
       canStepBack,
@@ -331,12 +431,37 @@ export function TourPlayer({
 
   if (machine.phase === "error") {
     return (
-      <Stack p="md">
-        <Text c="red">Bir hata oluştu: {machine.errorMessage}</Text>
-        <Button component={Link} href={backHref} variant="light">
-          {backLabel}
-        </Button>
-      </Stack>
+      <Box
+        className="luxury-full-bleed"
+        style={{
+          height: "100dvh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--lux-bg)",
+        }}
+      >
+        <Stack p="md" align="center" gap="md" maw={420}>
+          <Text c="red" ta="center">
+            Bir hata oluştu: {machine.errorMessage}
+          </Text>
+          <Group gap="sm">
+            <Button
+              leftSection={<IconRefresh size={18} />}
+              onClick={() => {
+                // Aynı adımı yeniden yükle ve video kaynağını sıfırdan bağla.
+                goToIndex(machine.stepIndex);
+                retryPlayback();
+              }}
+            >
+              Tekrar dene
+            </Button>
+            <Button component={Link} href={backHref} variant="light">
+              {backLabel}
+            </Button>
+          </Group>
+        </Stack>
+      </Box>
     );
   }
 
@@ -385,11 +510,45 @@ export function TourPlayer({
       isThinking={guideThinking}
       isAutoTour={isAutoTour}
       hotelName={hotelName}
+      personaName={manifest.hotelProfile?.aiPersona}
+      detectedLanguage={detectedLanguage}
       onSendMessage={sendMessage}
       onChipClick={handleChipClick}
       onStartAutoTour={startAutoTour}
       onStopAutoTour={stopAutoTour}
     />
+  );
+
+  const resumeBanner = resumeAvailable && (
+    <Box
+      pos="absolute"
+      top={isMobileGuide ? 110 : 96}
+      left="50%"
+      style={{
+        transform: "translateX(-50%)",
+        zIndex: 30,
+        background: "rgba(18,20,20,0.92)",
+        border: "0.5px solid rgba(212,175,55,0.42)",
+        borderRadius: 6,
+        padding: "12px 18px",
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        boxShadow: "0 8px 28px rgba(0,0,0,0.45)",
+      }}
+    >
+      <Text size="sm" style={{ color: "var(--lux-text)" }}>
+        Kaldığınız yerden devam edin mi?
+      </Text>
+      <Group gap={8}>
+        <Button size="xs" onClick={acceptResume}>
+          Devam et
+        </Button>
+        <Button size="xs" variant="subtle" color="gray" onClick={dismissResume}>
+          Baştan başla
+        </Button>
+      </Group>
+    </Box>
   );
 
 
@@ -398,20 +557,25 @@ export function TourPlayer({
           <video
             key={currentStep.stepId}
             ref={videoRef}
-            src={currentStep.media.src}
             playsInline
             onLoadedMetadata={onVideoLoadedMetadata}
             onTimeUpdate={onVideoTimeUpdate}
             onCanPlay={(e) => {
+              setIsBuffering(false);
               handleCanPlay();
-              void e.currentTarget.play().catch(() => {
-                // autoplay can be blocked until a user gesture; controls still work
-              });
+              void attemptAutoplay(e.currentTarget);
             }}
             onEnded={onVideoEnded}
             onPlay={() => setIsPlaying(true)}
+            onPlaying={() => setIsBuffering(false)}
             onPause={() => setIsPlaying(false)}
-            onError={() => setError("Video yüklenemedi veya oynatılamadı.")}
+            onWaiting={() => setIsBuffering(true)}
+            onStalled={() => setIsBuffering(true)}
+            onError={() => {
+              // hls.js aktifken kurtarma stratejisi hook içinde yürütülür;
+              // native yolda element hatası doğrudan fataldir.
+              if (!usingHls) setError("Video yüklenemedi veya oynatılamadı.");
+            }}
             style={{
               width: "100%",
               height: "100%",
@@ -447,6 +611,80 @@ export function TourPlayer({
             currentTimeSec={playbackSec}
             disabled={machine.phase === "pausedForInteraction"}
           />
+
+          {isBuffering && !autoplayBlocked && machine.phase === "playing" && (
+            <Box
+              pos="absolute"
+              inset={0}
+              style={{
+                zIndex: 5,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                pointerEvents: "none",
+                background: "rgba(8,9,10,0.25)",
+              }}
+            >
+              <Loader color="var(--lux-gold)" size="lg" />
+            </Box>
+          )}
+
+          {autoplayBlocked && (
+            <UnstyledButton
+              onClick={tapToPlay}
+              aria-label="Videoyu oynat"
+              pos="absolute"
+              style={{
+                inset: 0,
+                zIndex: 6,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 14,
+                background: "rgba(8,9,10,0.55)",
+              }}
+            >
+              <Box
+                style={{
+                  width: 88,
+                  height: 88,
+                  borderRadius: "50%",
+                  border: "1px solid rgba(212,175,55,0.6)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(18,20,20,0.72)",
+                }}
+              >
+                <IconPlayerPlayFilled size={40} style={{ color: "var(--lux-gold)" }} />
+              </Box>
+              <Text className="luxury-label" style={{ color: "var(--lux-text)" }}>
+                Oynatmak için dokunun
+              </Text>
+            </UnstyledButton>
+          )}
+
+          {startedMuted && !autoplayBlocked && (
+            <Button
+              onClick={unmute}
+              leftSection={<IconVolume size={18} />}
+              size="sm"
+              variant="filled"
+              color="dark"
+              pos="absolute"
+              top={isMobileGuide ? 116 : 24}
+              right={24}
+              style={{
+                zIndex: 6,
+                border: "1px solid rgba(212,175,55,0.6)",
+                color: "var(--lux-gold)",
+                background: "rgba(18,20,20,0.85)",
+              }}
+            >
+              Sesi aç
+            </Button>
+          )}
 
           {machine.phase === "pausedForInteraction" && (
             <TourVideoInteractionInfo
@@ -490,7 +728,10 @@ export function TourPlayer({
           <Box
             pos="absolute"
             left={{ base: 24, md: 64 }}
-            bottom={{ base: isMobileGuide ? 420 : 110, md: 116 }}
+            bottom={{
+              base: isMobileGuide ? (guideExpanded ? 420 : GUIDE_PEEK_HEIGHT + 110) : 110,
+              md: 116,
+            }}
             maw={{ base: "calc(100% - 48px)", md: 660 }}
             style={{ zIndex: 3, pointerEvents: "none" }}
           >
@@ -553,6 +794,9 @@ export function TourPlayer({
             backLabel={backLabel}
             reduceMotion={!!reduceMotion}
             isPausedForInteraction={machine.phase === "pausedForInteraction"}
+            bottomOffset={
+              isMobileGuide ? (guideExpanded ? "58dvh" : GUIDE_PEEK_HEIGHT) : 0
+            }
             onSeek={onSeek}
             onTogglePlay={togglePlay}
             onToggleCaptions={() => setCaptionsOn((c) => !c)}
@@ -607,20 +851,35 @@ export function TourPlayer({
         <Box pos="absolute" inset={0}>
           {videoSurface}
         </Box>
+        {resumeBanner}
         <Box
           pos="absolute"
           left={0}
           right={0}
           bottom={0}
-          h="58dvh"
+          h={guideExpanded ? "58dvh" : GUIDE_PEEK_HEIGHT}
           style={{
             zIndex: 16,
             borderTop: "1px solid rgba(212,175,55,0.38)",
             borderRadius: "18px 18px 0 0",
             overflow: "hidden",
             background: "rgba(18,20,20,0.94)",
+            transition: reduceMotion ? "none" : "height 0.25s ease",
           }}
         >
+          <ActionIcon
+            onClick={() => setGuideExpanded((e) => !e)}
+            aria-label={guideExpanded ? "Rehberi küçült" : "Rehberi büyüt"}
+            aria-expanded={guideExpanded}
+            variant="transparent"
+            size={44}
+            pos="absolute"
+            top={0}
+            left="50%"
+            style={{ zIndex: 2, color: "var(--lux-gold)", transform: "translateX(-50%)" }}
+          >
+            {guideExpanded ? <IconChevronDown size={24} /> : <IconChevronUp size={24} />}
+          </ActionIcon>
           {guidePanel}
         </Box>
       </Box>
@@ -637,6 +896,7 @@ export function TourPlayer({
         hotelSlug={manifest.hotelSlug}
         backHref={backHref}
       />
+      {resumeBanner}
 
       <Group
         align="stretch"

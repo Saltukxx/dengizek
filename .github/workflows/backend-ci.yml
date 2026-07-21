@@ -10,7 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16-alpine
+        # hotel_fact_embeddings tablosu vector sütunu kullanıyor (pgvector) —
+        # düz postgres image'ında uzantı dosyaları yok.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: dev
@@ -36,6 +38,8 @@ jobs:
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
       - run: npm ci
+      - name: pgvector uzantısını etkinleştir
+        run: PGPASSWORD=dev psql -h 127.0.0.1 -U postgres -d dengizek -c "CREATE EXTENSION IF NOT EXISTS vector;"
       - run: npx drizzle-kit push --force
       - run: npm run db:seed
       - run: npm run lint

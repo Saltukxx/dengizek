@@ -32,7 +32,9 @@ export async function buildHotelContentSnapshot(db: DbLike, hotelId: string): Pr
     db.select().from(roomRatePlanPricesTable).where(eq(roomRatePlanPricesTable.hotelId, hotelId)).orderBy(asc(roomRatePlanPricesTable.startDate)),
     db.select().from(promotionsTable).where(eq(promotionsTable.hotelId, hotelId)).orderBy(asc(promotionsTable.createdAt)),
   ]);
-  const { submittedSnapshot: _submitted, publishedSnapshot: _published, ...hotelFields } = hotel;
+  const hotelFields = Object.fromEntries(
+    Object.entries(hotel).filter(([key]) => key !== "submittedSnapshot" && key !== "publishedSnapshot"),
+  );
   return hotelContentSnapshotSchema.parse({
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
@@ -54,10 +56,26 @@ export function snapshotDiffSummary(published: HotelContentSnapshot | null, subm
   const oldHotel = published?.hotel ?? {};
   const changedFields = Object.keys(submitted.hotel).filter((key) => JSON.stringify(oldHotel[key]) !== JSON.stringify(submitted.hotel[key]));
   const count = (key: keyof HotelContentSnapshot) => ({ previous: published?.[key] instanceof Array ? published[key].length : 0, submitted: submitted[key] instanceof Array ? submitted[key].length : 0 });
+  const changes = (key: keyof HotelContentSnapshot) => {
+    const before = (published?.[key] instanceof Array ? published[key] : []) as Record<string, unknown>[];
+    const after = (submitted[key] instanceof Array ? submitted[key] : []) as Record<string, unknown>[];
+    const beforeById = new Map(before.map((row) => [String(row.id), row]));
+    const afterById = new Map(after.map((row) => [String(row.id), row]));
+    return {
+      ...count(key),
+      added: after.filter((row) => !beforeById.has(String(row.id))).map((row) => String(row.name ?? row.caption ?? row.id)),
+      removed: before.filter((row) => !afterById.has(String(row.id))).map((row) => String(row.name ?? row.caption ?? row.id)),
+      changed: after.filter((row) => beforeById.has(String(row.id)) && JSON.stringify(beforeById.get(String(row.id))) !== JSON.stringify(row)).map((row) => String(row.name ?? row.caption ?? row.id)),
+    };
+  };
+  const requiredFields = ["name", "city", "country", "shortDescription", "imageUrl"];
+  const missingRequiredFields = requiredFields.filter((key) => !submitted.hotel[key]);
+  const mediaNotReady = submitted.gallery.filter((item) => !item.url).length + submitted.rooms.filter((item) => !item.imageUrl).length;
   return {
     changedFields,
     collections: {
-      rooms: count("rooms"), restaurants: count("restaurants"), extras: count("extras"), gallery: count("gallery"), promotions: count("promotions"), ratePlans: count("ratePlans"),
+      rooms: changes("rooms"), restaurants: changes("restaurants"), extras: changes("extras"), gallery: changes("gallery"), promotions: changes("promotions"), ratePlans: changes("ratePlans"),
     },
+    readiness: { missingRequiredFields, mediaNotReady, ready: missingRequiredFields.length === 0 && mediaNotReady === 0 },
   };
 }

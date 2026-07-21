@@ -6,7 +6,6 @@
 
 import { NextResponse } from "next/server";
 import { and, eq, sql } from "drizzle-orm";
-import { clearFactCatalogCache } from "@/lib/ai/fact-store";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { hotelsTable } from "@/lib/db/schema";
@@ -71,20 +70,12 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     return NextResponse.json({ ok: false, code: "REVISION_CONFLICT", currentRevision: latest?.draftRevision }, { status: 409 });
   }
 
-  const aiCacheFields = [
-    "aiFacts",
-    "aiPolicies",
-    "aiPersona",
-    "cancellationPolicy",
-    "childPolicy",
-    "petsAllowed",
-    "checkInTime",
-    "checkOutTime",
-    "amenities",
-  ] as const;
-  if (aiCacheFields.some((f) => f in fields)) {
-    clearFactCatalogCache(guard.hotel.slug);
-  }
+  // Not: AI alanları (aiFacts/aiPolicies/aiPersona) ve "doğrulanmış" fact
+  // kaynağı olan spec alanları (cancellationPolicy, amenities vb.) misafir
+  // sohbetine yalnızca admin onayından sonra publishedSnapshot üzerinden
+  // yansır (bkz. getHotelAiProfile, getPublishedHotelContent). Bu canlı
+  // taslak satır düzenlemesi guest'i etkilemediği için fact-cache temizliği
+  // burada gereksiz — cache admin onay rotasında temizlenir.
 
   return NextResponse.json({ ok: true, hotel: updated });
 }

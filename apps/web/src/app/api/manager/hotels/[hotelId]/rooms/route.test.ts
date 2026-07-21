@@ -14,7 +14,8 @@ vi.mock("@/lib/audit", () => ({ logAudit: vi.fn() }));
 
 const returningMock = vi.fn();
 vi.mock("@/lib/db", () => ({
-  getDb: () => ({
+  getDb: () => {
+    const db = {
     select: () => ({
       from: () => ({
         // where(...) hem doğrudan await edilir (POST: dizi) hem de
@@ -25,9 +26,12 @@ vi.mock("@/lib/db", () => ({
     insert: () => ({
       values: () => ({
         returning: (...args: unknown[]) => returningMock(...args),
+        onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
       }),
     }),
-  }),
+    };
+    return { ...db, transaction: (fn: (tx: typeof db) => unknown) => fn(db) };
+  },
   isDbConfigured: () => true,
 }));
 

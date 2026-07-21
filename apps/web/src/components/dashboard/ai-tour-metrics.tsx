@@ -26,6 +26,14 @@ interface AiMetricsData {
   };
   toolUsage: { price: number; fact: number };
   guardTriggered: number;
+  completionDrift: number;
+  tokenUsage: { inputTokens: number; outputTokens: number; estimatedCostUsd: number };
+  embeddingFreshness: {
+    totalFacts: number;
+    embedded: number;
+    missingOrStale: number;
+    orphaned: number;
+  } | null;
   readinessScore: number;
   readinessIssues: string[];
 }
@@ -113,7 +121,7 @@ export function AiTourMetrics() {
         />
       </SimpleGrid>
 
-      <SimpleGrid cols={{ base: 1, sm: 3 }}>
+      <SimpleGrid cols={{ base: 1, sm: 4 }}>
         <MetricCard
           label="Fiyat aracı"
           value={String(data.toolUsage.price)}
@@ -127,7 +135,45 @@ export function AiTourMetrics() {
           value={String(data.guardTriggered)}
           hint="Serbest metin fiyat engeli"
         />
+        <MetricCard
+          label="İlerleme sapması"
+          value={String(data.completionDrift)}
+          hint="İstemci/sunucu ilerleme uyuşmazlığı"
+        />
       </SimpleGrid>
+
+      <Paper withBorder p="md" radius="md">
+        <Text size="sm" fw={500}>
+          Token kullanımı (30 gün)
+        </Text>
+        <Text size="sm" c="dimmed" mt={4}>
+          {data.tokenUsage.inputTokens.toLocaleString("tr-TR")} girdi ·{" "}
+          {data.tokenUsage.outputTokens.toLocaleString("tr-TR")} çıktı token · tahmini $
+          {data.tokenUsage.estimatedCostUsd.toFixed(4)}
+        </Text>
+      </Paper>
+
+      {data.embeddingFreshness ? (
+        <Paper withBorder p="md" radius="md">
+          <Text size="sm" fw={500}>
+            Anlamsal arama (embedding) tazeliği
+          </Text>
+          <Text size="sm" c="dimmed" mt={4}>
+            {data.embeddingFreshness.embedded}/{data.embeddingFreshness.totalFacts} fact güncel
+            {data.embeddingFreshness.missingOrStale > 0
+              ? ` · ${data.embeddingFreshness.missingOrStale} eksik/bayat`
+              : ""}
+            {data.embeddingFreshness.orphaned > 0
+              ? ` · ${data.embeddingFreshness.orphaned} artık`
+              : ""}
+          </Text>
+          {data.embeddingFreshness.missingOrStale > 0 ? (
+            <Badge variant="light" color="orange" mt="xs">
+              AI, bazı sorularda anlamsal arama yerine kelime eşleşmesine düşüyor olabilir
+            </Badge>
+          ) : null}
+        </Paper>
+      ) : null}
 
       {data.autoTour.starts > 0 ? (
         <Paper withBorder p="md" radius="md">

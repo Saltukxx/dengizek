@@ -11,6 +11,7 @@ const imageUrl = z.string().min(1).refine(
 
 export const galleryImageSchema = z.object({
   url: imageUrl,
+  objectKey: z.string().regex(/^hotels\/[a-f0-9-]+\/[a-f0-9-]+\.(jpg|png|webp|gif)$/).optional(),
   caption: z.string().max(300).optional(),
   roomId: uuid.nullable().optional(),
   sortOrder: z.number().int().min(0).optional(),

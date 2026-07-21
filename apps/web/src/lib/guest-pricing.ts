@@ -6,6 +6,7 @@ import {
   applyDiscount,
   resolveCurrentRate,
   todayIso,
+  type ChildAgePriceLike,
   type RateLike,
   type ResolvedRate,
 } from "@/lib/price";
@@ -39,6 +40,7 @@ export interface GuestRoomPricingInput {
     discountPercent: number | null;
     discountLabel: string | null;
     minStayNights?: number | null;
+    childAgePrices?: ChildAgePriceLike[] | null;
   };
   rates: RateLike[];
   promotions?: GuestPromotion[];
@@ -46,9 +48,16 @@ export interface GuestRoomPricingInput {
   date?: string;
   nights?: number;
   guestCount?: number | null;
+  /** Çocukların yaşları — verilirse gecelik fiyata yaş bazlı ek/indirim uygulanır. */
+  childAges?: number[] | null;
 }
 
 export type GuestPriceSource = "promotion" | "rate_plan" | "seasonal" | "base";
+
+export interface GuestChildPriceLine {
+  age: number;
+  priceMinor: number;
+}
 
 export interface GuestRoomPrice extends ResolvedRate {
   originalPriceMinor: number | null;
@@ -57,6 +66,10 @@ export interface GuestRoomPrice extends ResolvedRate {
   source: GuestPriceSource;
   promotionName?: string;
   hasCampaign: boolean;
+  /** childAges verildiyse: çocuklar için toplam ek tutar (en küçük birim) */
+  childSurchargeMinor?: number;
+  /** childAges verildiyse: her çocuk için ayrı ayrı gecelik tutar */
+  childBreakdown?: GuestChildPriceLine[];
 }
 
 function isPromotionActive(
@@ -116,8 +129,57 @@ function resolveUnderlyingPrice(
   };
 }
 
+function resolveActiveChildAgePrices(
+  room: { childAgePrices?: ChildAgePriceLike[] | null },
+  rates: RateLike[],
+  date: string,
+): ChildAgePriceLike[] {
+  const active = rates
+    .filter((r) => r.startDate <= date && date <= r.endDate)
+    .sort((a, b) => (a.startDate < b.startDate ? 1 : -1));
+  const winner = active[0];
+  if (winner?.childAgePrices?.length) return winner.childAgePrices;
+  return room.childAgePrices ?? [];
+}
+
+/** Yaşa göre gecelik çocuk fiyatı — eşleşme yoksa yetişkin fiyatından ücretlendirilir. */
+function resolveChildNightlyPrice(
+  age: number,
+  bands: ChildAgePriceLike[],
+  adultNightlyMinor: number,
+): number {
+  const band = bands.find((b) => age >= b.ageFrom && age <= b.ageTo);
+  if (!band) return adultNightlyMinor;
+  if (band.mode === "ucretsiz") return 0;
+  if (band.mode === "sabit") return band.priceMinor ?? 0;
+  return Math.round((adultNightlyMinor * (band.percent ?? 0)) / 100);
+}
+
 /** Aktif kampanya, fiyat planı, dönem veya baz fiyattan misafir fiyatını çözer. */
 export function resolveGuestRoomPrice(input: GuestRoomPricingInput): GuestRoomPrice {
+  const base = resolveBaseGuestRoomPrice(input);
+  const childAges = input.childAges;
+  if (!childAges?.length || base.priceOnRequest || base.priceMinor == null) {
+    return base;
+  }
+
+  const date = input.date ?? todayIso();
+  const bands = resolveActiveChildAgePrices(input.room, input.rates, date);
+  const childBreakdown: GuestChildPriceLine[] = childAges.map((age) => ({
+    age,
+    priceMinor: resolveChildNightlyPrice(age, bands, base.priceMinor as number),
+  }));
+  const childSurchargeMinor = childBreakdown.reduce((sum, c) => sum + c.priceMinor, 0);
+
+  return {
+    ...base,
+    priceMinor: (base.priceMinor as number) + childSurchargeMinor,
+    childSurchargeMinor,
+    childBreakdown,
+  };
+}
+
+function resolveBaseGuestRoomPrice(input: GuestRoomPricingInput): GuestRoomPrice {
   const date = input.date ?? todayIso();
   const nights = input.nights ?? 1;
   const promotions = input.promotions ?? [];

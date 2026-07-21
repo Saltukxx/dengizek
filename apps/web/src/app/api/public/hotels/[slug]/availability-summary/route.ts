@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { and, asc, eq, gte, lte } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lte } from "drizzle-orm";
 import { getDb, isDbConfigured } from "@/lib/db";
 import { hotelsTable, roomInventoryTable, roomsTable } from "@/lib/db/schema";
 
@@ -31,7 +31,7 @@ export async function GET(
   const [hotel] = await db
     .select({ id: hotelsTable.id })
     .from(hotelsTable)
-    .where(and(eq(hotelsTable.slug, slug), eq(hotelsTable.status, "yayinda")))
+    .where(and(eq(hotelsTable.slug, slug), eq(hotelsTable.status, "yayinda"), isNull(hotelsTable.suspendedAt)))
     .limit(1);
 
   if (!hotel) {

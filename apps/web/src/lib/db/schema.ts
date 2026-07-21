@@ -15,6 +15,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  vector,
 } from "drizzle-orm/pg-core";
 import type { TourManifest } from "@/lib/schemas/tour-manifest";
 import type { HotelContentSnapshot } from "@/lib/schemas/hotel-content-snapshot";
@@ -95,6 +96,9 @@ export const usersTable = pgTable("users", {
   role:         userRoleEnum("role").default("manager").notNull(),
   isActive:     boolean("is_active").default(true).notNull(),
   tokenVersion: integer("token_version").default(1).notNull(),
+  // Şifremi unuttum — token her zaman hash'lenmiş saklanır (bkz. inquiry portal token)
+  resetTokenHash:      text("reset_token_hash"),
+  resetTokenExpiresAt: timestamp("reset_token_expires_at"),
   createdAt:    timestamp("created_at").defaultNow().notNull(),
   updatedAt:    timestamp("updated_at").defaultNow().notNull(),
 });
@@ -152,6 +156,11 @@ export const hotelsTable = pgTable("hotels", {
   submittedAt:    timestamp("submitted_at"),
   reviewedAt:     timestamp("reviewed_at"),
   reviewedBy:     uuid("reviewed_by").references(() => usersTable.id, { onDelete: "set null" }),
+
+  // Acil durdurma — status "yayinda" olsa bile doluysa misafir tarafında gizlenir.
+  // Moderasyon akışından bağımsız: onay/red durumunu bozmadan anlık kapatma sağlar.
+  suspendedAt:    timestamp("suspended_at"),
+  suspensionNote: text("suspension_note"),
 
   // Taslak / inceleme / yayın ayrımı. Mevcut kolonlar çalışma kopyasıdır;
   // misafir yüzü yalnızca publishedSnapshot okur.
@@ -274,6 +283,15 @@ export const tourStepsTable = pgTable("tour_steps", {
 // true ise fiyat gösterilmez, "Talep üzerine" yazılır.
 // ---------------------------------------------------------------------------
 
+/** Yaş aralığına göre çocuk fiyatı — sabit tutar veya yetişkin fiyatının yüzdesi */
+export interface ChildAgePrice {
+  ageFrom: number;
+  ageTo: number;
+  mode: "ucretsiz" | "sabit" | "yuzde";
+  priceMinor?: number | null;
+  percent?: number | null;
+}
+
 export const roomsTable = pgTable("rooms", {
   id:      uuid("id").defaultRandom().primaryKey(),
   hotelId: uuid("hotel_id").notNull().references(() => hotelsTable.id, { onDelete: "cascade" }),
@@ -296,6 +314,9 @@ export const roomsTable = pgTable("rooms", {
   unitCount:     integer("unit_count"),       // bu tipten kaç oda var
   minStayNights: integer("min_stay_nights"),  // varsayılan min gece (dönem bazlı olan ezer)
   pricingNotes:  text("pricing_notes"),       // "3. kişi +₺800, 0–6 yaş ücretsiz"
+
+  // Yaş aralığına göre çocuk fiyatı — oda için varsayılan; dönem tanımlıysa dönemdeki kazanır
+  childAgePrices: jsonb("child_age_prices").$type<ChildAgePrice[]>().default([]).notNull(),
 
   // Baz fiyat — bir room_rates dönemi bugüne denk geliyorsa dönem fiyatı kazanır
   priceMinor:     integer("price_minor"),
@@ -340,6 +361,8 @@ export const roomRatesTable = pgTable("room_rates", {
     .$type<{ guestCount: number; priceMinor: number }[]>()
     .default([])
     .notNull(),
+  /** Yaş aralığına göre çocuk fiyatı — doluysa oda varsayılanını ezer */
+  childAgePrices: jsonb("child_age_prices").$type<ChildAgePrice[]>().default([]).notNull(),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -789,6 +812,19 @@ export const emailOutboxTable = pgTable("email_outbox", {
   pendingIdx: index("email_outbox_pending_idx").on(table.status, table.nextAttemptAt),
 }));
 
+export const mediaCleanupQueueTable = pgTable("media_cleanup_queue", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  objectKey: text("object_key").notNull(),
+  status: text("status").default("pending").notNull(),
+  attempts: integer("attempts").default(0).notNull(),
+  nextAttemptAt: timestamp("next_attempt_at").defaultNow().notNull(),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  pendingIdx: index("media_cleanup_pending_idx").on(table.status, table.nextAttemptAt),
+}));
+
 export const bookingTransitionsTable = pgTable("booking_transitions", {
   id:             uuid("id").defaultRandom().primaryKey(),
   bookingId:      uuid("booking_id").notNull().references(() => bookingsTable.id, { onDelete: "cascade" }),
@@ -822,6 +858,47 @@ export const auditLogTable = pgTable("audit_log", {
 }));
 
 // ---------------------------------------------------------------------------
+// hotel_fact_embeddings — fact kataloğu embedding'leri (Faz 3.1 RAG)
+// Publish-zamanlı (request-zamanlı DEĞİL) doldurulur — bkz. fact-store.ts
+// syncFactEmbeddings. contentHash değişmeyen fact'ler yeniden embed edilmez.
+// ---------------------------------------------------------------------------
+
+export const hotelFactEmbeddingsTable = pgTable("hotel_fact_embeddings", {
+  id:          uuid("id").defaultRandom().primaryKey(),
+  hotelSlug:   text("hotel_slug").notNull(),
+  factId:      text("fact_id").notNull(),
+  contentHash: text("content_hash").notNull(),
+  embedding:   vector("embedding", { dimensions: 1536 }).notNull(),
+  createdAt:   timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  hotelFactUnique: uniqueIndex("hotel_fact_embeddings_unique").on(table.hotelSlug, table.factId),
+  embeddingIdx: index("hotel_fact_embeddings_vector_idx")
+    .using("hnsw", table.embedding.op("vector_cosine_ops")),
+}));
+
+// ---------------------------------------------------------------------------
+// guest_sessions — anonim misafirin "görülen adımlar" hafızası (Faz 3.3)
+// Kullanıcı hesabı YOK — yalnızca client-üretilen opak bir token ile
+// (localStorage) eşlenir. Aynı token farklı otel/tur ziyaretlerinde ayrı
+// satırlara sahip olabilir (bkz. tokenHotelTourUnique).
+// ---------------------------------------------------------------------------
+
+export const guestSessionsTable = pgTable("guest_sessions", {
+  id:            uuid("id").defaultRandom().primaryKey(),
+  sessionToken:  text("session_token").notNull(),
+  hotelSlug:     text("hotel_slug").notNull(),
+  tourId:        text("tour_id").notNull(),
+  stepsSeen:     text("steps_seen").array().default([]).notNull(),
+  lastStepId:    text("last_step_id"),
+  preferences:   jsonb("preferences").$type<Record<string, unknown>>().default({}).notNull(),
+  createdAt:     timestamp("created_at").defaultNow().notNull(),
+  updatedAt:     timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  tokenHotelTourUnique: uniqueIndex("guest_sessions_token_hotel_tour_unique")
+    .on(table.sessionToken, table.hotelSlug, table.tourId),
+}));
+
+// ---------------------------------------------------------------------------
 // Tip dışa aktarımları
 // ---------------------------------------------------------------------------
 
@@ -852,6 +929,8 @@ export type RoomInventory = typeof roomInventoryTable.$inferSelect;
 export type Payment = typeof paymentsTable.$inferSelect;
 export type HotelIcalFeed = typeof hotelIcalFeedsTable.$inferSelect;
 export type EmailOutbox = typeof emailOutboxTable.$inferSelect;
+export type HotelFactEmbedding = typeof hotelFactEmbeddingsTable.$inferSelect;
+export type GuestSession = typeof guestSessionsTable.$inferSelect;
 
 export type ModerationStatus = (typeof moderationStatusEnum.enumValues)[number];
 export type MediaStatus      = (typeof mediaStatusEnum.enumValues)[number];

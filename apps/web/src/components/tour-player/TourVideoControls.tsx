@@ -25,6 +25,8 @@ type TourVideoControlsProps = {
   backLabel: string;
   reduceMotion: boolean;
   isPausedForInteraction: boolean;
+  /** Mobil rehber çekmecesinin üstünde kalması için alt boşluk. */
+  bottomOffset?: number | string;
   onSeek: (t: number) => void;
   onTogglePlay: () => void;
   onToggleCaptions: () => void;
@@ -46,6 +48,7 @@ export function TourVideoControls({
   backLabel,
   reduceMotion,
   isPausedForInteraction,
+  bottomOffset,
   onSeek,
   onTogglePlay,
   onToggleCaptions,
@@ -56,7 +59,7 @@ export function TourVideoControls({
       p="sm"
       gap="sm"
       pos="absolute"
-      bottom={0}
+      bottom={bottomOffset ?? 0}
       left={0}
       right={0}
       style={{

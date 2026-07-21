@@ -4,7 +4,11 @@ import { ActionIcon, Box, Popover, Text } from "@mantine/core";
 import { IconMapPin } from "@tabler/icons-react";
 import { useLayoutEffect, useMemo, useState, type RefObject } from "react";
 import type { TourHotspot } from "@/lib/schemas/tour-manifest";
-import { getVideoContentRect, hotspotPctToStylePosition } from "@/lib/tour/tour-video-bounds";
+import {
+  getVideoContentRect,
+  hotspotPctToStylePosition,
+  isHotspotPositionVisible,
+} from "@/lib/tour/tour-video-bounds";
 
 type TourHotspotLayerProps = {
   containerRef: RefObject<HTMLDivElement | null>;
@@ -60,7 +64,8 @@ export function TourHotspotLayer({
     const ch = containerSize.h;
     const vw = videoSize.w > 0 ? videoSize.w : cw;
     const vh = videoSize.h > 0 ? videoSize.h : ch;
-    return getVideoContentRect(cw, ch, vw, vh);
+    // <video> object-fit: cover ile render ediliyor — rect kırpmayı modeller.
+    return getVideoContentRect(cw, ch, vw, vh, "cover");
   }, [containerSize.h, containerSize.w, videoSize.h, videoSize.w]);
 
   if (disabled || !hotspots?.length || containerSize.w <= 0) return null;
@@ -69,6 +74,10 @@ export function TourHotspotLayer({
     <>
       {hotspots.map((h) => {
         if (!isHotspotVisible(h, currentTimeSec)) return null;
+        // Kırpılan bölgeye düşen pinleri gizle.
+        if (!isHotspotPositionVisible(h.xPct, h.yPct, contentRect, containerSize.w, containerSize.h)) {
+          return null;
+        }
         const pos = hotspotPctToStylePosition(h.xPct, h.yPct, contentRect);
         return (
           <Box

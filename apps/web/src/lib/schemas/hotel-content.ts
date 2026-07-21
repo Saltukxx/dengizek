@@ -65,6 +65,50 @@ const priceRefineOptions = {
 };
 
 // ---------------------------------------------------------------------------
+// Yaş aralığına göre çocuk fiyatı — oda (varsayılan) ve dönem (override) ortak
+// ---------------------------------------------------------------------------
+
+export const childAgePriceSchema = z
+  .object({
+    ageFrom: z.number().int().min(0, "Yaş 0'dan küçük olamaz").max(17, "En fazla 17 yaş"),
+    ageTo: z.number().int().min(0).max(17, "En fazla 17 yaş"),
+    mode: z.enum(["ucretsiz", "sabit", "yuzde"]).default("ucretsiz"),
+    priceMinor: z.number().int().nonnegative().max(1_000_000_000).nullable().optional(),
+    percent: z.number().int().min(1).max(100).nullable().optional(),
+  })
+  .refine((v) => v.ageFrom <= v.ageTo, {
+    message: "Bitiş yaşı başlangıçtan küçük olamaz.",
+    path: ["ageTo"],
+  })
+  .refine((v) => v.mode !== "sabit" || v.priceMinor != null, {
+    message: "Sabit tutar girin.",
+    path: ["priceMinor"],
+  })
+  .refine((v) => v.mode !== "yuzde" || v.percent != null, {
+    message: "Yüzde girin.",
+    path: ["percent"],
+  });
+
+function noOverlappingAgeRanges(
+  v: { childAgePrices?: { ageFrom: number; ageTo: number }[] | null },
+  ctx: z.RefinementCtx,
+) {
+  const bands = (v.childAgePrices ?? []).slice().sort((a, b) => a.ageFrom - b.ageFrom);
+  for (let i = 1; i < bands.length; i++) {
+    if (bands[i].ageFrom <= bands[i - 1].ageTo) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Yaş aralıkları çakışamaz.",
+        path: ["childAgePrices"],
+      });
+      break;
+    }
+  }
+}
+
+export type ChildAgePriceValues = z.infer<typeof childAgePriceSchema>;
+
+// ---------------------------------------------------------------------------
 // Oda
 // ---------------------------------------------------------------------------
 
@@ -105,7 +149,9 @@ export const roomUpsertSchema = priceFieldsSchema
       .optional(),
     discountLabel: z.string().max(120).optional(),
     isActive: z.boolean().default(true),
+    childAgePrices: z.array(childAgePriceSchema).max(10, "En fazla 10 yaş aralığı").optional().default([]),
   })
+  .superRefine(noOverlappingAgeRanges)
   .refine(requirePriceWhenNotOnRequest, priceRefineOptions)
   .refine((v) => !v.discountPercent || !v.priceOnRequest, {
     message: "İndirim için önce fiyat girin.",
@@ -148,6 +194,7 @@ const roomRateFieldsSchema = z.object({
   currency: z.enum(currencies).default("TRY"),
   minStayNights: z.number().int().min(1).max(30).nullable().optional(),
   occupancyPrices: z.array(occupancyPriceSchema).max(15).optional().default([]),
+  childAgePrices: z.array(childAgePriceSchema).max(10, "En fazla 10 yaş aralığı").optional().default([]),
 });
 
 const roomRateDateRefine = {
@@ -171,11 +218,13 @@ function uniqueOccupancyGuestCounts(
 
 export const roomRateSchema = roomRateFieldsSchema
   .superRefine(uniqueOccupancyGuestCounts)
+  .superRefine(noOverlappingAgeRanges)
   .refine((v) => v.startDate <= v.endDate, roomRateDateRefine);
 
 export const roomRateInsertSchema = roomRateFieldsSchema
   .omit({ id: true })
   .superRefine(uniqueOccupancyGuestCounts)
+  .superRefine(noOverlappingAgeRanges)
   .refine((v) => v.startDate <= v.endDate, roomRateDateRefine);
 
 export const roomRatesPutSchema = z.object({

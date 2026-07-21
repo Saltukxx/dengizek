@@ -9,7 +9,7 @@ import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { mediaAssetsTable } from "@/lib/db/schema";
 import { createVideoSchema } from "@/lib/schemas/media";
-import { buildTusCredentials, createVideo, deleteVideo } from "@/lib/bunny/client";
+import { buildTusCredentials, createVideo, deleteVideo, playbackUrl } from "@/lib/bunny/client";
 import { logAudit } from "@/lib/audit";
 
 export async function POST(req: Request) {
@@ -42,10 +42,14 @@ export async function POST(req: Request) {
     [asset] = await db.insert(mediaAssetsTable).values({
       hotelId: guard.hotel.id,
       type: "video",
-      status: "yuklendi",
       title: parsed.data.title,
       bunnyVideoGuid: created.guid,
       createdBy: guard.user.id,
+      // Mock modda Bunny webhook'u hiç gelmez — varlık oluşturma anında demo
+      // oynatma URL'siyle "hazir" işaretlenir ki medya seçicide kullanılabilsin.
+      ...(created.mock
+        ? { status: "hazir" as const, playbackUrl: playbackUrl(created.guid) }
+        : { status: "yuklendi" as const }),
     }).returning();
     if (!asset) throw new Error("Medya kaydı oluşturulamadı.");
   } catch (err) {

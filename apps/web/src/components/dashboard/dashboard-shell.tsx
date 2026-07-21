@@ -7,6 +7,7 @@
 import {
   AppShell,
   Avatar,
+  Badge,
   Box,
   Burger,
   Button,
@@ -134,6 +135,14 @@ export function DashboardShell({
             </div>
           </Group>
           <Group gap="xs" wrap="nowrap">
+            {hotel && (
+              <Group gap={4} visibleFrom="md">
+                <Badge size="xs" variant="light" color="gray">Yayın {hotel.publishedRevision ?? "—"}</Badge>
+                <Badge size="xs" variant="light" color="blue">Taslak {hotel.draftRevision}</Badge>
+                {hotel.submittedRevision !== null && <Badge size="xs" variant="light" color="violet">Gönderilen {hotel.submittedRevision}</Badge>}
+                {hotel.hasUnpublishedChanges && <Badge size="xs" color="orange">Yayınlanmamış</Badge>}
+              </Group>
+            )}
             {!hotelsLoading && hotels.length > 1 && hotel && (
               <Menu shadow="md" width={260} position="bottom-end">
                 <Menu.Target>

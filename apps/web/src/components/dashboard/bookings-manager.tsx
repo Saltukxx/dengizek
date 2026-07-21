@@ -56,7 +56,7 @@ interface PlanOption {
 }
 
 export function BookingsManager() {
-  const paymentsEnabled = false;
+  const [paymentsEnabled, setPaymentsEnabled] = useState(false);
   const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
   const [bookings, setBookings] = useState<BookingRow[] | null>(null);
   const [rooms, setRooms] = useState<RoomOption[]>([]);
@@ -81,6 +81,13 @@ export function BookingsManager() {
     totalMajor: null as number | null,
     notes: "",
   });
+
+  useEffect(() => {
+    void fetch("/api/manager/capabilities")
+      .then((response) => response.json())
+      .then((json) => setPaymentsEnabled(Boolean(json.capabilities?.payments)))
+      .catch(() => setPaymentsEnabled(false));
+  }, []);
 
   const reload = useCallback(async () => {
     if (!hotel) return;

@@ -50,8 +50,16 @@ import {
 } from "@/lib/price";
 import { boardTypeLabels, boardTypes } from "@/lib/schemas/hotel-content";
 import { occupancyFromApi, occupancyToApi, validateOccupancyForms, type OccupancyPriceForm } from "@/lib/occupancy-price";
+import {
+  childAgePricesFromApi,
+  childAgePricesToApi,
+  validateChildAgePrices,
+  type ChildAgePrice,
+  type ChildAgePriceForm,
+} from "@/lib/child-price";
 import { PriceInput, type PriceValue } from "./price-input";
 import { OccupancyPricesEditor } from "./occupancy-prices-editor";
+import { ChildAgePricesEditor } from "./child-age-prices-editor";
 import { MediaPicker } from "./media-picker";
 import { useMyHotel } from "./use-my-hotel";
 
@@ -64,6 +72,7 @@ interface RateRow {
   currency: string;
   minStayNights: number | null;
   occupancyPrices?: { guestCount: number; priceMinor: number }[];
+  childAgePrices?: ChildAgePrice[];
 }
 
 interface RoomRow {
@@ -92,6 +101,7 @@ interface RoomRow {
   orderIndex: number;
   rates: RateRow[];
   galleryUrls: string[];
+  childAgePrices: ChildAgePrice[];
 }
 
 interface RateForm {
@@ -103,6 +113,7 @@ interface RateForm {
   currency: Currency;
   minStayNights: number | null;
   occupancyPrices: OccupancyPriceForm[];
+  childAgePrices: ChildAgePriceForm[];
 }
 
 interface RoomForm {
@@ -126,6 +137,7 @@ interface RoomForm {
   discountLabel: string;
   isActive: boolean;
   galleryUrls: string[];
+  childAgePrices: ChildAgePriceForm[];
 }
 
 const emptyForm: RoomForm = {
@@ -149,6 +161,7 @@ const emptyForm: RoomForm = {
   discountLabel: "",
   isActive: true,
   galleryUrls: [],
+  childAgePrices: [],
 };
 
 function rowToForm(r: RoomRow): RoomForm {
@@ -177,6 +190,7 @@ function rowToForm(r: RoomRow): RoomForm {
     discountLabel: r.discountLabel ?? "",
     isActive: r.isActive,
     galleryUrls: r.galleryUrls ?? [],
+    childAgePrices: childAgePricesFromApi(r.childAgePrices),
   };
 }
 
@@ -190,6 +204,7 @@ function rateRowToForm(r: RateRow): RateForm {
     currency: (r.currency || "TRY") as Currency,
     minStayNights: r.minStayNights,
     occupancyPrices: occupancyFromApi(r.occupancyPrices),
+    childAgePrices: childAgePricesFromApi(r.childAgePrices),
   };
 }
 
@@ -240,8 +255,13 @@ export function RoomsManager() {
 
   async function save() {
     if (!hotel || !editing) return;
-    setBusy(true);
     const f = editing.form;
+    const childErr = validateChildAgePrices(f.childAgePrices);
+    if (childErr) {
+      notifications.show({ color: "red", message: childErr });
+      return;
+    }
+    setBusy(true);
     const payload = {
       slug: f.slug,
       name: f.name,
@@ -264,6 +284,7 @@ export function RoomsManager() {
       discountPercent: f.discountPercent,
       discountLabel: f.discountLabel || undefined,
       isActive: f.isActive,
+      childAgePrices: childAgePricesToApi(f.childAgePrices),
       galleryUrls: f.galleryUrls,
     };
     const url = editing.id
@@ -355,6 +376,7 @@ export function RoomsManager() {
       discountPercent: r.discountPercent,
       discountLabel: r.discountLabel ?? undefined,
       isActive: r.isActive,
+      childAgePrices: r.childAgePrices ?? [],
     };
   }
 
@@ -370,11 +392,18 @@ export function RoomsManager() {
       currency: r.currency,
       minStayNights: r.minStayNights,
       occupancyPrices: occupancyToApi(r.occupancyPrices),
+      childAgePrices: childAgePricesToApi(r.childAgePrices),
     }));
     for (const rate of editing.rates) {
       const occErr = validateOccupancyForms(rate.occupancyPrices);
       if (occErr) {
         notifications.show({ color: "red", message: `${rate.name || "Dönem"}: ${occErr}` });
+        setRatesBusy(false);
+        return;
+      }
+      const childErr = validateChildAgePrices(rate.childAgePrices);
+      if (childErr) {
+        notifications.show({ color: "red", message: `${rate.name || "Dönem"}: ${childErr}` });
         setRatesBusy(false);
         return;
       }
@@ -817,6 +846,16 @@ export function RoomsManager() {
                 )
               }
             />
+            <Divider label="Çocuk fiyatlandırma (varsayılan)" labelPosition="left" mt="xs" />
+            <Text size="xs" c="dimmed">
+              Bir dönemde ayrıca çocuk fiyatı tanımlanmazsa bu varsayılan kullanılır.
+            </Text>
+            <ChildAgePricesEditor
+              value={f.childAgePrices}
+              onChange={(childAgePrices) =>
+                setEditing((s) => s && { ...s, form: { ...s.form, childAgePrices } })
+              }
+            />
             <Switch
               label="Oda misafir sayfasında görünsün"
               checked={f.isActive}
@@ -923,6 +962,10 @@ export function RoomsManager() {
                         onChange={(occupancyPrices) => setRate(i, { occupancyPrices })}
                         capacityAdults={editing.form.capacityAdults}
                       />
+                      <ChildAgePricesEditor
+                        value={rate.childAgePrices}
+                        onChange={(childAgePrices) => setRate(i, { childAgePrices })}
+                      />
                     </Stack>
                   </Paper>
                 ))}
@@ -946,6 +989,7 @@ export function RoomsManager() {
                                 currency: "TRY" as Currency,
                                 minStayNights: null,
                                 occupancyPrices: [],
+                                childAgePrices: [],
                               },
                             ],
                           },

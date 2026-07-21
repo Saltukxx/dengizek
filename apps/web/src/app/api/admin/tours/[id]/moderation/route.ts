@@ -7,10 +7,10 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
-import { toursTable } from "@/lib/db/schema";
+import { mediaAssetsTable, toursTable } from "@/lib/db/schema";
 import { tourManifestSchema } from "@/lib/schemas/tour-manifest";
 import { moderationDecisionSchema } from "@/lib/schemas/hotel-admin";
 import { logAudit } from "@/lib/audit";
@@ -105,6 +105,22 @@ export async function POST(req: Request, { params }: RouteParams) {
     .where(and(eq(toursTable.id, tour.id), eq(toursTable.status, "incelemede"), eq(toursTable.submittedRevision, parsed.data.submittedRevision)))
     .returning();
   if (approved.length === 0) return NextResponse.json({ ok: false, code: "REVISION_CONFLICT" }, { status: 409 });
+
+  // Yayınlanan manifestin referans verdiği medya varlıklarını "yayinlandi"
+  // durumuna geçir (yalnızca "hazir" olanlar — isleniyor/hata'yı ezme).
+  const publishedSrcs = [...new Set(manifest.steps.map((s) => s.media.src).filter(Boolean))];
+  if (publishedSrcs.length > 0) {
+    await db
+      .update(mediaAssetsTable)
+      .set({ status: "yayinlandi", updatedAt: now })
+      .where(
+        and(
+          eq(mediaAssetsTable.hotelId, tour.hotelId),
+          eq(mediaAssetsTable.status, "hazir"),
+          inArray(mediaAssetsTable.playbackUrl, publishedSrcs),
+        ),
+      );
+  }
 
   await logAudit({
     actor: guard.user,

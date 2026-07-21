@@ -43,7 +43,17 @@ export function TourGuidePriceCards({ cards }: { cards: AiPriceCard[] }) {
   );
 }
 
-export function TourGuideFactCards({ cards }: { cards: AiFactCard[] }) {
+export function TourGuideFactCards({
+  cards,
+  sourceLanguageNote,
+}: {
+  cards: AiFactCard[];
+  /**
+   * Konuşma Türkçe dışında bir dile geçtiğinde gösterilir — fact metni her
+   * zaman orijinal (Türkçe) haliyle kalır, çevrilmez; misafir bunu bilmeli.
+   */
+  sourceLanguageNote?: string;
+}) {
   if (cards.length === 0) return null;
 
   return (
@@ -69,6 +79,11 @@ export function TourGuideFactCards({ cards }: { cards: AiFactCard[] }) {
           <Text size="xs" c="var(--lux-muted)" style={{ lineHeight: 1.6 }}>
             {card.text}
           </Text>
+          {sourceLanguageNote && (
+            <Text size="xs" fs="italic" mt={4} style={{ color: "rgba(208,197,178,0.5)" }}>
+              {sourceLanguageNote}
+            </Text>
+          )}
         </Paper>
       ))}
     </Stack>

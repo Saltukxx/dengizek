@@ -7,11 +7,16 @@ import { queryRoomPrices } from "@/lib/ai/price-engine";
 import {
   computeCompletionState,
   shouldAllowOpenInquiry,
+  shouldAllowOpenInquiryAsync,
 } from "@/lib/ai/completion-engine";
 import { filterRelevantFacts } from "@/lib/ai/context-router";
+import { embedText } from "@/lib/ai/embeddings";
+import { windowConversationHistory } from "@/lib/ai/history-window";
+import { detectLanguageHint } from "@/lib/ai/language-detect";
 import {
   buildToolHintPrompt,
   createGuardStreamTransform,
+  decideToolChoice,
   detectToolHints,
 } from "@/lib/ai/response-guard";
 import type { AiFactCatalogEntry } from "@/lib/ai/types";
@@ -49,21 +54,64 @@ const completionMetaSchema = z.object({
   nextStepId: z.string().nullable(),
 });
 
-const requestSchema = z.object({
-  messages: z.array(z.any()),
-  hotelSlug: z.string().min(1),
-  tourId: z.string().min(1),
-  currentStepId: z.string().min(1),
-  stepsSeen: z.array(z.string()),
+// İstemciden gelen mesajlar: rol yalnızca user/assistant olabilir — "system"
+// rolü reddedilir ki istemci system-prompt enjekte edemesin. Parça iç yapısı
+// (tool parts vb.) SDK sürümleri arasında değiştiği için loose bırakılır;
+// boyut sınırları aşağıdaki bütçe kontrolleriyle uygulanır.
+const chatMessageSchema = z.looseObject({
+  role: z.enum(["user", "assistant"]),
+  content: z.union([z.string(), z.array(z.unknown()).max(30)]).optional(),
+  parts: z.array(z.looseObject({ type: z.string().max(64) })).max(30).optional(),
+});
+
+const MAX_MESSAGES = 80;
+const MAX_TOTAL_TEXT_CHARS = 24_000;
+
+/** Mesajlardaki toplam metin karakteri — string content + text part'ları sayar. */
+export function totalMessageTextChars(messages: z.infer<typeof chatMessageSchema>[]): number {
+  let total = 0;
+  for (const m of messages) {
+    if (typeof m.content === "string") total += m.content.length;
+    else if (Array.isArray(m.content)) {
+      for (const part of m.content) {
+        const text = (part as { text?: unknown })?.text;
+        if (typeof text === "string") total += text.length;
+      }
+    }
+    for (const part of m.parts ?? []) {
+      const text = (part as { text?: unknown }).text;
+      if (typeof text === "string") total += text.length;
+    }
+  }
+  return total;
+}
+
+export const requestSchema = z.object({
+  messages: z
+    .array(chatMessageSchema)
+    .min(1)
+    .max(MAX_MESSAGES)
+    .refine((msgs) => totalMessageTextChars(msgs) <= MAX_TOTAL_TEXT_CHARS, {
+      message: "Mesaj geçmişi çok uzun.",
+    }),
+  hotelSlug: z.string().min(1).max(120),
+  tourId: z.string().min(1).max(120),
+  currentStepId: z.string().min(1).max(120),
+  stepsSeen: z.array(z.string().max(120)).max(200),
   triggerReason: z.enum(triggerReasonValues),
   isAutoTour: z.boolean(),
   completionMeta: completionMetaSchema.optional(),
+  // Yalnızca UX ipucu (dil tespiti belirsiz kaldığında) — asla otoriter
+  // değil, güvenlikle ilgili hiçbir karar buna dayanmaz.
+  browserLocale: z.string().max(35).optional(),
 });
 
-type ChatRequest = z.infer<typeof requestSchema>;
+export type ChatRequest = z.infer<typeof requestSchema>;
 
-interface AuthoritativeContext extends ChatRequest {
+export interface AuthoritativeContext extends ChatRequest {
   availableSteps: AvailableStep[];
+  /** Yayınlanmış otel adı — yoksa slug'dan türetilen başlık kullanılır. */
+  hotelName: string;
   hotelProfile: {
     aiPersona?: string;
     language?: string;
@@ -72,6 +120,9 @@ interface AuthoritativeContext extends ChatRequest {
   roomOptions: { slug: string; name: string }[];
   completion: CompletionState;
   lastUserMessage?: string;
+  userMessageEmbedding: number[] | null;
+  /** Bu turda tespit edilen dil (BCP-47 kısa kod) — yoksa hotelProfile.language varsayılan kalır. */
+  detectedLanguage?: string;
 }
 
 function extractLastUserMessage(messages: ModelMessage[]): string | undefined {
@@ -93,7 +144,7 @@ function extractLastUserMessage(messages: ModelMessage[]): string | undefined {
   return undefined;
 }
 
-function buildSystemPrompt(req: AuthoritativeContext): string {
+export function buildSystemPrompt(req: AuthoritativeContext): string {
   const {
     hotelProfile,
     availableSteps,
@@ -107,10 +158,7 @@ function buildSystemPrompt(req: AuthoritativeContext): string {
   } = req;
 
   const persona = hotelProfile?.aiPersona ?? "Yapay Zeka Rehberi";
-  const hotelName = req.hotelSlug
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+  const hotelName = req.hotelName;
 
   const stepsNotSeen = availableSteps
     .filter((s) => !stepsSeen.includes(s.stepId))
@@ -149,13 +197,24 @@ function buildSystemPrompt(req: AuthoritativeContext): string {
     toolHints = buildToolHintPrompt(hints);
   }
 
+  const baseLanguage = hotelProfile?.language ?? "tr";
+  const effectiveLanguage = req.detectedLanguage ?? baseLanguage;
+  const languageLine =
+    effectiveLanguage === "tr"
+      ? "Türkçe konuş."
+      : `Kullanıcı "${effectiveLanguage}" dilinde yazdı — yanıtını o dilde ver (otelin varsayılan dili: ${baseLanguage}).`;
+  const factSourceNote =
+    effectiveLanguage !== "tr"
+      ? "\n- Otel ifadeleri ve politikalar her zaman orijinal dilinde (Türkçe) gösterilir; sen yalnızca kısa çerçeve cümleni kullanıcının dilinde yaz, fact metnini çevirme."
+      : "";
+
   return `Sen ${persona}'sin — ${hotelName} otelinin sanal tur rehberisin.
 
 KARAKTERİN:
 - Sıcak, bilgili, samimi ama kısa konuş.
 - Her yanıtta MAKS 1-2 cümle yaz; ardından gerekirse araç çağır.
 - Birincil görev: henüz görülmemiş adımları nazikçe yönlendir; tur tamamlama öncelikli.
-- Türkçe konuş (kullanıcı başka dil kullanırsa o dile geç).
+- ${languageLine}${factSourceNote}
 
 KESİN KURALLAR — FİYAT VE FACT:
 - Serbest metinde ASLA fiyat, para birimi (₺/$/€), yüzde veya rakam yazma.
@@ -193,7 +252,7 @@ ${catalogBlock}
 Önce kısa cümle, sonra getRoomPrice veya citeFact çağır.`;
 }
 
-async function buildAuthoritativeContext(req: ChatRequest): Promise<AuthoritativeContext | null> {
+export async function buildAuthoritativeContext(req: ChatRequest): Promise<AuthoritativeContext | null> {
   const manifest = await getTourManifest(req.hotelSlug, req.tourId);
   if (!manifest) return null;
 
@@ -203,6 +262,12 @@ async function buildAuthoritativeContext(req: ChatRequest): Promise<Authoritativ
     getPublishedHotelContent(req.hotelSlug),
   ]);
 
+  // snapshotProfile: tur yayına alınırken donmuş hotelProfile — getHotelAiProfile
+  // (artık publishedSnapshot tabanlı) başarısız olursa (DB hatası vb.) son çare
+  // olarak kullanılır. NOT: snapshotProfile.facts/.policies KASITLI OLARAK
+  // okunmuyor — otel gerçekleri/politikaları tek doğru kaynak buildFactCatalog
+  // olmalı; buradan okumak eski getHotelAiFacts gibi kontrolsüz bir ikinci yol
+  // açar.
   const snapshotProfile = manifest.hotelProfile;
   const hotelProfile = {
     aiPersona:
@@ -229,9 +294,18 @@ async function buildAuthoritativeContext(req: ChatRequest): Promise<Authoritativ
       ? extractLastUserMessage(req.messages as ModelMessage[])
       : undefined;
 
-  const factCatalog = filterRelevantFacts(fullCatalog, {
+  // Bu turun kullanıcı-mesajı embedding'i — hem fact retrieval (context-router)
+  // hem openInquiry'nin embedding-destekli niyet kontrolü (completion-engine)
+  // tarafından paylaşılır; tek embed API çağrısı.
+  const userMessageEmbedding = lastUserMessage ? await embedText(lastUserMessage) : null;
+  const detectedLanguage = lastUserMessage
+    ? detectLanguageHint(lastUserMessage, req.browserLocale)
+    : undefined;
+
+  const factCatalog = await filterRelevantFacts(fullCatalog, req.hotelSlug, {
     userMessage: lastUserMessage,
     currentStepTags: currentStep?.aiTags,
+    userMessageEmbedding,
   });
 
   const completion = computeCompletionState(
@@ -240,14 +314,114 @@ async function buildAuthoritativeContext(req: ChatRequest): Promise<Authoritativ
     req.currentStepId,
   );
 
+  const fallbackHotelName = req.hotelSlug
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+
   return {
     ...req,
     availableSteps,
+    hotelName: content.name?.trim() || fallbackHotelName,
     hotelProfile,
     factCatalog,
     roomOptions: content.rooms.map((r) => ({ slug: r.slug, name: r.name })),
     completion,
     lastUserMessage,
+    userMessageEmbedding,
+    detectedLanguage,
+  };
+}
+
+export type ToolFlags = { hadPriceTool: boolean; hadFactTool: boolean };
+
+/**
+ * Sohbet araçlarını kurar — hem POST route'u hem gerçek-model eval'ları
+ * (src/lib/ai/evals) aynı tanımı kullanır, iki ayrı yol açılmasın diye.
+ */
+export function buildTools(data: AuthoritativeContext, toolFlags: ToolFlags) {
+  const hotelSlug = data.hotelSlug;
+  const factCatalog = data.factCatalog;
+  return {
+    navigateTo: tool({
+      description: "Kullanıcıyı mevcut turda başka bir adıma yönlendir. Sadece availableSteps listesindeki stepId'leri kullan.",
+      inputSchema: z.object({
+        stepId: z.string().describe("Hedef adımın stepId'si"),
+        reason: z.string().describe("Neden bu adıma geçildiğinin açıklaması"),
+      }),
+    }),
+    suggestNext: tool({
+      description: "Kullanıcıya chip olarak önerilecek seçenek belirle.",
+      inputSchema: z.object({
+        chips: z.array(z.string()).max(3).describe("Max 3 chip önerisi"),
+      }),
+    }),
+    openInquiry: tool({
+      description:
+        "Rezervasyon / bilgi talep formunu aç. Yalnızca tur %80+ tamamlandıysa veya kullanıcı açıkça rezervasyon/talep istediğinde kullan.",
+      inputSchema: z.object({
+        roomSlug: z.string().optional().describe("Varsa oda slug'ı"),
+      }),
+      execute: async () => {
+        const allowed = await shouldAllowOpenInquiryAsync(
+          data.completion.progressRatio,
+          data.lastUserMessage,
+          data.userMessageEmbedding,
+        );
+        return allowed ? { ok: true as const } : { ok: false as const, blocked: true as const };
+      },
+    }),
+    autoTourNext: tool({
+      description: "Sadece isAutoTour=true iken kullan. Sunucunun verdiği sıradaki adıma geç.",
+      inputSchema: z.object({
+        stepId: z.string().describe("Sıradaki adımın stepId'si"),
+        delayMs: z.number().default(2000).describe("Geçiş gecikmesi ms"),
+      }),
+    }),
+    endAutoTour: tool({
+      description: "Otomatik tur tamamlandığında çağır.",
+      inputSchema: z.object({}),
+    }),
+    getRoomPrice: tool({
+      description:
+        "Otel oda fiyatlarını veritabanından getirir. Bugün/gecelik, checkIn-checkOut toplamı, guestCount (kişi sayısı) veya childAges (çocukların yaşları) destekler. Fiyatları serbest metinde yazma.",
+      inputSchema: z.object({
+        roomSlug: z.string().optional().describe("Oda slug; boşsa tüm odalar"),
+        checkIn: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional()
+          .describe("Giriş YYYY-MM-DD"),
+        checkOut: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional()
+          .describe("Çıkış YYYY-MM-DD"),
+        guestCount: z.number().int().min(1).max(12).optional().describe("Kişi sayısı"),
+        childAges: z
+          .array(z.number().int().min(0).max(17))
+          .max(10)
+          .optional()
+          .describe("Çocukların yaşları — verilirse gecelik fiyata yaş bazlı ek/indirim uygulanır"),
+      }),
+      // toolFlags burada (çağrı anında) işaretlenir — guard transform'un
+      // ihtiyaç duyduğu tek doğru kaynak budur, başka yerde tekrarlanmaz.
+      execute: async (input) => {
+        toolFlags.hadPriceTool = true;
+        return queryRoomPrices(hotelSlug, input);
+      },
+    }),
+    citeFact: tool({
+      description:
+        "Katalogdan doğrulanmış bilgi, politika veya otel ifadesi getirir. Metni kartta gösterilir.",
+      inputSchema: z.object({
+        factId: z.string().describe("FACT KATALOĞU id"),
+      }),
+      execute: async ({ factId }) => {
+        toolFlags.hadFactTool = true;
+        return citeFactById(hotelSlug, factId, factCatalog);
+      },
+    }),
   };
 }
 
@@ -276,17 +450,23 @@ export async function POST(req: Request) {
     return apiNotFound("Tur bulunamadı.");
   }
 
-  if (parsed.data.completionMeta && process.env.NODE_ENV !== "production") {
+  if (parsed.data.completionMeta) {
     const clientRatio = parsed.data.completionMeta.progressRatio;
     const serverRatio = data.completion.progressRatio;
-    if (Math.abs(clientRatio - serverRatio) > 0.05) {
-      console.warn("[chat] completionMeta mismatch", {
-        client: parsed.data.completionMeta,
-        server: {
-          progressRatio: serverRatio,
-          nextStepId: data.completion.nextStepId,
-        },
-      });
+    const delta = clientRatio - serverRatio;
+    if (Math.abs(delta) > 0.05) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[chat] completionMeta mismatch", {
+          client: parsed.data.completionMeta,
+          server: { progressRatio: serverRatio, nextStepId: data.completion.nextStepId },
+        });
+      }
+      void trackEvent(
+        "ai_completion_drift",
+        { tourId: data.tourId, clientRatio, serverRatio, delta },
+        null,
+        data.hotelSlug,
+      );
     }
   }
 
@@ -298,7 +478,6 @@ export async function POST(req: Request) {
   const openai = createOpenAI({ apiKey });
   const systemPrompt = buildSystemPrompt(data);
   const hotelSlug = data.hotelSlug;
-  const factCatalog = data.factCatalog;
   const tourId = data.tourId;
 
   let instructions: ModelMessage | null = null;
@@ -314,7 +493,7 @@ export async function POST(req: Request) {
     if (inst) instructions = { role: "user", content: inst };
   }
 
-  const messages: ModelMessage[] = data.messages;
+  const messages: ModelMessage[] = windowConversationHistory(data.messages as ModelMessage[]);
   if (instructions) {
     messages.push(instructions);
   }
@@ -322,99 +501,47 @@ export async function POST(req: Request) {
   const toolFlags = { hadPriceTool: false, hadFactTool: false };
   let guardAnalyticsFired = false;
 
+  // Fiyat/fact sorusu tespit edilirse ilk adımda o tool'u ZORLA — serbest
+  // metinde rakam üretmeyi olası değil, yapısal olarak imkansız kılar.
+  // response-guard'ın sliding-window kontrolü buna ek bir savunma katmanı.
+  const toolHints =
+    data.triggerReason === "userMessage" && data.lastUserMessage
+      ? detectToolHints(data.lastUserMessage)
+      : { needsPriceTool: false, needsFactTool: false };
+
   const result = streamText({
     model: openai("gpt-4o-mini"),
     system: systemPrompt,
     messages,
     temperature: 0.7,
-    experimental_transform: createGuardStreamTransform(toolFlags, () => {
+    prepareStep: ({ stepNumber }) => {
+      if (stepNumber > 0) return {};
+      const toolChoice = decideToolChoice(toolHints, toolFlags);
+      return toolChoice ? { toolChoice } : {};
+    },
+    experimental_transform: createGuardStreamTransform(toolFlags, ({ originalLength }) => {
       if (guardAnalyticsFired) return;
       guardAnalyticsFired = true;
       void trackEvent(
         "ai_guard_triggered",
-        { tourId, originalLength: 0 },
+        { tourId, originalLength },
         null,
         hotelSlug,
       );
     }),
-    tools: {
-      navigateTo: tool({
-        description: "Kullanıcıyı mevcut turda başka bir adıma yönlendir. Sadece availableSteps listesindeki stepId'leri kullan.",
-        inputSchema: z.object({
-          stepId: z.string().describe("Hedef adımın stepId'si"),
-          reason: z.string().describe("Neden bu adıma geçildiğinin açıklaması"),
-        }),
-      }),
-      suggestNext: tool({
-        description: "Kullanıcıya chip olarak önerilecek seçenek belirle.",
-        inputSchema: z.object({
-          chips: z.array(z.string()).max(3).describe("Max 3 chip önerisi"),
-        }),
-      }),
-      openInquiry: tool({
-        description:
-          "Rezervasyon / bilgi talep formunu aç. Yalnızca tur %80+ tamamlandıysa veya kullanıcı açıkça rezervasyon/talep istediğinde kullan.",
-        inputSchema: z.object({
-          roomSlug: z.string().optional().describe("Varsa oda slug'ı"),
-        }),
-        execute: async () => {
-          const allowed = shouldAllowOpenInquiry(
-            data.completion.progressRatio,
-            data.lastUserMessage,
-          );
-          return allowed ? { ok: true as const } : { ok: false as const, blocked: true as const };
+    tools: buildTools(data, toolFlags),
+    onFinish: ({ totalUsage }) => {
+      void trackEvent(
+        "ai_usage",
+        {
+          tourId,
+          inputTokens: totalUsage.inputTokens ?? 0,
+          outputTokens: totalUsage.outputTokens ?? 0,
+          model: "gpt-4o-mini",
         },
-      }),
-      autoTourNext: tool({
-        description: "Sadece isAutoTour=true iken kullan. Sunucunun verdiği sıradaki adıma geç.",
-        inputSchema: z.object({
-          stepId: z.string().describe("Sıradaki adımın stepId'si"),
-          delayMs: z.number().default(2000).describe("Geçiş gecikmesi ms"),
-        }),
-      }),
-      endAutoTour: tool({
-        description: "Otomatik tur tamamlandığında çağır.",
-        inputSchema: z.object({}),
-      }),
-      getRoomPrice: tool({
-        description:
-          "Otel oda fiyatlarını veritabanından getirir. Bugün/gecelik, checkIn-checkOut toplamı veya guestCount (kişi sayısı) destekler. Fiyatları serbest metinde yazma.",
-        inputSchema: z.object({
-          roomSlug: z.string().optional().describe("Oda slug; boşsa tüm odalar"),
-          checkIn: z
-            .string()
-            .regex(/^\d{4}-\d{2}-\d{2}$/)
-            .optional()
-            .describe("Giriş YYYY-MM-DD"),
-          checkOut: z
-            .string()
-            .regex(/^\d{4}-\d{2}-\d{2}$/)
-            .optional()
-            .describe("Çıkış YYYY-MM-DD"),
-          guestCount: z.number().int().min(1).max(12).optional().describe("Kişi sayısı"),
-        }),
-        execute: async (input) => {
-          toolFlags.hadPriceTool = true;
-          return queryRoomPrices(hotelSlug, input);
-        },
-      }),
-      citeFact: tool({
-        description:
-          "Katalogdan doğrulanmış bilgi, politika veya otel ifadesi getirir. Metni kartta gösterilir.",
-        inputSchema: z.object({
-          factId: z.string().describe("FACT KATALOĞU id"),
-        }),
-        execute: async ({ factId }) => {
-          toolFlags.hadFactTool = true;
-          return citeFactById(hotelSlug, factId, factCatalog);
-        },
-      }),
-    },
-    onStepFinish({ toolCalls }) {
-      for (const tc of toolCalls) {
-        if (tc.toolName === "getRoomPrice") toolFlags.hadPriceTool = true;
-        if (tc.toolName === "citeFact") toolFlags.hadFactTool = true;
-      }
+        null,
+        hotelSlug,
+      );
     },
   });
 

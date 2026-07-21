@@ -22,6 +22,10 @@ export interface MyHotel {
   country: string | null;
   status: "taslak" | "incelemede" | "yayinda" | "reddedildi";
   moderationNote: string | null;
+  publishedRevision: number | null;
+  draftRevision: number;
+  submittedRevision: number | null;
+  hasUnpublishedChanges: boolean;
   memberRole?: "owner" | "editor";
 }
 

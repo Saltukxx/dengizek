@@ -36,13 +36,13 @@ export async function POST(req: Request) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
   if (!hasValidImageSignature(file.type, buffer)) return apiFail("Dosya içeriği görsel türüyle eşleşmiyor.", 400);
-  let url: string;
+  let stored: { url: string; key: string };
   try {
-    url = await storeImage(guard.hotel.id, file.type, buffer);
+    stored = await storeImage(guard.hotel.id, file.type, buffer);
   } catch (err) {
     console.error("[media] görsel depolama hatası:", err);
     return apiFail("Görsel depolama servisi kullanılamıyor.", 503, { code: "STORAGE_UNAVAILABLE" });
   }
 
-  return apiOk({ url });
+  return apiOk({ url: stored.url, objectKey: stored.key });
 }

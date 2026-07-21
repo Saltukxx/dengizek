@@ -62,7 +62,6 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       status: parsed.data.durum,
       handledBy: parsed.data.durum === "yeni" ? null : guard.user.id,
       handledAt: parsed.data.durum === "yeni" ? null : now,
-      accessTokenRevokedAt: parsed.data.durum === "kapatildi" ? now : null,
     })
     .where(eq(inquiriesTable.id, inquiry.id))
     .returning();

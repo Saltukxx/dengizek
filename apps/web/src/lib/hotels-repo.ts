@@ -10,7 +10,7 @@ import {
   getRoomBySlugs as getMockRoomBySlugs,
   type HotelMock,
 } from "@/lib/mocks/hotels";
-import type { Extra, Promotion, Restaurant, Room, RoomRate } from "@/lib/db/schema";
+import type { ChildAgePrice, Extra, Promotion, Restaurant, Room, RoomRate } from "@/lib/db/schema";
 import type { GuestPromotion, GuestRatePlanPrice } from "@/lib/guest-pricing";
 import { parseHotelContentSnapshot } from "@/lib/schemas/hotel-content-snapshot";
 
@@ -20,6 +20,10 @@ function isDbAvailable(): boolean {
 
 function shouldUseMockFallback(): boolean {
   return process.env.NODE_ENV !== "production" || process.env.USE_MOCK_DATA === "true";
+}
+
+export function legacySnapshotFallbackEnabled(): boolean {
+  return process.env.NODE_ENV !== "production" || process.env.SNAPSHOT_LEGACY_FALLBACK === "true";
 }
 
 function rethrowUnlessMockAllowed(context: string, err: unknown): void {
@@ -99,7 +103,7 @@ export async function getPublishedHotelsForBrowse(): Promise<BrowseHotelRow[]> {
     try {
       const { getDb } = await import("@/lib/db");
       const { hotelsTable, roomsTable } = await import("@/lib/db/schema");
-      const { eq, sql } = await import("drizzle-orm");
+      const { and, eq, isNull, sql } = await import("drizzle-orm");
       const rows = await getDb()
         .select({
           slug: hotelsTable.slug,
@@ -124,9 +128,9 @@ export async function getPublishedHotelsForBrowse(): Promise<BrowseHotelRow[]> {
           )`.as("min_price_minor"),
         })
         .from(hotelsTable)
-        .where(eq(hotelsTable.status, "yayinda"))
+        .where(and(eq(hotelsTable.status, "yayinda"), isNull(hotelsTable.suspendedAt)))
         .orderBy(hotelsTable.name);
-      return rows.map((row) => {
+      return rows.filter((row) => legacySnapshotFallbackEnabled() || parseHotelContentSnapshot(row.publishedSnapshot).success).map((row) => {
         const parsed = parseHotelContentSnapshot(row.publishedSnapshot);
         const snapshot = parsed.success ? parsed.data.hotel : {};
         const value = <T>(key: string, fallback: T) => key in snapshot ? snapshot[key] as T : fallback;
@@ -177,13 +181,15 @@ export async function getPublishedHotelBySlug(
     try {
       const { getDb } = await import("@/lib/db");
       const { hotelsTable } = await import("@/lib/db/schema");
-      const { and, eq } = await import("drizzle-orm");
+      const { and, eq, isNull } = await import("drizzle-orm");
       const [row] = await getDb()
         .select()
         .from(hotelsTable)
-        .where(and(eq(hotelsTable.slug, slug), eq(hotelsTable.status, "yayinda")))
+        .where(and(eq(hotelsTable.slug, slug), eq(hotelsTable.status, "yayinda"), isNull(hotelsTable.suspendedAt)))
         .limit(1);
-      return row ? toGuestHotel(row) : undefined;
+      if (!row) return undefined;
+      if (!legacySnapshotFallbackEnabled() && !parseHotelContentSnapshot(row.publishedSnapshot).success) return undefined;
+      return toGuestHotel(row);
     } catch (err) {
       rethrowUnlessMockAllowed("DB sorgusu başarısız", err);
     }
@@ -222,6 +228,8 @@ export interface GuestAvailabilityNote {
 export type RoomWithRates = Room & { rates: RoomRate[] };
 
 export interface PublishedHotelContent {
+  /** Otelin yayınlanmış adı — AI system prompt'unda slug yerine kullanılır. */
+  name?: string | null;
   rooms: RoomWithRates[];
   restaurants: Restaurant[];
   extras: Extra[];
@@ -252,6 +260,7 @@ const emptySpecs: HotelSpecs = {
 };
 
 const emptyContent: PublishedHotelContent = {
+  name: null,
   rooms: [],
   restaurants: [],
   extras: [],
@@ -293,7 +302,7 @@ export async function getPublishedHotelContent(
 
     const [snapshotRow] = await db.select({ publishedSnapshot: hotelsTable.publishedSnapshot })
       .from(hotelsTable)
-      .where(and(eq(hotelsTable.slug, slug), eq(hotelsTable.status, "yayinda")))
+      .where(and(eq(hotelsTable.slug, slug), eq(hotelsTable.status, "yayinda"), isNull(hotelsTable.suspendedAt)))
       .limit(1);
     const parsedSnapshot = parseHotelContentSnapshot(snapshotRow?.publishedSnapshot);
     if (parsedSnapshot.success) {
@@ -306,6 +315,7 @@ export async function getPublishedHotelContent(
       const defaultPlan = snapshot.ratePlans.find((plan) => plan.isDefault === true);
       const prices = snapshot.ratePlanPrices.filter((price) => price.ratePlanId === defaultPlan?.id);
       return {
+        name: (hotel.name as string | null) ?? null,
         rooms: rooms.filter((room) => room.isActive).sort((a, b) => a.orderIndex - b.orderIndex).map((room) => ({ ...room, rates: ratesByRoom.get(room.id) ?? [] })),
         restaurants: (snapshot.restaurants as unknown as Restaurant[]).filter((item) => item.isActive).sort((a, b) => a.orderIndex - b.orderIndex),
         extras: (snapshot.extras as unknown as Extra[]).filter((item) => item.isActive).sort((a, b) => a.orderIndex - b.orderIndex),
@@ -334,9 +344,12 @@ export async function getPublishedHotelContent(
       };
     }
 
+    if (!legacySnapshotFallbackEnabled()) return emptyContent;
+
     const [hotel] = await db
       .select({
         id: hotelsTable.id,
+        name: hotelsTable.name,
         starRating: hotelsTable.starRating,
         totalRooms: hotelsTable.totalRooms,
         checkInTime: hotelsTable.checkInTime,
@@ -355,7 +368,7 @@ export async function getPublishedHotelContent(
         longitude: hotelsTable.longitude,
       })
       .from(hotelsTable)
-      .where(and(eq(hotelsTable.slug, slug), eq(hotelsTable.status, "yayinda")))
+      .where(and(eq(hotelsTable.slug, slug), eq(hotelsTable.status, "yayinda"), isNull(hotelsTable.suspendedAt)))
       .limit(1);
     if (!hotel) return emptyContent;
 
@@ -442,6 +455,7 @@ export async function getPublishedHotelContent(
     }
 
     return {
+      name: hotel.name,
       rooms: rooms.map((r) => ({ ...r, rates: ratesByRoom.get(r.id) ?? [] })),
       restaurants,
       extras,
@@ -503,6 +517,7 @@ export interface GuestRoomRate {
   currency: string;
   minStayNights: number | null;
   occupancyPrices?: { guestCount: number; priceMinor: number }[];
+  childAgePrices?: ChildAgePrice[];
 }
 
 export interface GuestRoomDetail {
@@ -531,6 +546,7 @@ export interface GuestRoomDetail {
     priceOnRequest: boolean;
     discountPercent: number | null;
     discountLabel: string | null;
+    childAgePrices?: ChildAgePrice[];
     rates: GuestRoomRate[];
   };
 }
@@ -546,7 +562,7 @@ export async function getPublishedRoom(
     try {
       const { getDb } = await import("@/lib/db");
       const { hotelsTable, roomsTable, roomRatesTable } = await import("@/lib/db/schema");
-      const { and, asc, eq } = await import("drizzle-orm");
+      const { and, asc, eq, isNull } = await import("drizzle-orm");
       const db = getDb();
 
       const [hotel] = await db
@@ -558,7 +574,7 @@ export async function getPublishedRoom(
           publishedSnapshot: hotelsTable.publishedSnapshot,
         })
         .from(hotelsTable)
-        .where(and(eq(hotelsTable.slug, hotelSlug), eq(hotelsTable.status, "yayinda")))
+        .where(and(eq(hotelsTable.slug, hotelSlug), eq(hotelsTable.status, "yayinda"), isNull(hotelsTable.suspendedAt)))
         .limit(1);
 
       if (hotel) {
@@ -578,10 +594,11 @@ export async function getPublishedRoom(
               sizeSqm: room.sizeSqm == null ? null : Number(room.sizeSqm), capacityAdults: room.capacityAdults == null ? null : Number(room.capacityAdults), capacityChildren: room.capacityChildren == null ? null : Number(room.capacityChildren),
               bedConfig: room.bedConfig == null ? null : String(room.bedConfig), viewType: room.viewType == null ? null : String(room.viewType), imageUrl: room.imageUrl == null ? null : String(room.imageUrl), amenities: (room.amenities as string[] | undefined) ?? [],
               boardType: room.boardType == null ? null : String(room.boardType), unitCount: room.unitCount == null ? null : Number(room.unitCount), minStayNights: room.minStayNights == null ? null : Number(room.minStayNights), pricingNotes: room.pricingNotes == null ? null : String(room.pricingNotes),
-              priceMinor: room.priceMinor == null ? null : Number(room.priceMinor), currency: String(room.currency ?? "TRY"), priceOnRequest: Boolean(room.priceOnRequest), discountPercent: room.discountPercent == null ? null : Number(room.discountPercent), discountLabel: room.discountLabel == null ? null : String(room.discountLabel), rates,
+              priceMinor: room.priceMinor == null ? null : Number(room.priceMinor), currency: String(room.currency ?? "TRY"), priceOnRequest: Boolean(room.priceOnRequest), discountPercent: room.discountPercent == null ? null : Number(room.discountPercent), discountLabel: room.discountLabel == null ? null : String(room.discountLabel), childAgePrices: (room.childAgePrices as ChildAgePrice[] | undefined) ?? [], rates,
             },
           };
         }
+        if (!legacySnapshotFallbackEnabled()) return undefined;
         const [room] = await db
           .select()
           .from(roomsTable)
@@ -630,6 +647,7 @@ export async function getPublishedRoom(
               priceOnRequest: room.priceOnRequest,
               discountPercent: room.discountPercent,
               discountLabel: room.discountLabel,
+              childAgePrices: room.childAgePrices,
               rates,
             },
           };

@@ -48,21 +48,27 @@ export function PropertyGallerySection({ hotelId }: { hotelId: string }) {
     const addRes = await fetch(`/api/manager/hotels/${hotelId}/gallery`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: json.url, caption: caption || undefined }),
+      body: JSON.stringify({ url: json.url, objectKey: json.objectKey, caption: caption || undefined }),
     });
-    if ((await addRes.json()).ok) {
+    const addJson = await addRes.json();
+    if (addJson.ok) {
       setCaption("");
       void reload();
+    } else {
+      notifications.show({ color: "red", message: addJson.error ?? "Galeri kaydı oluşturulamadı." });
     }
   }
 
   async function removeImage(id: string) {
-    await fetch(`/api/manager/hotels/${hotelId}/gallery`, {
+    if (!window.confirm("Bu görsel galeriden silinsin mi?")) return;
+    const response = await fetch(`/api/manager/hotels/${hotelId}/gallery`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
-    void reload();
+    const json = await response.json();
+    if (json.ok) void reload();
+    else notifications.show({ color: "red", message: json.error ?? "Görsel silinemedi." });
   }
 
   return (

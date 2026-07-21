@@ -43,7 +43,6 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     return NextResponse.json({ ok: false, error: "Oda bulunamadı." }, { status: 404 });
   }
 
-  const db = getDb();
   try {
     const updated = await withTransaction(async (tx) => {
       const [row] = await tx.update(roomsTable)

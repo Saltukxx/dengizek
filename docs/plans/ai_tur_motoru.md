@@ -1,8 +1,24 @@
 # AI Destekli Tur Motoru — Detaylı Plan
 
 **Proje:** Dengizek  
-**Tarih:** Nisan 2026  
-**Durum:** Faz 1–6 uygulandı — completion engine, response guard, AI analytics, ai-metrics panel, fact cache, context router, readiness score, production manifest hardening
+**Tarih:** Nisan 2026 (son güncelleme: Temmuz 2026)  
+**Durum:** Faz 1–6 uygulandı — completion engine, response guard, AI analytics, ai-metrics panel, fact cache, context router, readiness score, production manifest hardening. Temmuz 2026: güvenilirlik sağlamlaştırması (aşağıya bakın).
+
+### Uygulanan Değişiklikler (Temmuz 2026 — AI motor sağlamlaştırma)
+
+| Dosya | Durum | Açıklama |
+|-------|-------|----------|
+| `src/app/api/tour/chat/route.ts` | ✅ | Strict Zod mesaj şeması (system rolü reddi, mesaj/karakter bütçesi), gerçek otel adı system prompt'ta |
+| `scripts/backfill-fact-embeddings.ts` | ✅ | Yayındaki oteller için embedding backfill (`npm run db:backfill-embeddings`) |
+| `scripts/backfill-hotel-snapshots.ts` | ✅ | Snapshot backfill artık cache temizleme + embedding senkronu da yapıyor |
+| `src/lib/ai/fact-store.ts` | ✅ | `computeFactEmbeddingFreshness` — embedding tazelik özeti (ai-metrics'te görünür) |
+| `src/lib/tour/use-tour-guide.ts` | ✅ | Chip reddi bastırması artık deterministik (2 kez yok sayılırsa chip'ler gizlenir); istemci tarafı dil tespiti |
+| `src/lib/ai/completion-engine.ts` | ✅ | Inquiry niyet eşiği env ile ayarlanabilir (`AI_INQUIRY_INTENT_THRESHOLD`) |
+| `scripts/ai-threshold-report.ts` | ✅ | Otel-başına guard/drift oranları raporu (`npm run ai:threshold-report`) |
+| `src/lib/ai/evals/golden-questions.eval.ts` | ✅ | EN + negatif (katalog-dışı) fixture'lar, fixture-başına gecikme/token/maliyet metriği (`eval-metrics.json`), stream guard sızıntı simülasyonu |
+| `src/components/tour-player/TourGuidePanel.tsx` | ✅ | Dinamik persona adı (manifest `hotelProfile.aiPersona`), TR/EN panel metinleri |
+| `src/components/tour-player/tour-guide-i18n.ts` | ✅ | Panel çerçeve metinleri TR/EN sözlüğü + STT locale eşlemesi |
+| `src/components/tour-player/use-speech-input.ts` | ✅ | STT dili sohbette tespit edilen dile bağlandı |
 
 ### Uygulanan Değişiklikler (Haziran 2026 — AI motor KPI)
 
@@ -39,7 +55,7 @@
 
 - **OpenAI SDK kullanılmadı** — native `fetch` ile OpenAI REST API çağrısı (node_modules mount sorunu nedeniyle)
 - **Seçilen model:** `gpt-4o-mini` — en düşük maliyet/kalite dengesi (~$2-3/ay 10K sohbette)
-- **OPENAI_API_KEY** yoksa development mock yanıt döner, production 503 döner
+- **OPENAI_API_KEY** yoksa chat route her ortamda 503 döner (development mock yanıt kaldırıldı)
 - **Encoding sorunu:** Write tool'u bazen Windows mount üzerinde UTF-8 dosyaları keser; kritik dosyalar Python ile yazıldı
 
 ---
@@ -61,7 +77,7 @@ Mevcut `branches[]` sistemi (sabit dallanma butonları) bu sistemin üzerine in�
 | AI navigasyon yöntemi | OpenAI tool calling (`navigateTo`, `openInquiry`, `autoTourNext`) |
 | Chat konumu | Sabit side panel, 70/30 split (masaüstü) · Drawer (mobil) |
 | AI persona adı | **Yapay Zeka Rehberi** |
-| Ses girişi | MVP'de yok |
+| Ses girişi | ✅ Uygulandı — Web Speech API (STT); transkript input'a yazılır, kullanıcı gönderir. Sesli ÇIKIŞ (TTS) hâlâ kapsam dışı |
 | Otomatik tur modu | Evet — "Oteli Gezdirr" butonu ile başlar |
 | AI proaktifliği | Evet — stepStart, stepEnd, idle, conversion push |
 | Hallucination koruması | AI sadece sunucu tarafındaki otel verisini kullanır; istemci bağlam göndermez |
@@ -84,13 +100,18 @@ POST /api/tour/chat
         ↓
 OpenAI API (tool calling)
   └─ navigateTo(stepId)       → video adımını değiştir
-  └─ answerQuestion(text)     → sadece metin yanıt
-  └─ suggestNext(stepIds[])   → chip öner
-  └─ openInquiry(roomSlug?)   → rezervasyon formunu aç
+  └─ suggestNext(chips[])     → chip öner
+  └─ openInquiry(roomSlug?)   → rezervasyon formunu aç (sunucu gate'li)
   └─ autoTourNext(stepId)     → otomatik tur geçişi
+  └─ endAutoTour()            → otomatik turu bitir
+  └─ getRoomPrice(...)        → fiyatlar DB'den, kart olarak (serbest metin yasak)
+  └─ citeFact(factId)         → doğrulanmış bilgi/politika kartı
         ↓
 Client: action işle + chat'e mesaj yaz
 ```
+
+> Not: Plandaki `answerQuestion` aracı uygulanmadı — serbest metin yanıt zaten
+> modelin varsayılan çıktısı; bilgi ise `citeFact` kartlarıyla verilir.
 
 ### 3.2 Hedef Mimari (Faz 3+ sonrası)
 
@@ -299,11 +320,16 @@ isAutoTour: {isAutoTour}
 
 [Araçlar]
 navigateTo(stepId) — kullanıcıyı o adıma götür
-answerQuestion(text) — video geçişi olmadan bilgi ver
-suggestNext(stepIds[]) — chip olarak öner
-openInquiry(roomSlug?) — rezervasyon formunu aç
+suggestNext(chips[]) — chip olarak öner
+openInquiry(roomSlug?) — rezervasyon formunu aç (sunucu %80 gate)
 autoTourNext(stepId, delayMs) — otomatik turda sıradaki adıma geç
+endAutoTour() — otomatik turu bitir
+getRoomPrice(roomSlug?, checkIn?, checkOut?, guestCount?, childAges?) — fiyat kartı
+citeFact(factId) — doğrulanmış bilgi/politika kartı
 ```
+
+> Not: Uygulamadaki gerçek prompt için `buildSystemPrompt` (chat route)
+> otoritedir — ilerleme/inquiry gate, fact kataloğu ve dil yönergesi de içerir.
 
 ---
 
@@ -319,7 +345,9 @@ autoTourNext(stepId, delayMs) — otomatik turda sıradaki adıma geç
 
 **Nudge Kuralları:**
 - Turda toplam maks **3 proaktif mesaj** (kullanıcı sorarsa sınır yok)
-- Aynı chip **2 kez reddedilirse** o konu için sessiz kal
+- Chip önerileri **2 kez üst üste yok sayılırsa** chip'ler bastırılır — artık
+  prompt'a değil, deterministik istemci sayacına dayanır (`use-tour-guide.ts`,
+  chip'e tıklamak sayacı sıfırlar)
 - `nudgeCount` client'ta tutulur, maks 3'te susturulur
 
 ---
@@ -505,27 +533,26 @@ Mobil: video tam genişlik + altta drawer
 5. ~~Mobil layout~~ — `TourPlayer.tsx`'te `useMediaQuery` + Mantine `Drawer` ile tamamlandı
 6. **Kalan:** `.env.local`'a `OPENAI_API_KEY` ekle ve ilk gerçek sohbet testi yap
 
-### Faz 4 — Veritabanı Entegrasyonu
+### Faz 4 — Veritabanı Entegrasyonu ✅ Tamamlandı
 
-1. PostgreSQL şemasını oluştur (`hotels`, `tour_steps` tabloları)
-2. `getDemoTourManifest()` → `getManifestFromDB(hotelSlug, tourId)` migration
-3. Demo otel verisini seed script ile DB'ye aktar
-4. `/api/tour/chat` route'u artık DB'den çeker — istemci API imzası değişmez
+1. ~~PostgreSQL şeması~~ (`hotels`, `tours`, `tour_steps` — Drizzle, bkz. `src/lib/db/schema.ts`)
+2. ~~Manifest DB'den~~ — `getTourManifest` `DATABASE_URL` varsa yayınlanmış manifesti DB'den okur
+3. ~~Seed~~ — `npm run db:seed` (aurelia-bay demo verisi)
+4. ~~Chat route DB'den çeker~~ — istemci API imzası değişmedi
 
-### Faz 5 — Otel Dashboard (Hotel CMS)
+### Faz 5 — Otel Dashboard (Hotel CMS) ✅ Tamamlandı
 
-1. Auth sistemi kur (NextAuth / Clerk) — otel sahibi girişi
-2. `/dashboard/[slug]/profil` — AI persona + facts + policies formu
-3. `/dashboard/[slug]/tur/[tourId]` — adım listesi, sıralama (drag & drop)
-4. `/dashboard/[slug]/tur/.../adim/[stepId]` — medya yükleme + AI metadata formu
-5. Blob storage entegrasyonu (Vercel Blob veya S3) — video/fotoğraf yükleme
+Auth (Auth.js v5 credentials), persona/facts/policies formu (`property-form.tsx`),
+tur adım editörü, medya yükleme (Bunny Stream + object storage) uygulandı.
+Rota adları plandaki `/dashboard/[slug]/...` şablonundan farklıdır — tek-otel
+yönetici modeli kullanılır (`/dashboard/*`).
 
-### Faz 6 — İleri Özellikler (MVP Sonrası)
+### Faz 6 — İleri Özellikler (MVP Sonrası) — Kısmen tamamlandı
 
-- Çok dilli destek (kullanıcı dili otomatik algılanır)
-- Embedding tabanlı FAQ RAG (çok sayıda politika varsa)
-- Analytics dashboard — hangi sorular, hangi adımlar conversion'a dönüşüyor
-- Mobil uygulama entegrasyonu
+- ~~Çok dilli destek~~ — TR/EN heuristik dil tespiti (`language-detect.ts`), panel çerçevesi ve STT dili de uyar
+- ~~Embedding tabanlı fact RAG~~ — `hotel_fact_embeddings` (pgvector) + `context-router.ts`, lexical fallback
+- ~~Analytics dashboard~~ — `ai-metrics` endpoint + panel kartı (tool kullanımı, guard, token maliyeti, embedding tazeliği)
+- Mobil uygulama entegrasyonu (hâlâ kapsam dışı)
 
 ---
 
@@ -560,11 +587,12 @@ AI sayesinde aşağıdaki metrikler ölçülebilir hale gelir:
 
 ## 16. Gelecek Versiyonlar (Kapsam Dışı — MVP Sonrası)
 
-- **Sesli giriş** (Web Speech API — Türkçe destekli)
-- **Multimodal frame analizi** — "Bu tablonun üzerinde ne yazıyor?" → video karesi Claude'a gönderilir
-- **Otel FAQs RAG** — Embedding tabanlı soru-cevap (çok sayıda politika varsa)
-- **Kişiselleştirme** — Kullanıcının gördükleri hatırlanır, bir sonraki turda devam edilir
-- **Çok dilli destek** — Kullanıcının dili otomatik algılanır, AI o dilde yanıt verir
+- ~~**Sesli giriş**~~ ✅ Uygulandı — Web Speech API STT (`use-speech-input.ts`), dili sohbet diline bağlı
+- **Sesli çıkış (TTS)** — hâlâ kapsam dışı
+- **Multimodal frame analizi** — "Bu tablonun üzerinde ne yazıyor?" → video karesi modele gönderilir
+- ~~**Otel FAQs RAG**~~ ✅ Uygulandı — pgvector fact embedding'leri + context-router
+- **Kişiselleştirme** — kısmen: `guest_sessions.stepsSeen` ile "kaldığın yerden devam"; sohbet geçmişi ve `preferences` henüz taşınmıyor
+- ~~**Çok dilli destek**~~ ✅ Uygulandı (TR/EN) — heuristik tespit + prompt yönergesi + panel/STT uyumu
 
 ---
 

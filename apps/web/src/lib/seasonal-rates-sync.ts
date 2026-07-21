@@ -42,6 +42,7 @@ export async function syncRoomRates(
       currency: rate.currency,
       minStayNights: rate.minStayNights ?? null,
       occupancyPrices: rate.occupancyPrices ?? [],
+      childAgePrices: rate.childAgePrices ?? [],
     };
     if (rate.id) {
       await db

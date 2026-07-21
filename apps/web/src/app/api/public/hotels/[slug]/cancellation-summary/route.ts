@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getDb, isDbConfigured } from "@/lib/db";
 import { cancellationRulesTable, hotelsTable } from "@/lib/db/schema";
 
@@ -46,7 +46,7 @@ export async function GET(
       cancellationRuleId: hotelsTable.cancellationRuleId,
     })
     .from(hotelsTable)
-    .where(and(eq(hotelsTable.slug, slug), eq(hotelsTable.status, "yayinda")))
+    .where(and(eq(hotelsTable.slug, slug), eq(hotelsTable.status, "yayinda"), isNull(hotelsTable.suspendedAt)))
     .limit(1);
 
   if (!hotel) {

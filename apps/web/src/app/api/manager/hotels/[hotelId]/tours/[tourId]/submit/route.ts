@@ -5,10 +5,10 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
-import { toursTable } from "@/lib/db/schema";
+import { mediaAssetsTable, toursTable } from "@/lib/db/schema";
 import { getManifestFromDB } from "@/lib/db/manifest";
 import { tourManifestSchema } from "@/lib/schemas/tour-manifest";
 import { logAudit } from "@/lib/audit";
@@ -66,6 +66,56 @@ export async function POST(_req: Request, { params }: RouteParams) {
           { status: 400 },
         );
       }
+    }
+  }
+
+  // Medya hazırlık kontrolü: boş src (ör. webhook anında CDN hostname
+  // tanımsızsa playbackUrl "" döner) veya henüz işlenmemiş/hatalı varlık
+  // varken tur incelemeye gönderilemez.
+  for (const step of draft.steps) {
+    if (!step.media.src.trim()) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `"${step.title}" adımının videosu eksik — medya yüklemesi tamamlanmadan tur gönderilemez.`,
+        },
+        { status: 400 },
+      );
+    }
+  }
+
+  const stepSrcs = [...new Set(draft.steps.map((s) => s.media.src))];
+  const assets = await db
+    .select({
+      playbackUrl: mediaAssetsTable.playbackUrl,
+      status: mediaAssetsTable.status,
+    })
+    .from(mediaAssetsTable)
+    .where(
+      and(
+        eq(mediaAssetsTable.hotelId, guard.hotel.id),
+        inArray(mediaAssetsTable.playbackUrl, stepSrcs),
+      ),
+    );
+  const assetStatusBySrc = new Map(
+    assets.filter((a) => a.playbackUrl).map((a) => [a.playbackUrl as string, a.status]),
+  );
+  for (const step of draft.steps) {
+    const assetStatus = assetStatusBySrc.get(step.media.src);
+    // Harici / demo URL'ler media_assets'te yoktur — onlara karışmayız.
+    if (!assetStatus) continue;
+    if (assetStatus !== "hazir" && assetStatus !== "yayinlandi") {
+      const reason =
+        assetStatus === "hata"
+          ? "video işlenirken hata oluştu"
+          : "video hâlâ işleniyor";
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `"${step.title}" adımının medyası hazır değil (${reason}) — hazır olmadan tur gönderilemez.`,
+        },
+        { status: 400 },
+      );
     }
   }
 

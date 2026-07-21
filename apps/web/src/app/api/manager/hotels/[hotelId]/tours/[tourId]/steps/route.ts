@@ -8,7 +8,6 @@
 
 import { NextResponse } from "next/server";
 import { and, eq, notInArray, sql } from "drizzle-orm";
-import { clearFactCatalogCache } from "@/lib/ai/fact-store";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { tourStepsTable, toursTable } from "@/lib/db/schema";
@@ -184,7 +183,11 @@ export async function PUT(req: Request, { params }: RouteParams) {
     return NextResponse.json({ ok: false, code: "REVISION_CONFLICT", currentRevision: latest?.draftRevision }, { status: 409 });
   }
 
-  clearFactCatalogCache(guard.hotel.slug);
+  // Not: burada fact-cache temizliği YAPILMAZ — bu rota tur adımlarının
+  // TASLAĞINI kaydeder ve fact kataloğu (buildFactCatalog) tur adımı
+  // verisini hiç okumuyor (yalnızca getHotelAiProfile + publishedSnapshot).
+  // Yanlışlıkla buradaki bir çağrı hiçbir şeyi geçersiz kılmayan, yanıltıcı
+  // bir no-op'tu — kaldırıldı.
 
   return NextResponse.json({ ok: true, count: steps.length, draftRevision: expectedRevision + 1 });
 }

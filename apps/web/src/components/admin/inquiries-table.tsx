@@ -19,7 +19,7 @@ import {
   Textarea,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconDownload, IconMessage } from "@tabler/icons-react";
+import { IconDownload, IconLinkOff, IconMessage } from "@tabler/icons-react";
 import { inquirySourceLabels, inquiryStatusColors, inquiryStatusLabels } from "@/lib/labels";
 
 interface AdminInquiry {
@@ -99,6 +99,20 @@ export function InquiriesTable() {
     if (json.ok) {
       setDetail(json.inquiry);
       setMessages(json.messages);
+    }
+  }
+
+  async function revokePortalLink() {
+    if (!threadId) return;
+    if (!confirm("Misafirin portal bağlantısını hemen iptal etmek istediğinize emin misiniz? Misafir eski linke tekrar erişemez.")) {
+      return;
+    }
+    const res = await fetch(`/api/admin/inquiries/${threadId}/portal-token`, { method: "DELETE" });
+    const json = await res.json();
+    if (json.ok) {
+      notifications.show({ color: "green", message: "Portal bağlantısı iptal edildi." });
+    } else {
+      notifications.show({ color: "red", message: json.error ?? "İptal edilemedi." });
     }
   }
 
@@ -275,7 +289,18 @@ export function InquiriesTable() {
       <Drawer opened={threadId !== null} onClose={() => setThreadId(null)} title={detail?.name ?? "Talep"} size="md">
         {detail && (
           <Stack gap="sm">
-            <Badge color={inquiryStatusColors[detail.status]}>{inquiryStatusLabels[detail.status]}</Badge>
+            <Group justify="space-between">
+              <Badge color={inquiryStatusColors[detail.status]}>{inquiryStatusLabels[detail.status]}</Badge>
+              <Button
+                size="xs"
+                variant="subtle"
+                color="red"
+                leftSection={<IconLinkOff size={14} />}
+                onClick={revokePortalLink}
+              >
+                Portal linkini iptal et
+              </Button>
+            </Group>
             <Text size="sm">{detail.message}</Text>
             {detail.tourId && (
               <Text size="xs" c="dimmed">

@@ -5,6 +5,7 @@
 
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
+import { clearFactCatalogCache, syncFactEmbeddings } from "@/lib/ai/fact-store";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { hotelsTable } from "@/lib/db/schema";
@@ -67,6 +68,16 @@ export async function POST(req: Request, { params }: RouteParams) {
     .where(and(eq(hotelsTable.id, hotel.id), eq(hotelsTable.status, "incelemede"), eq(hotelsTable.submittedRevision, parsed.data.submittedRevision)))
     .returning();
   if (!updated) return NextResponse.json({ ok: false, code: "REVISION_CONFLICT" }, { status: 409 });
+
+  if (parsed.data.karar === "onayla") {
+    // publishedSnapshot değişti — misafir AI sohbetinin gördüğü aiPersona/
+    // aiFacts/aiPolicies de bu snapshot'tan okunuyor (bkz. getHotelAiProfile).
+    clearFactCatalogCache(hotel.slug);
+    // Embedding'ler publish-zamanlı senkronize edilir (request-zamanlı değil)
+    // — chat isteklerinin gecikmesini etkilemez. Kendi try/catch'i var,
+    // başarısız olsa da onay akışını kırmaz.
+    await syncFactEmbeddings(hotel.slug);
+  }
 
   await logAudit({
     actor: guard.user,

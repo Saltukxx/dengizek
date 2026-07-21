@@ -42,7 +42,15 @@ import {
   validateOccupancyForms,
   type OccupancyPriceForm,
 } from "@/lib/occupancy-price";
+import {
+  childAgePricesFromApi,
+  childAgePricesToApi,
+  formatChildAgePriceSummary,
+  validateChildAgePrices,
+  type ChildAgePriceForm,
+} from "@/lib/child-price";
 import { OccupancyPricesEditor } from "./occupancy-prices-editor";
+import { ChildAgePricesEditor } from "./child-age-prices-editor";
 import { useMyHotel } from "./use-my-hotel";
 
 interface ApiRate {
@@ -55,6 +63,7 @@ interface ApiRate {
   currency: string;
   minStayNights: number | null;
   occupancyPrices?: { guestCount: number; priceMinor: number }[];
+  childAgePrices?: { ageFrom: number; ageTo: number; mode: "ucretsiz" | "sabit" | "yuzde"; priceMinor?: number | null; percent?: number | null }[];
 }
 
 interface ApiRoom {
@@ -76,6 +85,7 @@ interface Row {
   currency: Currency;
   minStayNights: number | null;
   occupancyPrices: OccupancyPriceForm[];
+  childAgePrices: ChildAgePriceForm[];
   selected: boolean;
   isNew: boolean;
 }
@@ -89,6 +99,7 @@ interface ApplyForm {
   currency: Currency;
   minStayNights: number | null;
   occupancyPrices: OccupancyPriceForm[];
+  childAgePrices: ChildAgePriceForm[];
 }
 
 const emptyApplyForm = (roomIds: string[]): ApplyForm => ({
@@ -100,6 +111,7 @@ const emptyApplyForm = (roomIds: string[]): ApplyForm => ({
   currency: "TRY",
   minStayNights: null,
   occupancyPrices: [],
+  childAgePrices: [],
 });
 
 function rowsFromRooms(rooms: ApiRoom[]): Row[] {
@@ -116,6 +128,7 @@ function rowsFromRooms(rooms: ApiRoom[]): Row[] {
       currency: rate.currency as Currency,
       minStayNights: rate.minStayNights,
       occupancyPrices: occupancyFromApi(rate.occupancyPrices),
+      childAgePrices: childAgePricesFromApi(rate.childAgePrices),
       selected: false,
       isNew: false,
     })),
@@ -132,6 +145,7 @@ function rowToPayload(row: Row) {
     currency: row.currency,
     minStayNights: row.minStayNights,
     occupancyPrices: occupancyToApi(row.occupancyPrices),
+    childAgePrices: childAgePricesToApi(row.childAgePrices),
   };
 }
 
@@ -140,7 +154,9 @@ function validateRow(row: Row): string | null {
   if (!row.startDate || !row.endDate) return "Başlangıç ve bitiş tarihi gerekli.";
   if (row.startDate > row.endDate) return "Bitiş tarihi başlangıçtan önce olamaz.";
   if (row.priceMajor == null || row.priceMajor <= 0) return "Geçerli bir fiyat girin.";
-  return validateOccupancyForms(row.occupancyPrices);
+  const occErr = validateOccupancyForms(row.occupancyPrices);
+  if (occErr) return occErr;
+  return validateChildAgePrices(row.childAgePrices);
 }
 
 export function SeasonalPricesManager() {
@@ -152,6 +168,7 @@ export function SeasonalPricesManager() {
   const [applyForm, setApplyForm] = useState<ApplyForm>(emptyApplyForm([]));
   const [roomFilter, setRoomFilter] = useState<string | null>(null);
   const [occupancyRowKey, setOccupancyRowKey] = useState<string | null>(null);
+  const [childRowKey, setChildRowKey] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     if (!hotel) return;
@@ -182,6 +199,11 @@ export function SeasonalPricesManager() {
   const occupancyEditingRow = useMemo(
     () => rows.find((r) => r.key === occupancyRowKey) ?? null,
     [rows, occupancyRowKey],
+  );
+
+  const childEditingRow = useMemo(
+    () => rows.find((r) => r.key === childRowKey) ?? null,
+    [rows, childRowKey],
   );
 
   const filteredRows = useMemo(
@@ -224,6 +246,7 @@ export function SeasonalPricesManager() {
         currency: "TRY",
         minStayNights: null,
         occupancyPrices: [],
+        childAgePrices: [],
         selected: false,
         isNew: true,
       },
@@ -286,6 +309,11 @@ export function SeasonalPricesManager() {
       notifications.show({ color: "red", message: occErr });
       return;
     }
+    const childErr = validateChildAgePrices(applyForm.childAgePrices);
+    if (childErr) {
+      notifications.show({ color: "red", message: childErr });
+      return;
+    }
 
     setBusy(true);
     const res = await fetch(`/api/manager/hotels/${hotel.id}/seasonal-rates/bulk`, {
@@ -302,6 +330,7 @@ export function SeasonalPricesManager() {
           currency: applyForm.currency,
           minStayNights: applyForm.minStayNights,
           occupancyPrices: occupancyToApi(applyForm.occupancyPrices),
+          childAgePrices: childAgePricesToApi(applyForm.childAgePrices),
         },
       }),
     });
@@ -460,6 +489,7 @@ export function SeasonalPricesManager() {
                 <Table.Th>Bitiş</Table.Th>
                 <Table.Th>Baz fiyat</Table.Th>
                 <Table.Th>Kişi fiyatları</Table.Th>
+                <Table.Th>Çocuk fiyatları</Table.Th>
                 <Table.Th>Para birimi</Table.Th>
                 <Table.Th>Min. gece</Table.Th>
               </Table.Tr>
@@ -467,7 +497,7 @@ export function SeasonalPricesManager() {
             <Table.Tbody>
               {filteredRows.length === 0 && (
                 <Table.Tr>
-                  <Table.Td colSpan={9}>
+                  <Table.Td colSpan={10}>
                     <Text c="dimmed" size="sm" py="md" ta="center">
                       Henüz dönemsel fiyat yok. &quot;Satır ekle&quot; veya &quot;Toplu dönem
                       uygula&quot; ile başlayın.
@@ -550,6 +580,20 @@ export function SeasonalPricesManager() {
                       </Text>
                       <Button size="compact-xs" variant="light" onClick={() => setOccupancyRowKey(row.key)}>
                         Düzenle ({row.occupancyPrices.length})
+                      </Button>
+                    </Stack>
+                  </Table.Td>
+                  <Table.Td>
+                    <Stack gap={4}>
+                      <Text size="xs" c="dimmed" lineClamp={2}>
+                        {formatChildAgePriceSummary(
+                          childAgePricesToApi(row.childAgePrices),
+                          formatPrice,
+                          row.currency,
+                        ) || "—"}
+                      </Text>
+                      <Button size="compact-xs" variant="light" onClick={() => setChildRowKey(row.key)}>
+                        Düzenle ({row.childAgePrices.length})
                       </Button>
                     </Stack>
                   </Table.Td>
@@ -671,6 +715,10 @@ export function SeasonalPricesManager() {
             value={applyForm.occupancyPrices}
             onChange={(occupancyPrices) => setApplyForm((f) => ({ ...f, occupancyPrices }))}
           />
+          <ChildAgePricesEditor
+            value={applyForm.childAgePrices}
+            onChange={(childAgePrices) => setApplyForm((f) => ({ ...f, childAgePrices }))}
+          />
           <Group justify="flex-end" mt="sm">
             <Button variant="default" onClick={() => setApplyOpen(false)}>
               İptal
@@ -703,6 +751,29 @@ export function SeasonalPricesManager() {
             />
             <Group justify="flex-end">
               <Button onClick={() => setOccupancyRowKey(null)}>Tamam</Button>
+            </Group>
+          </Stack>
+        )}
+      </Modal>
+
+      <Modal
+        opened={childRowKey != null}
+        onClose={() => setChildRowKey(null)}
+        title={
+          childEditingRow
+            ? `Çocuk fiyatları — ${childEditingRow.roomName} / ${childEditingRow.name || "Yeni dönem"}`
+            : "Çocuk fiyatları"
+        }
+        size="md"
+      >
+        {childEditingRow && (
+          <Stack gap="md">
+            <ChildAgePricesEditor
+              value={childEditingRow.childAgePrices}
+              onChange={(childAgePrices) => patchRow(childEditingRow.key, { childAgePrices })}
+            />
+            <Group justify="flex-end">
+              <Button onClick={() => setChildRowKey(null)}>Tamam</Button>
             </Group>
           </Stack>
         )}

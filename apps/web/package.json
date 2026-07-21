@@ -9,12 +9,16 @@
     "lint": "eslint",
     "test": "vitest",
     "test:ci": "vitest run",
+    "test:eval": "dotenv -e .env.local -- vitest run --config vitest.eval.config.mts",
     "test:e2e": "playwright test",
     "pdf:sunum": "node scripts/print-sunum-pdf.cjs",
     "db:seed": "dotenv -e .env.local -- tsx src/lib/db/seed.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:backfill-snapshots": "dotenv -e .env.local -- tsx scripts/backfill-hotel-snapshots.ts",
+    "db:backfill-embeddings": "dotenv -e .env.local -- tsx scripts/backfill-fact-embeddings.ts",
+    "ai:threshold-report": "dotenv -e .env.local -- tsx scripts/ai-threshold-report.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.58",

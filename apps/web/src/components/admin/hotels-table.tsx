@@ -20,7 +20,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconCheck, IconPlus, IconX } from "@tabler/icons-react";
+import { IconBan, IconCheck, IconPlayerPlay, IconPlus, IconX } from "@tabler/icons-react";
 import { moderationStatusColors, moderationStatusLabels } from "@/lib/labels";
 
 interface AdminHotel {
@@ -33,6 +33,7 @@ interface AdminHotel {
   moderationNote: string | null;
   submittedAt: string | null;
   submittedRevision: number | null;
+  suspendedAt: string | null;
 }
 
 export function HotelsTable() {
@@ -43,6 +44,8 @@ export function HotelsTable() {
   const [newCountry, setNewCountry] = useState("");
   const [rejecting, setRejecting] = useState<AdminHotel | null>(null);
   const [rejectNote, setRejectNote] = useState("");
+  const [suspending, setSuspending] = useState<AdminHotel | null>(null);
+  const [suspendNote, setSuspendNote] = useState("");
   const [busy, setBusy] = useState(false);
 
   const reload = useCallback(async () => {
@@ -73,6 +76,42 @@ export function HotelsTable() {
       });
       setRejecting(null);
       setRejectNote("");
+      void reload();
+    } else {
+      notifications.show({ color: "red", message: json.error ?? "İşlem başarısız oldu." });
+    }
+  }
+
+  async function suspend(hotel: AdminHotel, note: string) {
+    setBusy(true);
+    const res = await fetch(`/api/admin/hotels/${hotel.id}/suspend`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "suspend", note }),
+    });
+    const json = await res.json();
+    setBusy(false);
+    if (json.ok) {
+      notifications.show({ color: "orange", message: "Tesis askıya alındı — misafir tarafında gizlendi." });
+      setSuspending(null);
+      setSuspendNote("");
+      void reload();
+    } else {
+      notifications.show({ color: "red", message: json.error ?? "İşlem başarısız oldu." });
+    }
+  }
+
+  async function unsuspend(hotel: AdminHotel) {
+    setBusy(true);
+    const res = await fetch(`/api/admin/hotels/${hotel.id}/suspend`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "unsuspend" }),
+    });
+    const json = await res.json();
+    setBusy(false);
+    if (json.ok) {
+      notifications.show({ color: "green", message: "Askı kaldırıldı." });
       void reload();
     } else {
       notifications.show({ color: "red", message: json.error ?? "İşlem başarısız oldu." });
@@ -154,9 +193,16 @@ export function HotelsTable() {
                   {[h.city, h.country].filter(Boolean).join(", ") || "—"}
                 </Table.Td>
                 <Table.Td>
-                  <Badge color={moderationStatusColors[h.status]}>
-                    {moderationStatusLabels[h.status]}
-                  </Badge>
+                  <Group gap={4}>
+                    <Badge color={moderationStatusColors[h.status]}>
+                      {moderationStatusLabels[h.status]}
+                    </Badge>
+                    {h.suspendedAt && (
+                      <Badge color="dark" variant="filled">
+                        Askıya alındı
+                      </Badge>
+                    )}
+                  </Group>
                   {h.status === "reddedildi" && h.moderationNote && (
                     <Text size="xs" c="red">
                       {h.moderationNote}
@@ -164,29 +210,53 @@ export function HotelsTable() {
                   )}
                 </Table.Td>
                 <Table.Td>
-                  {h.status === "incelemede" && (
-                    <Group gap="xs" justify="flex-end">
+                  <Group gap="xs" justify="flex-end">
+                    {h.status === "incelemede" && (
+                      <>
+                        <Button
+                          size="xs"
+                          color="green"
+                          variant="light"
+                          leftSection={<IconCheck size={14} />}
+                          loading={busy}
+                          onClick={() => decide(h, "onayla")}
+                        >
+                          Onayla
+                        </Button>
+                        <Button
+                          size="xs"
+                          color="red"
+                          variant="light"
+                          leftSection={<IconX size={14} />}
+                          onClick={() => setRejecting(h)}
+                        >
+                          Reddet
+                        </Button>
+                      </>
+                    )}
+                    {h.suspendedAt ? (
                       <Button
                         size="xs"
                         color="green"
                         variant="light"
-                        leftSection={<IconCheck size={14} />}
+                        leftSection={<IconPlayerPlay size={14} />}
                         loading={busy}
-                        onClick={() => decide(h, "onayla")}
+                        onClick={() => void unsuspend(h)}
                       >
-                        Onayla
+                        Askıyı kaldır
                       </Button>
+                    ) : (
                       <Button
                         size="xs"
-                        color="red"
+                        color="dark"
                         variant="light"
-                        leftSection={<IconX size={14} />}
-                        onClick={() => setRejecting(h)}
+                        leftSection={<IconBan size={14} />}
+                        onClick={() => setSuspending(h)}
                       >
-                        Reddet
+                        Askıya al
                       </Button>
-                    </Group>
-                  )}
+                    )}
+                  </Group>
                 </Table.Td>
               </Table.Tr>
             ))}
@@ -240,6 +310,35 @@ export function HotelsTable() {
             onClick={() => rejecting && decide(rejecting, "reddet", rejectNote)}
           >
             Reddet
+          </Button>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={suspending !== null}
+        onClose={() => setSuspending(null)}
+        title={`Askıya al — ${suspending?.name ?? ""}`}
+      >
+        <Stack gap="sm">
+          <Text size="sm" c="dimmed">
+            Tesis, moderasyon durumundan bağımsız olarak misafir tarafında anında gizlenir. İptal
+            ve rezervasyon akışları etkilenmez; yalnızca listeleme ve keşif kapanır.
+          </Text>
+          <Textarea
+            label="Askıya alma nedeni"
+            description="İç kayıt için — zorunlu"
+            autosize
+            minRows={3}
+            value={suspendNote}
+            onChange={(e) => setSuspendNote(e.currentTarget.value)}
+          />
+          <Button
+            color="dark"
+            loading={busy}
+            disabled={suspendNote.trim().length === 0}
+            onClick={() => suspending && suspend(suspending, suspendNote)}
+          >
+            Askıya al
           </Button>
         </Stack>
       </Modal>

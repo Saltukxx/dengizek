@@ -9,6 +9,7 @@ import {
   computeCompletionState,
   getStepEndTriggerReason,
 } from "@/lib/ai/completion-engine";
+import { detectLanguageHint } from "@/lib/ai/language-detect";
 import { trackEvent } from "@/lib/analytics-client";
 
 // ---------------------------------------------------------------------------
@@ -125,6 +126,17 @@ export function useTourGuide({
   const [isAutoTour, setIsAutoTour] = useState(false);
   const [nudgeCount, setNudgeCount] = useState(0);
   const [localMessages, setLocalMessages] = useState<GuideMessage[]>([]);
+  // "Aynı öneriyi 2 kez reddeden kullanıcıya o konuyu bir daha açma" kuralının
+  // deterministik uygulaması — prompt'a güvenmek yerine chip'ler istemcide
+  // gizlenir. Kullanıcı üst üste 2 kez chip'leri yok sayıp kendi mesajını
+  // yazarsa chip önerileri bu oturum için bastırılır; bir chip'e tıklamak
+  // sayacı sıfırlar (nudge cap ile aynı desen).
+  const [chipsSuppressed, setChipsSuppressed] = useState(false);
+  const chipRejectionCountRef = useRef(0);
+  const lastOfferedChipsRef = useRef<string[] | null>(null);
+  // Sunucudaki detectLanguageHint ile aynı heuristik — panel arayüz dili ve
+  // ses girişi (STT) dili kullanıcının son yazdığı mesajın diline uyar.
+  const [detectedLanguage, setDetectedLanguage] = useState<string | undefined>(undefined);
 
   const isAutoTourRef = useRef(false);
   const nudgeCountRef = useRef(0);
@@ -258,13 +270,28 @@ export function useTourGuide({
         id: m.id,
         role: m.role as "user" | "assistant",
         content: textContent,
-        chips,
+        chips: chipsSuppressed ? undefined : chips,
         priceCards,
         factCards: factCards.length > 0 ? factCards : undefined,
       };
     });
 
   const allMessages = [...mappedChatMessages, ...localMessages];
+
+  // Son asistan mesajında sunulan chip'leri takip et — sendMessage'da
+  // kullanıcının bunları yok sayıp saymadığına karar vermek için.
+  useEffect(() => {
+    for (let i = chatMessages.length - 1; i >= 0; i -= 1) {
+      const m = chatMessages[i];
+      if (m?.role !== "assistant") continue;
+      const chipPart = m.parts?.find((p) => p.type === "tool-suggestNext") as
+        | { input?: { chips?: string[] } }
+        | undefined;
+      const chips = chipPart?.input?.chips;
+      if (chips?.length) lastOfferedChipsRef.current = chips;
+      break;
+    }
+  }, [chatMessages]);
 
   useEffect(() => {
     for (const m of chatMessages) {
@@ -323,6 +350,9 @@ export function useTourGuide({
         triggerReason: reason,
         isAutoTour: isAutoTourRef.current,
         completionMeta: getCompletionMeta(currentStepId),
+        // Yalnızca UX ipucu — dil tespiti belirsiz kaldığında kullanılır,
+        // asla otoriter değil (bkz. detectLanguageHint).
+        browserLocale: typeof navigator !== "undefined" ? navigator.language : undefined,
       };
 
       if (reason === "tourStart" && !tourStartTrackedRef.current) {
@@ -345,9 +375,34 @@ export function useTourGuide({
     [chatSendMessage, currentStep?.stepId, getCompletionMeta, manifest, maxNudges, stepsSeen],
   );
 
+  const CHIP_REJECTION_LIMIT = 2;
+
+  const registerChipDecision = useCallback((text: string) => {
+    const offered = lastOfferedChipsRef.current;
+    if (!offered?.length) return;
+    // Aynı öneri setini birden fazla kez sayma.
+    lastOfferedChipsRef.current = null;
+    if (offered.includes(text.trim())) {
+      chipRejectionCountRef.current = 0;
+      setChipsSuppressed(false);
+      return;
+    }
+    chipRejectionCountRef.current += 1;
+    if (chipRejectionCountRef.current >= CHIP_REJECTION_LIMIT) {
+      setChipsSuppressed(true);
+    }
+  }, []);
+
   const sendMessage = useCallback(
     async (text: string) => {
       if (!text.trim() || isLoading) return;
+
+      registerChipDecision(text);
+
+      const languageHint = detectLanguageHint(text);
+      if (languageHint === "tr" || languageHint === "en") {
+        setDetectedLanguage(languageHint);
+      }
 
       if (isAutoTourRef.current) {
         if (autoTourTimerRef.current) clearTimeout(autoTourTimerRef.current);
@@ -358,7 +413,7 @@ export function useTourGuide({
       resetIdleTimer();
       await trigger("userMessage", text);
     },
-    [trigger, isLoading], // eslint-disable-line react-hooks/exhaustive-deps
+    [trigger, isLoading, registerChipDecision], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const handleChipClick = useCallback(
@@ -449,6 +504,7 @@ export function useTourGuide({
     messages: allMessages,
     isThinking: isLoading,
     isAutoTour,
+    detectedLanguage,
     sendMessage,
     handleChipClick,
     startAutoTour,

@@ -1,0 +1,79 @@
+name: AI Engine Eval
+
+# Gerçek OpenAI çağrısı yapan yanıt-kalitesi eval'ları (src/lib/ai/evals/).
+# PR/push'ta ÇALIŞMAZ — maliyet ve flakiness nedeniyle yalnızca gece
+# (schedule) veya elle (workflow_dispatch) tetiklenir. Tek bir flaky fixture
+# tüm run'ı kırmasın diye eşik bazlı geçme kullanılır (bkz. son adım).
+
+on:
+  schedule:
+    - cron: "17 3 * * *" # her gece 03:17 UTC
+  workflow_dispatch:
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        # hotel_fact_embeddings tablosu vector sütunu kullanıyor (pgvector).
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: dev
+          POSTGRES_DB: dengizek
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dengizek"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      DATABASE_URL: postgresql://postgres:dev@127.0.0.1:5432/dengizek
+      AUTH_SECRET: ci-only-secret-ci-only-secret-ci-only
+      PAYMENTS_ENABLED: "false"
+      USE_MOCK_DATA: "false"
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - name: pgvector uzantısını etkinleştir
+        run: PGPASSWORD=dev psql -h 127.0.0.1 -U postgres -d dengizek -c "CREATE EXTENSION IF NOT EXISTS vector;"
+      - run: npx drizzle-kit push --force
+      - run: npm run db:seed
+      - name: Eval çalıştır (JSON rapor, tek fixture hatası run'ı kırmaz)
+        run: npx vitest run --config vitest.eval.config.mts --reporter=json --outputFile=eval-results.json
+        continue-on-error: true
+      - name: Sonuçları yükle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-eval-results
+          # eval-metrics.json: fixture başına gecikme/token/maliyet + guard
+          # sızıntı sayacı (golden-questions.eval.ts afterAll yazıyor).
+          path: |
+            apps/web/eval-results.json
+            apps/web/eval-metrics.json
+      - name: Eşik değerlendirmesi (≥90% fixture geçmeli)
+        run: |
+          node -e '
+            const fs = require("fs");
+            const report = JSON.parse(fs.readFileSync("eval-results.json", "utf8"));
+            const total = report.numTotalTests ?? 0;
+            const passed = report.numPassedTests ?? 0;
+            const rate = total > 0 ? passed / total : 0;
+            console.log(`AI eval: ${passed}/${total} fixture geçti (%${Math.round(rate * 100)})`);
+            if (total === 0) {
+              console.error("Hiç fixture çalışmadı — eval-results.json kontrol edin.");
+              process.exit(1);
+            }
+            if (rate < 0.9) {
+              console.error("Geçme oranı %90 eşiğinin altında.");
+              process.exit(1);
+            }
+          '

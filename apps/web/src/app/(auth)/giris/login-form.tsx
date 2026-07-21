@@ -6,6 +6,7 @@
 // ---------------------------------------------------------------------------
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useForm } from "react-hook-form";
@@ -13,7 +14,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   Alert,
+  Anchor,
   Button,
+  Group,
   Paper,
   PasswordInput,
   Stack,
@@ -96,6 +99,11 @@ export function LoginForm() {
               error={errors.password?.message}
               {...register("password")}
             />
+            <Group justify="flex-end" mt={-8}>
+              <Anchor component={Link} href="/sifremi-unuttum" size="xs" c="dimmed">
+                Şifremi unuttum
+              </Anchor>
+            </Group>
             <Button type="submit" loading={submitting} fullWidth mt="xs">
               Giriş yap
             </Button>

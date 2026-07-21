@@ -76,6 +76,40 @@ describe("queryRoomPrices", () => {
     const totalLine = result.cards[0]?.lines.find((l) => l.label === "Konaklama toplamı");
     expect(totalLine?.value).toBe(formatPrice(900000, "TRY", false));
   });
+
+  it("çocuk yaşına göre ek ücreti gecelik fiyata ekler", async () => {
+    vi.mocked(getPublishedHotelContent).mockResolvedValue({
+      rooms: [
+        {
+          ...room,
+          childAgePrices: [
+            { ageFrom: 0, ageTo: 6, mode: "ucretsiz" },
+            { ageFrom: 7, ageTo: 12, mode: "sabit", priceMinor: 50000 },
+          ],
+        } as never,
+      ],
+      restaurants: [],
+      extras: [],
+      amenities: [],
+      specs: emptySpecs,
+      gallery: [],
+      latitude: null,
+      longitude: null,
+      availabilityNotes: [],
+      promotions: [],
+      ratePlanPrices: [],
+    });
+    const result = await queryRoomPrices("aurelia-bay", {
+      roomSlug: "deluxe",
+      childAges: [4, 9],
+    });
+    expect(result.ok).toBe(true);
+    expect(result.cards[0]?.lines[0]?.value).toBe(formatPrice(500000, "TRY", false));
+    const childLine = result.cards[0]?.lines.find((l) => l.label === "Çocuk fiyatları");
+    expect(childLine?.value).toBe(
+      `4 yaş: ${formatPrice(0, "TRY", false)} · 9 yaş: ${formatPrice(50000, "TRY", false)}`,
+    );
+  });
 });
 
 describe("resolveGuestRoomPrice occupancy", () => {

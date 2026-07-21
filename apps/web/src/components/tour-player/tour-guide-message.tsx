@@ -2,14 +2,19 @@
 
 import { Box, Loader, Stack, Text } from "@mantine/core";
 import type { GuideMessage } from "@/lib/tour/use-tour-guide";
+import { detectLanguageHint } from "@/lib/ai/language-detect";
+import { guideStrings } from "./tour-guide-i18n";
 import { TourGuideFactCards, TourGuidePriceCards } from "./tour-guide-cards";
 
 interface TourGuideMessageProps {
   message: GuideMessage;
+  /** Sohbette tespit edilen dil (tr/en) — çerçeve metinleri buna uyar. */
+  detectedLanguage?: string;
 }
 
-export function TourGuideMessage({ message }: TourGuideMessageProps) {
+export function TourGuideMessage({ message, detectedLanguage }: TourGuideMessageProps) {
   const isUser = message.role === "user";
+  const strings = guideStrings(detectedLanguage);
 
   if (message.isThinking) {
     return (
@@ -27,7 +32,7 @@ export function TourGuideMessage({ message }: TourGuideMessageProps) {
       >
         <Loader size={14} color="yellow" type="dots" />
         <Text size="xs" fs="italic" style={{ color: "rgba(208,197,178,0.66)" }}>
-          Düşünüyor…
+          {strings.thinking}
         </Text>
       </Box>
     );
@@ -91,7 +96,14 @@ export function TourGuideMessage({ message }: TourGuideMessageProps) {
             <TourGuidePriceCards cards={message.priceCards} />
           )}
           {!isUser && message.factCards && message.factCards.length > 0 && (
-            <TourGuideFactCards cards={message.factCards} />
+            <TourGuideFactCards
+              cards={message.factCards}
+              sourceLanguageNote={
+                (detectLanguageHint(message.content) ?? "tr") === "tr"
+                  ? undefined
+                  : strings.sourceTurkish
+              }
+            />
           )}
         </Stack>
       </Box>

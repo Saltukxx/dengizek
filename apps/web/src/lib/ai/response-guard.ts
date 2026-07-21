@@ -22,16 +22,6 @@ export function textContainsPriceLikeContent(text: string): boolean {
   return PRICE_PATTERNS.some((re) => re.test(text));
 }
 
-export function guardAssistantText(
-  text: string,
-  opts: { hadPriceTool: boolean; hadFactTool: boolean },
-): { text: string; triggered: boolean } {
-  if (!text.trim()) return { text, triggered: false };
-  if (opts.hadPriceTool) return { text, triggered: false };
-  if (!textContainsPriceLikeContent(text)) return { text, triggered: false };
-  return { text: GUARD_FALLBACK_MESSAGE, triggered: true };
-}
-
 const PRICE_KEYWORDS = ["fiyat", "kaç para", "gecelik", "ne kadar", "ücret", "ucret", "tl", "€", "$"];
 const FACT_KEYWORDS = [
   "iptal",
@@ -51,10 +41,12 @@ const FACT_KEYWORDS = [
   "telefon",
 ];
 
-export function detectToolHints(userMessage: string): {
+export interface ToolHints {
   needsPriceTool: boolean;
   needsFactTool: boolean;
-} {
+}
+
+export function detectToolHints(userMessage: string): ToolHints {
   const lower = userMessage.toLowerCase();
   const hasOdaFact =
     /\boda\b/.test(lower) &&
@@ -71,71 +63,82 @@ export function detectToolHints(userMessage: string): {
   };
 }
 
-export function buildToolHintPrompt(hints: { needsPriceTool: boolean; needsFactTool: boolean }): string {
+export function buildToolHintPrompt(hints: ToolHints): string {
   const parts: string[] = [];
   if (hints.needsPriceTool) parts.push("Bu mesajda MUTLAKA getRoomPrice aracını kullan.");
   if (hints.needsFactTool) parts.push("Bu mesajda MUTLAKA citeFact aracını kullan.");
   return parts.join(" ");
 }
 
-type GuardFlags = { hadPriceTool: boolean; hadFactTool: boolean };
+export type GuardFlags = { hadPriceTool: boolean; hadFactTool: boolean };
 
-/** Stream transform: buffers text per block, replaces with fallback if guard triggers. */
-export function createGuardStreamTransform(
+/**
+ * Bir adımda hangi tool'un ZORLA çağrılacağına karar verir (streamText'in
+ * prepareStep'ine bağlanır — bkz. chat/route.ts). Fiyat ve fact ipucu aynı
+ * anda gelirse fiyat önceliklidir: serbest metinde rakam üretmek daha yüksek
+ * riskli bir hallucination sınıfı. Bir adımda yalnızca TEK tool zorlanabilir
+ * (OpenAI'ın forced tool-choice'u tek fonksiyon seçer) — model aynı turda
+ * ikinci bir tool'u da çağırmak isterse bunu yapamaz; kullanıcı gerekirse
+ * ikinci soruyu ayrı bir mesajda tekrar sorar.
+ */
+export function decideToolChoice(
+  hints: ToolHints,
+  toolFlags: GuardFlags,
+): { type: "tool"; toolName: "getRoomPrice" | "citeFact" } | undefined {
+  if (hints.needsPriceTool && !toolFlags.hadPriceTool) {
+    return { type: "tool", toolName: "getRoomPrice" };
+  }
+  if (hints.needsFactTool && !toolFlags.hadFactTool) {
+    return { type: "tool", toolName: "citeFact" };
+  }
+  return undefined;
+}
+
+const GUARD_WINDOW_CHARS = 120; // en uzun gerçekçi fiyat pattern'inden büyük tampon
+
+/**
+ * Stream transform: metni GERÇEK ZAMANLI akıtır (token-bazlı UX korunur),
+ * yalnızca son ~120 karakterlik kayan pencerede fiyat-benzeri içerik
+ * ara — forced tool-choice (decideToolChoice) sayesinde bu artık ikincil bir
+ * güvenlik ağı, birincil savunma değil. Tetiklenirse: o metin bloğunun
+ * KALANI akıtılmaz (zaten akıtılmış önceki karakterler geri çekilemez —
+ * bu bilinçli bir tradeoff, ayrıntı için plan Faz 2.1'e bakın) ve kısa bir
+ * kapanış notu eklenir.
+ */
+export function createGuardStreamTransform<TOOLS extends ToolSet>(
   flags: GuardFlags,
-  onGuardTriggered?: () => void,
+  onGuardTriggered?: (info: { originalLength: number }) => void,
 ) {
   return () => {
-    let accumulated = "";
-    let pendingDeltas: Extract<TextStreamPart<ToolSet>, { type: "text-delta" }>[] = [];
-    let currentTextId: string | null = null;
-    let guardFired = false;
+    let recentText = "";
+    let blockLength = 0;
+    let suppressing = false;
 
-    const flushText = (
-      controller: TransformStreamDefaultController<TextStreamPart<ToolSet>>,
-      textEndChunk?: Extract<TextStreamPart<ToolSet>, { type: "text-end" }>,
-    ) => {
-      if (pendingDeltas.length === 0) return;
-
-      const guarded = guardAssistantText(accumulated, flags);
-      if (guarded.triggered && !guardFired) {
-        guardFired = true;
-        onGuardTriggered?.();
-        const id = textEndChunk?.id ?? currentTextId ?? pendingDeltas[0]!.id;
-        controller.enqueue({ type: "text-delta", id, text: guarded.text });
-      } else {
-        for (const d of pendingDeltas) controller.enqueue(d);
-      }
-      pendingDeltas = [];
-      accumulated = "";
-    };
-
-    return new TransformStream<TextStreamPart<ToolSet>, TextStreamPart<ToolSet>>({
+    const transform = new TransformStream<TextStreamPart<ToolSet>, TextStreamPart<ToolSet>>({
       transform(chunk, controller) {
         if (chunk.type === "text-start") {
-          flushText(controller);
-          currentTextId = chunk.id;
+          recentText = "";
+          blockLength = 0;
+          suppressing = false;
           controller.enqueue(chunk);
           return;
         }
         if (chunk.type === "text-delta") {
-          accumulated += chunk.text;
-          pendingDeltas.push(chunk);
-          return;
-        }
-        if (chunk.type === "text-end") {
-          flushText(controller, chunk);
+          if (suppressing) return;
+          blockLength += chunk.text.length;
+          recentText = (recentText + chunk.text).slice(-GUARD_WINDOW_CHARS);
+          if (!flags.hadPriceTool && textContainsPriceLikeContent(recentText)) {
+            suppressing = true;
+            onGuardTriggered?.({ originalLength: blockLength });
+            controller.enqueue({ type: "text-delta", id: chunk.id, text: ` ${GUARD_FALLBACK_MESSAGE}` });
+            return;
+          }
           controller.enqueue(chunk);
           return;
         }
-        if (chunk.type === "finish-step" || chunk.type === "finish") {
-          flushText(controller);
-        }
         controller.enqueue(chunk);
       },
-      flush(controller) {
-        flushText(controller);
-      },
     });
+    return transform as unknown as TransformStream<TextStreamPart<TOOLS>, TextStreamPart<TOOLS>>;
   };
 }

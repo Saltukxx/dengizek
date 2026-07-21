@@ -1,0 +1,6 @@
+{
+  "crons": [
+    { "path": "/api/internal/email-outbox", "schedule": "*/5 * * * *" },
+    { "path": "/api/internal/media-cleanup", "schedule": "17 * * * *" }
+  ]
+}

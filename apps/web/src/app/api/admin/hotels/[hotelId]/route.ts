@@ -33,7 +33,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
   }
   const reviewSnapshot = hotel.status === "incelemede" ? hotel.submittedSnapshot : null;
   const snapshotValue = <T>(key: string, fallback: T) =>
-    reviewSnapshot && key in reviewSnapshot ? reviewSnapshot[key] as T : fallback;
+    reviewSnapshot?.hotel && key in reviewSnapshot.hotel ? reviewSnapshot.hotel[key] as T : fallback;
 
   const members = await db
     .select({
@@ -75,10 +75,15 @@ export async function GET(_req: Request, { params }: RouteParams) {
       moderationNote: hotel.moderationNote,
       submittedAt: hotel.submittedAt,
       submittedRevision: hotel.submittedRevision,
+      publishedRevision: hotel.publishedRevision,
+      draftRevision: hotel.draftRevision,
+      hasUnpublishedChanges: hotel.draftRevision !== (hotel.publishedRevision ?? 0),
       reviewedAt: hotel.reviewedAt,
       createdAt: hotel.createdAt,
       imageUrl: snapshotValue("imageUrl", hotel.imageUrl),
       shortDescription: snapshotValue("shortDescription", hotel.shortDescription),
+      suspendedAt: hotel.suspendedAt,
+      suspensionNote: hotel.suspensionNote,
     },
     members,
     tours,
