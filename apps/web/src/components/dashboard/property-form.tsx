@@ -26,7 +26,7 @@ import {
   Title,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconRefresh, IconSend } from "@tabler/icons-react";
+import { IconAlertCircle, IconSend } from "@tabler/icons-react";
 import { amenitiesCatalog, amenityLabel } from "@/lib/amenities-catalog";
 import {
   paymentMethodLabels,
@@ -88,7 +88,6 @@ export function PropertyForm() {
   const [cancellationRules, setCancellationRules] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [versioning, setVersioning] = useState(false);
 
   useEffect(() => {
     if (!myHotel) return;
@@ -188,31 +187,14 @@ export function PropertyForm() {
     }
   }
 
-  async function startNewVersion() {
-    if (!detail) return;
-    setVersioning(true);
-    const res = await fetch(`/api/manager/hotels/${detail.id}/new-version`, { method: "POST" });
-    const json = await res.json();
-    setVersioning(false);
-    if (json.ok) {
-      notifications.show({ color: "blue", message: "Yeni taslak sürüm oluşturuldu." });
-      setDetail((current) => current ? {
-        ...current,
-        status: json.hotel.status,
-        draftRevision: json.hotel.draftRevision,
-        moderationNote: null,
-      } : current);
-    } else {
-      notifications.show({ color: "red", message: json.error ?? "Yeni sürüm oluşturulamadı." });
-    }
-  }
-
   const submittedIsStale = detail.submittedRevision !== null && detail.draftRevision > detail.submittedRevision;
-  // Yayındaki bir tesis doğrudan yeniden incelemeye gönderilemez (backend 409
-  // döner) — önce "Yeni sürüm oluştur" ile taslağa alınmalı.
-  const canSubmit =
-    detail.status !== "yayinda" &&
-    (detail.status !== "incelemede" || submittedIsStale);
+  // Yayındaki tesis de doğrudan gönderilebilir — inceleme boyunca misafir
+  // onaylanmış son sürümü görmeye devam eder (bkz. @/lib/hotel-visibility).
+  // Tek engel: bekleyen ve hâlâ güncel bir gönderim.
+  const canSubmit = detail.status !== "incelemede" || submittedIsStale;
+  // Yayında olup taslağı incelemede/reddedilmiş tesis: canlı sürüm ayakta.
+  const hasLivePublishedVersion =
+    detail.publishedRevision !== null && detail.status !== "yayinda";
 
   return (
     <Stack gap="md">
@@ -222,22 +204,14 @@ export function PropertyForm() {
           <Badge color={moderationStatusColors[detail.status]}>
             {moderationStatusLabels[detail.status]}
           </Badge>
+          {hasLivePublishedVersion && (
+            <Badge color="teal" variant="filled">Yayında · v{detail.publishedRevision}</Badge>
+          )}
           <Badge variant="light" color="gray">Yayın v{detail.publishedRevision ?? "—"}</Badge>
           <Badge variant="light" color="blue">Taslak v{detail.draftRevision}</Badge>
           {detail.submittedRevision !== null && <Badge variant="light" color="violet">Gönderilen v{detail.submittedRevision}</Badge>}
         </Group>
         <Group gap="xs">
-          {detail.status === "yayinda" && (
-            <Button
-              variant="light"
-              color="gray"
-              leftSection={<IconRefresh size={16} />}
-              loading={versioning}
-              onClick={startNewVersion}
-            >
-              Yeni sürüm oluştur
-            </Button>
-          )}
           {canSubmit && (
             <Button
               variant="light"
@@ -264,11 +238,18 @@ export function PropertyForm() {
           Gönderilmiş inceleme sürümünden sonra taslak değiştirildi. Adminin yeni içeriği değerlendirmesi için incelemeyi güncelleyin.
         </Alert>
       )}
+      {hasLivePublishedVersion && (
+        <Alert color="teal" title="Tesisiniz yayında kalmaya devam ediyor">
+          Misafirler onaylanmış son sürümü (v{detail.publishedRevision}) görüyor. Buradaki
+          düzenlemeler yalnızca taslağı etkiler; admin onayladığında yayına geçer. Gönderiminiz
+          reddedilse bile yayındaki sürüm düşmez.
+        </Alert>
+      )}
       {detail.status === "yayinda" && (
         <Alert color="blue" title="Bu tesis yayında">
           AI rehber profili dahil aşağıdaki tüm alanlar şu anda misafirlerin gördüğü onaylı sürümü
-          yansıtıyor. Değişiklik yapmak için önce &quot;Yeni sürüm oluştur&quot;a basın, ardından
-          düzenleyip incelemeye gönderin — admin onayından sonra yayına yansır.
+          yansıtıyor. Düzenleyip &quot;İncelemeye gönder&quot;e basın — inceleme boyunca tesisiniz
+          yayında kalır, admin onayından sonra yeni içerik yayına geçer.
         </Alert>
       )}
 

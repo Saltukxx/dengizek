@@ -9,6 +9,7 @@ import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { hotelIcalFeedsTable } from "@/lib/db/schema";
 import { icalFeedPatchSchema, icalFeedSchema } from "@/lib/schemas/hotel-panel";
+import { assertRoomsBelongToHotel } from "@/lib/tenant-integrity";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -47,6 +48,10 @@ export async function POST(req: Request, { params }: RouteParams) {
     );
   }
 
+  if (!(await assertRoomsBelongToHotel(guard.hotel.id, [parsed.data.roomId]))) {
+    return NextResponse.json({ ok: false, error: "Oda bulunamadı." }, { status: 404 });
+  }
+
   const db = getDb();
   const [feed] = await db
     .insert(hotelIcalFeedsTable)
@@ -54,6 +59,7 @@ export async function POST(req: Request, { params }: RouteParams) {
       hotelId: guard.hotel.id,
       name: parsed.data.name,
       importUrl: parsed.data.importUrl ?? null,
+      roomId: parsed.data.roomId ?? null,
       exportToken: randomBytes(16).toString("hex"),
     })
     .returning();
@@ -104,6 +110,10 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   }
 
   const { id, ...fields } = parsed.data;
+  if (!(await assertRoomsBelongToHotel(guard.hotel.id, [fields.roomId]))) {
+    return NextResponse.json({ ok: false, error: "Oda bulunamadı." }, { status: 404 });
+  }
+
   const db = getDb();
   const [updated] = await db
     .update(hotelIcalFeedsTable)

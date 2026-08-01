@@ -20,9 +20,9 @@ export async function getHotelAiProfile(hotelSlug: string): Promise<HotelProfile
   try {
     const { getDb } = await import("@/lib/db");
     const { hotelsTable } = await import("@/lib/db/schema");
-    const { and, eq, isNull } = await import("drizzle-orm");
     const { parseHotelContentSnapshot } = await import("@/lib/schemas/hotel-content-snapshot");
     const { legacySnapshotFallbackEnabled } = await import("@/lib/hotels-repo");
+    const { guestVisibleHotelBySlugWhere } = await import("@/lib/hotel-visibility");
     const db = getDb();
 
     const [row] = await db
@@ -34,13 +34,7 @@ export async function getHotelAiProfile(hotelSlug: string): Promise<HotelProfile
         aiPolicies: hotelsTable.aiPolicies,
       })
       .from(hotelsTable)
-      .where(
-        and(
-          eq(hotelsTable.slug, hotelSlug),
-          eq(hotelsTable.status, "yayinda"),
-          isNull(hotelsTable.suspendedAt),
-        ),
-      )
+      .where(guestVisibleHotelBySlugWhere(hotelSlug))
       .limit(1);
 
     if (!row) return undefined;

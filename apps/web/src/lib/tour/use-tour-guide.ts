@@ -11,6 +11,7 @@ import {
 } from "@/lib/ai/completion-engine";
 import { detectLanguageHint } from "@/lib/ai/language-detect";
 import { trackEvent } from "@/lib/analytics-client";
+import { readGuestSessionToken } from "@/lib/tour/use-guest-session";
 
 // ---------------------------------------------------------------------------
 // Tipler
@@ -364,6 +365,9 @@ export function useTourGuide({
         tourId: manifest.tourId,
         currentStepId,
         stepsSeen,
+        // Sunucu bu token'la guest_sessions'ı okuyup stepsSeen'i doğrular —
+        // ilerleme kapıları istemci beyanıyla atlanamasın (bkz. resolveStepsSeen).
+        sessionToken: readGuestSessionToken(),
         triggerReason: reason,
         isAutoTour: isAutoTourRef.current,
         completionMeta: getCompletionMeta(currentStepId),

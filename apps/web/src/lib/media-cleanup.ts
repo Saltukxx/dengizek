@@ -1,8 +1,21 @@
-import { eq, sql } from "drizzle-orm";
-import { getDb } from "@/lib/db";
+import { eq, lt, sql } from "drizzle-orm";
+import { getDb, isDbConfigured } from "@/lib/db";
 import { withTransaction } from "@/lib/db/transaction";
-import { mediaCleanupQueueTable } from "@/lib/db/schema";
+import { guestSessionsTable, mediaCleanupQueueTable } from "@/lib/db/schema";
 import { deleteObject } from "@/lib/object-storage";
+
+/** Anonim misafir oturumları sınırsız birikmesin — 90 günden eskiler silinir. */
+const GUEST_SESSION_TTL_DAYS = 90;
+
+export async function pruneStaleGuestSessions(): Promise<number> {
+  if (!isDbConfigured()) return 0;
+  const cutoff = new Date(Date.now() - GUEST_SESSION_TTL_DAYS * 86_400_000);
+  const deleted = await getDb()
+    .delete(guestSessionsTable)
+    .where(lt(guestSessionsTable.updatedAt, cutoff))
+    .returning();
+  return deleted.length;
+}
 
 /**
  * Bekleyen medya nesnelerini depodan siler. Eşzamanlı cron çalışmalarında

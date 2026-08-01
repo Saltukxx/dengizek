@@ -65,8 +65,25 @@ const ratePlanPriceBaseSchema = z.object({
   priceMinor: z.number().int().nonnegative(),
   currency: z.string().length(3).default("TRY"),
   minStayNights: z.number().int().positive().nullable().optional(),
+  // Kişi sayısına göre gecelik fiyat — dönemsel fiyatlarla (room_rates) aynı kalıp.
+  occupancyPrices: z
+    .array(z.object({
+      guestCount: z.number().int().min(1).max(12),
+      priceMinor: z.number().int().nonnegative(),
+    }))
+    .max(15)
+    .optional()
+    .default([]),
 });
-export const ratePlanPriceSchema = ratePlanPriceBaseSchema.refine((v) => v.endDate >= v.startDate, { message: "Bitiş tarihi başlangıçtan önce olamaz.", path: ["endDate"] });
+export const ratePlanPriceSchema = ratePlanPriceBaseSchema
+  .refine((v) => v.endDate >= v.startDate, { message: "Bitiş tarihi başlangıçtan önce olamaz.", path: ["endDate"] })
+  .refine(
+    (v) => {
+      const counts = (v.occupancyPrices ?? []).map((p) => p.guestCount);
+      return new Set(counts).size === counts.length;
+    },
+    { message: "Aynı kişi sayısı için birden fazla fiyat olamaz.", path: ["occupancyPrices"] },
+  );
 
 export const ratePlanPricePatchSchema = ratePlanPriceBaseSchema.partial().extend({
   id: uuid,
@@ -92,6 +109,10 @@ export const inquiryMessageSchema = z.object({
   senderName: z.string().max(120).optional(),
 });
 
+// Otel panelinden girilen yorum. `source` KASITLI olarak yok — otelin kendi
+// girdiği yorum "verified_guest" olarak etiketlenemez; doğrulanmış yorum
+// yalnızca misafirin portal token'ıyla yazdığı yorumdur (bkz.
+// /api/inquiry/portal/[token]/review).
 export const reviewCreateSchema = z.object({
   rating: z.number().int().min(1).max(5),
   title: z.string().max(200).optional(),
@@ -100,9 +121,14 @@ export const reviewCreateSchema = z.object({
   stayDate: z.string().regex(datePattern).nullable().optional(),
   inquiryId: uuid.nullable().optional(),
   bookingId: uuid.nullable().optional(),
-  source: z.enum(["verified_guest", "hotel_import"]).default("hotel_import"),
-}).refine((value) => value.source === "hotel_import" || Boolean(value.inquiryId || value.bookingId), {
-  message: "Doğrulanmış yorum rezervasyon veya talebe bağlı olmalıdır.", path: ["source"],
+});
+
+/** Misafirin talep portalından bıraktığı yorum — kimlik token'dan gelir. */
+export const guestReviewSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  title: z.string().max(200).optional(),
+  body: z.string().min(1).max(5000),
+  stayDate: z.string().regex(datePattern).nullable().optional(),
 });
 
 export const reviewPatchSchema = z.object({
@@ -167,6 +193,8 @@ export const paymentIntentSchema = z.object({
 export const icalFeedSchema = z.object({
   name: z.string().min(1).max(120),
   importUrl: z.string().url().nullable().optional(),
+  // İçe aktarılan meşguliyetin yazılacağı oda — importUrl varsa zorunlu.
+  roomId: uuid.nullable().optional(),
 });
 
 export const icalFeedPatchSchema = icalFeedSchema.partial().extend({

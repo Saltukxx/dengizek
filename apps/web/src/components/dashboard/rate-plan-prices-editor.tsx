@@ -16,6 +16,15 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { formatPrice, toMajor, toMinor, currencies, currencyLabels, type Currency } from "@/lib/price";
+import {
+  formatOccupancySummary,
+  occupancyFromApi,
+  occupancyToApi,
+  validateOccupancyForms,
+  type OccupancyPrice,
+  type OccupancyPriceForm,
+} from "@/lib/occupancy-price";
+import { OccupancyPricesEditor } from "./occupancy-prices-editor";
 
 interface PriceRow {
   id: string;
@@ -26,6 +35,7 @@ interface PriceRow {
   priceMinor: number;
   currency: string;
   minStayNights: number | null;
+  occupancyPrices: OccupancyPrice[] | null;
 }
 
 interface RoomOption {
@@ -41,6 +51,7 @@ interface PriceForm {
   priceMajor: number | null;
   currency: Currency;
   minStayNights: number | null;
+  occupancyPrices: OccupancyPriceForm[];
 }
 
 const emptyForm = (): PriceForm => ({
@@ -51,6 +62,7 @@ const emptyForm = (): PriceForm => ({
   priceMajor: null,
   currency: "TRY",
   minStayNights: null,
+  occupancyPrices: [],
 });
 
 export function RatePlanPricesEditor({
@@ -104,6 +116,7 @@ export function RatePlanPricesEditor({
       priceMajor: toMajor(row.priceMinor),
       currency: row.currency as Currency,
       minStayNights: row.minStayNights,
+      occupancyPrices: occupancyFromApi(row.occupancyPrices),
     });
   }
 
@@ -113,6 +126,11 @@ export function RatePlanPricesEditor({
   }
 
   async function savePrice() {
+    const occupancyError = validateOccupancyForms(form.occupancyPrices);
+    if (occupancyError) {
+      notifications.show({ color: "red", message: occupancyError });
+      return;
+    }
     const payload = {
       roomId: form.roomId,
       name: form.name,
@@ -121,6 +139,7 @@ export function RatePlanPricesEditor({
       priceMinor: form.priceMajor != null ? toMinor(form.priceMajor) : 0,
       currency: form.currency,
       minStayNights: form.minStayNights,
+      occupancyPrices: occupancyToApi(form.occupancyPrices),
     };
     const url = `/api/manager/hotels/${hotelId}/rate-plans/${planId}/prices`;
     const res = await fetch(url, {
@@ -184,7 +203,14 @@ export function RatePlanPricesEditor({
                         {p.startDate} — {p.endDate}
                       </Text>
                     </Table.Td>
-                    <Table.Td>{formatPrice(p.priceMinor, p.currency, false)}</Table.Td>
+                    <Table.Td>
+                      <Text size="sm">{formatPrice(p.priceMinor, p.currency, false)}</Text>
+                      {(p.occupancyPrices?.length ?? 0) > 0 && (
+                        <Text size="xs" c="dimmed">
+                          {formatOccupancySummary(p, formatPrice)}
+                        </Text>
+                      )}
+                    </Table.Td>
                     <Table.Td>
                       <Group gap="xs">
                         <Button size="xs" variant="light" onClick={() => startEdit(p)}>
@@ -252,6 +278,13 @@ export function RatePlanPricesEditor({
               onChange={(v) =>
                 setForm({ ...form, minStayNights: v === "" ? null : Number(v) })
               }
+            />
+            <Text fw={500} size="sm" mt="xs">
+              Kişi sayısına göre fiyat
+            </Text>
+            <OccupancyPricesEditor
+              value={form.occupancyPrices}
+              onChange={(next) => setForm({ ...form, occupancyPrices: next })}
             />
             <Group>
               <Button leftSection={<IconPlus size={16} />} onClick={savePrice}>

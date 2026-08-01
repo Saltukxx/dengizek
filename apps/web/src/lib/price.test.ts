@@ -10,6 +10,7 @@ import {
   resolveCurrentRate,
   toMajor,
   toMinor,
+  todayIso,
 } from "./price";
 
 describe("formatPrice", () => {
@@ -135,5 +136,32 @@ describe("formatDateRangeTr", () => {
     const out = formatDateRangeTr("2026-11-01", "2027-03-31");
     expect(out).toContain("2026");
     expect(out).toContain("2027");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// todayIso — otelin saat dilimine göre takvim günü
+// ---------------------------------------------------------------------------
+
+describe("todayIso", () => {
+  it("YYYY-MM-DD biçiminde döner", () => {
+    expect(todayIso()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("UTC gün sınırını Türkiye saatine göre kaydırır", () => {
+    // 2026-07-31 22:00 UTC = 2026-08-01 01:00 İstanbul → yeni gün başlamış.
+    const gece = new Date("2026-07-31T22:00:00Z");
+    expect(todayIso(gece, "Europe/Istanbul")).toBe("2026-08-01");
+    expect(todayIso(gece, "UTC")).toBe("2026-07-31");
+  });
+
+  it("gün ortasında saat dilimi farkı yaratmaz", () => {
+    const ogle = new Date("2026-07-15T12:00:00Z");
+    expect(todayIso(ogle, "Europe/Istanbul")).toBe("2026-07-15");
+    expect(todayIso(ogle, "UTC")).toBe("2026-07-15");
+  });
+
+  it("tek haneli ay ve günü sıfırla doldurur", () => {
+    expect(todayIso(new Date("2026-01-05T10:00:00Z"), "Europe/Istanbul")).toBe("2026-01-05");
   });
 });

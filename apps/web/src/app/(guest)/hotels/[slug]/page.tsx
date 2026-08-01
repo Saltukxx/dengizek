@@ -12,7 +12,11 @@ import {
   IconUserCircle,
   IconView360,
 } from "@tabler/icons-react";
-import { getPublishedHotelBySlug, getPublishedHotelContent } from "@/lib/hotels-repo";
+import {
+  getPublishedHotelBySlug,
+  getPublishedHotelContent,
+  getPublishedReviews,
+} from "@/lib/hotels-repo";
 import { AmenitiesSection } from "@/components/guest/amenities-section";
 import { AvailabilitySection } from "@/components/guest/availability-section";
 import { ExtrasSection } from "@/components/guest/extras-section";
@@ -21,6 +25,7 @@ import { HotelMapSection } from "@/components/guest/hotel-map-section";
 import { PoliciesSection } from "@/components/guest/policies-section";
 import { RestaurantsSection } from "@/components/guest/restaurants-section";
 import { RoomsSection } from "@/components/guest/rooms-section";
+import { ReviewsSection } from "@/components/guest/reviews-section";
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -52,7 +57,10 @@ export default async function HotelPage({ params }: PageProps) {
   if (!hotel) notFound();
 
   // Panelde tanımlanan içerik (DB yoksa boş döner — mock akışı bozulmaz)
-  const content = await getPublishedHotelContent(slug);
+  const [content, reviews] = await Promise.all([
+    getPublishedHotelContent(slug),
+    getPublishedReviews(slug),
+  ]);
 
   if (slug !== "aurelia-bay") {
     return (
@@ -95,6 +103,7 @@ export default async function HotelPage({ params }: PageProps) {
         <RestaurantsSection restaurants={content.restaurants} />
         <ExtrasSection extras={content.extras} />
         <PoliciesSection specs={content.specs} />
+        <ReviewsSection summary={reviews} />
       </main>
     );
   }
@@ -331,6 +340,7 @@ export default async function HotelPage({ params }: PageProps) {
         <RestaurantsSection restaurants={content.restaurants} />
         <ExtrasSection extras={content.extras} />
         <PoliciesSection specs={content.specs} />
+        <ReviewsSection summary={reviews} />
       </div>
 
       <nav className="luxury-mobile-bottom-nav" aria-label="Mobile Aurelia navigation">

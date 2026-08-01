@@ -20,9 +20,7 @@ test("talep formu gönderilince teşekkür sayfasına gider", async ({ page }) =
   await page.goto("/inquiry");
   await page.getByPlaceholder("Adınız ve soyadınız").fill("Deneme Kullanıcı");
   await page.getByPlaceholder("ornek@email.com").fill("test@example.com");
-  await page
-    .getByPlaceholder("Tarihler, oda tercihi, özel talepler…")
-    .fill("Sessiz bir oda rica ediyorum.");
+  await page.getByPlaceholder("Özel talepler…").fill("Sessiz bir oda rica ediyorum.");
   await page.getByTestId("inquiry-submit").click();
   // Başarı sayfası ilk derlemede yavaş olabilir (Turbopack on-demand)
   await expect(page).toHaveURL(/\/inquiry\/success/, { timeout: 20_000 });

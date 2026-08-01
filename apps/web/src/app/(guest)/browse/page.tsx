@@ -171,6 +171,8 @@ export default async function BrowsePage({
                 priceLabel: h.priceLabel ?? undefined,
                 roomTypes: [],
               }}
+              reviewAverage={h.reviewAverage}
+              reviewCount={h.reviewCount}
             />
           ))}
         </div>

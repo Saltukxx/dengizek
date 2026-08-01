@@ -105,6 +105,9 @@ export const requestSchema = z.object({
   tourId: z.string().min(1).max(120),
   currentStepId: z.string().min(1).max(120),
   stepsSeen: z.array(z.string().max(120)).max(200),
+  // Varsa sunucudaki misafir oturumu da okunur (bkz. resolveStepsSeen) —
+  // ilerleme kapıları yalnızca istemcinin beyanına bırakılmaz.
+  sessionToken: z.string().min(10).max(128).optional(),
   triggerReason: z.enum(triggerReasonValues),
   isAutoTour: z.boolean(),
   completionMeta: completionMetaSchema.optional(),
@@ -259,9 +262,47 @@ ${catalogBlock}
 Önce kısa cümle, sonra getRoomPrice veya citeFact çağır.`;
 }
 
+/**
+ * Görülen adımların doğrulanmış listesi.
+ *
+ * İstemcinin gönderdiği stepsSeen tek başına otorite değildir — şişirilerek
+ * openInquiry kapısı (%80 ilerleme) atlanabilir. sessionToken verilmişse
+ * sunucudaki guest_sessions kaydıyla KESİŞİM alınır: istemci yalnızca
+ * sunucunun da gördüğü adımları sayabilir. Kayıt yoksa/DB düşükse istemci
+ * değeri korunur (tur akışı asla kırılmaz).
+ */
+async function resolveStepsSeen(req: ChatRequest): Promise<string[]> {
+  if (!req.sessionToken) return req.stepsSeen;
+  try {
+    const { getDb, isDbConfigured } = await import("@/lib/db");
+    if (!isDbConfigured()) return req.stepsSeen;
+    const { guestSessionsTable } = await import("@/lib/db/schema");
+    const { and, eq } = await import("drizzle-orm");
+    const [row] = await getDb()
+      .select({ stepsSeen: guestSessionsTable.stepsSeen })
+      .from(guestSessionsTable)
+      .where(
+        and(
+          eq(guestSessionsTable.sessionToken, req.sessionToken),
+          eq(guestSessionsTable.hotelSlug, req.hotelSlug),
+          eq(guestSessionsTable.tourId, req.tourId),
+        ),
+      )
+      .limit(1);
+    if (!row) return req.stepsSeen;
+    const serverSeen = new Set(row.stepsSeen);
+    return req.stepsSeen.filter((stepId) => serverSeen.has(stepId));
+  } catch (err) {
+    console.warn("[chat] guest_sessions okunamadı:", err);
+    return req.stepsSeen;
+  }
+}
+
 export async function buildAuthoritativeContext(req: ChatRequest): Promise<AuthoritativeContext | null> {
   const manifest = await getTourManifest(req.hotelSlug, req.tourId);
   if (!manifest) return null;
+
+  const stepsSeen = await resolveStepsSeen(req);
 
   // Profil ve içerik bir kez okunur, katalog builder'a geçilir — cache miss
   // durumunda aynı isteğin 2× profil + 2× içerik okuması yapması önlenir.
@@ -322,7 +363,7 @@ export async function buildAuthoritativeContext(req: ChatRequest): Promise<Autho
 
   const completion = computeCompletionState(
     availableSteps.map((s) => ({ stepId: s.stepId, title: s.title })),
-    req.stepsSeen,
+    stepsSeen,
     req.currentStepId,
   );
 
@@ -333,6 +374,8 @@ export async function buildAuthoritativeContext(req: ChatRequest): Promise<Autho
 
   return {
     ...req,
+    // Doğrulanmış liste req.stepsSeen'i EZER — prompt ve kapılar bunu görür.
+    stepsSeen,
     availableSteps,
     hotelName: content.name?.trim() || fallbackHotelName,
     hotelProfile,

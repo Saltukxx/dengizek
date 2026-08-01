@@ -1,6 +1,10 @@
 // ---------------------------------------------------------------------------
 // POST /api/manager/hotels/[hotelId]/submit — tesisi incelemeye gönder
-// taslak | reddedildi → incelemede
+// taslak | reddedildi | yayinda → incelemede
+//
+// Yayındaki tesis de doğrudan gönderilebilir: misafir görünürlüğü status'e değil
+// publishedSnapshot'a bağlı (bkz. @/lib/hotel-visibility), yani inceleme süresince
+// tesis canlı kalır ve misafir onaylanmış son sürümü görmeye devam eder.
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
@@ -25,9 +29,11 @@ export async function POST(_req: Request, { params }: RouteParams) {
   if (!hotel) {
     return NextResponse.json({ ok: false, error: "Tesis bulunamadı." }, { status: 404 });
   }
-  if (hotel.status === "yayinda") {
+  // Tek engel: bekleyen ve hâlâ güncel bir gönderim varsa tekrar gönderme.
+  // Taslak o gönderimden sonra değiştiyse (bayat gönderim) yeniden gönderilebilir.
+  if (hotel.status === "incelemede" && hotel.submittedRevision === hotel.draftRevision) {
     return NextResponse.json(
-      { ok: false, error: "Tesis zaten yayında." },
+      { ok: false, error: "Bu sürüm zaten incelemede." },
       { status: 409 },
     );
   }

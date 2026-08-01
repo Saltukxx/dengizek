@@ -25,8 +25,10 @@ test.describe("Dönemsel fiyatlar", () => {
     await expect(card).toBeVisible({ timeout: 20_000 });
     await card.locator("button:has(svg.tabler-icon-pencil)").click();
 
-    // Çekmece açılır — seed dönemi görünür
-    await expect(page.getByText("Dönemsel fiyatlar")).toBeVisible({ timeout: 10_000 });
+    // Çekmece açılır — seed dönemi görünür. Kenar çubuğunda da aynı metinli bir
+    // nav bağlantısı var, o yüzden arama çekmeceye daraltılır.
+    const drawer = page.getByLabel("Odayı düzenle");
+    await expect(drawer.getByText("Dönemsel fiyatlar")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByLabel("Dönem adı").first()).toHaveValue("Yaz 2026");
 
     // Yeni dönem ekle ve kaydet

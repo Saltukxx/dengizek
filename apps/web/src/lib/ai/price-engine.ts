@@ -119,6 +119,27 @@ function buildSingleNightCard(
   };
 }
 
+/**
+ * Verilen tarihler satışa açık mı? Fiyat gizlenmez — kotasyon doğru ama
+ * müsaitlik teyidi gerektiğini söylemek yanlış beklenti oluşmasını engeller.
+ * DB yoksa/hata varsa sessizce "not yok" döner; fiyat akışını asla kırmaz.
+ */
+async function availabilityNote(
+  roomId: string,
+  checkIn: string,
+  checkOut: string,
+): Promise<string | null> {
+  try {
+    const { getDb, isDbConfigured } = await import("@/lib/db");
+    if (!isDbConfigured()) return null;
+    const { assertInventoryAvailable } = await import("@/lib/bookings");
+    const result = await assertInventoryAvailable(getDb(), roomId, checkIn, checkOut);
+    return result.ok ? null : result.error;
+  } catch {
+    return null;
+  }
+}
+
 function buildStayTotalCard(
   room: Awaited<ReturnType<typeof getPublishedHotelContent>>["rooms"][number],
   content: Awaited<ReturnType<typeof getPublishedHotelContent>>,
@@ -219,8 +240,20 @@ export async function queryRoomPrices(
       return { ok: false, cards: [], error: validated.error };
     }
     if (validated.checkIn && validated.checkOut) {
-      const cards = rooms.map((room) =>
-        buildStayTotalCard(room, content, validated.checkIn!, validated.checkOut!, guestCount, childAges),
+      const checkIn = validated.checkIn;
+      const checkOut = validated.checkOut;
+      const cards = await Promise.all(
+        rooms.map(async (room) => {
+          const card = buildStayTotalCard(room, content, checkIn, checkOut, guestCount, childAges);
+          const note = await availabilityNote(room.id, checkIn, checkOut);
+          if (note) {
+            card.lines.push({
+              label: "Müsaitlik",
+              value: `${note} Bu tarihler için teyit gerekiyor.`,
+            });
+          }
+          return card;
+        }),
       );
       return { ok: true, cards };
     }

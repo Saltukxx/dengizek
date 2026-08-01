@@ -61,8 +61,13 @@ function checkRateLimitMemory(key: string, options: RateLimitOptions): boolean {
 
 async function checkRateLimitDb(key: string, options: RateLimitOptions): Promise<boolean> {
   const db = getDb();
-  const now = new Date();
-  const resetAt = new Date(now.getTime() + options.windowMs);
+  const resetAt = new Date(Date.now() + options.windowMs);
+
+  // Pencere sınırı SQL tarafında hesaplanır. Raw sql`` şablonuna JS Date
+  // gömmek postgres.js sürücüsünde patlar (kolon tipi bilgisi olmadığı için
+  // Date'i serileştiremez) — bu da failClosed uçlarda (login, chat) her isteği
+  // reddeder. .values() içindeki Date sorunsuz: orada kolon tipi biliniyor.
+  const windowExpr = sql`now() + ${options.windowMs} * interval '1 millisecond'`;
 
   const rows = await db
     .insert(rateLimitBucketsTable)
@@ -76,13 +81,13 @@ async function checkRateLimitDb(key: string, options: RateLimitOptions): Promise
       target: [rateLimitBucketsTable.bucketKey, rateLimitBucketsTable.name],
       set: {
         count: sql`CASE
-          WHEN ${rateLimitBucketsTable.resetAt} < ${now}
+          WHEN ${rateLimitBucketsTable.resetAt} < now()
           THEN 1
           ELSE ${rateLimitBucketsTable.count} + 1
         END`,
         resetAt: sql`CASE
-          WHEN ${rateLimitBucketsTable.resetAt} < ${now}
-          THEN ${resetAt}
+          WHEN ${rateLimitBucketsTable.resetAt} < now()
+          THEN ${windowExpr}
           ELSE ${rateLimitBucketsTable.resetAt}
         END`,
       },

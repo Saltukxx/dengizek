@@ -11,6 +11,7 @@ import { roomRatesTable } from "@/lib/db/schema";
 import { roomRatesPutSchema } from "@/lib/schemas/hotel-content";
 import { logAudit } from "@/lib/audit";
 import { findHotelRoom, syncRoomRates } from "@/lib/seasonal-rates-sync";
+import { withTransaction } from "@/lib/db/transaction";
 
 type RouteParams = { params: Promise<{ hotelId: string; roomId: string }> };
 
@@ -53,7 +54,11 @@ export async function PUT(req: Request, { params }: RouteParams) {
     return NextResponse.json({ ok: false, error: "Oda bulunamadı." }, { status: 404 });
   }
 
-  const result = await syncRoomRates(db, guard.hotel.id, room.id, parsed.data.donemler);
+  // syncRoomRates önce siler sonra yazar — transaction olmadan araya giren bir
+  // hata odanın tüm dönem fiyatlarını yok eder.
+  const result = await withTransaction((tx) =>
+    syncRoomRates(tx, guard.hotel.id, room.id, parsed.data.donemler),
+  );
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
   }

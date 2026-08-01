@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
+  Alert,
   Badge,
   Button,
   Group,
@@ -19,7 +20,7 @@ import {
   Textarea,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconCheck, IconExternalLink, IconTrash, IconX } from "@tabler/icons-react";
+import { IconCheck, IconExternalLink, IconEye, IconTrash, IconX } from "@tabler/icons-react";
 import { moderationStatusColors, moderationStatusLabels } from "@/lib/labels";
 
 interface AdminTour {
@@ -36,11 +37,27 @@ interface AdminTour {
   hotelName: string;
 }
 
+/** /api/admin/tours/[id]/submitted-preview yanıtı — onaylanacak snapshot. */
+interface SubmittedStep {
+  stepId: string;
+  order: number;
+  kind: string;
+  title: string;
+  body?: string;
+  media: { mode: string; src: string; startSec?: number; endSec?: number };
+  callouts?: unknown[];
+  hotspots?: unknown[];
+  branches?: { label: string; nextStepId: string }[];
+}
+
 export function ModerationQueue() {
   const [tours, setTours] = useState<AdminTour[] | null>(null);
   const [rejecting, setRejecting] = useState<AdminTour | null>(null);
   const [rejectNote, setRejectNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [previewing, setPreviewing] = useState<AdminTour | null>(null);
+  const [previewSteps, setPreviewSteps] = useState<SubmittedStep[] | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     const res = await fetch("/api/admin/tours");
@@ -71,6 +88,24 @@ export function ModerationQueue() {
       void reload();
     } else {
       notifications.show({ color: "red", message: json.error ?? "Silme başarısız oldu." });
+    }
+  }
+
+  /**
+   * Onaylanacak snapshot'ı gösterir. Public /tours/... sayfası publishedManifest
+   * okuduğu için incelemedeki içeriği GÖSTERMEZ (404 ya da eski sürüm) — admin
+   * onayladığı şeyi görebilsin diye submitted-preview kullanılır.
+   */
+  async function openPreview(tour: AdminTour) {
+    setPreviewing(tour);
+    setPreviewSteps(null);
+    setPreviewError(null);
+    const res = await fetch(`/api/admin/tours/${tour.id}/submitted-preview`);
+    const json = await res.json();
+    if (json.ok) {
+      setPreviewSteps([...(json.manifest.steps as SubmittedStep[])].sort((a, b) => a.order - b.order));
+    } else {
+      setPreviewError(json.error ?? "Gönderilen sürüm okunamadı.");
     }
   }
 
@@ -119,16 +154,28 @@ export function ModerationQueue() {
         <Table.Td>v{t.version}</Table.Td>
         <Table.Td>
           <Group gap="xs" justify="flex-end">
-            <Button
-              size="xs"
-              variant="default"
-              component={Link}
-              href={`/tours/${t.hotelSlug}/${t.tourId}`}
-              target="_blank"
-              leftSection={<IconExternalLink size={14} />}
-            >
-              Önizle
-            </Button>
+            {t.status === "incelemede" && (
+              <Button
+                size="xs"
+                variant="default"
+                leftSection={<IconEye size={14} />}
+                onClick={() => openPreview(t)}
+              >
+                Gönderileni incele
+              </Button>
+            )}
+            {t.publishedAt !== null && (
+              <Button
+                size="xs"
+                variant="subtle"
+                component={Link}
+                href={`/tours/${t.hotelSlug}/${t.tourId}`}
+                target="_blank"
+                leftSection={<IconExternalLink size={14} />}
+              >
+                Yayındakini aç
+              </Button>
+            )}
             {t.status === "incelemede" && (
               <>
                 <Button
@@ -195,6 +242,63 @@ export function ModerationQueue() {
           </Table.Tbody>
         </Table>
       </Paper>
+
+      <Modal
+        opened={previewing !== null}
+        onClose={() => setPreviewing(null)}
+        title={`Gönderilen sürüm — ${previewing?.title ?? ""}`}
+        size="lg"
+      >
+        {previewError && <Alert color="red">{previewError}</Alert>}
+        {!previewError && !previewSteps && <Loader />}
+        {previewSteps && (
+          <Stack gap="sm">
+            <Text size="sm" c="dimmed">
+              {previewSteps.length} adım · onaylandığında misafirlerin göreceği içerik bu.
+            </Text>
+            {previewSteps.map((s) => (
+              <Paper key={s.stepId} withBorder p="sm" radius="sm">
+                <Group justify="space-between" align="flex-start">
+                  <div>
+                    <Text fw={500} size="sm">
+                      {s.order + 1}. {s.title}
+                    </Text>
+                    <Text size="xs" c="dimmed" ff="monospace">
+                      {s.stepId} · {s.kind}
+                    </Text>
+                  </div>
+                  <Group gap={4}>
+                    <Badge size="sm" variant="light">{s.media.mode}</Badge>
+                    {(s.callouts?.length ?? 0) > 0 && (
+                      <Badge size="sm" variant="light" color="grape">
+                        {s.callouts?.length} baloncuk
+                      </Badge>
+                    )}
+                    {(s.hotspots?.length ?? 0) > 0 && (
+                      <Badge size="sm" variant="light" color="cyan">
+                        {s.hotspots?.length} nokta
+                      </Badge>
+                    )}
+                    {(s.branches?.length ?? 0) > 0 && (
+                      <Badge size="sm" variant="light" color="orange">
+                        {s.branches?.length} dal
+                      </Badge>
+                    )}
+                  </Group>
+                </Group>
+                {s.body && (
+                  <Text size="xs" mt={4}>
+                    {s.body}
+                  </Text>
+                )}
+                <Text size="xs" c="dimmed" mt={4} style={{ wordBreak: "break-all" }}>
+                  {s.media.src}
+                </Text>
+              </Paper>
+            ))}
+          </Stack>
+        )}
+      </Modal>
 
       <Modal
         opened={rejecting !== null}

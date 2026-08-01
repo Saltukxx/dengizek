@@ -97,12 +97,21 @@ export interface ResolvedRate {
   minStayNights?: number | null;
 }
 
-/** Bugünün tarihi YYYY-MM-DD (yerel saat). */
-export function todayIso(): string {
-  const d = new Date();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${m}-${day}`;
+/**
+ * Uygulamanın "takvim günü" saat dilimi. Sunucu yerel saati kullanılırsa
+ * (Vercel'de UTC) sezon ve kampanya geçişleri Türkiye saatiyle 03:00'te olur.
+ */
+export const APP_TIMEZONE = process.env.APP_TIMEZONE || "Europe/Istanbul";
+
+/** Bugünün tarihi YYYY-MM-DD — otelin saat dilimine göre. */
+export function todayIso(now: Date = new Date(), timeZone: string = APP_TIMEZONE): string {
+  // en-CA yerel ayarı zaten YYYY-MM-DD üretir.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
 }
 
 /**

@@ -55,6 +55,8 @@ export async function POST(req: Request, { params }: RouteParams) {
       ...parsed.data,
       hotelId: guard.hotel.id,
       status: "beklemede",
+      // Otelin kendi girdiği yorum doğrulanmış sayılmaz.
+      source: "hotel_import",
       createdBy: guard.user.id,
     })
     .returning();

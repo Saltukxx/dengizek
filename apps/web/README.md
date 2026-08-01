@@ -29,20 +29,31 @@ Geliştirmede DB veya OpenAI yoksa mock veri kullanılabilir (`USE_MOCK_DATA=tru
 
 ## Rotalar
 
-**Misafir** (yalnızca `yayinda` içerik görünür):
+**Misafir** (yalnızca yayımlanmış snapshot'ı olan, askıya alınmamış içerik):
 - `/` — tanıtım + öne çıkan oteller
 - `/browse` — arama (`?q=`)
 - `/hotels/[slug]` — otel detay + **Video tura başla**
 - `/tours/[otel]/[tourId]` — **TourPlayer** (yayımlanmış manifest snapshot'ı)
 - `/inquiry`, `/inquiry/success` — talep (DB'ye yazılır; DB yoksa mock)
+- `/inquiry/portal/[token]` — misafir portalı: tesisle yazışma + **yorum bırakma**
+  (yorum moderasyondan geçtikten sonra otel sayfasında "doğrulanmış" rozetiyle görünür)
 
 **Otel yöneticisi** — `/dashboard/*` (giriş gerekli):
 - Tesis bilgileri + AI profili, tur/adım editörü (dallar, callout, AI metadata),
   medya kütüphanesi (Bunny TUS yükleme), talep gelen kutusu, incelemeye gönderme.
+- Odalar, dönemsel/plan fiyatları (kişi sayısı ve yaş bazlı çocuk fiyatı dahil),
+  müsaitlik, rezervasyon, kampanya, yorum yanıtlama, finans.
+- **Bağlantılar** — iCal: dışa aktarma bağlantısı + içe aktarma URL'si. İçe
+  aktarma bir odaya bağlanır; `/api/internal/ical-sync` cron'u yarım saatte bir
+  dış takvimdeki doluluğu envantere "satışa kapalı" olarak yazar. Elle
+  düzenlenen günler (`manual_override`) ezilmez.
 
 **Platform yöneticisi** — `/admin/*` (admin rolü gerekli):
-- Otel/tur moderasyonu (onay → yayın snapshot'ı + sürüm artışı; red → not zorunlu),
-  kullanıcı yönetimi + otel üyelikleri, tüm talepler, denetim kaydı.
+- Otel/tur moderasyonu (onay → yayın snapshot'ı + sürüm artışı; red → not zorunlu).
+  İnceleme kuyruğunda **"Gönderileni incele"** gönderilen snapshot'ı gösterir —
+  public sayfa yayındaki sürümü okuduğu için onay kör yapılmaz.
+- Yorum moderasyonu, kullanıcı yönetimi + otel üyelikleri, tüm talepler,
+  rezervasyon/ödeme görünümü, denetim kaydı.
 
 **Giriş:** `/giris` — Auth.js v5 (credentials + JWT). Middleware `/admin` ve
 `/dashboard`'u korur; API guard'ları: `src/lib/auth/guards.ts`
@@ -50,9 +61,20 @@ Geliştirmede DB veya OpenAI yoksa mock veri kullanılabilir (`USE_MOCK_DATA=tru
 
 ## Yayın modeli
 
-`tour_steps` her zaman taslaktır. Yönetici "İncelemeye gönder" der; admin
-onaylayınca taslaktan **publishedManifest** snapshot'ı üretilir (`tours`
-tablosu) ve sürüm artar. Misafir oynatıcı ile AI sohbeti yalnızca snapshot okur.
+`tour_steps` ve tesis satırları her zaman **taslaktır**. Yönetici "İncelemeye
+gönder" der; admin onaylayınca taslaktan snapshot üretilir
+(`hotels.publishedSnapshot` / `tours.publishedManifest`) ve sürüm artar.
+Misafir sayfaları, oynatıcı ve AI sohbeti **yalnızca snapshot okur**.
+
+**Kesintisiz güncelleme:** Misafir görünürlüğü `status`'e değil, yayınlanmış
+snapshot varlığına bağlıdır — tek kaynak
+[src/lib/hotel-visibility.ts](src/lib/hotel-visibility.ts). Yayındaki bir tesis
+doğrudan tekrar incelemeye gönderilebilir; inceleme boyunca marketplace'te
+kalır ve misafir onaylanmış son sürümü görür. Yeni gönderim reddedilse bile
+yayındaki sürüm düşmez.
+
+Tesisi tamamen yayından kaldırmak moderasyonla değil **askıya alma** ile yapılır
+(`/api/admin/hotels/[hotelId]/suspend` → `suspendedAt`).
 
 ## Medya hattı (Bunny Stream)
 

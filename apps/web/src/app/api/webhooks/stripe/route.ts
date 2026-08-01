@@ -23,10 +23,14 @@ const HANDLED_EVENTS = new Set([
   "payment_intent.succeeded",
   "payment_intent.payment_failed",
   "payment_intent.canceled",
+  // Stripe panelinden yapılan iade de DB'ye yansımalı — aksi halde ödeme
+  // "odendi" kalır ve rezervasyon iptali payment_conflict ile kilitlenir.
+  "charge.refunded",
 ]);
 
-function mapStripeStatus(eventType: string): "odendi" | "basarisiz" {
+function mapStripeStatus(eventType: string): "odendi" | "basarisiz" | "iade" {
   if (eventType === "payment_intent.succeeded") return "odendi";
+  if (eventType === "charge.refunded") return "iade";
   // payment_failed ve canceled: intent bu haliyle tahsil edilemez.
   return "basarisiz";
 }
@@ -60,6 +64,8 @@ export async function POST(req: Request) {
         amount?: number;
         currency?: string;
         metadata?: Record<string, string>;
+        /** charge.* olaylarında dolu — nesne Charge'dır, PaymentIntent değil. */
+        payment_intent?: string;
       };
     };
   };
@@ -74,7 +80,11 @@ export async function POST(req: Request) {
   }
 
   const intent = event.data?.object;
-  const providerRef = intent?.id;
+  // charge.refunded'da data.object bir Charge'dır: kaydımız PaymentIntent id'si
+  // ile eşleştiği için oradaki payment_intent alanı kullanılır.
+  const providerRef = event.type.startsWith("charge.")
+    ? intent?.payment_intent
+    : intent?.id;
   if (!providerRef) {
     return apiFail("PaymentIntent id eksik.", 400);
   }
@@ -115,9 +125,14 @@ export async function POST(req: Request) {
     return apiOk({ received: true, idempotent: true });
   }
 
-  // Monotonik geçiş: yalnızca terminal olmayan durumlardan güncelle.
-  // "odendi" ve "iade" webhook ile değişmez — koşul WHERE'de olduğu için
-  // eşzamanlı teslimatlarda da yarış olmaz.
+  // Monotonik geçiş: yalnızca izin verilen kaynak durumlardan güncelle.
+  // Normalde "odendi" ve "iade" webhook ile değişmez; tek istisna iadedir —
+  // tahsil edilmiş bir ödeme Stripe panelinden iade edilebilir ve bunu
+  // yansıtmazsak rezervasyon iptali kalıcı olarak kilitlenir.
+  // Koşul WHERE'de olduğu için eşzamanlı teslimatlarda da yarış olmaz.
+  const allowedFrom: ("beklemede" | "basarisiz" | "odendi")[] =
+    nextStatus === "iade" ? ["odendi", "beklemede"] : ["beklemede", "basarisiz"];
+
   const updated = await db
     .update(paymentsTable)
     .set({ status: nextStatus })
@@ -125,7 +140,7 @@ export async function POST(req: Request) {
       and(
         eq(paymentsTable.id, payment.id),
         eq(paymentsTable.providerRef, providerRef),
-        inArray(paymentsTable.status, ["beklemede", "basarisiz"]),
+        inArray(paymentsTable.status, allowedFrom),
       ),
     )
     .returning();

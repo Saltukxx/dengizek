@@ -149,6 +149,15 @@ export function MediaUploader() {
     if (json.ok) {
       notifications.show({ color: "gray", message: "Medya silindi." });
       void reload();
+    } else if (json.code === "MEDIA_IN_USE") {
+      // Hangi içeriklerin kullandığını göster — yönetici önce oradan kaldırmalı.
+      notifications.show({
+        color: "red",
+        title: "Medya kullanımda",
+        message: `${json.error}\n\n${(json.references as string[]).join("\n")}`,
+        autoClose: false,
+        style: { whiteSpace: "pre-line" },
+      });
     } else {
       notifications.show({ color: "red", message: json.error ?? "Silme başarısız oldu." });
     }

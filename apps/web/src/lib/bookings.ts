@@ -179,10 +179,49 @@ export async function createPendingBooking(
 ) {
   return withTransaction(async (tx) => {
     if (input.roomId) {
-      const [room] = await tx.select({ id: roomsTable.id }).from(roomsTable).where(
-        and(eq(roomsTable.id, input.roomId), eq(roomsTable.hotelId, hotelId)),
-      ).limit(1);
+      const [room] = await tx
+        .select({
+          id: roomsTable.id,
+          capacityAdults: roomsTable.capacityAdults,
+          capacityChildren: roomsTable.capacityChildren,
+        })
+        .from(roomsTable)
+        .where(and(eq(roomsTable.id, input.roomId), eq(roomsTable.hotelId, hotelId)))
+        .limit(1);
       if (!room) throw new BookingServiceError("Oda bulunamadı.", "not_found");
+
+      // Kapasite: odanın alabileceğinden fazla misafirle rezervasyon açılmasın.
+      const adults = input.adults ?? 2;
+      const children = input.children ?? 0;
+      if (adults > room.capacityAdults) {
+        throw new BookingServiceError(
+          `Bu oda en fazla ${room.capacityAdults} yetişkin alır.`,
+          "invalid_state",
+        );
+      }
+      if (children > room.capacityChildren) {
+        throw new BookingServiceError(
+          `Bu oda en fazla ${room.capacityChildren} çocuk alır.`,
+          "invalid_state",
+        );
+      }
+
+      // Çift rezervasyon koruması: aynı oda için çakışan aktif (beklemede |
+      // onaylandi) rezervasyon varsa yenisi açılmaz. Onay anına bırakılırsa
+      // otel aynı odayı iki misafire söz vermiş olur.
+      const overlapping = await findOverlappingBooking(
+        tx,
+        hotelId,
+        input.roomId,
+        String(input.checkIn),
+        String(input.checkOut),
+      );
+      if (overlapping) {
+        throw new BookingServiceError(
+          `Bu oda ${String(overlapping.checkIn)} – ${String(overlapping.checkOut)} tarihleri için zaten dolu.`,
+          "overlap",
+        );
+      }
     }
 
     const [booking] = await tx
@@ -294,7 +333,10 @@ export async function releaseApprovedBooking(
       );
     }
 
-    if (existing.roomId) {
+    // Envanter yalnızca gerçek iptalde geri verilir. no_show'da oda konaklama
+    // boyunca fiilen bloke kalmıştır — iade edilirse geçmiş tarihler yeniden
+    // satılabilir görünür ve doluluk raporu şişer.
+    if (existing.roomId && status === "iptal") {
       await restoreInventoryTx(
         tx,
         hotelId,
@@ -332,6 +374,19 @@ export async function reopenBooking(hotelId: string, bookingId: string, idempote
         "payment_conflict",
       );
     }
+    // no_show envanteri iade ETMEZ (oda bloke kalmıştı). Yeniden açılan kayıt
+    // sonradan onaylanırsa envanter tekrar düşüleceği için tahsisi burada geri
+    // vermek gerekir; "iptal"de iade zaten yapılmıştı, tekrarlanmaz.
+    if (existing.roomId && existing.status === "no_show") {
+      await restoreInventoryTx(
+        tx,
+        hotelId,
+        existing.roomId,
+        String(existing.checkIn),
+        String(existing.checkOut),
+      );
+    }
+
     const [updated] = await tx.update(bookingsTable).set({ status: "beklemede", updatedAt: new Date() })
       .where(eq(bookingsTable.id, bookingId)).returning();
     await tx.insert(bookingTransitionsTable).values({ bookingId, hotelId, action: "reopen", idempotencyKey, fromStatus: existing.status, toStatus: "beklemede" }).onConflictDoNothing();

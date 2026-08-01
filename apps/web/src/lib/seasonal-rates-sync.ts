@@ -3,11 +3,12 @@
 // ---------------------------------------------------------------------------
 
 import { and, asc, eq, inArray } from "drizzle-orm";
-import type { getDb } from "@/lib/db";
+import type { Db as DbClient, Tx } from "@/lib/db";
 import { roomRatesTable, roomsTable } from "@/lib/db/schema";
 import type { RoomRateValues } from "@/lib/schemas/hotel-content";
 
-type Db = ReturnType<typeof getDb>;
+/** Hem havuz hem transaction bağlamında çalışır (bkz. withTransaction). */
+type Db = DbClient | Tx;
 
 export async function syncRoomRates(
   db: Db,

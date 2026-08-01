@@ -3,7 +3,7 @@
 // Dialect: PostgreSQL (Neon Serverless)
 // ---------------------------------------------------------------------------
 
-import { isNull } from "drizzle-orm";
+import { isNotNull, isNull } from "drizzle-orm";
 import {
   boolean,
   date,
@@ -149,6 +149,9 @@ export const hotelsTable = pgTable("hotels", {
   longitude:   text("longitude"),
   propertyType: propertyTypeEnum("property_type").default("otel"),
   blackoutText: text("blackout_text"),
+  // FK cancellationRulesTable'a 0013 migration'ında eklendi. Referans burada
+  // string olarak verilir: cancellation_rules kendisi hotels'e bağlı olduğu
+  // için doğrudan referans döngüsel import yaratır.
   cancellationRuleId: uuid("cancellation_rule_id"),
 
   // Moderasyon — misafir tarafı yalnızca "yayinda" otelleri görür
@@ -494,7 +497,8 @@ export const inquiriesTable = pgTable("inquiries", {
   stepKey:   text("step_key"),
   source:    inquirySourceEnum("source").default("web").notNull(),
   locale:    text("locale").default("tr"),
-  accessToken: text("access_token").unique(),
+  // Düz metin access_token kolonu 0013 migration'ında düşürüldü — token
+  // yalnızca hash'lenmiş saklanır.
   accessTokenHash: text("access_token_hash").unique(),
   accessTokenExpiresAt: timestamp("access_token_expires_at"),
   accessTokenRevokedAt: timestamp("access_token_revoked_at"),
@@ -590,6 +594,11 @@ export const roomRatePlanPricesTable = pgTable("room_rate_plan_prices", {
   priceMinor: integer("price_minor").notNull(),
   currency:   text("currency").default("TRY").notNull(),
   minStayNights: integer("min_stay_nights"),
+  /** Kişi sayısına göre gecelik fiyatlar — room_rates ile aynı kalıp */
+  occupancyPrices: jsonb("occupancy_prices")
+    .$type<{ guestCount: number; priceMinor: number }[]>()
+    .default([])
+    .notNull(),
   createdAt:  timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   roomPlanIdx: index("room_rate_plan_prices_room_idx").on(table.roomId, table.ratePlanId),
@@ -669,6 +678,10 @@ export const reviewsTable = pgTable("reviews", {
 }, (table) => ({
   hotelIdx: index("reviews_hotel_idx").on(table.hotelId),
   statusIdx: index("reviews_status_idx").on(table.status),
+  // Talep başına tek yorum — misafir portalı eşzamanlı gönderimlerde buna güvenir.
+  inquiryUnique: uniqueIndex("reviews_inquiry_unique")
+    .on(table.inquiryId)
+    .where(isNotNull(table.inquiryId)),
 }));
 
 // ---------------------------------------------------------------------------
@@ -783,6 +796,9 @@ export const rateLimitBucketsTable = pgTable("rate_limit_buckets", {
 export const hotelIcalFeedsTable = pgTable("hotel_ical_feeds", {
   id:           uuid("id").defaultRandom().primaryKey(),
   hotelId:      uuid("hotel_id").notNull().references(() => hotelsTable.id, { onDelete: "cascade" }),
+  // İçe aktarılan meşguliyetin yazılacağı oda — boşsa import atlanır
+  // (hangi odanın kapanacağı belirsizken envantere dokunulmaz).
+  roomId:       uuid("room_id").references(() => roomsTable.id, { onDelete: "cascade" }),
   name:         text("name").notNull(),
   importUrl:    text("import_url"),
   exportToken:  text("export_token").unique(),

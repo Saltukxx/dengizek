@@ -83,8 +83,9 @@ export async function POST(req: Request, { params }: RouteParams) {
     const booking = await createPendingBooking(guard.hotel.id, parsed.data);
     return apiOk({ booking }, 201);
   } catch (err) {
-    if (err instanceof BookingServiceError && err.code === "overlap") {
-      return apiFail(err.message, 409);
+    // overlap → 409, kapasite/geçersiz durum → 400, oda yok → 404
+    if (err instanceof BookingServiceError) {
+      return bookingErrorResponse(err);
     }
     throw err;
   }

@@ -18,8 +18,8 @@ const deleteWhereMock = vi.fn();
 const insertValuesMock = vi.fn();
 const updateWhereMock = vi.fn();
 
-vi.mock("@/lib/db", () => ({
-  getDb: () => ({
+function makeDb() {
+  const db: Record<string, unknown> = {
     select: () => ({
       from: () => ({
         where: () => {
@@ -36,7 +36,14 @@ vi.mock("@/lib/db", () => ({
     update: () => ({
       set: () => ({ where: (...args: unknown[]) => updateWhereMock(...args) }),
     }),
-  }),
+  };
+  // PUT dönem senkronunu transaction içinde çalıştırır (sil→yaz atomik olmalı).
+  db.transaction = (fn: (tx: unknown) => unknown) => fn(db);
+  return db;
+}
+
+vi.mock("@/lib/db", () => ({
+  getDb: () => makeDb(),
   isDbConfigured: () => true,
 }));
 

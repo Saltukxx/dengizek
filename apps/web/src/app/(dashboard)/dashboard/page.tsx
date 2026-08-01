@@ -41,6 +41,7 @@ import {
   toursTable,
 } from "@/lib/db/schema";
 import { moderationStatusColors, moderationStatusLabels } from "@/lib/labels";
+import { todayIso } from "@/lib/price";
 
 export const dynamic = "force-dynamic";
 
@@ -120,10 +121,11 @@ async function getOverview() {
     .from(reviewsTable)
     .where(and(eq(reviewsTable.hotelId, hotel.hotelId), eq(reviewsTable.status, "beklemede")));
 
-  const today = new Date().toISOString().slice(0, 10);
+  // Otelin saat dilimine göre — sunucu UTC'de çalıştığında gün sınırı kayar.
+  const today = todayIso();
   const in14 = new Date();
   in14.setDate(in14.getDate() + 13);
-  const toDate = in14.toISOString().slice(0, 10);
+  const toDate = todayIso(in14);
   const [lowInventory] = await db
     .select({ n: count() })
     .from(roomInventoryTable)

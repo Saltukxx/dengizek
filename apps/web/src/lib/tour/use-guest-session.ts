@@ -25,6 +25,20 @@ function getOrCreateSessionToken(): string | null {
   }
 }
 
+/**
+ * Mevcut oturum token'ını okur (yaratmaz). Sohbet isteği bunu gönderir ki
+ * sunucu "görülen adımlar"ı guest_sessions ile doğrulayabilsin — bkz.
+ * resolveStepsSeen (/api/tour/chat).
+ */
+export function readGuestSessionToken(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    return window.localStorage.getItem(STORAGE_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export interface GuestResumeState {
   stepsSeen: string[];
   lastStepId: string | null;

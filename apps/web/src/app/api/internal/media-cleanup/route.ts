@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { apiFail, apiOk } from "@/lib/api-response";
-import { cleanupMediaObjects } from "@/lib/media-cleanup";
+import { cleanupMediaObjects, pruneStaleGuestSessions } from "@/lib/media-cleanup";
 import { pruneExpiredRateLimits } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
@@ -9,12 +9,17 @@ export async function POST(req: Request) {
   if (!expected || provided.length !== expected.length || !timingSafeEqual(Buffer.from(provided), Buffer.from(expected))) {
     return apiFail("Yetkisiz.", 401);
   }
-  // Aynı cron'a iliştirilmiş hafif bakım: süresi dolan rate-limit kovaları
-  // temizlenir ki tablo sınırsız büyümesin. Hata medya temizliğini kırmasın.
+  // Aynı cron'a iliştirilmiş hafif bakım: süresi dolan rate-limit kovaları ve
+  // eskimiş anonim misafir oturumları temizlenir ki tablolar sınırsız
+  // büyümesin. Hataları medya temizliğini kırmasın.
   await pruneExpiredRateLimits().catch((err) =>
     console.warn("[media-cleanup] rate-limit prune başarısız:", err),
   );
-  return apiOk(await cleanupMediaObjects());
+  const guestSessionsPruned = await pruneStaleGuestSessions().catch((err) => {
+    console.warn("[media-cleanup] guest_sessions prune başarısız:", err);
+    return 0;
+  });
+  return apiOk({ ...(await cleanupMediaObjects()), guestSessionsPruned });
 }
 
 export const GET = POST;

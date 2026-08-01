@@ -10,6 +10,7 @@ import { sendEmail } from "@/lib/email";
 import { validateStayDates } from "@/lib/stay-dates";
 import { apiRateLimited, apiServiceUnavailable, apiFail } from "@/lib/api-response";
 import { generatePortalToken, hashPortalToken, portalTokenExpiry } from "@/lib/inquiry-portal-token";
+import { guestVisibleHotelBySlugWhere } from "@/lib/hotel-visibility";
 
 async function insertInquiryWithToken(
   db: ReturnType<typeof getDb>,
@@ -21,7 +22,7 @@ async function insertInquiryWithToken(
       const token = generatePortalToken();
       const [inquiry] = await db
         .insert(inquiriesTable)
-        .values({ ...values, accessToken: null, accessTokenHash: hashPortalToken(token), accessTokenExpiresAt: portalTokenExpiry() })
+        .values({ ...values, accessTokenHash: hashPortalToken(token), accessTokenExpiresAt: portalTokenExpiry() })
         .returning();
       return { inquiry, token };
     } catch (err) {
@@ -63,12 +64,16 @@ export async function POST(req: Request) {
 
   let hotelId: string | null = null;
   if (data.hotelSlug) {
+    // Görünürlük filtresi: taslak/askıya alınmış tesise talep gönderilemez.
     const [hotel] = await db
       .select({ id: hotelsTable.id })
       .from(hotelsTable)
-      .where(eq(hotelsTable.slug, data.hotelSlug))
+      .where(guestVisibleHotelBySlugWhere(data.hotelSlug))
       .limit(1);
-    hotelId = hotel?.id ?? null;
+    if (!hotel) {
+      return apiFail("Bu tesis şu anda talep kabul etmiyor.", 404);
+    }
+    hotelId = hotel.id;
   }
 
   let roomId: string | null = null;

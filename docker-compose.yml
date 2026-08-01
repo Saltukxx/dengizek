@@ -13,7 +13,9 @@ services:
       POSTGRES_PASSWORD: dev
       POSTGRES_DB: dengizek
     ports:
-      - "5432:5432"
+      # Ana makinede 5433 — 5432 sık sık başka projelerin postgres'i tarafından
+      # tutuluyor. Farklı bir port gerekirse: POSTGRES_PORT=5544 docker compose up -d
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - dengizek_pg_data:/var/lib/postgresql/data
     healthcheck:

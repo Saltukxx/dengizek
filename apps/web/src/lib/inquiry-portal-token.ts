@@ -13,7 +13,6 @@ export function portalTokenExpiry() { return new Date(Date.now() + PORTAL_TOKEN_
 export async function rotateInquiryPortalToken(db: DbLike, inquiryId: string) {
   const token = generatePortalToken();
   await db.update(inquiriesTable).set({
-    accessToken: null,
     accessTokenHash: hashPortalToken(token),
     accessTokenExpiresAt: portalTokenExpiry(),
     accessTokenRevokedAt: null,

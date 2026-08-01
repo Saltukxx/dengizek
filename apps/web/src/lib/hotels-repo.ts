@@ -1,6 +1,7 @@
 // ---------------------------------------------------------------------------
-// Misafir tarafı otel deposu — DB-önce (yalnızca status = 'yayinda'),
-// DB yoksa/hata varsa mock'a düşer. Misafir sayfaları HotelMock şekli bekler;
+// Misafir tarafı otel deposu — DB-önce, DB yoksa/hata varsa mock'a düşer.
+// Görünürlük şartı tek kaynaktan gelir: @/lib/hotel-visibility (status değil,
+// yayınlanmış snapshot varlığı). Misafir sayfaları HotelMock şekli bekler;
 // DB satırları bu şekle eşlenir.
 // ---------------------------------------------------------------------------
 
@@ -95,6 +96,9 @@ export interface BrowseHotelRow {
   amenities: string[];
   petsAllowed: boolean | null;
   minPriceMinor: number | null;
+  /** Yayındaki yorumların ortalaması (1–5); yorum yoksa null */
+  reviewAverage: number | null;
+  reviewCount: number;
 }
 
 /** Browse filtreleri için genişletilmiş otel listesi. */
@@ -102,34 +106,67 @@ export async function getPublishedHotelsForBrowse(): Promise<BrowseHotelRow[]> {
   if (isDbAvailable()) {
     try {
       const { getDb } = await import("@/lib/db");
-      const { hotelsTable, roomsTable } = await import("@/lib/db/schema");
-      const { and, eq, isNull, sql } = await import("drizzle-orm");
-      const rows = await getDb()
-        .select({
-          slug: hotelsTable.slug,
-          name: hotelsTable.name,
-          city: hotelsTable.city,
-          country: hotelsTable.country,
-          shortDescription: hotelsTable.shortDescription,
-          longDescription: hotelsTable.longDescription,
-          imageUrl: hotelsTable.imageUrl,
-          priceLabel: hotelsTable.priceLabel,
-          starRating: hotelsTable.starRating,
-          amenities: hotelsTable.amenities,
-          petsAllowed: hotelsTable.petsAllowed,
-          publishedSnapshot: hotelsTable.publishedSnapshot,
-          minPriceMinor: sql<number | null>`(
-            SELECT min(${roomsTable.priceMinor})
-            FROM ${roomsTable}
-            WHERE ${roomsTable.hotelId} = ${hotelsTable.id}
-              AND ${roomsTable.isActive} = true
-              AND ${roomsTable.priceOnRequest} = false
-              AND ${roomsTable.priceMinor} IS NOT NULL
-          )`.as("min_price_minor"),
-        })
-        .from(hotelsTable)
-        .where(and(eq(hotelsTable.status, "yayinda"), isNull(hotelsTable.suspendedAt)))
-        .orderBy(hotelsTable.name);
+      const { hotelsTable, reviewsTable, roomsTable } = await import("@/lib/db/schema");
+      const { and, avg, count, eq, min } = await import("drizzle-orm");
+      const { guestVisibleHotelWhere } = await import("@/lib/hotel-visibility");
+      const db = getDb();
+
+      // NOT: Bu toplamlar bilinçli olarak KORELE ALT SORGU DEĞİL. Drizzle,
+      // sql`` şablonu içindeki kolonları niteliksiz üretir ("hotel_id" = "id"),
+      // bu da alt sorgunun kendi tablosuna çözülüp korelasyonu sessizce bozar
+      // (rooms.hotel_id = rooms.id → hep NULL). Ayrı GROUP BY sorguları +
+      // JS'te birleştirme hem doğru hem okunabilir.
+      const [rows, priceRows, reviewRows] = await Promise.all([
+        db
+          .select({
+            id: hotelsTable.id,
+            slug: hotelsTable.slug,
+            name: hotelsTable.name,
+            city: hotelsTable.city,
+            country: hotelsTable.country,
+            shortDescription: hotelsTable.shortDescription,
+            longDescription: hotelsTable.longDescription,
+            imageUrl: hotelsTable.imageUrl,
+            priceLabel: hotelsTable.priceLabel,
+            starRating: hotelsTable.starRating,
+            amenities: hotelsTable.amenities,
+            petsAllowed: hotelsTable.petsAllowed,
+            publishedSnapshot: hotelsTable.publishedSnapshot,
+          })
+          .from(hotelsTable)
+          .where(guestVisibleHotelWhere())
+          .orderBy(hotelsTable.name),
+        db
+          .select({ hotelId: roomsTable.hotelId, minPriceMinor: min(roomsTable.priceMinor) })
+          .from(roomsTable)
+          .where(and(eq(roomsTable.isActive, true), eq(roomsTable.priceOnRequest, false)))
+          .groupBy(roomsTable.hotelId),
+        // Yorumlar snapshot'a girmez — kendi moderasyonları var, canlı okunur.
+        db
+          .select({
+            hotelId: reviewsTable.hotelId,
+            average: avg(reviewsTable.rating),
+            total: count(),
+          })
+          .from(reviewsTable)
+          .where(eq(reviewsTable.status, "yayinda"))
+          .groupBy(reviewsTable.hotelId),
+      ]);
+
+      const minPriceByHotel = new Map(
+        priceRows.map((r) => [r.hotelId, r.minPriceMinor == null ? null : Number(r.minPriceMinor)]),
+      );
+      const reviewsByHotel = new Map(
+        reviewRows.map((r) => [
+          r.hotelId,
+          {
+            // avg() numeric döner → postgres.js string verir.
+            average: r.average == null ? null : Math.round(Number(r.average) * 10) / 10,
+            total: Number(r.total),
+          },
+        ]),
+      );
+
       return rows.filter((row) => legacySnapshotFallbackEnabled() || parseHotelContentSnapshot(row.publishedSnapshot).success).map((row) => {
         const parsed = parseHotelContentSnapshot(row.publishedSnapshot);
         const snapshot = parsed.success ? parsed.data.hotel : {};
@@ -148,8 +185,10 @@ export async function getPublishedHotelsForBrowse(): Promise<BrowseHotelRow[]> {
           petsAllowed: value("petsAllowed", row.petsAllowed),
           minPriceMinor: parsed.success
             ? parsed.data.rooms.filter((room) => room.isActive !== false && room.priceOnRequest !== true && typeof room.priceMinor === "number")
-                .reduce<number | null>((min, room) => min == null ? room.priceMinor as number : Math.min(min, room.priceMinor as number), null)
-            : row.minPriceMinor,
+                .reduce<number | null>((acc, room) => acc == null ? room.priceMinor as number : Math.min(acc, room.priceMinor as number), null)
+            : (minPriceByHotel.get(row.id) ?? null),
+          reviewAverage: reviewsByHotel.get(row.id)?.average ?? null,
+          reviewCount: reviewsByHotel.get(row.id)?.total ?? 0,
         };
       });
     } catch (err) {
@@ -170,6 +209,8 @@ export async function getPublishedHotelsForBrowse(): Promise<BrowseHotelRow[]> {
     amenities: [] as string[],
     petsAllowed: null,
     minPriceMinor: null,
+    reviewAverage: null,
+    reviewCount: 0,
   }));
 }
 
@@ -181,11 +222,11 @@ export async function getPublishedHotelBySlug(
     try {
       const { getDb } = await import("@/lib/db");
       const { hotelsTable } = await import("@/lib/db/schema");
-      const { and, eq, isNull } = await import("drizzle-orm");
+      const { guestVisibleHotelBySlugWhere } = await import("@/lib/hotel-visibility");
       const [row] = await getDb()
         .select()
         .from(hotelsTable)
-        .where(and(eq(hotelsTable.slug, slug), eq(hotelsTable.status, "yayinda"), isNull(hotelsTable.suspendedAt)))
+        .where(guestVisibleHotelBySlugWhere(slug))
         .limit(1);
       if (!row) return undefined;
       if (!legacySnapshotFallbackEnabled() && !parseHotelContentSnapshot(row.publishedSnapshot).success) return undefined;
@@ -326,11 +367,12 @@ export async function getPublishedHotelContent(
       roomRatePlanPricesTable,
     } = await import("@/lib/db/schema");
     const { and, asc, eq, or, isNull, lte, gte } = await import("drizzle-orm");
+    const { guestVisibleHotelBySlugWhere } = await import("@/lib/hotel-visibility");
     const db = getDb();
 
     const [snapshotRow] = await db.select({ publishedSnapshot: hotelsTable.publishedSnapshot })
       .from(hotelsTable)
-      .where(and(eq(hotelsTable.slug, slug), eq(hotelsTable.status, "yayinda"), isNull(hotelsTable.suspendedAt)))
+      .where(guestVisibleHotelBySlugWhere(slug))
       .limit(1);
     const parsedSnapshot = parseHotelContentSnapshot(snapshotRow?.publishedSnapshot);
     if (parsedSnapshot.success) {
@@ -368,7 +410,7 @@ export async function getPublishedHotelContent(
         longitude: (hotel.longitude as string | null) ?? null,
         availabilityNotes: snapshot.availabilityNotes.map((item) => ({ label: String(item.label), startDate: item.startDate == null ? null : String(item.startDate), endDate: item.endDate == null ? null : String(item.endDate), isBlackout: Boolean(item.isBlackout) })),
         promotions: (snapshot.promotions as unknown as Promotion[]).filter((item) => item.isActive).map((item) => ({ name: item.name, discountPercent: item.discountPercent, validFrom: item.validFrom ? String(item.validFrom) : null, validTo: item.validTo ? String(item.validTo) : null, minNights: item.minNights, roomIds: item.roomIds, isActive: item.isActive })),
-        ratePlanPrices: prices.map((item) => ({ roomId: String(item.roomId), name: String(item.name), startDate: String(item.startDate), endDate: String(item.endDate), priceMinor: Number(item.priceMinor), currency: String(item.currency), minStayNights: item.minStayNights == null ? null : Number(item.minStayNights) })),
+        ratePlanPrices: prices.map((item) => ({ roomId: String(item.roomId), name: String(item.name), startDate: String(item.startDate), endDate: String(item.endDate), priceMinor: Number(item.priceMinor), currency: String(item.currency), minStayNights: item.minStayNights == null ? null : Number(item.minStayNights), occupancyPrices: (item.occupancyPrices as { guestCount: number; priceMinor: number }[] | undefined) ?? [] })),
       };
     }
 
@@ -396,11 +438,12 @@ export async function getPublishedHotelContent(
         longitude: hotelsTable.longitude,
       })
       .from(hotelsTable)
-      .where(and(eq(hotelsTable.slug, slug), eq(hotelsTable.status, "yayinda"), isNull(hotelsTable.suspendedAt)))
+      .where(guestVisibleHotelBySlugWhere(slug))
       .limit(1);
     if (!hotel) return emptyContent;
 
-    const today = new Date().toISOString().slice(0, 10);
+    const { todayIso } = await import("@/lib/price");
+    const today = todayIso();
 
     const [rooms, rates, restaurants, extras, gallery, availabilityNotes, promotions, defaultPlan] =
       await Promise.all([
@@ -470,6 +513,7 @@ export async function getPublishedHotelContent(
               priceMinor: roomRatePlanPricesTable.priceMinor,
               currency: roomRatePlanPricesTable.currency,
               minStayNights: roomRatePlanPricesTable.minStayNights,
+              occupancyPrices: roomRatePlanPricesTable.occupancyPrices,
             })
             .from(roomRatePlanPricesTable)
             .where(eq(roomRatePlanPricesTable.ratePlanId, defaultPlan[0].id))
@@ -524,6 +568,7 @@ export async function getPublishedHotelContent(
         priceMinor: p.priceMinor,
         currency: p.currency,
         minStayNights: p.minStayNights,
+        occupancyPrices: p.occupancyPrices ?? [],
       })),
     };
   } catch (err) {
@@ -590,7 +635,8 @@ export async function getPublishedRoom(
     try {
       const { getDb } = await import("@/lib/db");
       const { hotelsTable, roomsTable, roomRatesTable } = await import("@/lib/db/schema");
-      const { and, asc, eq, isNull } = await import("drizzle-orm");
+      const { and, asc, eq } = await import("drizzle-orm");
+      const { guestVisibleHotelBySlugWhere } = await import("@/lib/hotel-visibility");
       const db = getDb();
 
       const [hotel] = await db
@@ -602,7 +648,7 @@ export async function getPublishedRoom(
           publishedSnapshot: hotelsTable.publishedSnapshot,
         })
         .from(hotelsTable)
-        .where(and(eq(hotelsTable.slug, hotelSlug), eq(hotelsTable.status, "yayinda"), isNull(hotelsTable.suspendedAt)))
+        .where(guestVisibleHotelBySlugWhere(hotelSlug))
         .limit(1);
 
       if (hotel) {
@@ -723,4 +769,92 @@ export async function getPublishedRoom(
       rates: [],
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Misafir yorumları — publishedSnapshot'a GİRMEZ.
+// Yorumların kendi moderasyon zinciri var (reviews.status); tesis içerik
+// sürümüne bağlanırsa onaylı yorumlar yeni sürüm bekler hale gelirdi.
+// ---------------------------------------------------------------------------
+
+export interface GuestReview {
+  id: string;
+  rating: number;
+  title: string | null;
+  body: string;
+  guestName: string;
+  stayDate: string | null;
+  /** "verified_guest" → misafir portalından yazılmış, doğrulanmış yorum */
+  source: string;
+  reply: string | null;
+  createdAt: string;
+}
+
+export interface GuestReviewSummary {
+  reviews: GuestReview[];
+  count: number;
+  /** 1–5 arası ortalama, tek ondalık; yorum yoksa null */
+  average: number | null;
+  /** Puan → adet (1..5) */
+  distribution: Record<number, number>;
+}
+
+const emptyReviewSummary: GuestReviewSummary = {
+  reviews: [],
+  count: 0,
+  average: null,
+  distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+};
+
+/** Yayındaki yorumları ve puan özetini döner (misafir otel sayfası). */
+export async function getPublishedReviews(slug: string): Promise<GuestReviewSummary> {
+  if (!isDbAvailable()) return emptyReviewSummary;
+  try {
+    const { getDb } = await import("@/lib/db");
+    const { hotelsTable, reviewsTable } = await import("@/lib/db/schema");
+    const { and, desc, eq } = await import("drizzle-orm");
+    const { guestVisibleHotelBySlugWhere } = await import("@/lib/hotel-visibility");
+
+    const rows = await getDb()
+      .select({
+        id: reviewsTable.id,
+        rating: reviewsTable.rating,
+        title: reviewsTable.title,
+        body: reviewsTable.body,
+        guestName: reviewsTable.guestName,
+        stayDate: reviewsTable.stayDate,
+        source: reviewsTable.source,
+        reply: reviewsTable.reply,
+        createdAt: reviewsTable.createdAt,
+      })
+      .from(reviewsTable)
+      .innerJoin(hotelsTable, eq(hotelsTable.id, reviewsTable.hotelId))
+      .where(and(guestVisibleHotelBySlugWhere(slug), eq(reviewsTable.status, "yayinda")))
+      .orderBy(desc(reviewsTable.createdAt))
+      .limit(100);
+
+    if (rows.length === 0) return emptyReviewSummary;
+
+    const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    let total = 0;
+    for (const r of rows) {
+      total += r.rating;
+      distribution[r.rating] = (distribution[r.rating] ?? 0) + 1;
+    }
+
+    return {
+      reviews: rows.map((r) => ({
+        ...r,
+        stayDate: r.stayDate == null ? null : String(r.stayDate),
+        createdAt: r.createdAt.toISOString(),
+      })),
+      count: rows.length,
+      average: Math.round((total / rows.length) * 10) / 10,
+      distribution,
+    };
+  } catch (err) {
+    // Yorumlar ikincil içerik — hata otel sayfasını düşürmemeli.
+    console.warn("[hotels-repo] Yorum sorgusu başarısız:", err);
+    return emptyReviewSummary;
+  }
 }

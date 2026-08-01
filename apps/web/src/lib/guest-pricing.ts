@@ -5,8 +5,10 @@
 import {
   applyDiscount,
   resolveCurrentRate,
+  resolveRatePriceForGuests,
   todayIso,
   type ChildAgePriceLike,
+  type OccupancyPriceLike,
   type RateLike,
   type ResolvedRate,
 } from "@/lib/price";
@@ -29,6 +31,8 @@ export interface GuestRatePlanPrice {
   priceMinor: number;
   currency: string;
   minStayNights: number | null;
+  /** Kişi sayısına göre gecelik fiyatlar — eşleşme yoksa priceMinor kullanılır. */
+  occupancyPrices?: OccupancyPriceLike[] | null;
 }
 
 export interface GuestRoomPricingInput {
@@ -91,6 +95,7 @@ function resolveRatePlanPrice(
   roomId: string,
   date: string,
   roomMinStay: number | null | undefined,
+  guestCount?: number | null,
 ): ResolvedRate | null {
   const active = prices
     .filter((p) => p.roomId === roomId && p.startDate <= date && date <= p.endDate)
@@ -98,7 +103,8 @@ function resolveRatePlanPrice(
   const winner = active[0];
   if (!winner) return null;
   return {
-    priceMinor: winner.priceMinor,
+    // Dönemsel fiyatlarla aynı kişi-sayısı çözümlemesi (bkz. room_rates).
+    priceMinor: resolveRatePriceForGuests(winner, guestCount),
     currency: winner.currency,
     priceOnRequest: false,
     rateName: winner.name,
@@ -115,6 +121,7 @@ function resolveUnderlyingPrice(
     input.room.id,
     date,
     input.room.minStayNights,
+    input.guestCount,
   );
   if (plan) return plan;
 
@@ -171,9 +178,14 @@ export function resolveGuestRoomPrice(input: GuestRoomPricingInput): GuestRoomPr
   }));
   const childSurchargeMinor = childBreakdown.reduce((sum, c) => sum + c.priceMinor, 0);
 
+  // originalPriceMinor da çocuk ücretini içermeli: aksi halde üstü çizili
+  // "normal fiyat" indirimli fiyattan DÜŞÜK görünür (ör. AI fiyat kartında
+  // "indirimli 3.000₺, normal 2.000₺").
   return {
     ...base,
     priceMinor: (base.priceMinor as number) + childSurchargeMinor,
+    originalPriceMinor:
+      base.originalPriceMinor == null ? null : base.originalPriceMinor + childSurchargeMinor,
     childSurchargeMinor,
     childBreakdown,
   };
@@ -184,7 +196,14 @@ function resolveBaseGuestRoomPrice(input: GuestRoomPricingInput): GuestRoomPrice
   const nights = input.nights ?? 1;
   const promotions = input.promotions ?? [];
 
-  const activePromo = promotions.find((p) => isPromotionActive(p, input.room.id, date, nights));
+  // Birden fazla kampanya geçerliyse misafir lehine olan (en yüksek indirim)
+  // kazanır — aksi halde dizi sırası (pratikte en eski kampanya) belirlerdi.
+  const activePromo = promotions
+    .filter((p) => isPromotionActive(p, input.room.id, date, nights))
+    .reduce<GuestPromotion | undefined>(
+      (best, p) => (best == null || p.discountPercent > best.discountPercent ? p : best),
+      undefined,
+    );
   if (activePromo) {
     const underlying = resolveUnderlyingPrice(input, date);
     if (!underlying.priceOnRequest && underlying.priceMinor != null) {
@@ -206,6 +225,7 @@ function resolveBaseGuestRoomPrice(input: GuestRoomPricingInput): GuestRoomPrice
     input.room.id,
     date,
     input.room.minStayNights,
+    input.guestCount,
   );
   if (plan) {
     return {

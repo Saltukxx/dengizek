@@ -43,7 +43,11 @@ function normalizeCallouts(callouts: DbCallout[]) {
  * YAYIMLANMIŞ manifesti döner — tours.publishedManifest anlık görüntüsü.
  * Misafir oynatıcı ve AI sohbeti yalnızca bunu kullanır; taslak değişiklikler
  * admin onayına kadar misafire yansımaz.
- * Tur yoksa, yayında değilse veya snapshot geçersizse undefined döner.
+ *
+ * Görünürlük `status`'e DEĞİL snapshot varlığına bakar (bkz.
+ * @/lib/hotel-visibility): bir kez yayımlanmış tur, yeni sürümü incelemedeyken
+ * de oynatılabilir kalır. Tur yoksa, hiç yayımlanmamışsa veya snapshot
+ * geçersizse undefined döner.
  */
 export async function getPublishedManifest(
   hotelSlug: string,
@@ -51,15 +55,12 @@ export async function getPublishedManifest(
 ): Promise<TourManifest | undefined> {
   const db = getDb();
   const [tour] = await db
-    .select({
-      status: toursTable.status,
-      publishedManifest: toursTable.publishedManifest,
-    })
+    .select({ publishedManifest: toursTable.publishedManifest })
     .from(toursTable)
     .where(and(eq(toursTable.hotelSlug, hotelSlug), eq(toursTable.tourId, tourId)))
     .limit(1);
 
-  if (!tour || tour.status !== "yayinda" || !tour.publishedManifest) return undefined;
+  if (!tour?.publishedManifest) return undefined;
 
   const parsed = safeParseTourManifest(tour.publishedManifest);
   if (!parsed.success) {

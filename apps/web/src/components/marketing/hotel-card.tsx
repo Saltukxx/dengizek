@@ -1,10 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
+import { IconStarFilled } from "@tabler/icons-react";
 import type { HotelMock } from "@/lib/mocks/hotels";
 
 type HotelCardProps = {
   hotel: HotelMock;
   href?: string;
+  /** Yayındaki yorumların ortalaması (1–5) — yorum yoksa gösterilmez. */
+  reviewAverage?: number | null;
+  reviewCount?: number;
 };
 
 /**
@@ -12,7 +16,12 @@ type HotelCardProps = {
  * Tam-görsel arka plan, gradient overlay ve altta otel bilgisi.
  * CSS sınıfları globals.css .lux-hotel-card ile stillendirilir.
  */
-export function HotelCard({ hotel, href = `/hotels/${hotel.slug}` }: HotelCardProps) {
+export function HotelCard({
+  hotel,
+  href = `/hotels/${hotel.slug}`,
+  reviewAverage,
+  reviewCount = 0,
+}: HotelCardProps) {
   return (
     <Link href={href} className="lux-hotel-card">
       {/* Background image */}
@@ -51,6 +60,25 @@ export function HotelCard({ hotel, href = `/hotels/${hotel.slug}` }: HotelCardPr
         </p>
 
         <h3>{hotel.name}</h3>
+
+        {reviewAverage != null && reviewCount > 0 && (
+          <p
+            style={{
+              margin: "6px 0 0",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 12,
+              color: "var(--lux-muted)",
+            }}
+          >
+            <IconStarFilled size={13} color="var(--lux-gold)" />
+            <span style={{ color: "var(--lux-gold)" }}>
+              {reviewAverage.toLocaleString("tr-TR")}
+            </span>
+            <span>({reviewCount} yorum)</span>
+          </p>
+        )}
 
         <p
           style={{

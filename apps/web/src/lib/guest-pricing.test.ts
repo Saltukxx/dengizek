@@ -196,3 +196,135 @@ describe("resolveGuestRoomPrice — talep üzerine fiyatlarda çocuk hesaplanmaz
     expect(result.priceOnRequest).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Kampanya seçimi — misafir lehine olan kazanmalı
+// ---------------------------------------------------------------------------
+
+function promo(name: string, discountPercent: number, overrides = {}) {
+  return {
+    name,
+    discountPercent,
+    validFrom: null,
+    validTo: null,
+    minNights: null,
+    roomIds: [] as string[],
+    isActive: true,
+    ...overrides,
+  };
+}
+
+describe("resolveGuestRoomPrice — kampanya seçimi", () => {
+  it("birden fazla aktif kampanyada EN YÜKSEK indirim kazanır (dizi sırası değil)", () => {
+    const result = resolveGuestRoomPrice(
+      baseInput({
+        // Snapshot createdAt ASC sıralı gelir; eskisi başta olsa da yenisi kazanmalı.
+        promotions: [promo("Eski kampanya", 10), promo("Erken rezervasyon", 30)],
+        date: "2026-07-01",
+      }),
+    );
+    expect(result.promotionName).toBe("Erken rezervasyon");
+    expect(result.discountPercent).toBe(30);
+    expect(result.priceMinor).toBe(280000);
+  });
+
+  it("sırası tersine dönse de sonuç aynı kalır", () => {
+    const result = resolveGuestRoomPrice(
+      baseInput({
+        promotions: [promo("Erken rezervasyon", 30), promo("Eski kampanya", 10)],
+        date: "2026-07-01",
+      }),
+    );
+    expect(result.promotionName).toBe("Erken rezervasyon");
+  });
+
+  it("uygun olmayan kampanya (minNights) elenir", () => {
+    const result = resolveGuestRoomPrice(
+      baseInput({
+        promotions: [promo("7 gece", 50, { minNights: 7 }), promo("Genel", 10)],
+        date: "2026-07-01",
+        nights: 2,
+      }),
+    );
+    expect(result.promotionName).toBe("Genel");
+  });
+
+  it("pasif kampanya seçilmez", () => {
+    const result = resolveGuestRoomPrice(
+      baseInput({
+        promotions: [promo("Kapalı", 60, { isActive: false })],
+        date: "2026-07-01",
+      }),
+    );
+    expect(result.source).toBe("base");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Çocuk ek ücreti — üstü çizili fiyat tutarlılığı
+// ---------------------------------------------------------------------------
+
+describe("resolveGuestRoomPrice — çocuk ücretiyle originalPriceMinor", () => {
+  it("normal fiyat indirimli fiyattan düşük görünmez", () => {
+    const result = resolveGuestRoomPrice(
+      baseInput({
+        promotions: [promo("Yaz", 25)],
+        date: "2026-07-01",
+        childAges: [10],
+      }),
+    );
+    // Yetişkin 400000 → indirimli 300000; çocuk indirimli fiyattan ücretlenir.
+    expect(result.priceMinor).toBe(600000);
+    expect(result.originalPriceMinor).toBeGreaterThanOrEqual(result.priceMinor as number);
+  });
+
+  it("çocuk yokken originalPriceMinor değişmez", () => {
+    const result = resolveGuestRoomPrice(
+      baseInput({ promotions: [promo("Yaz", 25)], date: "2026-07-01" }),
+    );
+    expect(result.originalPriceMinor).toBe(400000);
+    expect(result.priceMinor).toBe(300000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fiyat planında kişi sayısı
+// ---------------------------------------------------------------------------
+
+describe("resolveGuestRoomPrice — fiyat planı occupancyPrices", () => {
+  const planPrice = {
+    roomId: "room-1",
+    name: "BAR Yaz",
+    startDate: "2026-06-01",
+    endDate: "2026-09-30",
+    priceMinor: 500000,
+    currency: "TRY",
+    minStayNights: null,
+    occupancyPrices: [
+      { guestCount: 1, priceMinor: 350000 },
+      { guestCount: 3, priceMinor: 700000 },
+    ],
+  };
+
+  it("kişi sayısına göre plan fiyatını çözer", () => {
+    const result = resolveGuestRoomPrice(
+      baseInput({ ratePlanPrices: [planPrice], date: "2026-07-01", guestCount: 3 }),
+    );
+    expect(result.source).toBe("rate_plan");
+    expect(result.priceMinor).toBe(700000);
+  });
+
+  it("eşleşme yoksa plan baz fiyatına düşer", () => {
+    const result = resolveGuestRoomPrice(
+      baseInput({ ratePlanPrices: [planPrice], date: "2026-07-01", guestCount: 2 }),
+    );
+    expect(result.priceMinor).toBe(500000);
+  });
+
+  it("guestCount verilmezse plan baz fiyatı kullanılır", () => {
+    const result = resolveGuestRoomPrice(
+      baseInput({ ratePlanPrices: [planPrice], date: "2026-07-01" }),
+    );
+    expect(result.priceMinor).toBe(500000);
+  });
+});

@@ -3,9 +3,10 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb, isDbConfigured } from "@/lib/db";
 import { cancellationRulesTable, hotelsTable } from "@/lib/db/schema";
+import { guestVisibleHotelBySlugWhere } from "@/lib/hotel-visibility";
 
 function formatRule(rule: {
   name: string;
@@ -46,7 +47,7 @@ export async function GET(
       cancellationRuleId: hotelsTable.cancellationRuleId,
     })
     .from(hotelsTable)
-    .where(and(eq(hotelsTable.slug, slug), eq(hotelsTable.status, "yayinda"), isNull(hotelsTable.suspendedAt)))
+    .where(guestVisibleHotelBySlugWhere(slug))
     .limit(1);
 
   if (!hotel) {

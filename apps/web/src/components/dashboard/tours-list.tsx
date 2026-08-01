@@ -20,7 +20,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconExternalLink, IconPencil, IconPlus, IconSend, IconTrash, IconVersions } from "@tabler/icons-react";
+import { IconAlertCircle, IconExternalLink, IconPencil, IconPlus, IconSend, IconTrash } from "@tabler/icons-react";
 import { moderationStatusColors, moderationStatusLabels } from "@/lib/labels";
 import { useMyHotel } from "./use-my-hotel";
 
@@ -99,21 +99,6 @@ export function ToursList() {
     }
   }
 
-  async function newVersion(tourId: string) {
-    if (!hotel) return;
-    const res = await fetch(
-      `/api/manager/hotels/${hotel.id}/tours/${tourId}/new-version`,
-      { method: "POST" },
-    );
-    const json = await res.json();
-    if (json.ok) {
-      notifications.show({ color: "green", message: "Yeni taslak sürüm oluşturuldu." });
-      void reload();
-    } else {
-      notifications.show({ color: "red", message: json.error ?? "Sürüm oluşturulamadı." });
-    }
-  }
-
   async function deleteTour(tourId: string, title: string) {
     if (!hotel) return;
     if (!confirm(`"${title}" turunu silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) {
@@ -176,14 +161,21 @@ export function ToursList() {
                   )}
                 </Table.Td>
                 <Table.Td>
-                  <Badge color={moderationStatusColors[t.status]}>
-                    {moderationStatusLabels[t.status]}
-                  </Badge>
+                  <Group gap={6}>
+                    <Badge color={moderationStatusColors[t.status]}>
+                      {moderationStatusLabels[t.status]}
+                    </Badge>
+                    {/* Bir kez yayımlanmış tur, yeni sürümü incelemedeyken de
+                        oynatılabilir kalır — bkz. getPublishedManifest. */}
+                    {t.publishedAt !== null && t.status !== "yayinda" && (
+                      <Badge color="teal" variant="filled">Yayında</Badge>
+                    )}
+                  </Group>
                 </Table.Td>
                 <Table.Td>v{t.version}</Table.Td>
                 <Table.Td>
                   <Group gap="xs" justify="flex-end">
-                    {(t.status === "taslak" || t.status === "reddedildi") && (
+                    {t.status !== "incelemede" && (
                       <Button
                         size="xs"
                         variant="light"
@@ -202,30 +194,17 @@ export function ToursList() {
                     >
                       Düzenle
                     </Button>
-                    {t.status === "yayinda" && (
-                      <Button
-                        size="xs"
-                        variant="light"
-                        color="violet"
-                        leftSection={<IconVersions size={14} />}
-                        onClick={() => newVersion(t.tourId)}
-                      >
-                        Yeni sürüm
-                      </Button>
-                    )}
-                    {t.status !== "yayinda" && (
-                      <Button
-                        size="xs"
-                        variant="subtle"
-                        component={Link}
-                        href={`/dashboard/tours/${t.tourId}/preview`}
-                        target="_blank"
-                        leftSection={<IconExternalLink size={14} />}
-                      >
-                        Taslak önizle
-                      </Button>
-                    )}
-                    {t.status === "yayinda" && hotel && (
+                    <Button
+                      size="xs"
+                      variant="subtle"
+                      component={Link}
+                      href={`/dashboard/tours/${t.tourId}/preview`}
+                      target="_blank"
+                      leftSection={<IconExternalLink size={14} />}
+                    >
+                      Taslak önizle
+                    </Button>
+                    {t.publishedAt !== null && hotel && (
                       <Button
                         size="xs"
                         variant="subtle"

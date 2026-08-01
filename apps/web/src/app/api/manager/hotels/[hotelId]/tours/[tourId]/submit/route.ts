@@ -1,7 +1,10 @@
 // ---------------------------------------------------------------------------
 // POST /api/manager/hotels/[hotelId]/tours/[tourId]/submit
 // Taslağı bütünlük kontrolünden geçirip incelemeye gönderir
-// (taslak | reddedildi → incelemede)
+// (taslak | reddedildi | yayinda → incelemede)
+//
+// Yayındaki tur da doğrudan gönderilebilir: oynatıcı publishedManifest okur
+// (bkz. getPublishedManifest), yani inceleme süresince tur oynatılabilir kalır.
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
@@ -30,9 +33,10 @@ export async function POST(_req: Request, { params }: RouteParams) {
   if (!tour) {
     return NextResponse.json({ ok: false, error: "Tur bulunamadı." }, { status: 404 });
   }
-  if (tour.status === "yayinda") {
+  // Tek engel: bekleyen ve hâlâ güncel bir gönderim varsa tekrar gönderme.
+  if (tour.status === "incelemede" && tour.submittedRevision === tour.draftRevision) {
     return NextResponse.json(
-      { ok: false, error: "Yayındaki tur tekrar gönderilemez — önce yeni sürüm oluşturun." },
+      { ok: false, error: "Bu sürüm zaten incelemede." },
       { status: 409 },
     );
   }
