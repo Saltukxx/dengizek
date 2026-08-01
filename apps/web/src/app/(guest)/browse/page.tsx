@@ -23,7 +23,9 @@ export default async function BrowsePage({
   const petsOnly = sp.pets === "1";
   const priceBand = sp.price?.trim();
 
-  let hotels = await getPublishedHotelsForBrowse();
+  // Metin araması SQL'de yapılır (trigram indeksli); kalan filtreler
+  // snapshot'tan türeyen alanlar üzerinde JS'te uygulanır.
+  let hotels = await getPublishedHotelsForBrowse({ q });
   if (q) {
     hotels = hotels.filter(
       (h) =>

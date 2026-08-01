@@ -4,7 +4,7 @@
 
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { apiFail, apiOk } from "@/lib/api-response";
-import { hasValidImageSignature, storeImage } from "@/lib/object-storage";
+import { hasSafeImageDimensions, hasValidImageSignature, storeImage } from "@/lib/object-storage";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
@@ -36,6 +36,10 @@ export async function POST(req: Request) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
   if (!hasValidImageSignature(file.type, buffer)) return apiFail("Dosya içeriği görsel türüyle eşleşmiyor.", 400);
+  // Küçük dosya, devasa çözünürlük ("piksel bombası") — boyut sınırı yakalamaz.
+  if (!hasSafeImageDimensions(file.type, buffer)) {
+    return apiFail("Görsel çözünürlüğü çok yüksek (en fazla 20.000 piksel kenar / 50 MP).", 400);
+  }
   let stored: { url: string; key: string };
   try {
     stored = await storeImage(guard.hotel.id, file.type, buffer);

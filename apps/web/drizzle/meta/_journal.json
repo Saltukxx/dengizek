@@ -99,6 +99,13 @@
       "when": 1783900000000,
       "tag": "0013_publish_flow_reviews_ical",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1784000000000,
+      "tag": "0014_browse_search_trgm",
+      "breakpoints": true
     }
   ]
 }

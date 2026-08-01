@@ -49,6 +49,11 @@ export function useVideoSource({ src, stepId, videoRef, onFatalError }: UseVideo
   const onFatalErrorRef = useRef(onFatalError);
   onFatalErrorRef.current = onFatalError;
   const hlsRef = useRef<Hls | null>(null);
+  // İmza yenilendiğinde src değişir ama ADIM aynı kalır — bu durumda videoyu
+  // baştan başlatmak turu bozar. Aynı adımda yeniden bağlanırken pozisyonu
+  // koruyabilmek için son adımı ve o anki süreyi tutarız.
+  const lastStepIdRef = useRef<string | null>(null);
+  const resumeTimeRef = useRef(0);
 
   /** Hata ekranındaki "Tekrar dene" — kaynağı sıfırdan bağlar. */
   const retry = useCallback(() => {
@@ -64,12 +69,38 @@ export function useVideoSource({ src, stepId, videoRef, onFatalError }: UseVideo
       return;
     }
 
+    // Aynı adımda yeniden bağlanıyorsak (imza yenilendi) pozisyonu geri al.
+    const isSameStep = lastStepIdRef.current === stepId;
+    const resumeAt = isSameStep ? resumeTimeRef.current : 0;
+    lastStepIdRef.current = stepId;
+
+    const restorePosition = () => {
+      if (resumeAt > 0 && Number.isFinite(resumeAt)) {
+        try {
+          video.currentTime = resumeAt;
+        } catch {
+          // Bazı tarayıcılar metadata gelmeden currentTime yazmayı reddeder —
+          // loadedmetadata dinleyicisi ikinci şansı verir.
+        }
+      }
+    };
+
+    // Bağlantı boyunca ilerlemeyi takip et ki bir sonraki yeniden bağlanmada
+    // kaldığı yerden devam edebilelim.
+    const trackTime = () => {
+      if (video.currentTime > 0) resumeTimeRef.current = video.currentTime;
+    };
+    video.addEventListener("timeupdate", trackTime);
+    video.addEventListener("loadedmetadata", restorePosition);
+
     if (!isHlsSource(src) || supportsNativeHls(video)) {
       // Native yol — Safari HLS veya progressive MP4.
       setUsingHls(false);
       video.src = src;
       video.load();
       return () => {
+        video.removeEventListener("timeupdate", trackTime);
+        video.removeEventListener("loadedmetadata", restorePosition);
         video.removeAttribute("src");
       };
     }
@@ -109,12 +140,15 @@ export function useVideoSource({ src, stepId, videoRef, onFatalError }: UseVideo
         onFatalErrorRef.current("Video yüklenemedi veya oynatılamadı.");
       });
 
+      hls.on(HlsCtor.Events.MANIFEST_PARSED, restorePosition);
       hls.loadSource(src);
       hls.attachMedia(video);
     });
 
     return () => {
       cancelled = true;
+      video.removeEventListener("timeupdate", trackTime);
+      video.removeEventListener("loadedmetadata", restorePosition);
       hls?.destroy();
       if (hlsRef.current === hls) hlsRef.current = null;
     };

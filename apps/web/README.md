@@ -82,6 +82,24 @@ Tesisi tamamen yayından kaldırmak moderasyonla değil **askıya alma** ile yap
 `/api/webhooks/bunny` — secret `x-webhook-secret` başlığıyla gönderilir (durum: yüklendi → işleniyor → hazır | hata).
 `BUNNY_STREAM_*` env yoksa mock mod: kayıt oluşur, gerçek yükleme atlanır.
 
+### İmzalı oynatma URL'leri
+
+Misafire giden medya URL'leri **istek anında** imzalanır
+([src/lib/bunny/sign.ts](src/lib/bunny/sign.ts)) — snapshot'ta imzasız kanonik
+URL durur, çünkü `publishedManifest` kalıcı ama imza kısa ömürlüdür.
+
+- Bunny **Advanced Token Authentication** + **dizin token'ı** (`token_path=/{guid}/`)
+  — HLS'te playlist ve `.ts` segmentleri ayrı isteklerdir, dosya bazlı token yetmez.
+- `BUNNY_CDN_TOKEN_KEY` **yoksa URL'ler imzasız sunulur** (kademeli açılış);
+  production'da bu durum boot uyarısı verir.
+- Oynatıcı `mediaTokenExpiresAt`'e bakıp süre dolmadan
+  `/api/tour/playback-token` ile yeniler; adım kimliği değişmediği için
+  oynatma pozisyonu korunur.
+
+> ⚠️ İmzalama **gerçek Bunny hesabına karşı doğrulanmadı** (hesap yok). Birim
+> testler implementasyonu kilitler; canlıda token auth açıldığında imzasız
+> URL'in 403 döndüğü ve segmentlerin yetkilendiği teyit edilmelidir.
+
 ## Bu makineye özgü notlar
 
 - **Norton antivirüs TLS araya girmesi:** Node, Neon/Google Fonts'a giden

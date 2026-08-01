@@ -101,15 +101,51 @@ export interface BrowseHotelRow {
   reviewCount: number;
 }
 
-/** Browse filtreleri için genişletilmiş otel listesi. */
-export async function getPublishedHotelsForBrowse(): Promise<BrowseHotelRow[]> {
+export interface BrowseFilters {
+  /** Serbest metin — ad/şehir/ülke üzerinde arar. */
+  q?: string;
+}
+
+/**
+ * Browse filtreleri için genişletilmiş otel listesi.
+ *
+ * Metin araması SQL'e taşındı (pg_trgm + GIN indeks, migration 0014) — aksi
+ * halde her istek tüm otelleri çekip JS'te süzüyordu. Arama snapshot-farkındadır:
+ * yayındaki değer publishedSnapshot'tan gelir, o yoksa kolondan (COALESCE),
+ * böylece SQL süzmesi aşağıdaki snapshot eşlemesiyle aynı sonucu verir.
+ *
+ * Yıldız/olanak/evcil/fiyat filtreleri bilinçli olarak JS'te kalır: bunlar
+ * snapshot içindeki dizilerden ve oda listesinden türetiliyor, SQL'e taşımak
+ * davranışı değiştirme riski taşır.
+ */
+export async function getPublishedHotelsForBrowse(
+  filters: BrowseFilters = {},
+): Promise<BrowseHotelRow[]> {
   if (isDbAvailable()) {
     try {
       const { getDb } = await import("@/lib/db");
       const { hotelsTable, reviewsTable, roomsTable } = await import("@/lib/db/schema");
-      const { and, avg, count, eq, min } = await import("drizzle-orm");
+      const { and, avg, count, eq, min, or, sql } = await import("drizzle-orm");
       const { guestVisibleHotelWhere } = await import("@/lib/hotel-visibility");
       const db = getDb();
+
+      // Yayındaki değer: snapshot varsa oradan, yoksa kolondan.
+      const published = (
+        column:
+          | typeof hotelsTable.name
+          | typeof hotelsTable.city
+          | typeof hotelsTable.country,
+        key: string,
+      ) => sql`coalesce(${hotelsTable.publishedSnapshot} -> 'hotel' ->> ${key}, ${column})`;
+
+      const search = filters.q?.trim();
+      const searchWhere = search
+        ? or(
+            sql`${published(hotelsTable.name, "name")} ilike ${"%" + search + "%"}`,
+            sql`${published(hotelsTable.city, "city")} ilike ${"%" + search + "%"}`,
+            sql`${published(hotelsTable.country, "country")} ilike ${"%" + search + "%"}`,
+          )
+        : undefined;
 
       // NOT: Bu toplamlar bilinçli olarak KORELE ALT SORGU DEĞİL. Drizzle,
       // sql`` şablonu içindeki kolonları niteliksiz üretir ("hotel_id" = "id"),
@@ -134,7 +170,7 @@ export async function getPublishedHotelsForBrowse(): Promise<BrowseHotelRow[]> {
             publishedSnapshot: hotelsTable.publishedSnapshot,
           })
           .from(hotelsTable)
-          .where(guestVisibleHotelWhere())
+          .where(and(guestVisibleHotelWhere(), searchWhere))
           .orderBy(hotelsTable.name),
         db
           .select({ hotelId: roomsTable.hotelId, minPriceMinor: min(roomsTable.priceMinor) })
@@ -196,7 +232,17 @@ export async function getPublishedHotelsForBrowse(): Promise<BrowseHotelRow[]> {
     }
   }
   if (!shouldUseMockFallback()) return [];
-  return getMockHotels().map((h) => ({
+  // Mock yolunda SQL yok — aynı arama davranışını burada tekrarlarız.
+  const needle = filters.q?.trim().toLowerCase();
+  const mockHotels = needle
+    ? getMockHotels().filter(
+        (h) =>
+          h.name.toLowerCase().includes(needle) ||
+          h.city.toLowerCase().includes(needle) ||
+          h.country.toLowerCase().includes(needle),
+      )
+    : getMockHotels();
+  return mockHotels.map((h) => ({
     slug: h.slug,
     name: h.name,
     city: h.city,

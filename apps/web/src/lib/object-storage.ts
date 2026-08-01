@@ -15,6 +15,84 @@ export function hasValidImageSignature(contentType: string, bytes: Uint8Array) {
   return signatures[contentType]?.(bytes) ?? false;
 }
 
+// ---------------------------------------------------------------------------
+// Piksel bombası koruması
+//
+// Magic-byte kontrolü dosyanın gerçekten görsel olduğunu doğrular ama
+// ÇÖZÜNÜRLÜĞÜ görmez: 40 KB'lık bir PNG 50.000×50.000 piksel ilan edebilir ve
+// açan her istemci gigabaytlarca bellek ayırmaya çalışır. Boyut sınırı bunu
+// yakalamaz — başlıktan boyutu okuyup reddediyoruz.
+// ---------------------------------------------------------------------------
+
+/** Tek görselde izin verilen toplam piksel (≈ 50 MP — 8K'nın üstü). */
+const MAX_PIXELS = 50_000_000;
+/** Tek kenar sınırı — aşırı uzun/ince görselleri de eler. */
+const MAX_DIMENSION = 20_000;
+
+/** Görsel boyutlarını başlıktan okur; okunamazsa null döner. */
+export function readImageDimensions(
+  contentType: string,
+  b: Uint8Array,
+): { width: number; height: number } | null {
+  const view = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  try {
+    if (contentType === "image/png") {
+      // IHDR: 8 bayt imza + 4 uzunluk + 4 tip, sonra genişlik/yükseklik.
+      if (b.byteLength < 24) return null;
+      return { width: view.getUint32(16), height: view.getUint32(20) };
+    }
+    if (contentType === "image/gif") {
+      if (b.byteLength < 10) return null;
+      return { width: view.getUint16(6, true), height: view.getUint16(8, true) };
+    }
+    if (contentType === "image/webp") {
+      // Yalnızca yaygın VP8X/VP8L/VP8 başlıkları.
+      if (b.byteLength < 30) return null;
+      const fourCC = String.fromCharCode(...b.slice(12, 16));
+      if (fourCC === "VP8X") {
+        const w = 1 + (b[24] | (b[25] << 8) | (b[26] << 16));
+        const h = 1 + (b[27] | (b[28] << 8) | (b[29] << 16));
+        return { width: w, height: h };
+      }
+      if (fourCC === "VP8 ") {
+        return { width: view.getUint16(26, true) & 0x3fff, height: view.getUint16(28, true) & 0x3fff };
+      }
+      return null;
+    }
+    if (contentType === "image/jpeg") {
+      // SOF segmentini tara (0xFFC0–0xFFCF; DHT/JPG/DAC hariç).
+      let offset = 2;
+      while (offset + 9 < b.byteLength) {
+        if (b[offset] !== 0xff) {
+          offset += 1;
+          continue;
+        }
+        const marker = b[offset + 1];
+        if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+          return { height: view.getUint16(offset + 5), width: view.getUint16(offset + 7) };
+        }
+        offset += 2 + view.getUint16(offset + 2);
+      }
+      return null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Boyutlar makul mü? Okunamayan başlıkta true döner — magic-byte kontrolünü
+ * geçmiş bir dosyayı yalnızca boyut okunamadı diye reddetmeyiz.
+ */
+export function hasSafeImageDimensions(contentType: string, bytes: Uint8Array): boolean {
+  const dims = readImageDimensions(contentType, bytes);
+  if (!dims) return true;
+  if (dims.width <= 0 || dims.height <= 0) return false;
+  if (dims.width > MAX_DIMENSION || dims.height > MAX_DIMENSION) return false;
+  return dims.width * dims.height <= MAX_PIXELS;
+}
+
 function sha256(value: string | Uint8Array) {
   return createHash("sha256").update(value).digest("hex");
 }

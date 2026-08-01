@@ -9,6 +9,7 @@ import {
   type TourCalloutPlacement,
   type TourManifest,
 } from "@/lib/schemas/tour-manifest";
+import { signManifestMedia } from "@/lib/bunny/sign-manifest";
 import { getDb } from "./index";
 import { hotelsTable, tourStepsTable, toursTable } from "./schema";
 
@@ -48,6 +49,9 @@ function normalizeCallouts(callouts: DbCallout[]) {
  * @/lib/hotel-visibility): bir kez yayımlanmış tur, yeni sürümü incelemedeyken
  * de oynatılabilir kalır. Tur yoksa, hiç yayımlanmamışsa veya snapshot
  * geçersizse undefined döner.
+ *
+ * Medya URL'leri BURADA imzalanır (snapshot'ta imzasız durur) — imza kısa
+ * ömürlüdür, kalıcı snapshot'a yazılamaz. bkz. signManifestMedia.
  */
 export async function getPublishedManifest(
   hotelSlug: string,
@@ -70,7 +74,7 @@ export async function getPublishedManifest(
     );
     return undefined;
   }
-  return parsed.data;
+  return signManifestMedia(parsed.data);
 }
 
 /**

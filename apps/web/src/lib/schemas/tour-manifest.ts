@@ -116,6 +116,14 @@ export const tourManifestSchema = z.object({
   steps: z.array(tourStepSchema).min(1),
   /** AI Rehber icin otel profili. */
   hotelProfile: hotelProfileSchema.optional(),
+  /**
+   * Medya URL'lerindeki imzanin bitis zamani (UNIX saniye). Istemci bunu
+   * kullanip sure dolmadan once yeni URL ister (bkz. use-playback-token).
+   *
+   * Opsiyonel: SNAPSHOT'A YAZILMAZ — imza istek aninda uretilir, yayimlanmis
+   * manifest kalicidir. Eski snapshot'lar ve imzasiz mod bu alansiz gelir.
+   */
+  mediaTokenExpiresAt: z.number().int().positive().optional(),
 });
 
 export type TourCallout = z.infer<typeof tourCalloutSchema>;

@@ -52,6 +52,7 @@ import { TourHotspotLayer } from "./tour-hotspot-layer";
 import { TourVideoInteractionInfo } from "./tour-video-info-boxes";
 import { useTourPlayerMachine } from "./use-tour-player-machine";
 import { useVideoSource } from "./use-video-source";
+import { usePlaybackToken } from "./use-playback-token";
 
 // Kapalı mobil çekmece yüksekliği — panel header'ı + metin girişi görünür kalır.
 const GUIDE_PEEK_HEIGHT = 210;
@@ -104,8 +105,14 @@ export function TourPlayer({
   // Mobil rehber çekmecesi: kapalıyken peek bar (header + input), açıkken 58dvh.
   const [guideExpanded, setGuideExpanded] = useState(false);
 
+  // İmzalı medya URL'leri süresi dolmadan yenilenir; adım kimliği değişmediği
+  // için oynatma pozisyonu korunur (bkz. use-video-source resumeTimeRef).
+  const { resolveSrc: resolvePlaybackSrc } = usePlaybackToken(manifest);
+
   const { retry: retryVideoSource, usingHls } = useVideoSource({
-    src: currentStep?.media.src ?? "",
+    src: currentStep
+      ? resolvePlaybackSrc(currentStep.stepId, currentStep.media.src)
+      : "",
     stepId: currentStep?.stepId ?? "",
     videoRef,
     onFatalError: setError,

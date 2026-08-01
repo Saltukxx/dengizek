@@ -27,6 +27,28 @@ test.describe("Yayın akışı", () => {
     await page.getByRole("button", { name: "Giriş yap" }).click();
     await page.waitForURL(/\/dashboard/, { timeout: 20_000 });
 
+    // Testin tekrar çalıştırılabilir olması için: taslağı bir kez güncelleyip
+    // draftRevision'ı artırırız. Böylece önceki koşudan kalan bekleyen gönderim
+    // "bayat" olur ve gönderme butonu her durumda görünür.
+    const myHotels = await page.request.get("/api/manager/hotels");
+    const hotelId = ((await myHotels.json()).hotels as { id: string; slug: string }[]).find(
+      (h) => h.slug === SLUG,
+    )?.id;
+    expect(hotelId).toBeTruthy();
+    const detail = await (await page.request.get(`/api/manager/hotels/${hotelId}`)).json();
+    const patched = await page.request.patch(`/api/manager/hotels/${hotelId}`, {
+      data: {
+        expectedRevision: detail.hotel.draftRevision,
+        name: detail.hotel.name,
+        contactEmail: detail.hotel.contactEmail ?? "",
+        checkInTime: detail.hotel.checkInTime ?? "",
+        checkOutTime: detail.hotel.checkOutTime ?? "",
+        latitude: detail.hotel.latitude ?? "",
+        longitude: detail.hotel.longitude ?? "",
+      },
+    });
+    expect(patched.ok()).toBe(true);
+
     // Tesisi incelemeye gönder
     await page.goto("/dashboard/property");
     const submit = page.getByRole("button", { name: /İncelemeye gönder|İncelemeyi güncelle/ });

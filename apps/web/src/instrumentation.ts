@@ -3,8 +3,8 @@
 // yakalanmamış istek hatalarının yapılandırılmış loglanması.
 //
 // onRequestError çıktısı tek satır JSON'dur — Vercel log drain / Datadog /
-// Axiom gibi araçlar doğrudan parse edebilir. Sentry eklenmek istenirse
-// SDK çağrısı bu hook'a bağlanır.
+// Axiom gibi araçlar doğrudan parse edebilir. Sentry bunun YERİNE geçmez,
+// üstüne eklenir; SENTRY_DSN yoksa tamamen devre dışıdır.
 // ---------------------------------------------------------------------------
 
 import type { Instrumentation } from "next";
@@ -14,10 +14,25 @@ export async function register() {
     const { assertEnv } = await import("@/env");
     assertEnv();
   }
+  const { initSentryServer } = await import("@/lib/sentry");
+  await initSentryServer();
 }
 
-export const onRequestError: Instrumentation.onRequestError = (error, request, context) => {
+export const onRequestError: Instrumentation.onRequestError = async (error, request, context) => {
   const err = error instanceof Error ? error : new Error(String(error));
+
+  // Sentry'ye ilet (DSN yoksa import edilmez bile). Hata takibi loglamayı
+  // engellemesin diye ayrı try/catch.
+  try {
+    const { isSentryEnabled } = await import("@/lib/sentry");
+    if (isSentryEnabled()) {
+      const Sentry = await import("@sentry/nextjs");
+      Sentry.captureException(err);
+    }
+  } catch {
+    // Sentry ulaşılamıyorsa sessiz geç — aşağıdaki log her hâlükârda yazılır.
+  }
+
   console.error(
     JSON.stringify({
       level: "error",

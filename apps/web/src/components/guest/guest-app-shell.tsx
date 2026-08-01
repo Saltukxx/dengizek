@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useCallback, type ReactNode } from "react";
+import { ConsentBanner } from "./consent-banner";
 
 const NAV = [
   { href: "/",         label: "Anasayfa"    },
@@ -34,7 +35,15 @@ export function GuestAppShell({ children }: { children: ReactNode }) {
     path?.startsWith("/tours/") ||
     path?.startsWith("/hotels/");
 
-  if (isFullBleed) return <>{children}</>;
+  // Tam ekran sayfalarda da onay bandı gösterilir — analitiğin çoğu tur
+  // sayfasında üretiliyor, onay kapısı orada da geçerli olmalı.
+  if (isFullBleed)
+    return (
+      <>
+        {children}
+        <ConsentBanner />
+      </>
+    );
 
   return (
     <div style={{ background: "var(--lux-bg)", color: "var(--lux-text)", minHeight: "100dvh" }}>
@@ -170,6 +179,7 @@ export function GuestAppShell({ children }: { children: ReactNode }) {
         })}
       </nav>
 
+      <ConsentBanner />
     </div>
   );
 }

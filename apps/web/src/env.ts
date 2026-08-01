@@ -81,6 +81,15 @@ export function validateEnv(env: NodeJS.ProcessEnv = process.env): EnvValidation
     if (!env.OPENAI_API_KEY) {
       warnings.push("OPENAI_API_KEY yok — AI tur sohbeti 503 döner");
     }
+
+    // Bunny yapılandırılmışken imzalama anahtarı yoksa videolar herkese açık
+    // kalır (hotlink + delivery maliyeti). Hata değil çünkü kademeli açılışa
+    // izin veriyoruz, ama production'da görünür bir uyarı olmalı.
+    if (env.BUNNY_STREAM_CDN_HOSTNAME && !env.BUNNY_CDN_TOKEN_KEY) {
+      warnings.push(
+        "BUNNY_CDN_TOKEN_KEY yok — video URL'leri İMZASIZ sunulur, herkes izleyebilir",
+      );
+    }
   }
 
   return { errors, warnings };

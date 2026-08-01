@@ -16,7 +16,7 @@ import {
   Title,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconStar } from "@tabler/icons-react";
+import { IconAlertCircle, IconShieldLock, IconStar } from "@tabler/icons-react";
 
 interface MessageRow {
   id: string;
@@ -50,6 +50,8 @@ export function InquiryPortalClient({ token }: { token: string }) {
   const [canReview, setCanReview] = useState(false);
   const [reviewForm, setReviewForm] = useState({ rating: 0, title: "", body: "" });
   const [sendingReview, setSendingReview] = useState(false);
+  const [erasing, setErasing] = useState(false);
+  const [erased, setErased] = useState(false);
 
   const reload = useCallback(async () => {
     const [msgRes, reviewRes] = await Promise.all([
@@ -111,6 +113,38 @@ export function InquiryPortalClient({ token }: { token: string }) {
       void reload();
     } else {
       notifications.show({ color: "red", message: json.error ?? "Yorum gönderilemedi." });
+    }
+  }
+
+  async function downloadData() {
+    const res = await fetch(`/api/inquiry/portal/${token}/data`);
+    const json = await res.json();
+    if (!json.ok) {
+      notifications.show({ color: "red", message: json.error ?? "Veriler alınamadı." });
+      return;
+    }
+    // Tarayıcıda dosya olarak indir — sunucuda kopya bırakmaya gerek yok.
+    const blob = new Blob([JSON.stringify(json.data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "dengizek-verilerim.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function eraseData() {
+    if (!confirm("Kişisel verileriniz silinsin mi? Bu işlem geri alınamaz ve bu bağlantı geçersiz olur.")) {
+      return;
+    }
+    setErasing(true);
+    const res = await fetch(`/api/inquiry/portal/${token}/data`, { method: "POST" });
+    const json = await res.json();
+    setErasing(false);
+    if (json.ok) {
+      setErased(true);
+    } else {
+      notifications.show({ color: "red", message: json.error ?? "Silinemedi." });
     }
   }
 
@@ -232,6 +266,34 @@ export function InquiryPortalClient({ token }: { token: string }) {
           )}
         </Paper>
       )}
+
+      <Paper withBorder p="md" radius="md">
+        <Group gap="xs" mb="sm">
+          <IconShieldLock size={18} />
+          <Title order={4}>Verileriniz</Title>
+        </Group>
+        {erased ? (
+          <Alert color="green">
+            Kişisel verileriniz silindi. Bu bağlantı artık geçersiz.
+          </Alert>
+        ) : (
+          <Stack gap="sm">
+            <Text size="sm" c="dimmed">
+              Bu talep kapsamında sakladığımız kişisel verileri indirebilir veya
+              silinmesini isteyebilirsiniz. Silme sonrası bu portal bağlantısı geçersiz olur;
+              tesisin ticari kaydı adınız olmadan saklanmaya devam eder.
+            </Text>
+            <Group>
+              <Button variant="light" onClick={downloadData}>
+                Verilerimi indir
+              </Button>
+              <Button color="red" variant="light" loading={erasing} onClick={eraseData}>
+                Verilerimi sil
+              </Button>
+            </Group>
+          </Stack>
+        )}
+      </Paper>
     </Stack>
   );
 }
