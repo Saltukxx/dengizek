@@ -14,6 +14,9 @@ const streamTextMock = vi.fn();
 vi.mock("ai", () => ({
   streamText: (...args: unknown[]) => streamTextMock(...args),
   tool: (def: unknown) => def,
+  // Gerçek SDK'daki gibi bir stop koşulu nesnesi döndürmesi yeterli —
+  // testler streamText'e GEÇİLEN argümanları doğruluyor.
+  stepCountIs: (n: number) => ({ __stopAfter: n }),
 }));
 
 vi.mock("@ai-sdk/openai", () => ({
@@ -318,5 +321,38 @@ describe("POST /api/tour/chat", () => {
     await expect(last!.json()).resolves.toMatchObject({
       error: "Çok fazla istek gönderdiniz, lütfen biraz bekleyin.",
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Çok adımlı yanıt: SDK varsayılanı stepCountIs(1) — tool çalıştığı anda
+// üretim durur ve model sonucu GÖRMEDEN biter. O zaman kullanıcıya çıplak bir
+// fiyat/fact kartı düşer; oysa tasarım "kısa çerçeve cümlesi + kart" istiyor.
+// ---------------------------------------------------------------------------
+
+describe("POST /api/tour/chat — çok adımlı yanıt", () => {
+  it("stopWhen verilir (varsayılan tek adımda kalınmaz)", async () => {
+    await POST(makeRequest(baseBody));
+    const call = streamTextMock.mock.calls[0][0] as { stopWhen?: { __stopAfter: number } };
+    expect(call.stopWhen).toBeDefined();
+    expect(call.stopWhen?.__stopAfter).toBe(2);
+  });
+
+  it("tool yalnızca İLK adımda zorlanır; sonraki adım serbest metin içindir", async () => {
+    await POST(
+      makeRequest({
+        ...baseBody,
+        messages: [{ role: "user", content: "gecelik fiyat ne kadar?" }],
+      }),
+    );
+    const call = streamTextMock.mock.calls[0][0] as {
+      prepareStep: (a: { stepNumber: number }) => Record<string, unknown>;
+    };
+    // 0. adım: fiyat aracı zorlanır
+    expect(call.prepareStep({ stepNumber: 0 })).toMatchObject({
+      toolChoice: { type: "tool", toolName: "getRoomPrice" },
+    });
+    // 1. adım: zorlama yok → model tool sonucunu anlatabilir
+    expect(call.prepareStep({ stepNumber: 1 })).toEqual({});
   });
 });

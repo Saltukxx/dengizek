@@ -183,3 +183,53 @@ describe("decideToolChoice", () => {
     expect(decideToolChoice({ needsPriceTool: false, needsFactTool: false }, noFlags)).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Çok dillilik: motor İngilizce yanıt verebildiğine göre araç yönlendirmesi de
+// İngilizce sorularda çalışmalı. Aksi halde tool zorlanmaz, model serbest
+// metinde rakam yazar ve guard cümleyi ortasından keser.
+// ---------------------------------------------------------------------------
+
+describe("detectToolHints — İngilizce", () => {
+  it("fiyat sorusunu yakalar", () => {
+    for (const q of [
+      "How much is this room?",
+      "What is the price per night?",
+      "What are your rates?",
+      "Is it expensive?",
+      "nightly cost please",
+    ]) {
+      expect(detectToolHints(q).needsPriceTool, q).toBe(true);
+    }
+  });
+
+  it("fact sorusunu yakalar", () => {
+    for (const q of [
+      "What is your cancellation policy?",
+      "Do you allow pets?",
+      "Is there parking?",
+      "Do you have wifi?",
+      "What amenities are included?",
+      "Is breakfast included?",
+    ]) {
+      expect(detectToolHints(q).needsFactTool, q).toBe(true);
+    }
+  });
+
+  it("room + politika kalıbını yakalar", () => {
+    expect(detectToolHints("what is the room capacity?").needsFactTool).toBe(true);
+    expect(detectToolHints("room cancellation terms").needsFactTool).toBe(true);
+  });
+
+  it("alakasız İngilizce soruda tool zorlamaz", () => {
+    const hints = detectToolHints("Is the sea warm in August?");
+    expect(hints.needsPriceTool).toBe(false);
+    expect(hints.needsFactTool).toBe(false);
+  });
+
+  it("Türkçe davranışı korunur", () => {
+    expect(detectToolHints("gecelik fiyat ne kadar?").needsPriceTool).toBe(true);
+    expect(detectToolHints("iptal politikanız nedir?").needsFactTool).toBe(true);
+    expect(detectToolHints("deniz sıcak mı?").needsPriceTool).toBe(false);
+  });
+});

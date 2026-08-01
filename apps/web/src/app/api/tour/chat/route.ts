@@ -26,7 +26,7 @@ import { trackEvent } from "@/lib/analytics";
 import { checkAiBudget } from "@/lib/ai/budget";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { apiRateLimited, apiNotFound, apiServiceUnavailable } from "@/lib/api-response";
-import { streamText, tool, type ModelMessage } from "ai";
+import { stepCountIs, streamText, tool, type ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 
 // Vercel fonksiyon üst sınırı — takılı bir OpenAI stream'i fonksiyonu
@@ -34,6 +34,8 @@ import { createOpenAI } from "@ai-sdk/openai";
 // AbortSignal.timeout ile daha erken (45s) kesilir.
 export const maxDuration = 60;
 const STREAM_TIMEOUT_MS = 45_000;
+/** Tool çağrısı + ardından anlatım için 2 adım yeterli (bkz. stopWhen). */
+const MAX_MODEL_STEPS = 2;
 
 // ---------------------------------------------------------------------------
 // Request schema
@@ -218,13 +220,20 @@ export function buildSystemPrompt(req: AuthoritativeContext): string {
       ? "\n- Otel ifadeleri ve politikalar her zaman orijinal dilinde (Türkçe) gösterilir; sen yalnızca kısa çerçeve cümleni kullanıcının dilinde yaz, fact metnini çevirme."
       : "";
 
-  return `Sen ${persona}'sin — ${hotelName} otelinin sanal tur rehberisin.
+  // ---------------------------------------------------------------------
+  // SIRALAMA KASITLI: sağlayıcı prompt caching'i yalnızca SABİT ÖNEK için
+  // çalışır. Bir tur oturumu boyunca değişmeyen bloklar (persona, kurallar,
+  // adım listesi, oda listesi) başa; her istekte değişenler (dil, araç ipucu,
+  // ilerleme, bağlam, filtrelenmiş fact kataloğu) sona alınır. İçerik aynı,
+  // yalnızca sıra farklı — böylece aynı turdaki ardışık çağrılarda girdi
+  // token'larının büyük kısmı cache'ten gelir.
+  // ---------------------------------------------------------------------
+  const stablePrefix = `Sen ${persona}'sin — ${hotelName} otelinin sanal tur rehberisin.
 
 KARAKTERİN:
 - Sıcak, bilgili, samimi ama kısa konuş.
 - Her yanıtta MAKS 1-2 cümle yaz; ardından gerekirse araç çağır.
 - Birincil görev: henüz görülmemiş adımları nazikçe yönlendir; tur tamamlama öncelikli.
-- ${languageLine}${factSourceNote}
 
 KESİN KURALLAR — FİYAT VE FACT:
 - Serbest metinde ASLA fiyat, para birimi (₺/$/€), yüzde veya rakam yazma.
@@ -233,11 +242,21 @@ KESİN KURALLAR — FİYAT VE FACT:
 - citeFact sonucu kartta gösterilir; sen yalnızca kısa çerçeve cümlesi yaz.
 - "Otel ifadesi" etiketli bilgiler tesis sahibinin ifadesidir; doğrulanmış bilgi değildir — kart etiketine güven.
 - Bilmiyorsan uydurma; "Bu konuda otelden sizin için bilgi alabilirim." de.
-${toolHints ? `\n${toolHints}` : ""}
 
 TUR KURALLARI:
 - navigateTo'da sadece "Gezinebilir Adımlar" listesindeki stepId'leri kullan.
 - Aynı öneriyi 2 kez reddeden kullanıcıya o konuyu bir daha açma.
+
+GEZİNEBİLİR ADIMLAR:
+${stepsContext}
+
+ODALAR (getRoomPrice roomSlug):
+${roomBlock}`;
+
+  const dynamicSuffix = `DİL:
+- ${languageLine}${factSourceNote}
+${toolHints ? `\n${toolHints}\n` : ""}
+DURUM:
 - ${inquiryGate}
 - Tur ilerlemesi: ${completion.seenCount}/${completion.totalCount} (%${progressPct}).
 - ${nextStepLine}
@@ -250,16 +269,12 @@ MEVCUT BAĞLAM:
 - Henüz görülmeyenler: ${stepsNotSeen.length ? stepsNotSeen.join(", ") : "(hepsi gezildi)"}
 - Otomatik tur: ${isAutoTour ? "AKTİF" : "pasif"}
 
-GEZİNEBİLİR ADIMLAR:
-${stepsContext}
-
-ODALAR (getRoomPrice roomSlug):
-${roomBlock}
-
 FACT KATALOĞU (citeFact factId):
 ${catalogBlock}
 
 Önce kısa cümle, sonra getRoomPrice veya citeFact çağır.`;
+
+  return `${stablePrefix}\n\n${dynamicSuffix}`;
 }
 
 /**
@@ -603,7 +618,17 @@ export async function POST(req: Request) {
     // kullanıcıya geri dönüş mesajı gösterir.
     abortSignal: AbortSignal.timeout(STREAM_TIMEOUT_MS),
     maxRetries: 1,
+    // SDK varsayılanı stepCountIs(1): tool çalıştığı anda üretim durur, model
+    // sonucu GÖRMEDEN biter. O zaman kullanıcıya çıplak bir fiyat/fact kartı
+    // düşer — oysa tasarım "kısa çerçeve cümlesi + kart" istiyor. İki adım,
+    // modele tool sonucundan sonra konuşma hakkı verir.
+    //
+    // 2 ile sınırlı: her ek adım yeni bir model çağrısı (ve sistem prompt'u)
+    // demek. Günlük bütçe tavanı (checkAiBudget) zaten üstte, ama gereksiz
+    // adım maliyeti doğrudan artırır.
+    stopWhen: stepCountIs(MAX_MODEL_STEPS),
     prepareStep: ({ stepNumber }) => {
+      // Yalnızca ilk adımda tool zorlanır; ikinci adım serbest metin içindir.
       if (stepNumber > 0) return {};
       const toolChoice = decideToolChoice(toolHints, toolFlags);
       return toolChoice ? { toolChoice } : {};
