@@ -152,10 +152,14 @@ describe("useTourGuide — onToolCall yan etkileri", () => {
   });
 
   it("autoTourNext gecikmeden sonra onNavigate'i sunucunun nextStepId'siyle çağırır", async () => {
-    const { onNavigate } = setup();
+    const { onNavigate, result } = setup();
     await act(async () => {
       await vi.runOnlyPendingTimersAsync();
     });
+    // autoTourNext yalnızca otomatik tur aktifken ilerletir (plan: "Sadece
+    // isAutoTour=true iken kullan") — önce turu başlat.
+    act(() => result.current.startAutoTour());
+    onNavigate.mockClear();
 
     act(() => {
       mocks.onToolCallRef.current?.({
@@ -169,6 +173,45 @@ describe("useTourGuide — onToolCall yan etkileri", () => {
     });
     // currentStep s1 -> sunucu nextStepId s2'yi döner (stepsSeen ["s1"])
     expect(onNavigate).toHaveBeenCalledWith("s2");
+  });
+
+  it("otomatik tur KAPALIYKEN autoTourNext videoyu kaçırmaz", async () => {
+    const { onNavigate } = setup();
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+
+    act(() => {
+      mocks.onToolCallRef.current?.({
+        toolCall: { toolName: "autoTourNext", input: { stepId: "s2", delayMs: 100 } },
+      });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(onNavigate).not.toHaveBeenCalled();
+  });
+
+  it("tur durdurulduktan sonra bekleyen autoTourNext ilerletmez", async () => {
+    const { onNavigate, result } = setup();
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+    act(() => result.current.startAutoTour());
+    onNavigate.mockClear();
+
+    act(() => {
+      mocks.onToolCallRef.current?.({
+        toolCall: { toolName: "autoTourNext", input: { stepId: "s2", delayMs: 500 } },
+      });
+    });
+    // Gecikme dolmadan kullanıcı "Durdur" der.
+    act(() => result.current.stopAutoTour());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(onNavigate).not.toHaveBeenCalled();
   });
 
   it("endAutoTour otomatik turu durdurur ve onAutoTourEnd çağırır", async () => {
@@ -391,5 +434,82 @@ describe("resolveAutoTourTargetStepId", () => {
 
   it("sunucu nextStepId yoksa model adımını kullanır", () => {
     expect(resolveAutoTourTargetStepId("s3", null)).toBe("s3");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AI–video senkronu: adım başına TEK anlatım
+//
+// Otomatik turda adımı AI ilerletir ve o yanıtla birlikte zaten narasyon yazar.
+// Adım değişiminin ayrıca stepStart tetiklemesi ikinci bir anlatım demekti —
+// token maliyeti iki katına çıkıyor ve ikinci mesaj yeni video oynarken düşüyordu.
+// ---------------------------------------------------------------------------
+
+describe("useTourGuide — adım başına tek anlatım", () => {
+  it("AI'ın ilerlettiği adımda stepStart tetiklenmez", async () => {
+    const { result } = setup();
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+    act(() => result.current.startAutoTour());
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+    mocks.sendMessageMock.mockClear();
+
+    // AI "s2"ye geçiriyor…
+    act(() => {
+      mocks.onToolCallRef.current?.({
+        toolCall: { toolName: "navigateTo", input: { stepId: "s2" } },
+      });
+    });
+    // …ve oynatıcı adım değişimini bildiriyor.
+    act(() => result.current.notifyStepStart("s2"));
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+
+    expect(mocks.sendMessageMock).not.toHaveBeenCalled();
+  });
+
+  it("kullanıcı elle geçtiğinde stepStart tetiklenir", async () => {
+    const { result } = setup();
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+    mocks.sendMessageMock.mockClear();
+
+    act(() => result.current.notifyStepStart("s2"));
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+
+    expect(mocks.sendMessageMock).toHaveBeenCalled();
+  });
+
+  it("AI geçişinden sonraki İKİNCİ adımda tekrar tetiklenir (bayrak tek sefer)", async () => {
+    const { result } = setup();
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+    act(() => result.current.startAutoTour());
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+
+    act(() => {
+      mocks.onToolCallRef.current?.({
+        toolCall: { toolName: "navigateTo", input: { stepId: "s2" } },
+      });
+    });
+    act(() => result.current.notifyStepStart("s2"));
+    mocks.sendMessageMock.mockClear();
+
+    // Kullanıcı bundan sonra elle başka adıma geçerse anlatım yeniden gelmeli.
+    act(() => result.current.notifyStepStart("s1"));
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+    expect(mocks.sendMessageMock).toHaveBeenCalled();
   });
 });

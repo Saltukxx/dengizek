@@ -8,8 +8,7 @@ import {
   IconRulerMeasure,
   IconUsers,
 } from "@tabler/icons-react";
-import { getDemoTourManifest } from "@/lib/mocks/hotels";
-import { getPublishedRoom } from "@/lib/hotels-repo";
+import { getPublishedRoom, getPublishedTours, pickTourForRoom } from "@/lib/hotels-repo";
 import { resolveGuestRoomPrice } from "@/lib/guest-pricing";
 import {
   applyDiscount,
@@ -38,8 +37,9 @@ export default async function RoomPage({ params }: PageProps) {
   const data = await getPublishedRoom(slug, roomSlug);
   if (!data) notFound();
   const { hotel, room, promotions, ratePlanPrices } = data;
-  const hasDemoTour = slug === "aurelia-bay" && getDemoTourManifest("aurelia-bay", "demo-lobby");
-  const tourId = "demo-lobby";
+  // Bu odaya ait yayımlanmış tur varsa onu, yoksa tesisin genel turunu aç.
+  // (Eskiden mock manifest üzerinden yalnızca demo oteli kontrol ediliyordu.)
+  const roomTour = pickTourForRoom(await getPublishedTours(slug), roomSlug);
 
   const features: { icon: typeof IconBed; label: string }[] = [];
   if (room.sizeSqm != null) features.push({ icon: IconRulerMeasure, label: `${room.sizeSqm} m²` });
@@ -447,9 +447,9 @@ export default async function RoomPage({ params }: PageProps) {
             flexShrink: 0,
           }}
         >
-          {hasDemoTour && (
+          {roomTour && (
             <Link
-              href={`/tours/${slug}/${tourId}?room=${roomSlug}`}
+              href={`/tours/${slug}/${roomTour.tourId}?room=${roomSlug}`}
               className="luxury-gold-button"
               style={{ borderRadius: 2, justifyContent: "center" }}
             >

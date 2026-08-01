@@ -39,18 +39,19 @@ export async function GET(req: Request) {
     return apiFail("hotelSlug ve tourId gerekli.", 400);
   }
 
-  // İmzalama kapalıysa yenilenecek bir şey yok — istemci de denememeli.
-  if (!isBunnySigningConfigured()) {
-    return apiOk({ signing: false, sources: {}, mediaTokenExpiresAt: null });
-  }
-
-  // Otel hâlâ misafire görünür mü? (askıya alınmışsa token üretme)
+  // Varlık kontrolü imzalama açık/kapalı fark etmeksizin yapılır — sözleşme
+  // tek biçimli kalsın: olmayan/askıdaki tur her durumda 404.
   const hotel = await getPublishedHotelBySlug(hotelSlug);
   if (!hotel) return apiNotFound("Tur bulunamadı.");
 
   // getPublishedManifest zaten imzalı döner; kaynak haritasını ondan çıkarırız.
   const manifest = await getPublishedManifest(hotelSlug, tourId);
   if (!manifest) return apiNotFound("Tur bulunamadı.");
+
+  // İmzalama kapalıysa yenilenecek bir şey yok — istemci de denememeli.
+  if (!isBunnySigningConfigured()) {
+    return apiOk({ signing: false, sources: {}, mediaTokenExpiresAt: null });
+  }
 
   const { sources, mediaTokenExpiresAt } = buildSignedSourceMap(manifest);
   return apiOk({ signing: true, sources, mediaTokenExpiresAt });

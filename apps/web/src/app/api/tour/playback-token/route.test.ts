@@ -89,12 +89,17 @@ describe("GET /api/tour/playback-token", () => {
     expect((await GET(req("tourId=demo"))).status).toBe(400);
   });
 
-  it("imzalama kapalıyken signing:false döner ve otel sorgulanmaz", async () => {
+  it("imzalama kapalıyken signing:false döner", async () => {
     delete process.env.BUNNY_CDN_TOKEN_KEY;
     const res = await GET(req());
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({ signing: false, mediaTokenExpiresAt: null });
-    expect(getPublishedHotelBySlugMock).not.toHaveBeenCalled();
+  });
+
+  it("imzalama kapalı olsa da olmayan turda 404 döner (tek biçimli sözleşme)", async () => {
+    delete process.env.BUNNY_CDN_TOKEN_KEY;
+    getPublishedManifestMock.mockResolvedValue(undefined);
+    expect((await GET(req())).status).toBe(404);
   });
 
   it("hız limiti aşılırsa 429", async () => {

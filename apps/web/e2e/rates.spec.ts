@@ -48,17 +48,37 @@ test.describe("Dönemsel fiyatlar", () => {
       timeout: 20_000,
     });
 
-    // Temizlik — eklenen dönem kaydedince tarihe göre sona sıralanır
-    await expect(page.getByLabel("Dönem adı").last()).toHaveValue(rateName, {
-      timeout: 10_000,
-    });
+    // Temizlik — satırı BENZERSİZ ADIYLA bul. `.last()` kırılgandı: önceki
+    // koşudan kalan bir satır varsa yanlış satıra denk gelip testi düşürüyor,
+    // temizlik çalışmadığı için artık büyüyordu (kartopu etkisi).
+    const savedInput = page.locator(`input[value="${rateName}"]`);
+    await expect(savedInput).toHaveCount(1, { timeout: 10_000 });
     const savedRow = page
       .locator(".mantine-Paper-root")
-      .filter({ has: page.getByLabel("Dönem adı") })
+      .filter({ has: savedInput })
       .last();
     await savedRow.locator("button:has(svg.tabler-icon-trash)").click();
-    await page.getByRole("button", { name: "Dönemleri kaydet" }).click();
-    await expect(page.getByText("Dönemsel fiyatlar kaydedildi.").last()).toBeVisible({
+    // Silme kaydedilmeden önce satır formdan kalkmış olmalı.
+    await expect(savedInput).toHaveCount(0, { timeout: 10_000 });
+
+    // PUT'un TAMAMLANMASINI bekle. Beklemeden sayfayı yenilemek (ya da testi
+    // bitirmek) uçuştaki isteği iptal ediyor; eski hâlinde test yalnızca
+    // ekleme adımından kalan toast'ı görüp geçiyor ve DB'de artık satır
+    // bırakıyordu.
+    const [deleteResponse] = await Promise.all([
+      page.waitForResponse(
+        (r) => r.url().includes("/rates") && r.request().method() === "PUT",
+        { timeout: 20_000 },
+      ),
+      page.getByRole("button", { name: "Dönemleri kaydet" }).click(),
+    ]);
+    expect(deleteResponse.ok()).toBe(true);
+
+    // Toast'a bakmak yetmez — ekleme adımından kalan toast da eşleşir.
+    // Sayfayı tazeleyip satırın GERÇEKTEN gittiğini doğrula.
+    await page.reload();
+    await card.locator("button:has(svg.tabler-icon-pencil)").click();
+    await expect(page.locator(`input[value="${rateName}"]`)).toHaveCount(0, {
       timeout: 20_000,
     });
   });

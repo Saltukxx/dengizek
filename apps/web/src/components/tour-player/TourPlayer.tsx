@@ -59,6 +59,8 @@ const GUIDE_PEEK_HEIGHT = 210;
 
 type TourPlayerProps = {
   manifest: TourManifest;
+  /** ?room= bağlamı — AI oda belirtmediğinde talep formu bununla doldurulur. */
+  contextRoomSlug?: string;
   backHref: string;
   backLabel?: string;
   onStepChange?: (index: number) => void;
@@ -67,6 +69,7 @@ type TourPlayerProps = {
 
 export function TourPlayer({
   manifest,
+  contextRoomSlug,
   backHref,
   backLabel = "Otele dön",
   onStepChange,
@@ -174,7 +177,9 @@ export function TourPlayer({
         tour: manifest.tourId,
         source: fromAi ? "tour_ai" : "tour_player",
       });
-      if (roomSlug) params.set("room", roomSlug);
+      // AI bir oda belirtmediyse, tura hangi odadan gelindiyse o kullanılır.
+      const inquiryRoom = roomSlug ?? contextRoomSlug;
+      if (inquiryRoom) params.set("room", inquiryRoom);
       const step = currentStep?.stepId;
       if (step) params.set("step", step);
       router.push(`/inquiry?${params.toString()}`);

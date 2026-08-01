@@ -151,6 +151,14 @@ export function useTourGuide({
   const trackedToolMessageIdsRef = useRef(new Set<string>());
   const trackedOpenInquiryMessageIdsRef = useRef(new Set<string>());
   const tourStartTrackedRef = useRef(false);
+  /**
+   * Otomatik turda adımı AI'ın kendisi ilerletir ve bunu yaparken zaten
+   * narasyon yazar. Adım değişince ayrıca "stepStart" tetiklenirse aynı adım
+   * için İKİNCİ bir anlatım gelir — hem token maliyeti ikiye katlanır hem de
+   * ikinci mesaj yeni video çoktan oynarken düşer. Bu ref, AI'ın yönlendirdiği
+   * adım geçişini işaretler; o adımın stepStart'ı bir kez atlanır.
+   */
+  const aiDrivenStepIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     stepsSeenRef.current = stepsSeen;
@@ -227,17 +235,25 @@ export function useTourGuide({
       const { toolName, input } = toolCall;
 
       switch (toolName) {
-        case "navigateTo":
-          onNavigate((input as { stepId: string }).stepId);
+        case "navigateTo": {
+          const { stepId } = input as { stepId: string };
+          aiDrivenStepIdRef.current = stepId;
+          onNavigate(stepId);
           break;
+        }
         case "openInquiry":
           break;
         case "autoTourNext": {
+          // Otomatik tur kapalıysa ilerletme — kullanıcı "Durdur" demiş
+          // olabilir ya da model bu aracı bağlam dışı çağırmış olabilir.
+          if (!isAutoTourRef.current) break;
           const { stepId, delayMs } = input as { stepId: string; delayMs: number };
           const meta = getCompletionMeta(currentStepRef.current?.stepId);
           const targetStepId = resolveAutoTourTargetStepId(stepId, meta.nextStepId);
           autoTourTimerRef.current = setTimeout(() => {
-            if (!isMountedRef.current) return;
+            // Gecikme boyunca kullanıcı turu durdurmuş olabilir — tekrar bak.
+            if (!isMountedRef.current || !isAutoTourRef.current) return;
+            aiDrivenStepIdRef.current = targetStepId;
             onNavigate(targetStepId);
           }, delayMs || 2000);
           break;
@@ -459,6 +475,12 @@ export function useTourGuide({
         firstStepStartSkippedRef.current = true;
         return;
       }
+      // Bu adıma AI'ın kendisi geçirdiyse (navigateTo / autoTourNext) narasyon
+      // o yanıtla birlikte zaten geldi — ikinci kez anlattırma.
+      if (aiDrivenStepIdRef.current === stepId) {
+        aiDrivenStepIdRef.current = null;
+        return;
+      }
       void trigger("stepStart", undefined, stepId);
     },
     [resetIdleTimer, trigger],
@@ -491,6 +513,9 @@ export function useTourGuide({
     const firstVisibleStep = visibleSteps(manifest)[0];
 
     if (firstVisibleStep) {
+      // Karşılama narasyonunu aşağıdaki tourStart üretir; adım değişiminin
+      // ayrıca stepStart tetiklemesi ikinci bir mesaj demek olurdu.
+      aiDrivenStepIdRef.current = firstVisibleStep.stepId;
       onNavigate(firstVisibleStep.stepId);
       void trackEvent(
         "tour_auto_start",
@@ -503,6 +528,9 @@ export function useTourGuide({
 
   const stopAutoTour = useCallback(() => {
     if (autoTourTimerRef.current) clearTimeout(autoTourTimerRef.current);
+    // Bekleyen autoTourNext yanıtı turu yeniden başlatmasın (yukarıdaki
+    // clearTimeout + onToolCall'daki isAutoTour koruması birlikte çalışır).
+    aiDrivenStepIdRef.current = null;
     setIsAutoTour(false);
     isAutoTourRef.current = false;
     void trackEvent(

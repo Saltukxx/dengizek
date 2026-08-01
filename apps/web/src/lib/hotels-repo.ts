@@ -904,3 +904,67 @@ export async function getPublishedReviews(slug: string): Promise<GuestReviewSumm
     return emptyReviewSummary;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Yayımlanmış turlar — misafir tarafı tur giriş noktaları.
+//
+// Görünürlük getPublishedManifest ile aynı kuralı izler: publishedManifest
+// varlığı yeter (status değil), böylece yeni sürümü incelemedeki tur da
+// oynatılabilir kalır. Otelin kendisi askıdaysa hiç tur dönmez.
+// ---------------------------------------------------------------------------
+
+export interface PublishedTourSummary {
+  tourId: string;
+  title: string;
+  /** Doluysa bu tur o oda tipine aittir (manifest.roomSlug). */
+  roomSlug: string | null;
+}
+
+export async function getPublishedTours(hotelSlug: string): Promise<PublishedTourSummary[]> {
+  if (!isDbAvailable()) return [];
+  try {
+    const { getDb } = await import("@/lib/db");
+    const { hotelsTable, toursTable } = await import("@/lib/db/schema");
+    const { and, eq, isNotNull, asc } = await import("drizzle-orm");
+    const { guestVisibleHotelBySlugWhere } = await import("@/lib/hotel-visibility");
+
+    const rows = await getDb()
+      .select({
+        tourId: toursTable.tourId,
+        title: toursTable.title,
+        publishedManifest: toursTable.publishedManifest,
+      })
+      .from(toursTable)
+      .innerJoin(hotelsTable, eq(hotelsTable.slug, toursTable.hotelSlug))
+      .where(
+        and(
+          guestVisibleHotelBySlugWhere(hotelSlug),
+          eq(toursTable.hotelSlug, hotelSlug),
+          isNotNull(toursTable.publishedManifest),
+        ),
+      )
+      .orderBy(asc(toursTable.createdAt));
+
+    return rows.map((r) => ({
+      tourId: r.tourId,
+      title: r.title,
+      roomSlug:
+        (r.publishedManifest as { roomSlug?: string } | null)?.roomSlug ?? null,
+    }));
+  } catch (err) {
+    // Tur listesi ikincil — otel sayfasını düşürmemeli.
+    console.warn("[hotels-repo] Tur listesi sorgusu başarısız:", err);
+    return [];
+  }
+}
+
+/**
+ * Bir oda için en uygun turu seçer: önce o odaya ait tur, yoksa genel
+ * (roomSlug'suz) tur. Hiç tur yoksa undefined.
+ */
+export function pickTourForRoom(
+  tours: PublishedTourSummary[],
+  roomSlug: string,
+): PublishedTourSummary | undefined {
+  return tours.find((t) => t.roomSlug === roomSlug) ?? tours.find((t) => t.roomSlug == null);
+}

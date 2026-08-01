@@ -16,6 +16,7 @@ import {
   getPublishedHotelBySlug,
   getPublishedHotelContent,
   getPublishedReviews,
+  getPublishedTours,
 } from "@/lib/hotels-repo";
 import { AmenitiesSection } from "@/components/guest/amenities-section";
 import { AvailabilitySection } from "@/components/guest/availability-section";
@@ -57,10 +58,13 @@ export default async function HotelPage({ params }: PageProps) {
   if (!hotel) notFound();
 
   // Panelde tanımlanan içerik (DB yoksa boş döner — mock akışı bozulmaz)
-  const [content, reviews] = await Promise.all([
+  const [content, reviews, tours] = await Promise.all([
     getPublishedHotelContent(slug),
     getPublishedReviews(slug),
+    getPublishedTours(slug),
   ]);
+  // Otelin genel turu (oda turu olmayan ilk tur); yoksa ilk tur.
+  const featuredTour = tours.find((t) => t.roomSlug == null) ?? tours[0];
 
   if (slug !== "aurelia-bay") {
     return (
@@ -79,6 +83,18 @@ export default async function HotelPage({ params }: PageProps) {
             <p style={{ maxWidth: 680, color: "var(--lux-muted)", fontSize: 18, lineHeight: 1.7 }}>
               {hotel.longDescription}
             </p>
+            {/* Yayımlanmış turu olan her tesis için giriş noktası — eskiden
+                yalnızca demo oteline sabitlenmişti. */}
+            {featuredTour && (
+              <Link
+                href={`/tours/${slug}/${featuredTour.tourId}`}
+                className="luxury-gold-button"
+                style={{ marginTop: 28 }}
+              >
+                <IconView360 size={20} />
+                Video Tura Başla
+              </Link>
+            )}
           </div>
         </section>
         <RoomsSection
@@ -255,14 +271,16 @@ export default async function HotelPage({ params }: PageProps) {
           >
             Zamanın durduğu, doğanın ve lüksün kusursuz bir uyum içinde dans ettiği o saklı koya hoş geldiniz.
           </p>
-          <Link
-            href="/tours/aurelia-bay/demo-lobby"
-            className="luxury-gold-button"
-            style={{ marginTop: 52 }}
-          >
-            <IconView360 size={20} />
-            Sanal Turu Deneyimle
-          </Link>
+          {featuredTour && (
+            <Link
+              href={`/tours/${slug}/${featuredTour.tourId}`}
+              className="luxury-gold-button"
+              style={{ marginTop: 52 }}
+            >
+              <IconView360 size={20} />
+              Sanal Turu Deneyimle
+            </Link>
+          )}
         </div>
       </section>
 
@@ -353,7 +371,7 @@ export default async function HotelPage({ params }: PageProps) {
         ].map(([label, Icon], index) => (
           <Link
             key={String(label)}
-            href={index === 1 ? "/tours/aurelia-bay/demo-lobby" : "#top"}
+            href={index === 1 && featuredTour ? `/tours/${slug}/${featuredTour.tourId}` : "#top"}
             style={{
               display: "flex",
               flexDirection: "column",
