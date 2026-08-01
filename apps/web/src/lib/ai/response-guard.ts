@@ -22,23 +22,27 @@ export function textContainsPriceLikeContent(text: string): boolean {
   return PRICE_PATTERNS.some((re) => re.test(text));
 }
 
-const PRICE_KEYWORDS = ["fiyat", "kaç para", "gecelik", "ne kadar", "ücret", "ucret", "tl", "€", "$"];
+// Anahtar kelimeler TR + EN: motor İngilizce yanıt verebiliyor
+// (bkz. language-detect), dolayısıyla araç yönlendirmesi de İngilizce
+// sorularda çalışmalı. Aksi halde EN misafirde tool zorlanmaz, model serbest
+// metinde rakam yazar ve aşağıdaki guard mesajı ortasından keser.
+const PRICE_KEYWORDS = [
+  // TR
+  "fiyat", "kaç para", "gecelik", "ne kadar", "ücret", "ucret", "tl", "€", "$",
+  // EN
+  "price", "cost", "how much", "rate", "per night", "nightly", "fee", "charge",
+  "expensive", "cheap", "budget",
+];
+
 const FACT_KEYWORDS = [
-  "iptal",
-  "evcil",
-  "check-in",
-  "check-out",
-  "check in",
-  "politika",
-  "olanak",
-  "restoran",
-  "oda fiyat",
-  "oda tipi",
-  "oda özellik",
-  "oda ozellik",
-  "kapasite",
-  "adres",
-  "telefon",
+  // TR
+  "iptal", "evcil", "check-in", "check-out", "check in", "politika", "olanak",
+  "restoran", "oda fiyat", "oda tipi", "oda özellik", "oda ozellik", "kapasite",
+  "adres", "telefon",
+  // EN
+  "cancel", "refund", "pet", "policy", "policies", "amenit", "facilit",
+  "restaurant", "breakfast", "capacity", "address", "phone", "contact",
+  "wifi", "parking", "check out",
 ];
 
 export interface ToolHints {
@@ -46,20 +50,21 @@ export interface ToolHints {
   needsFactTool: boolean;
 }
 
+/** "oda/room" + politika-benzeri sözcük → fact sorusu (TR ve EN). */
+function mentionsRoomFact(lower: string): boolean {
+  const mentionsRoom = /\boda\b/.test(lower) || /\brooms?\b/.test(lower);
+  if (!mentionsRoom) return false;
+  return [
+    "politika", "iptal", "özellik", "ozellik", "tipi", "kapasite",
+    "policy", "cancel", "feature", "type", "capacity", "size",
+  ].some((kw) => lower.includes(kw));
+}
+
 export function detectToolHints(userMessage: string): ToolHints {
   const lower = userMessage.toLowerCase();
-  const hasOdaFact =
-    /\boda\b/.test(lower) &&
-    (lower.includes("politika") ||
-      lower.includes("iptal") ||
-      lower.includes("özellik") ||
-      lower.includes("ozellik") ||
-      lower.includes("tipi") ||
-      lower.includes("kapasite"));
   return {
     needsPriceTool: PRICE_KEYWORDS.some((kw) => lower.includes(kw)),
-    needsFactTool:
-      FACT_KEYWORDS.some((kw) => lower.includes(kw)) || hasOdaFact,
+    needsFactTool: FACT_KEYWORDS.some((kw) => lower.includes(kw)) || mentionsRoomFact(lower),
   };
 }
 
