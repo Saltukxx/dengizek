@@ -34,6 +34,7 @@ import { applyDiscount, formatPrice, type Currency } from "@/lib/price";
 import { PriceInput, type PriceValue } from "./price-input";
 import { MediaPicker } from "./media-picker";
 import { useMyHotel } from "./use-my-hotel";
+import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 
 interface ExtraRow {
   id: string;
@@ -79,13 +80,15 @@ export function ExtrasManager() {
   const [extras, setExtras] = useState<ExtraRow[] | null>(null);
   const [editing, setEditing] = useState<{ id: string | null; form: ExtraForm } | null>(null);
   const [busy, setBusy] = useState(false);
+  const lock = usePanelRevision();
+  const setLockRevision = lock.setRevision;
 
   const reload = useCallback(async () => {
     if (!hotel) return;
     const res = await fetch(`/api/manager/hotels/${hotel.id}/extras`);
     const json = await res.json();
-    if (json.ok) setExtras(json.extras);
-  }, [hotel]);
+    if (json.ok) { setExtras(json.extras); setLockRevision(json.revision); }
+  }, [hotel, setLockRevision]);
 
   useEffect(() => {
     void reload();
@@ -124,10 +127,11 @@ export function ExtrasManager() {
     const res = await fetch(url, {
       method: editing.id ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, expectedRevision: lock.revision }),
     });
     const json = await res.json();
     setBusy(false);
+    if (lock.consumeResponse(json)) return;
     if (json.ok) {
       notifications.show({
         color: "green",
@@ -144,8 +148,11 @@ export function ExtrasManager() {
     if (!hotel) return;
     const res = await fetch(`/api/manager/hotels/${hotel.id}/extras/${extra.id}`, {
       method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expectedRevision: lock.revision }),
     });
     const json = await res.json();
+    if (lock.consumeResponse(json)) return;
     if (json.ok) {
       notifications.show({ color: "gray", message: "Hizmet silindi." });
       void reload();
@@ -161,11 +168,12 @@ export function ExtrasManager() {
     const next = [...extras];
     [next[index], next[target]] = [next[target], next[index]];
     setExtras(next);
-    await fetch(`/api/manager/hotels/${hotel.id}/extras/reorder`, {
+    const res = await fetch(`/api/manager/hotels/${hotel.id}/extras/reorder`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sirali: next.map((x) => x.id) }),
+      body: JSON.stringify({ sirali: next.map((x) => x.id), expectedRevision: lock.revision }),
     });
+    lock.consumeResponse(await res.json());
   }
 
   const f = editing?.form;
@@ -428,6 +436,11 @@ export function ExtrasManager() {
           </Stack>
         )}
       </Modal>
+      <PanelRevisionConflictModal
+        conflict={lock.conflict}
+        onKeepLocal={lock.keepLocalDraft}
+        onLoadLatest={async () => { setEditing(null); await reload(); lock.clearConflict(); }}
+      />
     </Stack>
   );
 }

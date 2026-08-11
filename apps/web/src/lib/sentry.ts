@@ -23,6 +23,13 @@ const SENSITIVE_PATH_PATTERNS: [RegExp, string][] = [
   [/\/api\/ical\/export\/[^/?#]+/gi, "/api/ical/export/[token]"],
 ];
 
+const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+
+/** Hata mesajlarında veya breadcrumb'larda kalmış e-posta ve URL sırlarını temizler. */
+export function scrubText(raw: string): string {
+  return scrubUrl(raw).replace(EMAIL_PATTERN, "[e-posta]");
+}
+
 /** URL'deki hassas yol parçalarını ve query değerlerini maskeler. */
 export function scrubUrl(raw: string): string {
   let out = raw;
@@ -55,6 +62,21 @@ export function scrubEvent(event: ErrorEvent): ErrorEvent {
   if (event.request) {
     delete event.request.cookies;
     delete event.request.headers;
+    delete event.request.data;
+  }
+  // Kullanıcı nesnesi, sendDefaultPii=false olsa bile uygulama kodu tarafından
+  // elle eklenmiş olabilir. Hata takibi için kimlik bilgisine ihtiyacımız yok.
+  delete event.user;
+  if (event.message) event.message = scrubText(event.message);
+  if (event.logentry?.message) event.logentry.message = scrubText(event.logentry.message);
+  for (const value of event.exception?.values ?? []) {
+    if (value.value) value.value = scrubText(value.value);
+  }
+  for (const breadcrumb of event.breadcrumbs ?? []) {
+    if (breadcrumb.message) breadcrumb.message = scrubText(breadcrumb.message);
+    if (typeof breadcrumb.data?.url === "string") {
+      breadcrumb.data.url = scrubUrl(breadcrumb.data.url);
+    }
   }
   return event;
 }
@@ -70,6 +92,7 @@ export async function initSentryServer(): Promise<void> {
   Sentry.init({
     dsn: process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN,
     environment: process.env.NODE_ENV,
+    release: process.env.SENTRY_RELEASE ?? process.env.NEXT_PUBLIC_SENTRY_RELEASE,
     // PII toplamıyoruz — hata ayıklama için gerekmiyor, GDPR yüzeyini büyütür.
     sendDefaultPii: false,
     tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? 0),

@@ -14,6 +14,7 @@ import { tourStepsTable, toursTable } from "@/lib/db/schema";
 import { stepsBulkSaveSchema } from "@/lib/schemas/tour-editor";
 import type { TourStep } from "@/lib/schemas/tour-manifest";
 import { withTransaction } from "@/lib/db/transaction";
+import { revisionConflictResponse } from "@/lib/panel-revision";
 
 type RouteParams = { params: Promise<{ hotelId: string; tourId: string }> };
 
@@ -179,8 +180,8 @@ export async function PUT(req: Request, { params }: RouteParams) {
     return updatedTour;
   });
   if (!result) {
-    const [latest] = await db.select({ draftRevision: toursTable.draftRevision }).from(toursTable).where(eq(toursTable.id, tour.id)).limit(1);
-    return NextResponse.json({ ok: false, code: "REVISION_CONFLICT", currentRevision: latest?.draftRevision }, { status: 409 });
+    const [latest] = await db.select({ draftRevision: toursTable.draftRevision, updatedAt: toursTable.updatedAt }).from(toursTable).where(eq(toursTable.id, tour.id)).limit(1);
+    return revisionConflictResponse(latest?.draftRevision, latest?.updatedAt);
   }
 
   // Not: burada fact-cache temizliği YAPILMAZ — bu rota tur adımlarının

@@ -197,6 +197,23 @@ export const hotelMembersTable = pgTable("hotel_members", {
 }));
 
 // ---------------------------------------------------------------------------
+// hotel_panel_revisions — birbirinden bağımsız yönetim paneli kilitleri
+// ---------------------------------------------------------------------------
+
+export const hotelPanelRevisionsTable = pgTable("hotel_panel_revisions", {
+  id:        uuid("id").defaultRandom().primaryKey(),
+  hotelId:   uuid("hotel_id").notNull().references(() => hotelsTable.id, { onDelete: "cascade" }),
+  scope:     text("scope").notNull(),
+  revision:  integer("revision").default(1).notNull(),
+  updatedBy: uuid("updated_by").references(() => usersTable.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  hotelScopeUnique: uniqueIndex("hotel_panel_revisions_hotel_scope_unique")
+    .on(table.hotelId, table.scope),
+  hotelIdx: index("hotel_panel_revisions_hotel_idx").on(table.hotelId),
+}));
+
+// ---------------------------------------------------------------------------
 // tours — tur üst kaydı + yayın anlık görüntüsü (snapshot)
 // tour_steps her zaman "çalışma kopyası"dır; admin onayında manifest
 // publishedManifest alanına dondurulur ve misafir oynatıcı yalnızca onu okur.
@@ -932,6 +949,7 @@ export type Restaurant  = typeof restaurantsTable.$inferSelect;
 export type Extra       = typeof extrasTable.$inferSelect;
 export type User        = typeof usersTable.$inferSelect;
 export type HotelMember = typeof hotelMembersTable.$inferSelect;
+export type HotelPanelRevision = typeof hotelPanelRevisionsTable.$inferSelect;
 export type Tour        = typeof toursTable.$inferSelect;
 export type MediaAsset  = typeof mediaAssetsTable.$inferSelect;
 export type Inquiry     = typeof inquiriesTable.$inferSelect;

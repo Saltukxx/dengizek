@@ -9,8 +9,14 @@ import { getDb } from "@/lib/db";
 import { roomRatesTable, roomsTable } from "@/lib/db/schema";
 import { roomUpsertSchema } from "@/lib/schemas/hotel-content";
 import { logAudit } from "@/lib/audit";
-import { withTransaction } from "@/lib/db/transaction";
 import { seedRoomInventory } from "@/lib/inventory-seed";
+import {
+  expectedRevisionRequiredResponse,
+  getPanelRevision,
+  panelRevisionConflictResponse,
+  readExpectedRevision,
+  runPanelMutation,
+} from "@/lib/panel-revision";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -39,9 +45,16 @@ export async function GET(_req: Request, { params }: RouteParams) {
     ratesByRoom.set(rate.roomId, list);
   }
 
+  const [revision, seasonalRatesRevision] = await Promise.all([
+    getPanelRevision(db, guard.hotel.id, "rooms"),
+    getPanelRevision(db, guard.hotel.id, "seasonal_rates"),
+  ]);
+
   return NextResponse.json({
     ok: true,
     rooms: rooms.map((r) => ({ ...r, rates: ratesByRoom.get(r.id) ?? [] })),
+    revision: revision.revision,
+    seasonalRatesRevision: seasonalRatesRevision.revision,
   });
 }
 
@@ -51,6 +64,8 @@ export async function POST(req: Request, { params }: RouteParams) {
   if (guard.response) return guard.response;
 
   const body = await req.json().catch(() => null);
+  const expectedRevision = readExpectedRevision(body);
+  if (!expectedRevision) return expectedRevisionRequiredResponse();
   const parsed = roomUpsertSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -59,25 +74,27 @@ export async function POST(req: Request, { params }: RouteParams) {
     );
   }
 
-  const db = getDb();
-
-  // Yeni oda listenin sonuna eklenir
-  const existing = await db
-    .select({ orderIndex: roomsTable.orderIndex })
-    .from(roomsTable)
-    .where(eq(roomsTable.hotelId, guard.hotel.id));
-  const nextOrder = existing.reduce((max, r) => Math.max(max, r.orderIndex + 1), 0);
-
   try {
-    const room = await withTransaction(async (tx) => {
-      const [created] = await tx.insert(roomsTable).values({
-        ...parsed.data,
-        imageUrl: parsed.data.imageUrl || null,
-        hotelId: guard.hotel.id,
-        orderIndex: nextOrder,
-      }).returning();
-      await seedRoomInventory(tx, guard.hotel.id, created.id, created.unitCount);
-      return created;
+    const { result: room, revision } = await runPanelMutation({
+      hotelId: guard.hotel.id,
+      scope: "rooms",
+      expectedRevision,
+      updatedBy: guard.user.id,
+      mutate: async (tx) => {
+        const existing = await tx
+          .select({ orderIndex: roomsTable.orderIndex })
+          .from(roomsTable)
+          .where(eq(roomsTable.hotelId, guard.hotel.id));
+        const nextOrder = existing.reduce((max, r) => Math.max(max, r.orderIndex + 1), 0);
+        const [created] = await tx.insert(roomsTable).values({
+          ...parsed.data,
+          imageUrl: parsed.data.imageUrl || null,
+          hotelId: guard.hotel.id,
+          orderIndex: nextOrder,
+        }).returning();
+        await seedRoomInventory(tx, guard.hotel.id, created.id, created.unitCount);
+        return created;
+      },
     });
 
     await logAudit({
@@ -88,8 +105,10 @@ export async function POST(req: Request, { params }: RouteParams) {
       meta: { roomSlug: room.slug, name: room.name },
     });
 
-    return NextResponse.json({ ok: true, room }, { status: 201 });
+    return NextResponse.json({ ok: true, room, revision }, { status: 201 });
   } catch (err) {
+    const conflict = panelRevisionConflictResponse(err);
+    if (conflict) return conflict;
     const msg = err instanceof Error ? err.message : "";
     if (/unique|duplicate/i.test(msg)) {
       return NextResponse.json(

@@ -11,7 +11,13 @@ import { roomRatesTable } from "@/lib/db/schema";
 import { roomRatesPutSchema } from "@/lib/schemas/hotel-content";
 import { logAudit } from "@/lib/audit";
 import { findHotelRoom, syncRoomRates } from "@/lib/seasonal-rates-sync";
-import { withTransaction } from "@/lib/db/transaction";
+import {
+  expectedRevisionRequiredResponse,
+  getPanelRevision,
+  panelRevisionConflictResponse,
+  readExpectedRevision,
+  runPanelMutation,
+} from "@/lib/panel-revision";
 
 type RouteParams = { params: Promise<{ hotelId: string; roomId: string }> };
 
@@ -31,7 +37,8 @@ export async function GET(_req: Request, { params }: RouteParams) {
     .from(roomRatesTable)
     .where(eq(roomRatesTable.roomId, room.id))
     .orderBy(asc(roomRatesTable.startDate));
-  return NextResponse.json({ ok: true, rates });
+  const revision = await getPanelRevision(db, guard.hotel.id, "seasonal_rates");
+  return NextResponse.json({ ok: true, rates, revision: revision.revision });
 }
 
 export async function PUT(req: Request, { params }: RouteParams) {
@@ -40,6 +47,8 @@ export async function PUT(req: Request, { params }: RouteParams) {
   if (guard.response) return guard.response;
 
   const body = await req.json().catch(() => null);
+  const expectedRevision = readExpectedRevision(body);
+  if (!expectedRevision) return expectedRevisionRequiredResponse();
   const parsed = roomRatesPutSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -56,24 +65,34 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
   // syncRoomRates önce siler sonra yazar — transaction olmadan araya giren bir
   // hata odanın tüm dönem fiyatlarını yok eder.
-  const result = await withTransaction((tx) =>
-    syncRoomRates(tx, guard.hotel.id, room.id, parsed.data.donemler),
-  );
-  if (!result.ok) {
-    return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+  try {
+    const { result, revision } = await runPanelMutation({
+      hotelId: guard.hotel.id,
+      scope: "seasonal_rates",
+      expectedRevision,
+      updatedBy: guard.user.id,
+      mutate: (tx) => syncRoomRates(tx, guard.hotel.id, room.id, parsed.data.donemler),
+    });
+    if (!result.ok) {
+      return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+    }
+
+    await logAudit({
+      actor: guard.user,
+      action: "oda.donemfiyat.guncellendi",
+      entityType: "hotel",
+      entityId: guard.hotel.id,
+      meta: {
+        roomSlug: room.slug,
+        donemSayisi: parsed.data.donemler.length,
+        silinen: result.deleted,
+      },
+    });
+
+    return NextResponse.json({ ok: true, rates: result.rates, revision });
+  } catch (err) {
+    const conflict = panelRevisionConflictResponse(err);
+    if (conflict) return conflict;
+    throw err;
   }
-
-  await logAudit({
-    actor: guard.user,
-    action: "oda.donemfiyat.guncellendi",
-    entityType: "hotel",
-    entityId: guard.hotel.id,
-    meta: {
-      roomSlug: room.slug,
-      donemSayisi: parsed.data.donemler.length,
-      silinen: result.deleted,
-    },
-  });
-
-  return NextResponse.json({ ok: true, rates: result.rates });
 }

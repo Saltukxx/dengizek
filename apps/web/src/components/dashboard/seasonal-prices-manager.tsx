@@ -52,6 +52,7 @@ import {
 import { OccupancyPricesEditor } from "./occupancy-prices-editor";
 import { ChildAgePricesEditor } from "./child-age-prices-editor";
 import { useMyHotel } from "./use-my-hotel";
+import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 
 interface ApiRate {
   id: string;
@@ -169,6 +170,8 @@ export function SeasonalPricesManager() {
   const [roomFilter, setRoomFilter] = useState<string | null>(null);
   const [occupancyRowKey, setOccupancyRowKey] = useState<string | null>(null);
   const [childRowKey, setChildRowKey] = useState<string | null>(null);
+  const lock = usePanelRevision();
+  const setLockRevision = lock.setRevision;
 
   const reload = useCallback(async () => {
     if (!hotel) return;
@@ -178,8 +181,9 @@ export function SeasonalPricesManager() {
       const list = json.rooms as ApiRoom[];
       setRooms(list);
       setRows(rowsFromRooms(list));
+      setLockRevision(json.seasonalRatesRevision);
     }
-  }, [hotel]);
+  }, [hotel, setLockRevision]);
 
   useEffect(() => {
     void reload();
@@ -273,10 +277,12 @@ export function SeasonalPricesManager() {
       body: JSON.stringify({
         action: "delete",
         ids: persisted.map((r) => r.id as string),
+        expectedRevision: lock.revision,
       }),
     });
     const json = await res.json();
     setBusy(false);
+    if (lock.consumeResponse(json)) return;
     if (json.ok) {
       notifications.show({ color: "green", message: `${json.deleted} dönem silindi.` });
       removeSelectedLocal();
@@ -332,10 +338,12 @@ export function SeasonalPricesManager() {
           occupancyPrices: occupancyToApi(applyForm.occupancyPrices),
           childAgePrices: childAgePricesToApi(applyForm.childAgePrices),
         },
+        expectedRevision: lock.revision,
       }),
     });
     const json = await res.json();
     setBusy(false);
+    if (lock.consumeResponse(json)) return;
     if (json.ok) {
       notifications.show({
         color: "green",
@@ -388,10 +396,11 @@ export function SeasonalPricesManager() {
     const res = await fetch(`/api/manager/hotels/${hotel.id}/seasonal-rates`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, expectedRevision: lock.revision }),
     });
     const json = await res.json();
     setBusy(false);
+    if (lock.consumeResponse(json)) return;
     if (json.ok) {
       notifications.show({ color: "green", message: "Dönemsel fiyatlar kaydedildi." });
       void reload();
@@ -778,6 +787,11 @@ export function SeasonalPricesManager() {
           </Stack>
         )}
       </Modal>
+      <PanelRevisionConflictModal
+        conflict={lock.conflict}
+        onKeepLocal={lock.keepLocalDraft}
+        onLoadLatest={async () => { setApplyOpen(false); await reload(); lock.clearConflict(); }}
+      />
     </Stack>
   );
 }

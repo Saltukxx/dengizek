@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
+
 // Kök layout dahil her şey çöktüğünde gösterilen son savunma hattı.
 // Kendi <html>/<body>'sini render etmek zorundadır; framework CSS'i
 // yüklenmemiş olabileceğinden stiller inline tutulur.
@@ -11,6 +14,10 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_SENTRY_DSN) Sentry.captureException(error);
+  }, [error]);
+
   return (
     <html lang="tr">
       <body

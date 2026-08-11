@@ -10,6 +10,7 @@ import { getDb } from "@/lib/db";
 import { restaurantsTable } from "@/lib/db/schema";
 import { restaurantUpsertSchema } from "@/lib/schemas/hotel-content";
 import { logAudit } from "@/lib/audit";
+import { expectedRevisionRequiredResponse, panelRevisionConflictResponse, readExpectedRevision, runPanelMutation } from "@/lib/panel-revision";
 
 type RouteParams = { params: Promise<{ hotelId: string; restaurantId: string }> };
 
@@ -31,6 +32,8 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   if (guard.response) return guard.response;
 
   const body = await req.json().catch(() => null);
+  const expectedRevision = readExpectedRevision(body);
+  if (!expectedRevision) return expectedRevisionRequiredResponse();
   const parsed = restaurantUpsertSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -44,34 +47,43 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     return NextResponse.json({ ok: false, error: "Restoran bulunamadı." }, { status: 404 });
   }
 
-  const db = getDb();
-  const [updated] = await db
-    .update(restaurantsTable)
-    .set({
-      ...parsed.data,
-      imageUrl: parsed.data.imageUrl || null,
-      updatedAt: new Date(),
-    })
-    .where(eq(restaurantsTable.id, restaurant.id))
-    .returning();
-
-  return NextResponse.json({ ok: true, restaurant: updated });
+  try {
+    const { result: updated, revision } = await runPanelMutation({
+      hotelId: guard.hotel.id, scope: "restaurants", expectedRevision, updatedBy: guard.user.id,
+      mutate: async (tx) => {
+        const [row] = await tx.update(restaurantsTable).set({
+          ...parsed.data, imageUrl: parsed.data.imageUrl || null, updatedAt: new Date(),
+        }).where(eq(restaurantsTable.id, restaurant.id)).returning();
+        return row;
+      },
+    });
+    return NextResponse.json({ ok: true, restaurant: updated, revision });
+  } catch (error) {
+    const conflict = panelRevisionConflictResponse(error);
+    if (conflict) return conflict;
+    throw error;
+  }
 }
 
-export async function DELETE(_req: Request, { params }: RouteParams) {
+export async function DELETE(req: Request, { params }: RouteParams) {
   const { hotelId, restaurantId } = await params;
   const guard = await requireHotelAccess(hotelId);
   if (guard.response) return guard.response;
+  const body = await req.json().catch(() => null);
+  const expectedRevision = readExpectedRevision(body);
+  if (!expectedRevision) return expectedRevisionRequiredResponse();
 
   const restaurant = await findRestaurant(guard.hotel.id, restaurantId);
   if (!restaurant) {
     return NextResponse.json({ ok: false, error: "Restoran bulunamadı." }, { status: 404 });
   }
 
-  const db = getDb();
-  await db.delete(restaurantsTable).where(eq(restaurantsTable.id, restaurant.id));
-
-  await logAudit({
+  try {
+    const { revision } = await runPanelMutation({
+      hotelId: guard.hotel.id, scope: "restaurants", expectedRevision, updatedBy: guard.user.id,
+      mutate: async (tx) => { await tx.delete(restaurantsTable).where(eq(restaurantsTable.id, restaurant.id)); },
+    });
+    await logAudit({
     actor: guard.user,
     action: "restoran.silindi",
     entityType: "hotel",
@@ -79,5 +91,10 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
     meta: { name: restaurant.name },
   });
 
-  return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, revision });
+  } catch (error) {
+    const conflict = panelRevisionConflictResponse(error);
+    if (conflict) return conflict;
+    throw error;
+  }
 }

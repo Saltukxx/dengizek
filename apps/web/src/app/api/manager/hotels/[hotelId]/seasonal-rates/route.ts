@@ -5,12 +5,14 @@
 
 import { NextResponse } from "next/server";
 import { requireHotelAccess } from "@/lib/auth/guards";
-import { getDb } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { seasonalRatesBulkPutSchema } from "@/lib/schemas/hotel-content";
 import { findHotelRoom, syncRoomRates } from "@/lib/seasonal-rates-sync";
+import { expectedRevisionRequiredResponse, panelRevisionConflictResponse, readExpectedRevision, runPanelMutation } from "@/lib/panel-revision";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
+
+class SeasonalRatesError extends Error {}
 
 export async function PUT(req: Request, { params }: RouteParams) {
   const { hotelId } = await params;
@@ -18,6 +20,8 @@ export async function PUT(req: Request, { params }: RouteParams) {
   if (guard.response) return guard.response;
 
   const body = await req.json().catch(() => null);
+  const expectedRevision = readExpectedRevision(body);
+  if (!expectedRevision) return expectedRevisionRequiredResponse();
   const parsed = seasonalRatesBulkPutSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -26,23 +30,28 @@ export async function PUT(req: Request, { params }: RouteParams) {
     );
   }
 
-  const db = getDb();
   const results: Record<string, Awaited<ReturnType<typeof syncRoomRates>>> = {};
-
-  for (const item of parsed.data.rooms) {
-    const room = await findHotelRoom(db, guard.hotel.id, item.roomId);
-    if (!room) {
-      return NextResponse.json(
-        { ok: false, error: `Oda bulunamadı: ${item.roomId}` },
-        { status: 404 },
-      );
+  let revision: number;
+  try {
+    const mutation = await runPanelMutation({
+      hotelId: guard.hotel.id, scope: "seasonal_rates", expectedRevision, updatedBy: guard.user.id,
+      mutate: async (tx) => {
+        for (const item of parsed.data.rooms) {
+          const room = await findHotelRoom(tx, guard.hotel.id, item.roomId);
+          if (!room) throw new SeasonalRatesError(`Oda bulunamadı: ${item.roomId}`);
+          const result = await syncRoomRates(tx, guard.hotel.id, room.id, item.donemler);
+          if (!result.ok) throw new SeasonalRatesError(result.error);
+          results[room.id] = result;
+        }
+      },
+    });
+    revision = mutation.revision;
+  } catch (error) {
+    const conflict = panelRevisionConflictResponse(error); if (conflict) return conflict;
+    if (error instanceof SeasonalRatesError) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
     }
-
-    const result = await syncRoomRates(db, guard.hotel.id, room.id, item.donemler);
-    if (!result.ok) {
-      return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
-    }
-    results[room.id] = result;
+    throw error;
   }
 
   await logAudit({
@@ -53,5 +62,5 @@ export async function PUT(req: Request, { params }: RouteParams) {
     meta: { odaSayisi: parsed.data.rooms.length },
   });
 
-  return NextResponse.json({ ok: true, results });
+  return NextResponse.json({ ok: true, results, revision });
 }

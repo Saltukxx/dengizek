@@ -41,6 +41,7 @@ import { formatPrice, type Currency } from "@/lib/price";
 import { PriceInput } from "./price-input";
 import { MediaPicker } from "./media-picker";
 import { useMyHotel } from "./use-my-hotel";
+import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 
 interface RestaurantRow {
   id: string;
@@ -96,13 +97,15 @@ export function RestaurantsManager() {
     null,
   );
   const [busy, setBusy] = useState(false);
+  const lock = usePanelRevision();
+  const setLockRevision = lock.setRevision;
 
   const reload = useCallback(async () => {
     if (!hotel) return;
     const res = await fetch(`/api/manager/hotels/${hotel.id}/restaurants`);
     const json = await res.json();
-    if (json.ok) setRestaurants(json.restaurants);
-  }, [hotel]);
+    if (json.ok) { setRestaurants(json.restaurants); setLockRevision(json.revision); }
+  }, [hotel, setLockRevision]);
 
   useEffect(() => {
     void reload();
@@ -162,10 +165,11 @@ export function RestaurantsManager() {
     const res = await fetch(url, {
       method: editing.id ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, expectedRevision: lock.revision }),
     });
     const json = await res.json();
     setBusy(false);
+    if (lock.consumeResponse(json)) return;
     if (json.ok) {
       notifications.show({
         color: "green",
@@ -182,8 +186,11 @@ export function RestaurantsManager() {
     if (!hotel) return;
     const res = await fetch(`/api/manager/hotels/${hotel.id}/restaurants/${r.id}`, {
       method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expectedRevision: lock.revision }),
     });
     const json = await res.json();
+    if (lock.consumeResponse(json)) return;
     if (json.ok) {
       notifications.show({ color: "gray", message: "Restoran silindi." });
       void reload();
@@ -199,11 +206,12 @@ export function RestaurantsManager() {
     const next = [...restaurants];
     [next[index], next[target]] = [next[target], next[index]];
     setRestaurants(next);
-    await fetch(`/api/manager/hotels/${hotel.id}/restaurants/reorder`, {
+    const res = await fetch(`/api/manager/hotels/${hotel.id}/restaurants/reorder`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sirali: next.map((r) => r.id) }),
+      body: JSON.stringify({ sirali: next.map((r) => r.id), expectedRevision: lock.revision }),
     });
+    lock.consumeResponse(await res.json());
   }
 
   const f = editing?.form;
@@ -508,6 +516,11 @@ export function RestaurantsManager() {
           </Stack>
         )}
       </Drawer>
+      <PanelRevisionConflictModal
+        conflict={lock.conflict}
+        onKeepLocal={lock.keepLocalDraft}
+        onLoadLatest={async () => { setEditing(null); await reload(); lock.clearConflict(); }}
+      />
     </Stack>
   );
 }
