@@ -7,6 +7,7 @@ import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { analyticsEventsTable, hotelsTable, inquiriesTable } from "@/lib/db/schema";
+import { analyticsFunnel } from "@/lib/schemas/analytics";
 
 export async function GET(req: Request) {
   const guard = await requireAdmin();
@@ -66,10 +67,7 @@ export async function GET(req: Request) {
 
   const byType = Object.fromEntries(eventRows.map((r) => [r.eventType, r.count]));
   const totalEvents = eventRows.reduce((sum, r) => sum + r.count, 0);
-  const tourViews = byType.tour_view ?? 0;
-  const inquirySubmits = byType.inquiry_submit ?? 0;
-  const conversionRate =
-    tourViews > 0 ? Math.round((inquirySubmits / tourViews) * 1000) / 10 : null;
+  const { conversionRate, ...funnel } = analyticsFunnel(byType);
 
   const hotels = hotelId
     ? []
@@ -85,6 +83,7 @@ export async function GET(req: Request) {
     byType,
     inquiries: inquiryCount[0]?.count ?? 0,
     byHotel: byHotelRows,
+    funnel,
     timeSeries: timeSeriesRows.map((r) => ({ day: String(r.day), count: r.count })),
     conversionRate,
     hotels,

@@ -3,25 +3,27 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Loader, Paper, Select, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { IconAlertCircle } from "@tabler/icons-react";
+import { ANALYTICS_EVENT_LABELS } from "@/lib/schemas/analytics";
 import { useMyHotel } from "./use-my-hotel";
 
 interface AnalyticsData {
   totalEvents: number;
   total: number;
   byType: Record<string, number>;
+  funnel?: {
+    hotelViews: number;
+    tourStarts: number;
+    inquiryStarts: number;
+    inquirySubmits: number;
+  };
   inquiries: number;
   timeSeries: { day: string; count: number }[];
   conversionRate: number | null;
   period: { from: string; to: string; days: number };
 }
 
-const eventLabels: Record<string, string> = {
-  tour_view: "Tur görüntüleme",
-  step_view: "Adım görüntüleme",
-  inquiry_start: "Talep başlangıcı",
-  inquiry_submit: "Talep gönderimi",
-  ai_message: "AI mesajı",
-};
+/** Etiketler misafir yüzeyiyle ortak kaynaktan gelir (schemas/analytics.ts). */
+const eventLabels: Record<string, string> = ANALYTICS_EVENT_LABELS;
 
 function GroupBar({ label, count, max }: { label: string; count: number; max: number }) {
   const pct = Math.round((count / max) * 100);
@@ -110,10 +112,33 @@ export function AnalyticsPanel() {
             {data.conversionRate != null ? `%${data.conversionRate}` : "—"}
           </Title>
           <Text c="dimmed" size="sm">
-            Tur → talep dönüşümü
+            Görüntüleme → talep dönüşümü
           </Text>
         </Paper>
       </SimpleGrid>
+
+      {data.funnel && (
+        <Paper withBorder radius="md" p="md">
+          <Text fw={600} mb="sm">
+            Ziyaretçi hunisi
+          </Text>
+          <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="md">
+            {[
+              ["Otel sayfası", data.funnel.hotelViews],
+              ["Tur başlatma", data.funnel.tourStarts],
+              ["Talep başlangıcı", data.funnel.inquiryStarts],
+              ["Talep gönderimi", data.funnel.inquirySubmits],
+            ].map(([label, value]) => (
+              <div key={String(label)}>
+                <Title order={4}>{Number(value).toLocaleString("tr-TR")}</Title>
+                <Text c="dimmed" size="sm">
+                  {label}
+                </Text>
+              </div>
+            ))}
+          </SimpleGrid>
+        </Paper>
+      )}
       <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
         {Object.entries(data.byType).map(([type, count]) => (
           <Paper key={type} withBorder p="md" radius="md">

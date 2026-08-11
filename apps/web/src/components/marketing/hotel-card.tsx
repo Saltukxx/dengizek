@@ -1,7 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import { IconStarFilled } from "@tabler/icons-react";
+import { IconMapPin, IconStarFilled } from "@tabler/icons-react";
 import type { HotelMock } from "@/lib/mocks/hotels";
+import { amenityLabel } from "@/lib/amenities-catalog";
+import { formatPrice } from "@/lib/price";
 
 type HotelCardProps = {
   hotel: HotelMock;
@@ -9,88 +11,129 @@ type HotelCardProps = {
   /** Yayındaki yorumların ortalaması (1–5) — yorum yoksa gösterilmez. */
   reviewAverage?: number | null;
   reviewCount?: number;
+  /** Tesis yıldızı — görselin üzerindeki rozette gösterilir. */
+  starRating?: number | null;
+  /** En fazla iki olanak çipi gösterilir. */
+  amenities?: string[];
+  /** En düşük oda fiyatı (en küçük birim); yoksa priceLabel kullanılır. */
+  minPriceMinor?: number | null;
+  currency?: string;
 };
 
 /**
- * Luxury hotel listing card.
- * Tam-görsel arka plan, gradient overlay ve altta otel bilgisi.
- * CSS sınıfları globals.css .lux-hotel-card ile stillendirilir.
+ * Elite Reserve otel kartı — 16:9 görsel, mavi başlık, olanak çipleri ve
+ * alt satırda fiyat + turuncu eylem düğmesi.
  */
 export function HotelCard({
   hotel,
   href = `/hotels/${hotel.slug}`,
   reviewAverage,
   reviewCount = 0,
+  starRating,
+  amenities = [],
+  minPriceMinor,
+  currency = "TRY",
 }: HotelCardProps) {
+  const hasReviews = reviewAverage != null && reviewCount > 0;
+  const priceText =
+    minPriceMinor != null ? formatPrice(minPriceMinor, currency) : hotel.priceLabel ?? null;
+  const location = [hotel.city, hotel.country].filter(Boolean).join(", ");
+
   return (
-    <Link href={href} className="lux-hotel-card">
-      {/* Background image */}
-      <Image
-        src={hotel.imageUrl}
-        alt={hotel.name}
-        fill
-        sizes="(max-width: 768px) 100vw, 50vw"
-        style={{ objectFit: "cover" }}
-      />
+    <article className="er-hotel-card">
+      <Link href={href} className="er-hotel-media" aria-label={hotel.name}>
+        {hotel.imageUrl ? (
+          <Image
+            src={hotel.imageUrl}
+            alt={hotel.name}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 420px"
+            style={{ objectFit: "cover" }}
+          />
+        ) : null}
 
-      {/* Gradient overlay */}
-      <div className="lux-card-overlay" />
+        {starRating ? (
+          <span
+            className="er-rating-badge"
+            style={{ position: "absolute", top: 12, left: 12, zIndex: 2 }}
+          >
+            <IconStarFilled size={13} style={{ color: "var(--er-cta)" }} />
+            {starRating} Yıldız
+          </span>
+        ) : null}
+      </Link>
 
-      {/* Price badge */}
-      {hotel.priceLabel && (
-        <div className="lux-price-badge">{hotel.priceLabel}</div>
-      )}
+      <div className="er-hotel-body">
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+          <h3 className="er-hotel-title" style={{ flex: 1 }}>
+            <Link href={href}>{hotel.name}</Link>
+          </h3>
+          {hasReviews && (
+            <span className="er-score" title={`${reviewCount} yorum`}>
+              {reviewAverage.toLocaleString("tr-TR", { minimumFractionDigits: 1 })}
+            </span>
+          )}
+        </div>
 
-      {/* Copy */}
-      <div className="lux-card-copy">
-        {/* Location eyebrow */}
-        <p
-          style={{
-            margin: "0 0 8px",
-            fontFamily: "var(--lux-font-sans)",
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: "0.18em",
-            textTransform: "uppercase",
-            color: "var(--lux-gold)",
-            opacity: 0.85,
-          }}
-        >
-          {hotel.city} · {hotel.country}
-        </p>
-
-        <h3>{hotel.name}</h3>
-
-        {reviewAverage != null && reviewCount > 0 && (
+        {location && (
           <p
             style={{
-              margin: "6px 0 0",
-              display: "inline-flex",
+              margin: 0,
+              display: "flex",
               alignItems: "center",
               gap: 6,
-              fontSize: 12,
-              color: "var(--lux-muted)",
+              fontSize: 14,
+              color: "var(--er-text-muted)",
             }}
           >
-            <IconStarFilled size={13} color="var(--lux-gold)" />
-            <span style={{ color: "var(--lux-gold)" }}>
-              {reviewAverage.toLocaleString("tr-TR")}
-            </span>
-            <span>({reviewCount} yorum)</span>
+            <IconMapPin size={15} stroke={1.8} style={{ color: "var(--er-text-dim)" }} />
+            {location}
           </p>
         )}
 
-        <p
-          style={{
-            margin: "8px 0 0",
-            fontSize: 13,
-            color: "var(--lux-muted)",
-            letterSpacing: "0.03em",
-          }}
-        >
-          {hotel.shortDescription}
-        </p>
+        {hotel.shortDescription && (
+          <p
+            style={{
+              margin: 0,
+              fontSize: 14,
+              lineHeight: 1.55,
+              color: "var(--er-text-muted)",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {hotel.shortDescription}
+          </p>
+        )}
+
+        {amenities.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {amenities.slice(0, 2).map((key) => (
+              <span key={key} className="er-chip">
+                {amenityLabel(key)}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
-    </Link>
+
+      <div className="er-hotel-foot">
+        <div>
+          {priceText ? (
+            <>
+              <div className="er-price">{priceText}</div>
+              <div className="er-price-note">gecelik başlayan</div>
+            </>
+          ) : (
+            <div className="er-price-note">Fiyat için talep gönderin</div>
+          )}
+        </div>
+        <Link href={href} className="er-btn er-btn-primary" style={{ minHeight: 44 }}>
+          Detayları Gör
+        </Link>
+      </div>
+    </article>
   );
 }

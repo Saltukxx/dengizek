@@ -27,11 +27,11 @@ export function TourGuideMessage({ message, detectedLanguage }: TourGuideMessage
           background: "transparent",
           maxWidth: "80%",
           alignSelf: "flex-start",
-          color: "rgba(208,197,178,0.66)",
+          color: "var(--er-text-dim)",
         }}
       >
-        <Loader size={14} color="yellow" type="dots" />
-        <Text size="xs" fs="italic" style={{ color: "rgba(208,197,178,0.66)" }}>
+        <Loader size={14} color="blue" type="dots" />
+        <Text size="xs" fs="italic" style={{ color: "var(--er-text-dim)" }}>
           {strings.thinking}
         </Text>
       </Box>
@@ -55,13 +55,13 @@ export function TourGuideMessage({ message, detectedLanguage }: TourGuideMessage
             width: 32,
             height: 32,
             borderRadius: "50%",
-            border: "0.5px solid rgba(212,175,55,0.38)",
+            background: "var(--er-primary-tint)",
             display: "grid",
             placeItems: "center",
-            color: "var(--lux-gold)",
-            fontFamily: "var(--lux-font-editorial)",
-            fontStyle: "italic",
-            fontSize: 10,
+            color: "var(--er-primary)",
+            fontFamily: "var(--er-font-display)",
+            fontWeight: 700,
+            fontSize: 11,
             flexShrink: 0,
             marginTop: 2,
           }}
@@ -73,21 +73,21 @@ export function TourGuideMessage({ message, detectedLanguage }: TourGuideMessage
         style={{
           flex: 1,
           minWidth: 0,
-          padding: isUser ? "16px 20px" : "3px 0",
-          borderRadius: isUser ? 8 : 0,
-          background: isUser ? "rgba(51,53,53,0.82)" : "transparent",
-          border: isUser ? "0.5px solid rgba(153,144,126,0.32)" : "none",
+          padding: "12px 16px",
+          borderRadius: "var(--er-radius-md)",
+          background: isUser ? "var(--er-primary)" : "var(--er-surface-2)",
+          border: isUser ? "none" : "1px solid var(--er-line)",
         }}
       >
         <Stack gap={0}>
           <Text
             size="sm"
             style={{
-              color: isUser ? "var(--lux-text)" : "var(--lux-muted)",
+              color: isUser ? "#fff" : "var(--er-text)",
               lineHeight: 1.72,
               whiteSpace: "pre-wrap",
               wordBreak: "break-word",
-              fontFamily: "var(--lux-font-sans)",
+              fontFamily: "var(--er-font-sans)",
             }}
           >
             {message.content}

@@ -105,41 +105,40 @@ export function TourGuidePanel({
       gap={0}
       style={{
         height: "100%",
-        background: "rgba(18, 20, 20, 0.94)",
-        borderLeft: "0.5px solid rgba(153,144,126,0.35)",
+        background: "var(--er-surface)",
+        borderLeft: "0.5px solid var(--er-line)",
         borderRadius: 0,
         overflow: "hidden",
-        color: "var(--lux-text)",
-        fontFamily: "var(--lux-font-sans)",
+        color: "var(--er-text)",
+        fontFamily: "var(--er-font-sans)",
       }}
     >
       {/* Header */}
       <Box
-        px={32}
-        py={30}
+        px={20}
+        py={16}
         style={{
-          background: "rgba(18,20,20,0.35)",
-          borderBottom: "0.5px solid rgba(153,144,126,0.28)",
+          background: "var(--er-surface)",
+          borderBottom: "1px solid var(--er-line)",
           flexShrink: 0,
         }}
       >
         <Group justify="space-between" align="center" gap="xs">
-          <Group gap="xs" align="center">
+          <Group gap={10} align="center">
             <Box
               style={{
-                width: 42,
-                height: 42,
+                width: 40,
+                height: 40,
                 borderRadius: "50%",
-                background: "rgba(31,32,33,0.88)",
-                border: "0.5px solid rgba(212,175,55,0.48)",
+                background: "var(--er-primary)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
-                color: "var(--lux-gold)",
-                fontFamily: "var(--lux-font-editorial)",
-                fontStyle: "italic",
-                fontSize: 13,
+                color: "#fff",
+                fontFamily: "var(--er-font-display)",
+                fontWeight: 700,
+                fontSize: 14,
               }}
             >
               {personaInitials(displayPersona)}
@@ -147,14 +146,14 @@ export function TourGuidePanel({
             <Stack gap={0}>
               <Text
                 size="xs"
-                fw={800}
+                fw={700}
                 lh={1.2}
-                style={{ letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--lux-text)" }}
+                style={{ letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--er-text)" }}
               >
                 {displayPersona}
               </Text>
               {hotelName && (
-                <Text size="xs" lh={1.2} mt={5} style={{ color: "rgba(212,175,55,0.72)" }}>
+                <Text size="xs" lh={1.2} mt={4} style={{ color: "var(--er-text-dim)" }}>
                   {strings.hereForYou}
                 </Text>
               )}
@@ -176,9 +175,9 @@ export function TourGuidePanel({
         p={0}
         scrollbars="y"
       >
-        <Stack gap={28} style={{ padding: "28px 32px", minHeight: "100%", justifyContent: "flex-end" }}>
+        <Stack gap={20} style={{ padding: "20px", minHeight: "100%", justifyContent: "flex-end" }}>
           {messages.length === 0 && !isThinking && (
-            <Text size="sm" ta="center" py="md" style={{ color: "rgba(208,197,178,0.62)" }}>
+            <Text size="sm" ta="center" py="md" style={{ color: "var(--er-text-dim)" }}>
               {strings.preparing}
             </Text>
           )}
@@ -191,8 +190,8 @@ export function TourGuidePanel({
       {/* Chip önerileri */}
       {lastAssistantMessage?.chips && !isThinking && (
         <>
-          <Divider color="rgba(153,144,126,0.24)" />
-          <Box px={32} py={12} style={{ flexShrink: 0 }}>
+          <Divider color="var(--er-line)" />
+          <Box px={20} py={12} style={{ flexShrink: 0 }}>
             <TourGuideChips
               chips={lastAssistantMessage.chips}
               onChipClick={onChipClick}
@@ -203,8 +202,8 @@ export function TourGuidePanel({
       )}
 
       {/* Metin girişi */}
-      <Divider color="rgba(153,144,126,0.28)" />
-      <Box px={32} py={22} style={{ flexShrink: 0 }}>
+      <Divider color="var(--er-line)" />
+      <Box px={20} py={16} style={{ flexShrink: 0 }}>
         <TextInput
           ref={inputRef}
           value={inputValue}
@@ -212,8 +211,8 @@ export function TourGuidePanel({
           onKeyDown={handleKeyDown}
           placeholder={strings.inputPlaceholder}
           disabled={isThinking}
-          size="sm"
-          radius={0}
+          size="md"
+          radius={999}
           rightSectionWidth={speechSupported ? 64 : 32}
           rightSection={
             <Group gap={2} wrap="nowrap" pr={4}>
@@ -225,7 +224,7 @@ export function TourGuidePanel({
                   disabled={isThinking}
                   onClick={() => (isListening ? stopListening() : startListening())}
                   aria-label={isListening ? strings.voiceStop : strings.voiceStart}
-                  style={{ color: isListening ? "var(--lux-gold)" : "rgba(208,197,178,0.55)" }}
+                  style={{ color: isListening ? "var(--er-primary)" : "var(--er-text-dim)" }}
                 >
                   {isListening ? <IconMicrophoneOff size={15} /> : <IconMicrophone size={15} />}
                 </ActionIcon>
@@ -243,8 +242,8 @@ export function TourGuidePanel({
                   alignItems: "center",
                   justifyContent: "center",
                   color: inputValue.trim() && !isThinking
-                    ? "var(--lux-gold)"
-                    : "rgba(208,197,178,0.42)",
+                    ? "var(--er-primary)"
+                    : "var(--er-text-dim)",
                   padding: 4,
                 }}
               >
@@ -254,13 +253,11 @@ export function TourGuidePanel({
           }
           styles={{
             input: {
-              background: "transparent",
-              border: "none",
-              borderBottom: "0.5px solid rgba(153,144,126,0.44)",
-              color: "var(--lux-text)",
-              fontFamily: "var(--lux-font-sans)",
-              paddingLeft: 0,
-              "&::placeholder": { color: "rgba(208,197,178,0.46)" },
+              background: "var(--er-surface-2)",
+              border: "1px solid var(--er-line)",
+              color: "var(--er-text)",
+              fontFamily: "var(--er-font-sans)",
+              "&::placeholder": { color: "var(--er-text-dim)" },
             },
           }}
         />

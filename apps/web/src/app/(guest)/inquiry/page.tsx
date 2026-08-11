@@ -8,8 +8,8 @@ export default function InquiryPage() {
         <div
           style={{
             padding: "clamp(32px, 5vw, 64px) clamp(24px, 5vw, 48px)",
-            color: "var(--lux-muted)",
-            fontFamily: "var(--lux-font-sans)",
+            color: "var(--er-text-muted)",
+            fontFamily: "var(--er-font-sans)",
           }}
         >
           Form yükleniyor…

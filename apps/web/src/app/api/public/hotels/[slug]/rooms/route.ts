@@ -15,7 +15,7 @@ export async function GET(
 
   const db = getDb();
   const [hotel] = await db
-    .select({ id: hotelsTable.id })
+    .select({ id: hotelsTable.id, name: hotelsTable.name })
     .from(hotelsTable)
     .where(guestVisibleHotelBySlugWhere(slug))
     .limit(1);
@@ -30,5 +30,6 @@ export async function GET(
     .where(and(eq(roomsTable.hotelId, hotel.id), eq(roomsTable.isActive, true)))
     .orderBy(roomsTable.orderIndex);
 
-  return NextResponse.json({ ok: true, rooms });
+  // hotel: talep formunun bağlam rozetinde slug yerine tesis adını göstermesi için.
+  return NextResponse.json({ ok: true, hotel: { slug, name: hotel.name }, rooms });
 }

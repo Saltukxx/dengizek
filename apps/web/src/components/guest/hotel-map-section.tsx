@@ -19,16 +19,16 @@ export function HotelMapSection({ latitude, longitude, address, hotelName }: Hot
   const embedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${latN}%2C${lngN}`;
 
   return (
-    <section style={{ maxWidth: 1280, margin: "0 auto", padding: "48px 32px" }}>
+    <section className="er-detail-section">
       <h2
-        className="luxury-sans-title"
+        className="er-display"
         style={{ margin: "0 0 8px", fontSize: "clamp(28px, 3vw, 40px)" }}
       >
         Konum
       </h2>
-      <div style={{ width: 48, height: 2, background: "var(--lux-gold)", marginBottom: 24 }} />
+      
       {address && (
-        <p style={{ margin: "0 0 16px", color: "var(--lux-muted)", fontSize: 15 }}>{address}</p>
+        <p style={{ margin: "0 0 16px", color: "var(--er-text-muted)", fontSize: 15 }}>{address}</p>
       )}
       <iframe
         title={`${hotelName} harita`}
@@ -37,7 +37,7 @@ export function HotelMapSection({ latitude, longitude, address, hotelName }: Hot
           width: "100%",
           height: 320,
           border: "1px solid rgba(255,255,255,0.12)",
-          borderRadius: 8,
+          borderRadius: "var(--er-radius-md)",
         }}
         loading="lazy"
         referrerPolicy="no-referrer-when-downgrade"

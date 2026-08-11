@@ -65,7 +65,7 @@ export function TourVideoControls({
       style={{
         zIndex: 4,
         background: "linear-gradient(transparent 0%, rgba(8,9,10,0.92) 100%)",
-        borderTop: "0.5px solid rgba(212,175,55,0.16)",
+        borderTop: "0.5px solid var(--er-primary-tint)",
       }}
     >
       <TourVideoSeekBar
@@ -84,11 +84,11 @@ export function TourVideoControls({
             onClick={onTogglePlay}
             aria-label={isPlaying ? "Duraklat" : "Oynat"}
             disabled={isPausedForInteraction}
-            style={{ color: "var(--lux-gold)" }}
+            style={{ color: "#fff" }}
           >
             {isPlaying ? <IconPlayerPause size={20} /> : <IconPlayerPlay size={20} />}
           </ActionIcon>
-          <Text size="sm" lineClamp={1} style={{ minWidth: 0, color: "var(--lux-muted)" }}>
+          <Text size="sm" lineClamp={1} style={{ minWidth: 0, color: "rgba(255,255,255,0.82)" }}>
             Adım {stepIndex + 1} / {totalSteps}
           </Text>
         </Group>
@@ -100,7 +100,7 @@ export function TourVideoControls({
               onClick={onToggleCaptions}
               aria-pressed={captionsOn}
               aria-label="Altyazıları aç veya kapat"
-              style={{ color: "var(--lux-gold)" }}
+              style={{ color: "#fff" }}
             >
               {captionsOn ? <IconSubtitles size={20} /> : <IconSubtitlesOff size={20} />}
             </ActionIcon>
@@ -111,7 +111,7 @@ export function TourVideoControls({
             onClick={onToggleFullscreen}
             aria-pressed={isFullScreen}
             aria-label={isFullScreen ? "Tam ekrandan çık" : "Tam ekran"}
-            style={{ color: "var(--lux-gold)" }}
+            style={{ color: "#fff" }}
           >
             {isFullScreen ? <IconMinimize size={20} /> : <IconMaximize size={20} />}
           </ActionIcon>
@@ -120,7 +120,7 @@ export function TourVideoControls({
             href={backHref}
             size="sm"
             variant="subtle"
-            style={{ maxWidth: "100%", color: "var(--lux-muted)" }}
+            style={{ maxWidth: "100%", color: "rgba(255,255,255,0.82)" }}
             styles={{ label: { overflow: "hidden", textOverflow: "ellipsis" } }}
           >
             {backLabel}

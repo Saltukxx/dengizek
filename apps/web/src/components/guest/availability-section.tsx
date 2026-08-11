@@ -37,30 +37,30 @@ export function AvailabilitySection({ hotelSlug, notes, blackoutText }: Availabi
   if (notes.length === 0 && !text && inventoryDays.length === 0) return null;
 
   return (
-    <section style={{ maxWidth: 1280, margin: "0 auto", padding: "48px 32px" }}>
+    <section className="er-detail-section">
       <h2
-        className="luxury-sans-title"
+        className="er-display"
         style={{ margin: "0 0 8px", fontSize: "clamp(28px, 3vw, 40px)" }}
       >
         Müsaitlik
       </h2>
-      <div style={{ width: 48, height: 2, background: "var(--lux-gold)", marginBottom: 24 }} />
+      
       {inventoryDays.length > 0 && (
         <div
-          className="luxury-glass"
+          className="er-card"
           style={{
             padding: "16px 20px",
-            borderRadius: 8,
+            borderRadius: "var(--er-radius-md)",
             marginBottom: 20,
             borderLeft: "3px solid #e67700",
           }}
         >
-          <p style={{ margin: "0 0 8px", fontWeight: 600, color: "var(--lux-text)" }}>
+          <p style={{ margin: "0 0 8px", fontWeight: 600, color: "var(--er-text)" }}>
             Önümüzdeki 14 günde sınırlı müsaitlik
           </p>
           <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 6 }}>
             {inventoryDays.slice(0, 8).map((d) => (
-              <li key={`${d.date}-${d.roomName}`} style={{ fontSize: 13, color: "var(--lux-muted)" }}>
+              <li key={`${d.date}-${d.roomName}`} style={{ fontSize: 13, color: "var(--er-text-muted)" }}>
                 {d.date} · {d.roomName}:{" "}
                 {d.stopSell ? "Satış kapalı" : `${d.allotment} oda`}
               </li>
@@ -70,15 +70,15 @@ export function AvailabilitySection({ hotelSlug, notes, blackoutText }: Availabi
       )}
       {text && (
         <div
-          className="luxury-glass"
+          className="er-card"
           style={{
             padding: "16px 20px",
-            borderRadius: 8,
+            borderRadius: "var(--er-radius-md)",
             marginBottom: notes.length > 0 ? 20 : 0,
-            borderLeft: "3px solid var(--lux-gold)",
+            borderLeft: "3px solid var(--er-primary)",
           }}
         >
-          <p style={{ margin: 0, color: "var(--lux-muted)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+          <p style={{ margin: 0, color: "var(--er-text-muted)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
             {text}
           </p>
         </div>
@@ -88,16 +88,16 @@ export function AvailabilitySection({ hotelSlug, notes, blackoutText }: Availabi
           {notes.map((n, i) => (
             <li
               key={`${n.label}-${i}`}
-              className="luxury-glass"
+              className="er-card"
               style={{
                 padding: "14px 18px",
-                borderRadius: 8,
-                borderLeft: n.isBlackout ? "3px solid #c92a2a" : "3px solid rgba(212,175,55,0.5)",
+                borderRadius: "var(--er-radius-md)",
+                borderLeft: n.isBlackout ? "3px solid var(--er-error)" : "3px solid var(--er-primary)",
               }}
             >
               <strong style={{ display: "block", marginBottom: 4 }}>{n.label}</strong>
               {(n.startDate || n.endDate) && (
-                <span style={{ fontSize: 13, color: "var(--lux-muted)" }}>
+                <span style={{ fontSize: 13, color: "var(--er-text-muted)" }}>
                   {n.startDate ?? "—"} — {n.endDate ?? "—"}
                   {n.isBlackout ? " · Kapalı dönem" : ""}
                 </span>

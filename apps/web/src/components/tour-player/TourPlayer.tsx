@@ -444,13 +444,13 @@ export function TourPlayer({
   if (machine.phase === "error") {
     return (
       <Box
-        className="luxury-full-bleed"
+        className="er-tour-page"
         style={{
           height: "100dvh",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "var(--lux-bg)",
+          background: "var(--er-bg)",
         }}
       >
         <Stack p="md" align="center" gap="md" maw={420}>
@@ -483,13 +483,27 @@ export function TourPlayer({
 
   if (machine.phase === "ended") {
     return (
-      <Stack p="md" align="center" gap="md">
-        <Title order={2}>Tur tamamlandı</Title>
-        <Text c="dimmed">Rehberli turu tamamladınız.</Text>
-        <Button component={Link} href={backHref} size="md">
-          {backLabel}
-        </Button>
-      </Stack>
+      <Box
+        className="er-tour-page"
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+      >
+        <div className="er-panel" style={{ padding: 32, maxWidth: 480, textAlign: "center" }}>
+          <Title order={2} className="er-display er-h2">
+            Tur tamamlandı
+          </Title>
+          <Text mt={10} style={{ color: "var(--er-text-muted)" }}>
+            Rehberli turu tamamladınız. Beğendiyseniz tesise bir talep bırakın.
+          </Text>
+          <Group justify="center" gap="sm" mt={24}>
+            <Link href={`/inquiry?hotel=${manifest.hotelSlug}`} className="er-btn er-btn-cta">
+              Rezervasyon Talebi
+            </Link>
+            <Link href={backHref} className="er-btn er-btn-ghost">
+              {backLabel}
+            </Link>
+          </Group>
+        </div>
+      </Box>
     );
   }
 
@@ -511,8 +525,8 @@ export function TourPlayer({
     : {
         width: "100%",
         height: "100%",
-        background: "var(--lux-bg)",
-        borderRadius: 0,
+        background: "var(--er-navy)",
+        borderRadius: "var(--er-radius-md)",
         overflow: "hidden",
       };
 
@@ -534,22 +548,23 @@ export function TourPlayer({
   const resumeBanner = resumeAvailable && (
     <Box
       pos="absolute"
-      top={isMobileGuide ? 110 : 96}
+      top={isMobileGuide ? 110 : 88}
       left="50%"
       style={{
         transform: "translateX(-50%)",
         zIndex: 30,
-        background: "rgba(18,20,20,0.92)",
-        border: "0.5px solid rgba(212,175,55,0.42)",
-        borderRadius: 6,
-        padding: "12px 18px",
+        background: "rgba(255,255,255,0.96)",
+        border: "1px solid var(--er-line)",
+        borderRadius: 999,
+        padding: "10px 18px",
         display: "flex",
         alignItems: "center",
         gap: 14,
-        boxShadow: "0 8px 28px rgba(0,0,0,0.45)",
+        boxShadow: "var(--er-shadow)",
+        backdropFilter: "blur(12px)",
       }}
     >
-      <Text size="sm" style={{ color: "var(--lux-text)" }}>
+      <Text size="sm" style={{ color: "var(--er-text)" }}>
         Kaldığınız yerden devam edin mi?
       </Text>
       <Group gap={8}>
@@ -565,7 +580,7 @@ export function TourPlayer({
 
 
   const videoSurface = (
-    <Box ref={videoAreaRef} pos="relative" style={videoShellStyle} className="luxury-grain">
+    <Box ref={videoAreaRef} pos="relative" style={videoShellStyle} className="er-tour-stage">
           <video
             key={currentStep.stepId}
             ref={videoRef}
@@ -637,7 +652,7 @@ export function TourPlayer({
                 background: "rgba(8,9,10,0.25)",
               }}
             >
-              <Loader color="var(--lux-gold)" size="lg" />
+              <Loader color="#fff" size="lg" />
             </Box>
           )}
 
@@ -662,16 +677,16 @@ export function TourPlayer({
                   width: 88,
                   height: 88,
                   borderRadius: "50%",
-                  border: "1px solid rgba(212,175,55,0.6)",
+                  border: "1px solid var(--er-line)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   background: "rgba(18,20,20,0.72)",
                 }}
               >
-                <IconPlayerPlayFilled size={40} style={{ color: "var(--lux-gold)" }} />
+                <IconPlayerPlayFilled size={40} style={{ color: "#fff" }} />
               </Box>
-              <Text className="luxury-label" style={{ color: "var(--lux-text)" }}>
+              <Text className="er-eyebrow" style={{ color: "#fff" }}>
                 Oynatmak için dokunun
               </Text>
             </UnstyledButton>
@@ -689,8 +704,8 @@ export function TourPlayer({
               right={24}
               style={{
                 zIndex: 6,
-                border: "1px solid rgba(212,175,55,0.6)",
-                color: "var(--lux-gold)",
+                border: "1px solid var(--er-line)",
+                color: "#fff",
                 background: "rgba(18,20,20,0.85)",
               }}
             >
@@ -732,9 +747,15 @@ export function TourPlayer({
             left={{ base: 24, md: 64 }}
             style={{ zIndex: 3, pointerEvents: "none" }}
           >
-            <Text className="luxury-label" style={{ color: "rgba(212,175,55,0.72)" }}>
-              {String(stepIndex + 1).padStart(2, "0")} / {currentStep.kind === "lobby" ? "Lobi Sahnesi" : currentStep.title}
-            </Text>
+            <span className="er-tour-step-pill">
+              Adım {stepIndex + 1} / {sortedSteps.length} —{" "}
+              {currentStep.kind === "lobby" ? "Lobi Sahnesi" : currentStep.title}
+              <span className="er-tour-dots" aria-hidden>
+                {sortedSteps.map((s, i) => (
+                  <span key={s.stepId} data-active={i === stepIndex} />
+                ))}
+              </span>
+            </span>
           </Box>
 
           <Box
@@ -748,25 +769,26 @@ export function TourPlayer({
             style={{ zIndex: 3, pointerEvents: "none" }}
           >
             <Title
-              className="luxury-editorial-title"
+              className="er-display"
               style={{
-                color: "var(--lux-text)",
-                fontSize: "clamp(54px, 7vw, 92px)",
-                lineHeight: 1.04,
-                textShadow: "0 3px 20px rgba(0,0,0,0.58)",
+                color: "#fff",
+                fontSize: "clamp(28px, 4vw, 48px)",
+                lineHeight: 1.1,
+                textShadow: "0 3px 20px rgba(14,31,64,0.55)",
               }}
             >
               {currentStep.title}
             </Title>
             {currentStep.body && (
               <Text
-                mt={20}
+                mt={12}
                 style={{
-                  color: "var(--lux-muted)",
-                  fontFamily: "var(--lux-font-sans)",
-                  fontSize: "clamp(17px, 2vw, 24px)",
-                  lineHeight: 1.55,
-                  maxWidth: 560,
+                  color: "rgba(255,255,255,0.9)",
+                  fontFamily: "var(--er-font-sans)",
+                  fontSize: "clamp(15px, 1.6vw, 18px)",
+                  lineHeight: 1.6,
+                  maxWidth: 520,
+                  textShadow: "0 1px 12px rgba(14,31,64,0.5)",
                 }}
               >
                 {currentStep.body}
@@ -775,19 +797,10 @@ export function TourPlayer({
             <button
               type="button"
               onClick={isAutoTour ? stopAutoTour : startAutoTour}
-              className="luxury-label"
-              style={{
-                pointerEvents: "auto",
-                marginTop: 34,
-                padding: "0 0 7px",
-                color: "var(--lux-gold)",
-                background: "transparent",
-                border: 0,
-                borderBottom: "1px solid rgba(212,175,55,0.75)",
-                cursor: "pointer",
-              }}
+              className="er-btn er-btn-cta"
+              style={{ pointerEvents: "auto", marginTop: 20 }}
             >
-              {isAutoTour ? "Turu Durdur" : "Tur Başlat"}
+              {isAutoTour ? "Turu Durdur" : "Otomatik Tur"}
             </button>
           </Box>
 
@@ -819,45 +832,53 @@ export function TourPlayer({
 
   if (isMobileGuide) {
     return (
-      <Box className="luxury-full-bleed" style={{ height: "100dvh", overflow: "hidden", position: "relative" }}>
+      <Box className="er-tour-page" style={{ height: "100dvh", overflow: "hidden", position: "relative" }}>
         <VisuallyHidden component="p" role="status" aria-live="polite">
           {announce}
         </VisuallyHidden>
         <Box
           pos="absolute"
-          top={28}
-          left={32}
-          right={32}
-          style={{ zIndex: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}
+          top={16}
+          left={16}
+          right={16}
+          style={{ zIndex: 20, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}
         >
           <ActionIcon
             component={Link}
             href={backHref}
-            size={72}
+            size={44}
             radius="50%"
             variant="transparent"
             aria-label={backLabel}
-            style={{ border: "1px solid rgba(212,175,55,0.38)", color: "var(--lux-gold)" }}
+            className="er-tour-round-btn"
           >
-            <IconArrowLeft size={34} />
+            <IconArrowLeft size={22} />
           </ActionIcon>
-          <div style={{ textAlign: "center" }}>
-            <Text className="luxury-label" style={{ fontSize: 24, color: "var(--lux-gold)" }}>
+          <div style={{ textAlign: "center", minWidth: 0 }}>
+            <Text
+              fw={700}
+              style={{ fontSize: 14, color: "#fff", textShadow: "0 1px 10px rgba(14,31,64,0.6)" }}
+              lineClamp={1}
+            >
               {hotelName}
             </Text>
-            <Text className="luxury-label" mt={12} style={{ color: "var(--lux-muted)", fontSize: 18 }}>
+            <Text
+              style={{ fontSize: 12, color: "rgba(255,255,255,0.85)" }}
+              mt={2}
+              lineClamp={1}
+            >
               {currentStep?.title ?? ""}
             </Text>
           </div>
           <ActionIcon
-            size={72}
+            size={44}
             radius="50%"
             variant="transparent"
             aria-label={isFullScreen ? "Tam ekrandan çık" : "Tam ekran"}
             onClick={() => void toggleFullscreen()}
-            style={{ border: "1px solid rgba(212,175,55,0.38)", color: "var(--lux-gold)" }}
+            className="er-tour-round-btn"
           >
-            {isFullScreen ? <IconMinimize size={30} /> : <IconMaximize size={30} />}
+            {isFullScreen ? <IconMinimize size={20} /> : <IconMaximize size={20} />}
           </ActionIcon>
         </Box>
         <Box pos="absolute" inset={0}>
@@ -872,10 +893,11 @@ export function TourPlayer({
           h={guideExpanded ? "58dvh" : GUIDE_PEEK_HEIGHT}
           style={{
             zIndex: 16,
-            borderTop: "1px solid rgba(212,175,55,0.38)",
+            borderTop: "1px solid var(--er-line)",
             borderRadius: "18px 18px 0 0",
             overflow: "hidden",
-            background: "rgba(18,20,20,0.94)",
+            background: "var(--er-surface)",
+            boxShadow: "0 -8px 32px rgba(14,31,64,0.14)",
             transition: reduceMotion ? "none" : "height 0.25s ease",
           }}
         >
@@ -888,7 +910,7 @@ export function TourPlayer({
             pos="absolute"
             top={0}
             left="50%"
-            style={{ zIndex: 2, color: "var(--lux-gold)", transform: "translateX(-50%)" }}
+            style={{ zIndex: 2, color: "var(--er-text-dim)", transform: "translateX(-50%)" }}
           >
             {guideExpanded ? <IconChevronDown size={24} /> : <IconChevronUp size={24} />}
           </ActionIcon>
@@ -899,7 +921,7 @@ export function TourPlayer({
   }
 
   return (
-    <Box className="luxury-full-bleed" style={{ height: "100dvh", overflow: "hidden", position: "relative" }}>
+    <Box className="er-tour-page" style={{ height: "100dvh", overflow: "hidden", position: "relative" }}>
       <VisuallyHidden component="p" role="status" aria-live="polite">
         {announce}
       </VisuallyHidden>
@@ -913,10 +935,10 @@ export function TourPlayer({
       <Group
         align="stretch"
         wrap="nowrap"
-        gap="md"
+        gap={16}
         style={{
           position: "fixed",
-          top: 96,
+          top: "var(--er-header-h)",
           left: 0,
           right: 0,
           bottom: 0,
@@ -928,12 +950,13 @@ export function TourPlayer({
         </Box>
         <Box
           style={{
-            flex: "0 0 400px",
+            flex: "0 0 420px",
             overflow: "hidden",
             zIndex: 44,
-            borderRadius: 6,
-            border: "0.5px solid rgba(212,175,55,0.22)",
-            boxShadow: "0 8px 48px rgba(0,0,0,0.55)",
+            borderRadius: "var(--er-radius-md)",
+            border: "1px solid var(--er-line)",
+            background: "var(--er-surface)",
+            boxShadow: "var(--er-shadow)",
           }}
         >
           {guidePanel}

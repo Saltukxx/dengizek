@@ -18,23 +18,22 @@ export function RestaurantsSection({ restaurants }: { restaurants: Restaurant[] 
   if (restaurants.length === 0) return null;
 
   return (
-    <section id="gastronomi" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px 96px" }}>
-      <div style={{ marginBottom: 42 }}>
+    <section id="gastronomi" className="er-detail-section">
+      <div style={{ marginBottom: 24 }}>
         <h2
-          className="luxury-sans-title"
-          style={{ margin: 0, fontSize: "clamp(36px, 4.5vw, 56px)", lineHeight: 1.08 }}
+          className="er-display er-h2"
         >
           Gastronomi
         </h2>
-        <div style={{ width: 50, height: 4, background: "var(--lux-gold)", marginTop: 16 }} />
+        
       </div>
 
       <div style={{ display: "grid", gap: 32 }}>
         {restaurants.map((restaurant) => (
           <article
             key={restaurant.id}
-            className="luxury-glass"
-            style={{ borderRadius: 8, overflow: "hidden", border: "1px solid rgba(212,175,55,0.18)" }}
+            className="er-card"
+            style={{ borderRadius: "var(--er-radius-md)", overflow: "hidden", border: "1px solid var(--er-line)", background: "var(--er-surface)", boxShadow: "var(--er-shadow-sm)" }}
           >
             {restaurant.imageUrl && (
               <div style={{ position: "relative", maxHeight: 280, overflow: "hidden" }}>
@@ -47,22 +46,22 @@ export function RestaurantsSection({ restaurants }: { restaurants: Restaurant[] 
                   style={{
                     position: "absolute",
                     inset: 0,
-                    background: "linear-gradient(to top, rgba(11,15,18,0.7), transparent 55%)",
+                    background: "linear-gradient(to top, rgba(14,31,64,0.55), transparent 55%)",
                   }}
                 />
               </div>
             )}
             <div style={{ padding: "26px 28px 28px" }}>
               {restaurant.cuisine && (
-                <p className="luxury-label" style={{ margin: "0 0 10px", color: "var(--lux-gold)", fontSize: 11 }}>
+                <p className="er-eyebrow" style={{ margin: "0 0 10px", color: "var(--er-primary)", fontSize: 11 }}>
                   {restaurant.cuisine}
                 </p>
               )}
-              <h3 className="luxury-sans-title" style={{ margin: 0, fontSize: 28, color: "var(--lux-text)" }}>
+              <h3 className="er-display" style={{ margin: 0, fontSize: 28, color: "var(--er-text)" }}>
                 {restaurant.name}
               </h3>
               {restaurant.description && (
-                <p style={{ margin: "12px 0 0", color: "var(--lux-muted)", lineHeight: 1.7, maxWidth: 720 }}>
+                <p style={{ margin: "12px 0 0", color: "var(--er-text-muted)", lineHeight: 1.7, maxWidth: 720 }}>
                   {restaurant.description}
                 </p>
               )}
@@ -72,7 +71,7 @@ export function RestaurantsSection({ restaurants }: { restaurants: Restaurant[] 
                   flexWrap: "wrap",
                   gap: 20,
                   marginTop: 16,
-                  color: "var(--lux-dim)",
+                  color: "var(--er-text-dim)",
                   fontSize: 13,
                 }}
               >
@@ -94,9 +93,9 @@ export function RestaurantsSection({ restaurants }: { restaurants: Restaurant[] 
                     <details
                       key={section.id}
                       style={{
-                        border: "1px solid rgba(208,197,178,0.18)",
+                        border: "1px solid var(--er-line)",
                         borderRadius: 6,
-                        background: "rgba(255,255,255,0.02)",
+                        background: "var(--er-surface-2)",
                       }}
                     >
                       <summary
@@ -107,14 +106,14 @@ export function RestaurantsSection({ restaurants }: { restaurants: Restaurant[] 
                           display: "flex",
                           alignItems: "center",
                           gap: 10,
-                          color: "var(--lux-text)",
+                          color: "var(--er-text)",
                           fontWeight: 600,
                           fontSize: 15,
                         }}
                       >
-                        <IconToolsKitchen2 size={16} color="var(--lux-gold)" />
+                        <IconToolsKitchen2 size={16} color="var(--er-primary)" />
                         {section.title}
-                        <span style={{ marginLeft: "auto", color: "var(--lux-dim)", fontSize: 12, fontWeight: 400 }}>
+                        <span style={{ marginLeft: "auto", color: "var(--er-text-dim)", fontSize: 12, fontWeight: 400 }}>
                           {section.items.length} ürün
                         </span>
                       </summary>
@@ -127,11 +126,11 @@ export function RestaurantsSection({ restaurants }: { restaurants: Restaurant[] 
                               justifyContent: "space-between",
                               gap: 16,
                               padding: "10px 0",
-                              borderTop: "1px solid rgba(208,197,178,0.1)",
+                              borderTop: "1px solid var(--er-line)",
                             }}
                           >
                             <div>
-                              <span style={{ color: "var(--lux-text)", fontSize: 14, fontWeight: 500 }}>
+                              <span style={{ color: "var(--er-text)", fontSize: 14, fontWeight: 500 }}>
                                 {item.name}
                               </span>
                               {item.tags.length > 0 && (
@@ -143,8 +142,8 @@ export function RestaurantsSection({ restaurants }: { restaurants: Restaurant[] 
                                         fontSize: 10,
                                         padding: "2px 8px",
                                         borderRadius: 999,
-                                        border: "1px solid rgba(212,175,55,0.35)",
-                                        color: "var(--lux-gold)",
+                                        border: "1px solid var(--er-line)",
+                                        color: "var(--er-primary)",
                                       }}
                                     >
                                       {tagLabels[tag] ?? tag}
@@ -153,12 +152,12 @@ export function RestaurantsSection({ restaurants }: { restaurants: Restaurant[] 
                                 </span>
                               )}
                               {item.description && (
-                                <p style={{ margin: "4px 0 0", color: "var(--lux-dim)", fontSize: 13 }}>
+                                <p style={{ margin: "4px 0 0", color: "var(--er-text-dim)", fontSize: 13 }}>
                                   {item.description}
                                 </p>
                               )}
                             </div>
-                            <span style={{ color: "var(--lux-gold)", fontSize: 14, fontWeight: 600, whiteSpace: "nowrap" }}>
+                            <span style={{ color: "var(--er-primary)", fontSize: 14, fontWeight: 600, whiteSpace: "nowrap" }}>
                               {formatPrice(item.priceMinor, item.currency, item.priceOnRequest)}
                             </span>
                           </li>

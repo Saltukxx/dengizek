@@ -2,13 +2,14 @@ import { randomBytes } from "node:crypto";
 import { getDb, isDbConfigured } from "@/lib/db";
 import { analyticsEventsTable } from "@/lib/db/schema";
 
-export type AnalyticsEventType =
-  | "tour_view"
-  | "step_view"
-  | "inquiry_start"
-  | "inquiry_submit"
-  | "ai_message"
-  | string;
+import type { AnalyticsEventType as KnownAnalyticsEventType } from "@/lib/schemas/analytics";
+
+/**
+ * Bilinen olay adları schemas/analytics.ts'ten gelir; serbest string kabul
+ * edilmeye devam eder (sunucu tarafı ad-hoc olaylar için), ancak panel
+ * ekranları yalnızca bilinen adları etiketleyebilir.
+ */
+export type AnalyticsEventType = KnownAnalyticsEventType | (string & {});
 
 export async function trackEvent(
   eventType: AnalyticsEventType,

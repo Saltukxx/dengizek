@@ -8,6 +8,7 @@ import {
   IconRulerMeasure,
   IconUsers,
 } from "@tabler/icons-react";
+import { ViewTracker } from "@/components/guest/analytics-tracker";
 import { getPublishedRoom, getPublishedTours, pickTourForRoom } from "@/lib/hotels-repo";
 import { resolveGuestRoomPrice } from "@/lib/guest-pricing";
 import {
@@ -85,13 +86,20 @@ export default async function RoomPage({ params }: PageProps) {
         padding: "clamp(32px, 5vw, 64px) clamp(24px, 5vw, 48px)",
       }}
     >
+      {/* Oda görüntüleme olayı — panel analitiğinde oda bazlı ilgi */}
+      <ViewTracker
+        eventType="room_view"
+        hotelSlug={slug}
+        payload={{ roomSlug, hasTour: Boolean(roomTour) }}
+      />
+
       {/* Breadcrumb */}
       <nav
         style={{
           display: "flex",
           gap: 8,
           alignItems: "center",
-          fontFamily: "var(--lux-font-sans)",
+          fontFamily: "var(--er-font-sans)",
           fontSize: 12,
           fontWeight: 600,
           letterSpacing: "0.14em",
@@ -99,15 +107,15 @@ export default async function RoomPage({ params }: PageProps) {
           marginBottom: 32,
         }}
       >
-        <Link href="/browse" style={{ color: "var(--lux-dim)", textDecoration: "none" }}>
+        <Link href="/browse" style={{ color: "var(--er-text-dim)", textDecoration: "none" }}>
           Keşfet
         </Link>
-        <span style={{ color: "var(--lux-line-strong)" }}>/</span>
-        <Link href={`/hotels/${hotel.slug}`} style={{ color: "var(--lux-dim)", textDecoration: "none" }}>
+        <span style={{ color: "var(--er-line-strong)" }}>/</span>
+        <Link href={`/hotels/${hotel.slug}`} style={{ color: "var(--er-text-dim)", textDecoration: "none" }}>
           {hotel.name}
         </Link>
-        <span style={{ color: "var(--lux-line-strong)" }}>/</span>
-        <span style={{ color: "var(--lux-gold)" }}>{room.name}</span>
+        <span style={{ color: "var(--er-line-strong)" }}>/</span>
+        <span style={{ color: "var(--er-primary)" }}>{room.name}</span>
       </nav>
 
       {/* Hero image */}
@@ -117,9 +125,9 @@ export default async function RoomPage({ params }: PageProps) {
           aspectRatio: "16/9",
           maxHeight: 480,
           overflow: "hidden",
-          borderRadius: 4,
+          borderRadius: "var(--er-radius-md)",
           marginBottom: "clamp(28px, 4vw, 48px)",
-          border: "1px solid rgba(138,155,176,0.16)",
+          border: "1px solid var(--er-line)",
         }}
       >
         <img
@@ -132,7 +140,7 @@ export default async function RoomPage({ params }: PageProps) {
           style={{
             position: "absolute",
             inset: 0,
-            background: "linear-gradient(to top, rgba(11,15,18,0.65) 0%, transparent 55%)",
+            background: "linear-gradient(to top, rgba(14,31,64,0.45) 0%, transparent 55%)",
           }}
         />
       </div>
@@ -152,12 +160,12 @@ export default async function RoomPage({ params }: PageProps) {
           <p
             style={{
               margin: "0 0 14px",
-              fontFamily: "var(--lux-font-sans)",
+              fontFamily: "var(--er-font-sans)",
               fontSize: 11,
               fontWeight: 600,
               letterSpacing: "0.22em",
               textTransform: "uppercase",
-              color: "var(--lux-gold)",
+              color: "var(--er-primary)",
             }}
           >
             {room.tagline}
@@ -166,28 +174,26 @@ export default async function RoomPage({ params }: PageProps) {
           <h1
             style={{
               margin: "0 0 20px",
-              fontFamily: "var(--lux-font-sans)",
+              fontFamily: "var(--er-font-sans)",
               fontSize: "clamp(28px, 4vw, 48px)",
               fontWeight: 700,
               letterSpacing: "-0.025em",
               lineHeight: 1.1,
-              color: "var(--lux-text)",
+              color: "var(--er-text)",
             }}
           >
             {room.name}
           </h1>
 
-          <div
-            style={{ width: 48, height: 2, background: "var(--lux-gold)", opacity: 0.65, marginBottom: 24 }}
-          />
+          
 
           <p
             style={{
               margin: 0,
-              fontFamily: "var(--lux-font-sans)",
+              fontFamily: "var(--er-font-sans)",
               fontSize: "clamp(15px, 1.6vw, 17px)",
               lineHeight: 1.75,
-              color: "var(--lux-muted)",
+              color: "var(--er-text-muted)",
               maxWidth: 660,
             }}
           >
@@ -201,8 +207,8 @@ export default async function RoomPage({ params }: PageProps) {
                 flexWrap: "wrap",
                 gap: 18,
                 marginTop: 28,
-                color: "var(--lux-muted)",
-                fontFamily: "var(--lux-font-sans)",
+                color: "var(--er-text-muted)",
+                fontFamily: "var(--er-font-sans)",
                 fontSize: 14,
               }}
             >
@@ -215,11 +221,11 @@ export default async function RoomPage({ params }: PageProps) {
                     gap: 8,
                     padding: "8px 16px",
                     borderRadius: 999,
-                    border: "1px solid rgba(208,197,178,0.22)",
-                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid var(--er-line)",
+                    background: "var(--er-surface-2)",
                   }}
                 >
-                  <f.icon size={16} color="var(--lux-gold)" />
+                  <f.icon size={16} color="var(--er-primary)" />
                   {f.label}
                 </span>
               ))}
@@ -231,12 +237,12 @@ export default async function RoomPage({ params }: PageProps) {
               <p
                 style={{
                   margin: "0 0 12px",
-                  fontFamily: "var(--lux-font-sans)",
+                  fontFamily: "var(--er-font-sans)",
                   fontSize: 11,
                   fontWeight: 600,
                   letterSpacing: "0.22em",
                   textTransform: "uppercase",
-                  color: "var(--lux-gold)",
+                  color: "var(--er-primary)",
                 }}
               >
                 Oda Olanakları
@@ -248,9 +254,9 @@ export default async function RoomPage({ params }: PageProps) {
                     style={{
                       padding: "6px 14px",
                       borderRadius: 999,
-                      border: "1px solid rgba(208,197,178,0.18)",
-                      color: "var(--lux-muted)",
-                      fontFamily: "var(--lux-font-sans)",
+                      border: "1px solid var(--er-line)",
+                      color: "var(--er-text-muted)",
+                      fontFamily: "var(--er-font-sans)",
                       fontSize: 13,
                     }}
                   >
@@ -266,12 +272,12 @@ export default async function RoomPage({ params }: PageProps) {
               <p
                 style={{
                   margin: "0 0 4px",
-                  fontFamily: "var(--lux-font-sans)",
+                  fontFamily: "var(--er-font-sans)",
                   fontSize: 12,
                   fontWeight: 600,
                   letterSpacing: "0.14em",
                   textTransform: "uppercase",
-                  color: "var(--lux-gold)",
+                  color: "var(--er-primary)",
                 }}
               >
                 Kampanya
@@ -281,12 +287,12 @@ export default async function RoomPage({ params }: PageProps) {
               <p
                 style={{
                   margin: "0 0 4px",
-                  fontFamily: "var(--lux-font-sans)",
+                  fontFamily: "var(--er-font-sans)",
                   fontSize: 12,
                   fontWeight: 600,
                   letterSpacing: "0.14em",
                   textTransform: "uppercase",
-                  color: "var(--lux-gold)",
+                  color: "var(--er-primary)",
                 }}
               >
                 {room.discountLabel || priced.discountLabel || `%${room.discountPercent} indirim`}
@@ -295,10 +301,10 @@ export default async function RoomPage({ params }: PageProps) {
             <p
               style={{
                 margin: 0,
-                fontFamily: "var(--lux-font-sans)",
+                fontFamily: "var(--er-font-sans)",
                 fontSize: 22,
                 fontWeight: 700,
-                color: "var(--lux-gold)",
+                color: "var(--er-primary)",
               }}
             >
               {hasDiscount && (
@@ -306,7 +312,7 @@ export default async function RoomPage({ params }: PageProps) {
                   style={{
                     fontSize: 15,
                     fontWeight: 400,
-                    color: "var(--lux-dim)",
+                    color: "var(--er-text-dim)",
                     textDecoration: "line-through",
                     marginRight: 10,
                   }}
@@ -316,7 +322,7 @@ export default async function RoomPage({ params }: PageProps) {
               )}
               {formatPrice(finalMinor, priced.currency, priced.priceOnRequest)}
               {!priced.priceOnRequest && (
-                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--lux-dim)", marginLeft: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--er-text-dim)", marginLeft: 8 }}>
                   / gece{priced.rateName ? ` · ${priced.rateName}` : ""}
                 </span>
               )}
@@ -325,9 +331,9 @@ export default async function RoomPage({ params }: PageProps) {
               <p
                 style={{
                   margin: "8px 0 0",
-                  fontFamily: "var(--lux-font-sans)",
+                  fontFamily: "var(--er-font-sans)",
                   fontSize: 13,
-                  color: "var(--lux-muted)",
+                  color: "var(--er-text-muted)",
                 }}
               >
                 {[boardLabel, priced.minStayNights != null ? `En az ${priced.minStayNights} gece` : null]
@@ -339,9 +345,9 @@ export default async function RoomPage({ params }: PageProps) {
               <p
                 style={{
                   margin: "8px 0 0",
-                  fontFamily: "var(--lux-font-sans)",
+                  fontFamily: "var(--er-font-sans)",
                   fontSize: 13,
-                  color: "var(--lux-dim)",
+                  color: "var(--er-text-dim)",
                 }}
               >
                 {room.pricingNotes}
@@ -354,19 +360,19 @@ export default async function RoomPage({ params }: PageProps) {
               <p
                 style={{
                   margin: "0 0 12px",
-                  fontFamily: "var(--lux-font-sans)",
+                  fontFamily: "var(--er-font-sans)",
                   fontSize: 11,
                   fontWeight: 600,
                   letterSpacing: "0.22em",
                   textTransform: "uppercase",
-                  color: "var(--lux-gold)",
+                  color: "var(--er-primary)",
                 }}
               >
                 Fiyat Dönemleri
               </p>
               <div
                 style={{
-                  border: "1px solid rgba(208,197,178,0.18)",
+                  border: "1px solid var(--er-line)",
                   borderRadius: 6,
                   overflow: "hidden",
                 }}
@@ -380,24 +386,24 @@ export default async function RoomPage({ params }: PageProps) {
                       justifyContent: "space-between",
                       gap: 12,
                       padding: "12px 16px",
-                      borderTop: i > 0 ? "1px solid rgba(208,197,178,0.1)" : "none",
-                      fontFamily: "var(--lux-font-sans)",
+                      borderTop: i > 0 ? "1px solid var(--er-line)" : "none",
+                      fontFamily: "var(--er-font-sans)",
                       fontSize: 14,
                     }}
                   >
-                    <span style={{ color: "var(--lux-text)", fontWeight: 500 }}>
+                    <span style={{ color: "var(--er-text)", fontWeight: 500 }}>
                       {r.name}
-                      <span style={{ color: "var(--lux-dim)", fontWeight: 400, marginLeft: 10, fontSize: 13 }}>
+                      <span style={{ color: "var(--er-text-dim)", fontWeight: 400, marginLeft: 10, fontSize: 13 }}>
                         {formatDateRangeTr(r.startDate, r.endDate)}
                         {r.minStayNights != null ? ` · en az ${r.minStayNights} gece` : ""}
                       </span>
                     </span>
-                    <span style={{ color: "var(--lux-gold)", fontWeight: 600, whiteSpace: "nowrap" }}>
+                    <span style={{ color: "var(--er-primary)", fontWeight: 600, whiteSpace: "nowrap" }}>
                       {hasDiscount ? (
                         <>
                           <span
                             style={{
-                              color: "var(--lux-dim)",
+                              color: "var(--er-text-dim)",
                               fontWeight: 400,
                               fontSize: 12,
                               textDecoration: "line-through",
@@ -415,12 +421,12 @@ export default async function RoomPage({ params }: PageProps) {
                       ) : (
                         formatPrice(r.priceMinor, r.currency, false)
                       )}
-                      <span style={{ color: "var(--lux-dim)", fontWeight: 400, fontSize: 12 }}> / gece (baz)</span>
+                      <span style={{ color: "var(--er-text-dim)", fontWeight: 400, fontSize: 12 }}> / gece (baz)</span>
                       {formatOccupancySummary(r, formatPrice) && (
                         <span
                           style={{
                             display: "block",
-                            color: "var(--lux-dim)",
+                            color: "var(--er-text-dim)",
                             fontWeight: 400,
                             fontSize: 12,
                             marginTop: 4,
@@ -450,8 +456,8 @@ export default async function RoomPage({ params }: PageProps) {
           {roomTour && (
             <Link
               href={`/tours/${slug}/${roomTour.tourId}?room=${roomSlug}`}
-              className="luxury-gold-button"
-              style={{ borderRadius: 2, justifyContent: "center" }}
+              className="er-btn er-btn-cta"
+              style={{ justifyContent: "center" }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <polygon points="5,3 19,12 5,21"/>
@@ -461,22 +467,8 @@ export default async function RoomPage({ params }: PageProps) {
           )}
           <Link
             href={`/inquiry?hotel=${hotel.slug}`}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              minHeight: 48,
-              padding: "0 2rem",
-              fontFamily: "var(--lux-font-sans)",
-              fontSize: 14,
-              fontWeight: 600,
-              letterSpacing: "0.04em",
-              color: "var(--lux-muted)",
-              border: "1px solid rgba(208,197,178,0.25)",
-              borderRadius: 2,
-              textDecoration: "none",
-              transition: "color 220ms, border-color 220ms",
-            }}
+            className="er-btn er-btn-ghost"
+            style={{ justifyContent: "center" }}
           >
             Talep Gönder
           </Link>

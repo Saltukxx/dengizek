@@ -45,18 +45,18 @@ export function ConsentBanner() {
         alignItems: "center",
         gap: 14,
         padding: "16px 18px",
-        borderRadius: 10,
-        border: "1px solid rgba(212,175,55,0.28)",
-        background: "rgba(12,16,22,0.96)",
+        borderRadius: "var(--er-radius-md)",
+        border: "1px solid var(--er-line)",
+        background: "rgba(255,255,255,0.97)",
         backdropFilter: "blur(8px)",
-        boxShadow: "0 12px 40px rgba(0,0,0,0.45)",
+        boxShadow: "var(--er-shadow-lg)",
       }}
     >
       <p
         style={{
           margin: 0,
           flex: "1 1 320px",
-          color: "var(--lux-muted)",
+          color: "var(--er-text-muted)",
           fontSize: 13,
           lineHeight: 1.6,
         }}
@@ -70,10 +70,10 @@ export function ConsentBanner() {
           onClick={() => decide("denied")}
           style={{
             padding: "9px 16px",
-            borderRadius: 6,
-            border: "1px solid rgba(255,255,255,0.22)",
+            borderRadius: "var(--er-radius)",
+            border: "1px solid var(--er-line-strong)",
             background: "transparent",
-            color: "var(--lux-muted)",
+            color: "var(--er-text-muted)",
             fontSize: 13,
             cursor: "pointer",
           }}
@@ -85,10 +85,10 @@ export function ConsentBanner() {
           onClick={() => decide("granted")}
           style={{
             padding: "9px 16px",
-            borderRadius: 6,
-            border: "1px solid var(--lux-gold)",
-            background: "var(--lux-gold)",
-            color: "#12161d",
+            borderRadius: "var(--er-radius)",
+            border: "1px solid var(--er-primary)",
+            background: "var(--er-primary)",
+            color: "#fff",
             fontSize: 13,
             fontWeight: 600,
             cursor: "pointer",
