@@ -20,6 +20,7 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconCopy, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMyHotel } from "./use-my-hotel";
+import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 
 interface FeedRow {
   id: string;
@@ -46,6 +47,8 @@ export function ConnectivityPanel() {
     importUrl: "",
     roomId: null,
   });
+  const lock = usePanelRevision();
+  const setLockRevision = lock.setRevision;
 
   const reload = useCallback(async () => {
     if (!hotel) return;
@@ -55,9 +58,9 @@ export function ConnectivityPanel() {
     ]);
     const feedJson = await feedRes.json();
     const roomJson = await roomRes.json();
-    if (feedJson.ok) setFeeds(feedJson.feeds);
+    if (feedJson.ok) { setFeeds(feedJson.feeds); setLockRevision(feedJson.revision); }
     if (roomJson.ok) setRooms(roomJson.rooms.map((r: RoomOption) => ({ id: r.id, name: r.name })));
-  }, [hotel]);
+  }, [hotel, setLockRevision]);
 
   useEffect(() => {
     void reload();
@@ -82,9 +85,11 @@ export function ConnectivityPanel() {
         name: form.name,
         importUrl: form.importUrl || null,
         roomId: form.roomId,
+        expectedRevision: lock.revision,
       }),
     });
     const json = await res.json();
+    if (lock.consumeResponse(json)) return;
     if (json.ok) {
       notifications.show({ color: "green", message: "iCal feed oluşturuldu." });
       setOpen(false);
@@ -97,11 +102,13 @@ export function ConnectivityPanel() {
 
   async function removeFeed(id: string) {
     if (!hotel) return;
-    await fetch(`/api/manager/hotels/${hotel.id}/ical-feeds`, {
+    const res = await fetch(`/api/manager/hotels/${hotel.id}/ical-feeds`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ id, expectedRevision: lock.revision }),
     });
+    const json = await res.json();
+    if (lock.consumeResponse(json)) return;
     void reload();
   }
 
@@ -211,6 +218,11 @@ export function ConnectivityPanel() {
           </Button>
         </Stack>
       </Modal>
+      <PanelRevisionConflictModal
+        conflict={lock.conflict}
+        onKeepLocal={lock.keepLocalDraft}
+        onLoadLatest={async () => { setOpen(false); await reload(); lock.clearConflict(); }}
+      />
     </Stack>
   );
 }

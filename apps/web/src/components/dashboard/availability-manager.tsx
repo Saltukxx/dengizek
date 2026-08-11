@@ -18,6 +18,7 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconPlus } from "@tabler/icons-react";
 import { useMyHotel } from "./use-my-hotel";
+import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 
 interface NoteRow {
   id: string;
@@ -32,13 +33,15 @@ export function AvailabilityManager() {
   const [notes, setNotes] = useState<NoteRow[] | null>(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ label: "", startDate: "", endDate: "", isBlackout: false });
+  const lock = usePanelRevision();
+  const setLockRevision = lock.setRevision;
 
   const reload = useCallback(async () => {
     if (!hotel) return;
     const res = await fetch(`/api/manager/hotels/${hotel.id}/availability-notes`);
     const json = await res.json();
-    if (json.ok) setNotes(json.notes);
-  }, [hotel]);
+    if (json.ok) { setNotes(json.notes); setLockRevision(json.revision); }
+  }, [hotel, setLockRevision]);
 
   useEffect(() => {
     void reload();
@@ -63,9 +66,11 @@ export function AvailabilityManager() {
         startDate: form.startDate || null,
         endDate: form.endDate || null,
         isBlackout: form.isBlackout,
+        expectedRevision: lock.revision,
       }),
     });
     const json = await res.json();
+    if (lock.consumeResponse(json)) return;
     if (json.ok) {
       notifications.show({ color: "green", message: "Not eklendi." });
       setOpen(false);
@@ -80,9 +85,11 @@ export function AvailabilityManager() {
     const res = await fetch(`/api/manager/hotels/${hotel!.id}/availability-notes`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ id, expectedRevision: lock.revision }),
     });
-    if ((await res.json()).ok) void reload();
+    const json = await res.json();
+    if (lock.consumeResponse(json)) return;
+    if (json.ok) void reload();
   }
 
   return (
@@ -142,6 +149,11 @@ export function AvailabilityManager() {
           <Button onClick={createNote}>Kaydet</Button>
         </Stack>
       </Modal>
+      <PanelRevisionConflictModal
+        conflict={lock.conflict}
+        onKeepLocal={lock.keepLocalDraft}
+        onLoadLatest={async () => { setOpen(false); await reload(); lock.clearConflict(); }}
+      />
     </Stack>
   );
 }

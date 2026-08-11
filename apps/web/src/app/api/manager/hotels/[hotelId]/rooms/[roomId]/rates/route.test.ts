@@ -6,11 +6,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextResponse } from "next/server";
 
 const requireHotelAccessMock = vi.fn();
+const runPanelMutationMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth/guards", () => ({
   requireHotelAccess: (...args: unknown[]) => requireHotelAccessMock(...args),
 }));
 
 vi.mock("@/lib/audit", () => ({ logAudit: vi.fn() }));
+
+vi.mock("@/lib/panel-revision", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/panel-revision")>("@/lib/panel-revision");
+  return {
+    ...actual,
+    runPanelMutation: (...args: unknown[]) => runPanelMutationMock(...args),
+  };
+});
 
 // select sonuçları sırayla döner: önce oda araması, sonra mevcut dönemler...
 const selectResults: unknown[][] = [];
@@ -82,7 +91,7 @@ function makePut(body: unknown) {
   return new Request("http://localhost/api/manager/hotels/x/rooms/y/rates", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...(body as object), expectedRevision: 1 }),
   });
 }
 
@@ -92,6 +101,11 @@ beforeEach(() => {
   insertValuesMock.mockReset();
   updateWhereMock.mockReset();
   selectResults.length = 0;
+  runPanelMutationMock.mockReset();
+  runPanelMutationMock.mockImplementation(async ({ mutate }) => ({
+    result: await mutate(makeDb()),
+    revision: 2,
+  }));
 });
 
 describe("room rates API", () => {

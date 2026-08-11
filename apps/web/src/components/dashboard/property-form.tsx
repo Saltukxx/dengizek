@@ -6,7 +6,7 @@
 // İncelemeye gönder: POST /api/manager/hotels/[id]/submit
 // ---------------------------------------------------------------------------
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Badge,
@@ -36,6 +36,7 @@ import { moderationStatusColors, moderationStatusLabels, propertyTypeLabels } fr
 import { useMyHotel } from "./use-my-hotel";
 import { MediaPicker } from "./media-picker";
 import { PropertyGallerySection } from "./property-gallery-section";
+import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 
 // TagsInput önerileri — katalog kategorilere göre gruplanır, serbest metin de geçerli
 const amenitySuggestions = amenitiesCatalog.map((cat) => ({
@@ -88,20 +89,21 @@ export function PropertyForm() {
   const [cancellationRules, setCancellationRules] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const lock = usePanelRevision();
 
-  useEffect(() => {
+  const reload = useCallback(async () => {
     if (!myHotel) return;
-    (async () => {
-      const [hotelRes, rulesRes] = await Promise.all([
-        fetch(`/api/manager/hotels/${myHotel.id}`),
-        fetch(`/api/manager/hotels/${myHotel.id}/cancellation-rules`),
-      ]);
-      const json = await hotelRes.json();
-      const rulesJson = await rulesRes.json();
-      if (json.ok) setDetail(json.hotel);
-      if (rulesJson.ok) setCancellationRules(rulesJson.rules);
-    })();
+    const [hotelRes, rulesRes] = await Promise.all([
+      fetch(`/api/manager/hotels/${myHotel.id}`),
+      fetch(`/api/manager/hotels/${myHotel.id}/cancellation-rules`),
+    ]);
+    const json = await hotelRes.json();
+    const rulesJson = await rulesRes.json();
+    if (json.ok) setDetail(json.hotel);
+    if (rulesJson.ok) setCancellationRules(rulesJson.rules);
   }, [myHotel]);
+
+  useEffect(() => { void reload(); }, [reload]);
 
   if (hotelLoading) return <Loader />;
   if (hotelError) {
@@ -158,6 +160,7 @@ export function PropertyForm() {
     });
     const json = await res.json();
     setSaving(false);
+    if (lock.consumeResponse(json)) return;
     if (json.ok) {
       notifications.show({ color: "green", message: "Tesis bilgileri güncellendi." });
       setDetail(json.hotel);
@@ -520,6 +523,11 @@ export function PropertyForm() {
           />
         </Stack>
       </Paper>
+      <PanelRevisionConflictModal
+        conflict={lock.conflict}
+        onKeepLocal={lock.keepLocalDraft}
+        onLoadLatest={async () => { await reload(); lock.clearConflict(); }}
+      />
     </Stack>
   );
 }

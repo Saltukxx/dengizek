@@ -21,6 +21,7 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconChevronLeft, IconChevronRight, IconWand } from "@tabler/icons-react";
 import { useMyHotel } from "./use-my-hotel";
+import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 
 interface RoomOption {
   id: string;
@@ -92,6 +93,8 @@ export function InventoryManager() {
     cta: { enabled: false, value: false },
     ctd: { enabled: false, value: false },
   });
+  const lock = usePanelRevision();
+  const setLockRevision = lock.setRevision;
 
   const dates = useMemo(() => daysInMonth(year, month), [year, month]);
   const from = dates[0];
@@ -146,8 +149,9 @@ export function InventoryManager() {
       }
       setDraft(map);
       setDirty(false);
+      setLockRevision(json.revision);
     }
-  }, [hotel, roomId, from, to, dates]);
+  }, [hotel, roomId, from, to, dates, setLockRevision]);
 
   useEffect(() => {
     void loadInventory();
@@ -239,10 +243,11 @@ export function InventoryManager() {
     const res = await fetch(`/api/manager/hotels/${hotel.id}/inventory`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entries }),
+      body: JSON.stringify({ entries, expectedRevision: lock.revision }),
     });
     const json = await res.json();
     setSaving(false);
+    if (lock.consumeResponse(json)) return;
     if (json.ok) {
       setDirty(false);
       notifications.show({ color: "green", message: "Envanter kaydedildi." });
@@ -512,6 +517,11 @@ export function InventoryManager() {
           </Button>
         </Stack>
       </Modal>
+      <PanelRevisionConflictModal
+        conflict={lock.conflict}
+        onKeepLocal={lock.keepLocalDraft}
+        onLoadLatest={async () => { await loadInventory(); lock.clearConflict(); }}
+      />
     </Stack>
   );
 }

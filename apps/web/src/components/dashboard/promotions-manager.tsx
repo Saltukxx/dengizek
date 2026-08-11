@@ -20,6 +20,7 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMyHotel } from "./use-my-hotel";
+import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 
 interface PromotionRow {
   id: string;
@@ -64,6 +65,8 @@ export function PromotionsManager() {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<PromoForm>(emptyForm);
+  const lock = usePanelRevision();
+  const setLockRevision = lock.setRevision;
 
   const reload = useCallback(async () => {
     if (!hotel) return;
@@ -73,7 +76,7 @@ export function PromotionsManager() {
     ]);
     const promoJson = await promoRes.json();
     const roomsJson = await roomsRes.json();
-    if (promoJson.ok) setPromotions(promoJson.promotions);
+    if (promoJson.ok) { setPromotions(promoJson.promotions); setLockRevision(promoJson.revision); }
     if (roomsJson.ok) {
       setRooms(
         (roomsJson.rooms as { id: string; name: string }[]).map((r) => ({
@@ -82,7 +85,7 @@ export function PromotionsManager() {
         })),
       );
     }
-  }, [hotel]);
+  }, [hotel, setLockRevision]);
 
   useEffect(() => {
     void reload();
@@ -137,9 +140,12 @@ export function PromotionsManager() {
     const res = await fetch(`/api/manager/hotels/${hotel!.id}/promotions`, {
       method: editingId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editingId ? { id: editingId, ...payload } : payload),
+      body: JSON.stringify(editingId
+        ? { id: editingId, ...payload, expectedRevision: lock.revision }
+        : { ...payload, expectedRevision: lock.revision }),
     });
     const json = await res.json();
+    if (lock.consumeResponse(json)) return;
     if (json.ok) {
       notifications.show({
         color: "green",
@@ -153,20 +159,24 @@ export function PromotionsManager() {
   }
 
   async function toggleActive(id: string, isActive: boolean) {
-    await fetch(`/api/manager/hotels/${hotel!.id}/promotions`, {
+    const res = await fetch(`/api/manager/hotels/${hotel!.id}/promotions`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, isActive: !isActive }),
+      body: JSON.stringify({ id, isActive: !isActive, expectedRevision: lock.revision }),
     });
+    const json = await res.json();
+    if (lock.consumeResponse(json)) return;
     void reload();
   }
 
   async function removePromotion(id: string) {
-    await fetch(`/api/manager/hotels/${hotel!.id}/promotions`, {
+    const res = await fetch(`/api/manager/hotels/${hotel!.id}/promotions`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ id, expectedRevision: lock.revision }),
     });
+    const json = await res.json();
+    if (lock.consumeResponse(json)) return;
     void reload();
   }
 
@@ -287,6 +297,11 @@ export function PromotionsManager() {
           <Button onClick={save}>{editingId ? "Güncelle" : "Oluştur"}</Button>
         </Stack>
       </Modal>
+      <PanelRevisionConflictModal
+        conflict={lock.conflict}
+        onKeepLocal={lock.keepLocalDraft}
+        onLoadLatest={async () => { setOpen(false); await reload(); lock.clearConflict(); }}
+      />
     </Stack>
   );
 }

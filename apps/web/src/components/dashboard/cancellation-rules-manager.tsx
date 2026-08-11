@@ -18,6 +18,7 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMyHotel } from "./use-my-hotel";
+import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 
 interface RuleRow {
   id: string;
@@ -67,13 +68,15 @@ export function CancellationRulesManager() {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<RuleForm>(emptyForm);
+  const lock = usePanelRevision();
+  const setLockRevision = lock.setRevision;
 
   const reload = useCallback(async () => {
     if (!hotel) return;
     const res = await fetch(`/api/manager/hotels/${hotel.id}/cancellation-rules`);
     const json = await res.json();
-    if (json.ok) setRules(json.rules);
-  }, [hotel]);
+    if (json.ok) { setRules(json.rules); setLockRevision(json.revision); }
+  }, [hotel, setLockRevision]);
 
   useEffect(() => {
     void reload();
@@ -118,9 +121,12 @@ export function CancellationRulesManager() {
     const res = await fetch(`/api/manager/hotels/${hotel!.id}/cancellation-rules`, {
       method: editingId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editingId ? { id: editingId, ...payload } : payload),
+      body: JSON.stringify(editingId
+        ? { id: editingId, ...payload, expectedRevision: lock.revision }
+        : { ...payload, expectedRevision: lock.revision }),
     });
     const json = await res.json();
+    if (lock.consumeResponse(json)) return;
     if (json.ok) {
       notifications.show({
         color: "green",
@@ -137,9 +143,11 @@ export function CancellationRulesManager() {
     const res = await fetch(`/api/manager/hotels/${hotel!.id}/cancellation-rules`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ id, expectedRevision: lock.revision }),
     });
-    if ((await res.json()).ok) void reload();
+    const json = await res.json();
+    if (lock.consumeResponse(json)) return;
+    if (json.ok) void reload();
   }
 
   return (
@@ -233,6 +241,11 @@ export function CancellationRulesManager() {
           <Button onClick={save}>Kaydet</Button>
         </Stack>
       </Modal>
+      <PanelRevisionConflictModal
+        conflict={lock.conflict}
+        onKeepLocal={lock.keepLocalDraft}
+        onLoadLatest={async () => { setOpen(false); await reload(); lock.clearConflict(); }}
+      />
     </Stack>
   );
 }

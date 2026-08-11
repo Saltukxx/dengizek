@@ -11,6 +11,7 @@ import { getDb } from "@/lib/db";
 import { tourStepsTable, toursTable } from "@/lib/db/schema";
 import { stepsReorderSchema } from "@/lib/schemas/tour-editor";
 import { withTransaction } from "@/lib/db/transaction";
+import { revisionConflictResponse } from "@/lib/panel-revision";
 
 type RouteParams = { params: Promise<{ hotelId: string; tourId: string }> };
 
@@ -82,7 +83,11 @@ export async function POST(req: Request, { params }: RouteParams) {
     await tx.update(toursTable).set({ draftRevision: sql`${toursTable.draftRevision} + 1`, updatedAt: new Date() }).where(eq(toursTable.id, tour.id));
     return true;
   });
-  if (!reordered) return NextResponse.json({ ok: false, code: "REVISION_CONFLICT" }, { status: 409 });
+  if (!reordered) {
+    const [latest] = await db.select({ draftRevision: toursTable.draftRevision, updatedAt: toursTable.updatedAt })
+      .from(toursTable).where(and(eq(toursTable.hotelId, guard.hotel.id), eq(toursTable.tourId, tourId))).limit(1);
+    return revisionConflictResponse(latest?.draftRevision, latest?.updatedAt);
+  }
 
   return NextResponse.json({ ok: true, draftRevision: parsed.data.expectedRevision + 1 });
 }

@@ -11,6 +11,7 @@ import { galleryImageSchema, galleryPatchSchema } from "@/lib/schemas/hotel-pane
 import { logAudit } from "@/lib/audit";
 import { assertRoomsBelongToHotel } from "@/lib/tenant-integrity";
 import { deleteObject } from "@/lib/object-storage";
+import { abortPanelMutation, expectedRevisionRequiredResponse, getPanelRevision, panelRevisionConflictResponse, readExpectedRevision, runPanelMutation } from "@/lib/panel-revision";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -36,7 +37,8 @@ export async function GET(_req: Request, { params }: RouteParams) {
     .where(eq(hotelGalleryImagesTable.hotelId, guard.hotel.id))
     .orderBy(asc(hotelGalleryImagesTable.sortOrder), asc(hotelGalleryImagesTable.createdAt));
 
-  return NextResponse.json({ ok: true, images });
+  const revision = await getPanelRevision(db, guard.hotel.id, "gallery");
+  return NextResponse.json({ ok: true, images, revision: revision.revision });
 }
 
 export async function POST(req: Request, { params }: RouteParams) {
@@ -45,6 +47,8 @@ export async function POST(req: Request, { params }: RouteParams) {
   if (guard.response) return guard.response;
 
   const body = await req.json().catch(() => null);
+  const expectedRevision = readExpectedRevision(body);
+  if (!expectedRevision) return expectedRevisionRequiredResponse();
   const parsed = galleryImageSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -62,28 +66,30 @@ export async function POST(req: Request, { params }: RouteParams) {
     );
   }
 
-  const db = getDb();
-  const existing = await db
-    .select({ sortOrder: hotelGalleryImagesTable.sortOrder })
-    .from(hotelGalleryImagesTable)
-    .where(eq(hotelGalleryImagesTable.hotelId, guard.hotel.id));
-  const nextOrder = parsed.data.sortOrder ?? existing.reduce((m, r) => Math.max(m, r.sortOrder + 1), 0);
-
   let image: typeof hotelGalleryImagesTable.$inferSelect;
+  let revision: number;
   try {
-    [image] = await db
-      .insert(hotelGalleryImagesTable)
-      .values({
-        hotelId: guard.hotel.id,
-        url: parsed.data.url,
-        objectKey: parsed.data.objectKey ?? null,
-        caption: parsed.data.caption ?? null,
-        roomId: parsed.data.roomId ?? null,
-        sortOrder: nextOrder,
-      })
-      .returning();
+    const mutation = await runPanelMutation({
+      hotelId: guard.hotel.id, scope: "gallery", expectedRevision, updatedBy: guard.user.id,
+      mutate: async (tx) => {
+        const existing = await tx.select({ sortOrder: hotelGalleryImagesTable.sortOrder })
+          .from(hotelGalleryImagesTable).where(eq(hotelGalleryImagesTable.hotelId, guard.hotel.id));
+        const nextOrder = parsed.data.sortOrder
+          ?? existing.reduce((m, r) => Math.max(m, r.sortOrder + 1), 0);
+        const [created] = await tx.insert(hotelGalleryImagesTable).values({
+          hotelId: guard.hotel.id, url: parsed.data.url,
+          objectKey: parsed.data.objectKey ?? null, caption: parsed.data.caption ?? null,
+          roomId: parsed.data.roomId ?? null, sortOrder: nextOrder,
+        }).returning();
+        return created;
+      },
+    });
+    image = mutation.result;
+    revision = mutation.revision;
   } catch (error) {
     if (parsed.data.objectKey) await deleteObject(parsed.data.objectKey).catch(() => undefined);
+    const conflict = panelRevisionConflictResponse(error);
+    if (conflict) return conflict;
     throw error;
   }
 
@@ -95,7 +101,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     meta: { imageId: image.id },
   });
 
-  return NextResponse.json({ ok: true, image }, { status: 201 });
+  return NextResponse.json({ ok: true, image, revision }, { status: 201 });
 }
 
 export async function PATCH(req: Request, { params }: RouteParams) {
@@ -104,6 +110,8 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   if (guard.response) return guard.response;
 
   const body = await req.json().catch(() => null);
+  const expectedRevision = readExpectedRevision(body);
+  if (!expectedRevision) return expectedRevisionRequiredResponse();
   const parsed = galleryPatchSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -122,18 +130,27 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   }
 
   const { id, ...fields } = parsed.data;
-  const db = getDb();
-  const [updated] = await db
-    .update(hotelGalleryImagesTable)
-    .set(fields)
-    .where(
-      and(eq(hotelGalleryImagesTable.id, id), eq(hotelGalleryImagesTable.hotelId, guard.hotel.id)),
-    )
-    .returning();
-
-  if (!updated) {
-    return NextResponse.json({ ok: false, error: "Görsel bulunamadı." }, { status: 404 });
+  let updated: typeof hotelGalleryImagesTable.$inferSelect | undefined;
+  let revision: number;
+  try {
+    const mutation = await runPanelMutation({
+      hotelId: guard.hotel.id, scope: "gallery", expectedRevision, updatedBy: guard.user.id,
+      mutate: async (tx) => {
+        const [row] = await tx.update(hotelGalleryImagesTable).set(fields).where(and(
+          eq(hotelGalleryImagesTable.id, id), eq(hotelGalleryImagesTable.hotelId, guard.hotel.id),
+        )).returning();
+        if (!row) abortPanelMutation("Görsel bulunamadı.");
+        return row;
+      },
+    });
+    updated = mutation.result;
+    revision = mutation.revision;
+  } catch (error) {
+    const conflict = panelRevisionConflictResponse(error);
+    if (conflict) return conflict;
+    throw error;
   }
+  if (!updated) return NextResponse.json({ ok: false, error: "Görsel bulunamadı." }, { status: 404 });
   await logAudit({
     actor: guard.user,
     action: "galeri.gorsel_guncellendi",
@@ -141,7 +158,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     entityId: guard.hotel.id,
     meta: { imageId: updated.id },
   });
-  return NextResponse.json({ ok: true, image: updated });
+  return NextResponse.json({ ok: true, image: updated, revision });
 }
 
 export async function DELETE(req: Request, { params }: RouteParams) {
@@ -150,23 +167,36 @@ export async function DELETE(req: Request, { params }: RouteParams) {
   if (guard.response) return guard.response;
 
   const body = await req.json().catch(() => null);
+  const expectedRevision = readExpectedRevision(body);
+  if (!expectedRevision) return expectedRevisionRequiredResponse();
   const id = body?.id as string | undefined;
   if (!id) {
     return NextResponse.json({ ok: false, error: "id gerekli." }, { status: 400 });
   }
 
-  const db = getDb();
-  const [deleted] = await db
-    .delete(hotelGalleryImagesTable)
-    .where(
-      and(eq(hotelGalleryImagesTable.id, id), eq(hotelGalleryImagesTable.hotelId, guard.hotel.id)),
-    )
-    .returning();
+  let deleted: typeof hotelGalleryImagesTable.$inferSelect | undefined;
+  let revision: number;
+  try {
+    const mutation = await runPanelMutation({
+      hotelId: guard.hotel.id, scope: "gallery", expectedRevision, updatedBy: guard.user.id,
+      mutate: async (tx) => {
+        const [row] = await tx.delete(hotelGalleryImagesTable).where(and(
+          eq(hotelGalleryImagesTable.id, id), eq(hotelGalleryImagesTable.hotelId, guard.hotel.id),
+        )).returning();
+        if (!row) abortPanelMutation("Görsel bulunamadı.");
+        if (row?.objectKey) await tx.insert(mediaCleanupQueueTable).values({ objectKey: row.objectKey });
+        return row;
+      },
+    });
+    deleted = mutation.result;
+    revision = mutation.revision;
+  } catch (error) {
+    const conflict = panelRevisionConflictResponse(error);
+    if (conflict) return conflict;
+    throw error;
+  }
 
   if (!deleted) return NextResponse.json({ ok: false, error: "Görsel bulunamadı." }, { status: 404 });
-  if (deleted.objectKey) {
-    await db.insert(mediaCleanupQueueTable).values({ objectKey: deleted.objectKey });
-  }
 
   await logAudit({
     actor: guard.user,
@@ -176,5 +206,5 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     meta: { imageId: id },
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, revision });
 }

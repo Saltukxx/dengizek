@@ -10,6 +10,7 @@ import { getDb } from "@/lib/db";
 import { tourStepsTable, toursTable } from "@/lib/db/schema";
 import { tourUpdateSchema } from "@/lib/schemas/tour-editor";
 import { logAudit } from "@/lib/audit";
+import { revisionConflictResponse } from "@/lib/panel-revision";
 
 type RouteParams = { params: Promise<{ hotelId: string; tourId: string }> };
 
@@ -73,7 +74,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     .set({ title: parsed.data.title, draftRevision: sql`${toursTable.draftRevision} + 1`, updatedAt: new Date() })
     .where(and(eq(toursTable.id, tour.id), eq(toursTable.draftRevision, parsed.data.expectedRevision)))
     .returning();
-  if (!updated) return NextResponse.json({ ok: false, code: "REVISION_CONFLICT", currentRevision: tour.draftRevision }, { status: 409 });
+  if (!updated) return revisionConflictResponse(tour.draftRevision, tour.updatedAt);
 
   return NextResponse.json({ ok: true, tour: updated });
 }

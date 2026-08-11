@@ -6,11 +6,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextResponse } from "next/server";
 
 const requireHotelAccessMock = vi.fn();
+const runPanelMutationMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth/guards", () => ({
   requireHotelAccess: (...args: unknown[]) => requireHotelAccessMock(...args),
 }));
 
 vi.mock("@/lib/audit", () => ({ logAudit: vi.fn() }));
+
+vi.mock("@/lib/panel-revision", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/panel-revision")>("@/lib/panel-revision");
+  return {
+    ...actual,
+    runPanelMutation: (...args: unknown[]) => runPanelMutationMock(...args),
+  };
+});
 
 const returningMock = vi.fn();
 vi.mock("@/lib/db", () => ({
@@ -36,6 +45,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { GET, POST } from "./route";
+import { PanelRevisionConflict } from "@/lib/panel-revision";
 
 const okGuard = {
   user: { id: "u1", email: "y@a.dev", name: "Y", role: "manager" as const },
@@ -66,7 +76,7 @@ function makePost(body: unknown) {
   return new Request("http://localhost/api/manager/hotels/x/rooms", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...(body as object), expectedRevision: 1 }),
   });
 }
 
@@ -75,6 +85,11 @@ const routeParams = { params: Promise.resolve({ hotelId: "hotel-1" }) };
 beforeEach(() => {
   requireHotelAccessMock.mockReset();
   returningMock.mockReset();
+  runPanelMutationMock.mockReset();
+  runPanelMutationMock.mockImplementation(async ({ mutate }) => ({
+    result: await mutate((await import("@/lib/db")).getDb()),
+    revision: 2,
+  }));
 });
 
 describe("rooms API", () => {
@@ -112,5 +127,34 @@ describe("rooms API", () => {
       ok: true,
       room: { slug: "deluxe-oda" },
     });
+  });
+
+  it("POST beklenen revizyon yoksa 400 döner", async () => {
+    requireHotelAccessMock.mockResolvedValue(okGuard);
+    const req = new Request("http://localhost/api/manager/hotels/x/rooms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validRoom),
+    });
+    const res = await POST(req, routeParams);
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({ code: "EXPECTED_REVISION_REQUIRED" });
+  });
+
+  it("aynı eski revizyonla gelen ikinci yazmayı standart 409 ile reddeder", async () => {
+    requireHotelAccessMock.mockResolvedValue(okGuard);
+    runPanelMutationMock.mockRejectedValueOnce(new PanelRevisionConflict({
+      revision: 2,
+      updatedAt: new Date("2026-08-11T00:00:00.000Z"),
+      updatedBy: "u2",
+    }));
+    const res = await POST(makePost(validRoom), routeParams);
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({
+      code: "REVISION_CONFLICT",
+      currentRevision: 2,
+      updatedBy: "u2",
+    });
+    expect(returningMock).not.toHaveBeenCalled();
   });
 });

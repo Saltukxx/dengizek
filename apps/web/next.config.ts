@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 // Bunny CDN, R2 public URL ve kendi origin'imiz medya kaynakları — CSP media/img
 // yönergelerinde https: genel bırakıldı (CDN hostname'leri env'e bağlı).
@@ -58,4 +59,21 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+const hasSentrySourceMapConfig = Boolean(
+  process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT,
+);
+
+export default hasSentrySourceMapConfig
+  ? withSentryConfig(nextConfig, {
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      silent: !process.env.CI,
+      release: {
+        name: process.env.SENTRY_RELEASE ?? process.env.NEXT_PUBLIC_SENTRY_RELEASE,
+      },
+      sourcemaps: {
+        deleteSourcemapsAfterUpload: true,
+      },
+    })
+  : nextConfig;

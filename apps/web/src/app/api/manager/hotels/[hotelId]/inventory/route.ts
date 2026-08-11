@@ -10,7 +10,7 @@ import { roomInventoryTable } from "@/lib/db/schema";
 import { inventoryPutSchema } from "@/lib/schemas/hotel-panel";
 import { logAudit } from "@/lib/audit";
 import { assertRoomsBelongToHotel } from "@/lib/tenant-integrity";
-import { withTransaction } from "@/lib/db/transaction";
+import { expectedRevisionRequiredResponse, getPanelRevision, panelRevisionConflictResponse, readExpectedRevision, runPanelMutation } from "@/lib/panel-revision";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -36,7 +36,8 @@ export async function GET(req: Request, { params }: RouteParams) {
     .where(and(...filters))
     .orderBy(asc(roomInventoryTable.date));
 
-  return NextResponse.json({ ok: true, inventory });
+  const revision = await getPanelRevision(db, guard.hotel.id, "inventory");
+  return NextResponse.json({ ok: true, inventory, revision: revision.revision });
 }
 
 export async function PUT(req: Request, { params }: RouteParams) {
@@ -45,6 +46,8 @@ export async function PUT(req: Request, { params }: RouteParams) {
   if (guard.response) return guard.response;
 
   const body = await req.json().catch(() => null);
+  const expectedRevision = readExpectedRevision(body);
+  if (!expectedRevision) return expectedRevisionRequiredResponse();
   const parsed = inventoryPutSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -56,25 +59,26 @@ export async function PUT(req: Request, { params }: RouteParams) {
   if (!(await assertRoomsBelongToHotel(guard.hotel.id, parsed.data.entries.map((e) => e.roomId)))) {
     return NextResponse.json({ ok: false, error: "Oda bulunamadı." }, { status: 404 });
   }
-  await withTransaction(async (db) => {
-    for (const entry of parsed.data.entries) {
-      await db
-      .insert(roomInventoryTable)
-      .values({ ...entry, hotelId: guard.hotel.id })
-      .onConflictDoUpdate({
-        target: [roomInventoryTable.roomId, roomInventoryTable.date],
-        set: {
-          allotment: entry.allotment,
-          stopSell: entry.stopSell,
-          minStay: entry.minStay ?? null,
-          cta: entry.cta,
-          ctd: entry.ctd,
-          source: "manual",
-          manualOverride: true,
-        },
-      });
-    }
-  });
+  let revision: number;
+  try {
+    const mutation = await runPanelMutation({
+      hotelId: guard.hotel.id, scope: "inventory", expectedRevision, updatedBy: guard.user.id,
+      mutate: async (tx) => {
+        for (const entry of parsed.data.entries) {
+          await tx.insert(roomInventoryTable).values({ ...entry, hotelId: guard.hotel.id })
+            .onConflictDoUpdate({
+              target: [roomInventoryTable.roomId, roomInventoryTable.date],
+              set: {
+                allotment: entry.allotment, stopSell: entry.stopSell,
+                minStay: entry.minStay ?? null, cta: entry.cta, ctd: entry.ctd,
+                source: "manual", manualOverride: true,
+              },
+            });
+        }
+      },
+    });
+    revision = mutation.revision;
+  } catch (error) { const conflict = panelRevisionConflictResponse(error); if (conflict) return conflict; throw error; }
 
   await logAudit({
     actor: guard.user,
@@ -84,5 +88,5 @@ export async function PUT(req: Request, { params }: RouteParams) {
     meta: { kayit: parsed.data.entries.length },
   });
 
-  return NextResponse.json({ ok: true, count: parsed.data.entries.length });
+  return NextResponse.json({ ok: true, count: parsed.data.entries.length, revision });
 }

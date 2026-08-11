@@ -62,6 +62,7 @@ import { OccupancyPricesEditor } from "./occupancy-prices-editor";
 import { ChildAgePricesEditor } from "./child-age-prices-editor";
 import { MediaPicker } from "./media-picker";
 import { useMyHotel } from "./use-my-hotel";
+import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 
 interface RateRow {
   id: string;
@@ -231,13 +232,21 @@ export function RoomsManager() {
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [ratesBusy, setRatesBusy] = useState(false);
+  const roomLock = usePanelRevision();
+  const ratesLock = usePanelRevision();
+  const setRoomRevision = roomLock.setRevision;
+  const setRatesRevision = ratesLock.setRevision;
 
   const reload = useCallback(async () => {
     if (!hotel) return;
     const res = await fetch(`/api/manager/hotels/${hotel.id}/rooms`);
     const json = await res.json();
-    if (json.ok) setRooms(json.rooms);
-  }, [hotel]);
+    if (json.ok) {
+      setRooms(json.rooms);
+      setRoomRevision(json.revision);
+      setRatesRevision(json.seasonalRatesRevision);
+    }
+  }, [hotel, setRoomRevision, setRatesRevision]);
 
   useEffect(() => {
     void reload();
@@ -293,10 +302,11 @@ export function RoomsManager() {
     const res = await fetch(url, {
       method: editing.id ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, expectedRevision: roomLock.revision }),
     });
     const json = await res.json();
     setBusy(false);
+    if (roomLock.consumeResponse(json)) return;
     if (json.ok) {
       notifications.show({
         color: "green",
@@ -319,8 +329,11 @@ export function RoomsManager() {
     if (!hotel) return;
     const res = await fetch(`/api/manager/hotels/${hotel.id}/rooms/${room.id}`, {
       method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expectedRevision: roomLock.revision }),
     });
     const json = await res.json();
+    if (roomLock.consumeResponse(json)) return;
     if (json.ok) {
       notifications.show({ color: "gray", message: "Oda silindi." });
       void reload();
@@ -336,20 +349,26 @@ export function RoomsManager() {
     const next = [...rooms];
     [next[index], next[target]] = [next[target], next[index]];
     setRooms(next);
-    await fetch(`/api/manager/hotels/${hotel.id}/rooms/reorder`, {
+    const res = await fetch(`/api/manager/hotels/${hotel.id}/rooms/reorder`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sirali: next.map((r) => r.id) }),
+      body: JSON.stringify({ sirali: next.map((r) => r.id), expectedRevision: roomLock.revision }),
     });
+    const json = await res.json();
+    roomLock.consumeResponse(json);
   }
 
   async function toggleActive(room: RoomRow) {
     if (!hotel) return;
-    await fetch(`/api/manager/hotels/${hotel.id}/rooms/${room.id}`, {
+    const res = await fetch(`/api/manager/hotels/${hotel.id}/rooms/${room.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...roomPayload(room), isActive: !room.isActive }),
+      body: JSON.stringify({
+        ...roomPayload(room), isActive: !room.isActive, expectedRevision: roomLock.revision,
+      }),
     });
+    const json = await res.json();
+    if (roomLock.consumeResponse(json)) return;
     void reload();
   }
 
@@ -413,11 +432,12 @@ export function RoomsManager() {
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ donemler }),
+        body: JSON.stringify({ donemler, expectedRevision: ratesLock.revision }),
       },
     );
     const json = await res.json();
     setRatesBusy(false);
+    if (ratesLock.consumeResponse(json)) return;
     if (json.ok) {
       notifications.show({ color: "green", message: "Dönemsel fiyatlar kaydedildi." });
       setEditing((s) => s && { ...s, rates: json.rates.map(rateRowToForm) });
@@ -1011,6 +1031,16 @@ export function RoomsManager() {
           </Stack>
         )}
       </Drawer>
+      <PanelRevisionConflictModal
+        conflict={roomLock.conflict}
+        onKeepLocal={roomLock.keepLocalDraft}
+        onLoadLatest={async () => { setEditing(null); await reload(); roomLock.clearConflict(); }}
+      />
+      <PanelRevisionConflictModal
+        conflict={ratesLock.conflict}
+        onKeepLocal={ratesLock.keepLocalDraft}
+        onLoadLatest={async () => { setEditing(null); await reload(); ratesLock.clearConflict(); }}
+      />
     </Stack>
   );
 }

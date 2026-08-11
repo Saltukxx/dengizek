@@ -8,6 +8,7 @@ import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { extrasTable } from "@/lib/db/schema";
 import { reorderSchema } from "@/lib/schemas/hotel-panel";
+import { expectedRevisionRequiredResponse, panelRevisionConflictResponse, readExpectedRevision, runPanelMutation } from "@/lib/panel-revision";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -17,6 +18,8 @@ export async function POST(req: Request, { params }: RouteParams) {
   if (guard.response) return guard.response;
 
   const body = await req.json().catch(() => null);
+  const expectedRevision = readExpectedRevision(body);
+  if (!expectedRevision) return expectedRevisionRequiredResponse();
   const parsed = reorderSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -39,15 +42,20 @@ export async function POST(req: Request, { params }: RouteParams) {
     );
   }
 
-  await db.execute(sql`
-    UPDATE extras AS e
-    SET order_index = v.ord - 1
-    FROM unnest(
-      ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(sirali)}::jsonb))
-    ) WITH ORDINALITY AS v(item_id, ord)
-    WHERE e.hotel_id = ${guard.hotel.id}
-      AND e.id = v.item_id::uuid
-  `);
-
-  return NextResponse.json({ ok: true });
+  try {
+    const { revision } = await runPanelMutation({
+      hotelId: guard.hotel.id, scope: "extras", expectedRevision, updatedBy: guard.user.id,
+      mutate: async (tx) => { await tx.execute(sql`
+        UPDATE extras AS e SET order_index = v.ord - 1
+        FROM unnest(ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(sirali)}::jsonb)))
+        WITH ORDINALITY AS v(item_id, ord)
+        WHERE e.hotel_id = ${guard.hotel.id} AND e.id = v.item_id::uuid
+      `); },
+    });
+    return NextResponse.json({ ok: true, revision });
+  } catch (error) {
+    const conflict = panelRevisionConflictResponse(error);
+    if (conflict) return conflict;
+    throw error;
+  }
 }

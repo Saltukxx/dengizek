@@ -9,6 +9,12 @@ import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { roomsTable } from "@/lib/db/schema";
 import { roomsReorderSchema } from "@/lib/schemas/hotel-content";
+import {
+  expectedRevisionRequiredResponse,
+  panelRevisionConflictResponse,
+  readExpectedRevision,
+  runPanelMutation,
+} from "@/lib/panel-revision";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -18,6 +24,8 @@ export async function POST(req: Request, { params }: RouteParams) {
   if (guard.response) return guard.response;
 
   const body = await req.json().catch(() => null);
+  const expectedRevision = readExpectedRevision(body);
+  if (!expectedRevision) return expectedRevisionRequiredResponse();
   const parsed = roomsReorderSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -47,15 +55,28 @@ export async function POST(req: Request, { params }: RouteParams) {
     );
   }
 
-  await db.execute(sql`
-    UPDATE rooms AS r
-    SET order_index = v.ord - 1
-    FROM unnest(
-      ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(sirali)}::jsonb))
-    ) WITH ORDINALITY AS v(room_id, ord)
-    WHERE r.hotel_id = ${guard.hotel.id}
-      AND r.id = v.room_id::uuid
-  `);
-
-  return NextResponse.json({ ok: true });
+  try {
+    const { revision } = await runPanelMutation({
+      hotelId: guard.hotel.id,
+      scope: "rooms",
+      expectedRevision,
+      updatedBy: guard.user.id,
+      mutate: async (tx) => {
+        await tx.execute(sql`
+          UPDATE rooms AS r
+          SET order_index = v.ord - 1
+          FROM unnest(
+            ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(sirali)}::jsonb))
+          ) WITH ORDINALITY AS v(room_id, ord)
+          WHERE r.hotel_id = ${guard.hotel.id}
+            AND r.id = v.room_id::uuid
+        `);
+      },
+    });
+    return NextResponse.json({ ok: true, revision });
+  } catch (err) {
+    const conflict = panelRevisionConflictResponse(err);
+    if (conflict) return conflict;
+    throw err;
+  }
 }

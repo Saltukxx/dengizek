@@ -25,6 +25,7 @@ import {
   type OccupancyPriceForm,
 } from "@/lib/occupancy-price";
 import { OccupancyPricesEditor } from "./occupancy-prices-editor";
+import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 
 interface PriceRow {
   id: string;
@@ -82,6 +83,8 @@ export function RatePlanPricesEditor({
   const [rooms, setRooms] = useState<RoomOption[]>([]);
   const [form, setForm] = useState<PriceForm>(emptyForm());
   const [editingId, setEditingId] = useState<string | null>(null);
+  const lock = usePanelRevision();
+  const setLockRevision = lock.setRevision;
 
   const reload = useCallback(async () => {
     if (!opened) return;
@@ -91,7 +94,7 @@ export function RatePlanPricesEditor({
     ]);
     const pricesJson = await pricesRes.json();
     const roomsJson = await roomsRes.json();
-    if (pricesJson.ok) setPrices(pricesJson.prices);
+    if (pricesJson.ok) { setPrices(pricesJson.prices); setLockRevision(pricesJson.revision); }
     if (roomsJson.ok) {
       const list = (roomsJson.rooms as { id: string; name: string }[]).map((r) => ({
         id: r.id,
@@ -100,7 +103,7 @@ export function RatePlanPricesEditor({
       setRooms(list);
       if (list.length > 0) setForm((f) => f.roomId ? f : { ...f, roomId: list[0].id });
     }
-  }, [hotelId, planId, opened]);
+  }, [hotelId, planId, opened, setLockRevision]);
 
   useEffect(() => {
     void reload();
@@ -145,9 +148,12 @@ export function RatePlanPricesEditor({
     const res = await fetch(url, {
       method: editingId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editingId ? { id: editingId, ...payload } : payload),
+      body: JSON.stringify(editingId
+        ? { id: editingId, ...payload, expectedRevision: lock.revision }
+        : { ...payload, expectedRevision: lock.revision }),
     });
     const json = await res.json();
+    if (lock.consumeResponse(json)) return;
     if (json.ok) {
       notifications.show({ color: "green", message: "Fiyat kaydedildi." });
       resetForm();
@@ -161,14 +167,17 @@ export function RatePlanPricesEditor({
     const res = await fetch(`/api/manager/hotels/${hotelId}/rate-plans/${planId}/prices`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ id, expectedRevision: lock.revision }),
     });
-    if ((await res.json()).ok) void reload();
+    const json = await res.json();
+    if (lock.consumeResponse(json)) return;
+    if (json.ok) void reload();
   }
 
   const roomName = (id: string) => rooms.find((r) => r.id === id)?.name ?? id.slice(0, 8);
 
   return (
+    <>
     <Drawer opened={opened} onClose={onClose} title={`Fiyatlar — ${planName}`} position="right" size="lg">
       <Stack gap="md">
         {!prices ? (
@@ -300,5 +309,11 @@ export function RatePlanPricesEditor({
         )}
       </Stack>
     </Drawer>
+    <PanelRevisionConflictModal
+      conflict={lock.conflict}
+      onKeepLocal={lock.keepLocalDraft}
+      onLoadLatest={async () => { resetForm(); await reload(); lock.clearConflict(); }}
+    />
+    </>
   );
 }

@@ -4,7 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ErrorEvent } from "@sentry/nextjs";
-import { isSentryEnabled, scrubEvent, scrubUrl } from "@/lib/sentry";
+import { isSentryEnabled, scrubEvent, scrubText, scrubUrl } from "@/lib/sentry";
 
 const originalEnv = { ...process.env };
 
@@ -96,6 +96,28 @@ describe("scrubEvent", () => {
     expect(out.request?.headers).toBeUndefined();
   });
 
+  it("elle eklenmiş kullanıcı ve request gövdesini siler", () => {
+    const event = {
+      user: { id: "u1", email: "ada@example.com" },
+      request: { data: { email: "ada@example.com", password: "gizli" } },
+    } as unknown as ErrorEvent;
+    const out = scrubEvent(event);
+    expect(out.user).toBeUndefined();
+    expect(out.request?.data).toBeUndefined();
+  });
+
+  it("hata ve breadcrumb metnindeki e-postayı maskeler", () => {
+    const event = {
+      message: "ada@example.com için hata",
+      exception: { values: [{ value: "Kullanıcı ada@example.com bulunamadı" }] },
+      breadcrumbs: [{ message: "ada@example.com giriş yaptı" }],
+    } as ErrorEvent;
+    const out = scrubEvent(event);
+    expect(out.message).not.toContain("ada@example.com");
+    expect(out.exception?.values?.[0].value).not.toContain("ada@example.com");
+    expect(out.breadcrumbs?.[0].message).not.toContain("ada@example.com");
+  });
+
   it("query_string'i maskeler", () => {
     const event = { request: { query_string: "token=abc&sayfa=1" } } as unknown as ErrorEvent;
     const out = scrubEvent(event);
@@ -105,5 +127,13 @@ describe("scrubEvent", () => {
   it("request yoksa olayı bozmaz", () => {
     const event = { message: "hata" } as ErrorEvent;
     expect(scrubEvent(event)).toEqual({ message: "hata" });
+  });
+});
+
+describe("scrubText", () => {
+  it("metindeki URL token'ı ile e-postayı birlikte maskeler", () => {
+    expect(scrubText("ada@example.com https://app/x?token=abc")).toBe(
+      "[e-posta] https://app/x?token=[gizlendi]",
+    );
   });
 });

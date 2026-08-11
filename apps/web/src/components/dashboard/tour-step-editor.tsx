@@ -43,6 +43,7 @@ import Link from "next/link";
 import type { TourCallout, TourHotspot, TourStep, TourStepBranch } from "@/lib/schemas/tour-manifest";
 import { moderationStatusColors, moderationStatusLabels } from "@/lib/labels";
 import { useMyHotel } from "./use-my-hotel";
+import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 import { MediaPicker } from "./media-picker";
 
 const kindOptions = [
@@ -81,6 +82,7 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const lock = usePanelRevision();
 
   const reloadTour = useCallback(async () => {
     if (!hotel) return;
@@ -207,14 +209,9 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
     });
     const json = await res.json();
     setSaving(false);
+    if (lock.consumeResponse(json)) return;
     if (json.ok) {
       notifications.show({ color: "green", message: `${json.count} adım kaydedildi.` });
-      void reloadTour();
-    } else if (res.status === 409) {
-      notifications.show({
-        color: "orange",
-        message: `${json.error ?? "Çakışma"} — sunucudan güncel veri alınıyor.`,
-      });
       void reloadTour();
     } else {
       notifications.show({
@@ -701,6 +698,11 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
           </Text>
         </Paper>
       )}
+      <PanelRevisionConflictModal
+        conflict={lock.conflict}
+        onKeepLocal={lock.keepLocalDraft}
+        onLoadLatest={async () => { await reloadTour(); lock.clearConflict(); }}
+      />
     </Stack>
   );
 }

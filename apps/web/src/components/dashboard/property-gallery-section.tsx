@@ -13,6 +13,7 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconPlus, IconTrash } from "@tabler/icons-react";
+import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 
 interface GalleryImage {
   id: string;
@@ -24,12 +25,14 @@ export function PropertyGallerySection({ hotelId }: { hotelId: string }) {
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [caption, setCaption] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const lock = usePanelRevision();
+  const setLockRevision = lock.setRevision;
 
   const reload = useCallback(async () => {
     const res = await fetch(`/api/manager/hotels/${hotelId}/gallery`);
     const json = await res.json();
-    if (json.ok) setImages(json.images);
-  }, [hotelId]);
+    if (json.ok) { setImages(json.images); setLockRevision(json.revision); }
+  }, [hotelId, setLockRevision]);
 
   useEffect(() => {
     void reload();
@@ -48,9 +51,13 @@ export function PropertyGallerySection({ hotelId }: { hotelId: string }) {
     const addRes = await fetch(`/api/manager/hotels/${hotelId}/gallery`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: json.url, objectKey: json.objectKey, caption: caption || undefined }),
+      body: JSON.stringify({
+        url: json.url, objectKey: json.objectKey, caption: caption || undefined,
+        expectedRevision: lock.revision,
+      }),
     });
     const addJson = await addRes.json();
+    if (lock.consumeResponse(addJson)) return;
     if (addJson.ok) {
       setCaption("");
       void reload();
@@ -64,14 +71,16 @@ export function PropertyGallerySection({ hotelId }: { hotelId: string }) {
     const response = await fetch(`/api/manager/hotels/${hotelId}/gallery`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ id, expectedRevision: lock.revision }),
     });
     const json = await response.json();
+    if (lock.consumeResponse(json)) return;
     if (json.ok) void reload();
     else notifications.show({ color: "red", message: json.error ?? "Görsel silinemedi." });
   }
 
   return (
+    <>
     <Paper withBorder p="md" radius="md">
       <Stack gap="sm">
         <Title order={5}>Foto galerisi</Title>
@@ -132,5 +141,11 @@ export function PropertyGallerySection({ hotelId }: { hotelId: string }) {
         )}
       </Stack>
     </Paper>
+    <PanelRevisionConflictModal
+      conflict={lock.conflict}
+      onKeepLocal={lock.keepLocalDraft}
+      onLoadLatest={async () => { await reload(); lock.clearConflict(); }}
+    />
+    </>
   );
 }

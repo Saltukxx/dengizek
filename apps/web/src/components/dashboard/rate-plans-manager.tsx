@@ -21,6 +21,7 @@ import { IconAlertCircle, IconCoin, IconPlus, IconTrash } from "@tabler/icons-re
 import { boardTypeLabels, boardTypes } from "@/lib/schemas/hotel-content";
 import { RatePlanPricesEditor } from "./rate-plan-prices-editor";
 import { useMyHotel } from "./use-my-hotel";
+import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 
 interface PlanRow {
   id: string;
@@ -49,6 +50,8 @@ export function RatePlansManager() {
     boardTypeOverride: "" as string | null,
     cancellationRuleId: "" as string | null,
   });
+  const lock = usePanelRevision();
+  const setLockRevision = lock.setRevision;
 
   const reload = useCallback(async () => {
     if (!hotel) return;
@@ -58,9 +61,9 @@ export function RatePlansManager() {
     ]);
     const plansJson = await plansRes.json();
     const rulesJson = await rulesRes.json();
-    if (plansJson.ok) setPlans(plansJson.plans);
+    if (plansJson.ok) { setPlans(plansJson.plans); setLockRevision(plansJson.revision); }
     if (rulesJson.ok) setRules(rulesJson.rules);
-  }, [hotel]);
+  }, [hotel, setLockRevision]);
 
   useEffect(() => {
     void reload();
@@ -92,9 +95,11 @@ export function RatePlansManager() {
         isDefault: form.isDefault,
         boardTypeOverride: form.boardTypeOverride || null,
         cancellationRuleId: form.cancellationRuleId || null,
+        expectedRevision: lock.revision,
       }),
     });
     const json = await res.json();
+    if (lock.consumeResponse(json)) return;
     if (json.ok) {
       notifications.show({ color: "green", message: "Fiyat planı eklendi." });
       setOpen(false);
@@ -115,18 +120,24 @@ export function RatePlansManager() {
     const res = await fetch(`/api/manager/hotels/${hotel!.id}/rate-plans`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: plan.id, isDefault: !plan.isDefault }),
+      body: JSON.stringify({
+        id: plan.id, isDefault: !plan.isDefault, expectedRevision: lock.revision,
+      }),
     });
-    if ((await res.json()).ok) void reload();
+    const json = await res.json();
+    if (lock.consumeResponse(json)) return;
+    if (json.ok) void reload();
   }
 
   async function removePlan(id: string) {
     const res = await fetch(`/api/manager/hotels/${hotel!.id}/rate-plans`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ id, expectedRevision: lock.revision }),
     });
-    if ((await res.json()).ok) void reload();
+    const json = await res.json();
+    if (lock.consumeResponse(json)) return;
+    if (json.ok) void reload();
   }
 
   return (
@@ -243,6 +254,11 @@ export function RatePlansManager() {
           onClose={() => setPricesPlan(null)}
         />
       )}
+      <PanelRevisionConflictModal
+        conflict={lock.conflict}
+        onKeepLocal={lock.keepLocalDraft}
+        onLoadLatest={async () => { setOpen(false); setPricesPlan(null); await reload(); lock.clearConflict(); }}
+      />
     </Stack>
   );
 }

@@ -11,6 +11,7 @@ import { getDb } from "@/lib/db";
 import { hotelsTable } from "@/lib/db/schema";
 import { hotelUpdateSchema } from "@/lib/schemas/hotel-admin";
 import { assertCancellationRuleBelongsToHotel } from "@/lib/tenant-integrity";
+import { revisionConflictResponse } from "@/lib/panel-revision";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -51,13 +52,10 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
   const db = getDb();
   const { expectedRevision, ...fields } = parsed.data;
-  const [current] = await db.select({ draftRevision: hotelsTable.draftRevision })
+  const [current] = await db.select({ draftRevision: hotelsTable.draftRevision, updatedAt: hotelsTable.updatedAt })
     .from(hotelsTable).where(eq(hotelsTable.id, guard.hotel.id)).limit(1);
   if (!current || current.draftRevision !== expectedRevision) {
-    return NextResponse.json(
-      { ok: false, code: "REVISION_CONFLICT", currentRevision: current?.draftRevision },
-      { status: 409 },
-    );
+    return revisionConflictResponse(current?.draftRevision, current?.updatedAt);
   }
   const [updated] = await db
     .update(hotelsTable)
@@ -65,9 +63,9 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     .where(and(eq(hotelsTable.id, guard.hotel.id), eq(hotelsTable.draftRevision, expectedRevision)))
     .returning();
   if (!updated) {
-    const [latest] = await db.select({ draftRevision: hotelsTable.draftRevision })
+    const [latest] = await db.select({ draftRevision: hotelsTable.draftRevision, updatedAt: hotelsTable.updatedAt })
       .from(hotelsTable).where(eq(hotelsTable.id, guard.hotel.id)).limit(1);
-    return NextResponse.json({ ok: false, code: "REVISION_CONFLICT", currentRevision: latest?.draftRevision }, { status: 409 });
+    return revisionConflictResponse(latest?.draftRevision, latest?.updatedAt);
   }
 
   // Not: AI alanları (aiFacts/aiPolicies/aiPersona) ve "doğrulanmış" fact
