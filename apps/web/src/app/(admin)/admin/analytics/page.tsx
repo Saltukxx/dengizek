@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Loader, Paper, Select, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
+import { ANALYTICS_EVENT_LABELS } from "@/lib/schemas/analytics";
 
 interface AdminAnalytics {
   totalEvents: number;
@@ -14,13 +15,7 @@ interface AdminAnalytics {
   hotels: { id: string; name: string }[];
 }
 
-const eventLabels: Record<string, string> = {
-  tour_view: "Tur görüntüleme",
-  step_view: "Adım görüntüleme",
-  inquiry_start: "Talep başlangıcı",
-  inquiry_submit: "Talep gönderimi",
-  ai_message: "AI mesajı",
-};
+const eventLabels: Record<string, string> = ANALYTICS_EVENT_LABELS;
 
 export default function AdminAnalyticsPage() {
   const [data, setData] = useState<AdminAnalytics | null>(null);

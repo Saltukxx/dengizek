@@ -12,8 +12,11 @@ import {
   type HotelMock,
 } from "@/lib/mocks/hotels";
 import type { ChildAgePrice, Extra, Promotion, Restaurant, Room, RoomRate } from "@/lib/db/schema";
-import type { GuestPromotion, GuestRatePlanPrice } from "@/lib/guest-pricing";
-import { parseHotelContentSnapshot } from "@/lib/schemas/hotel-content-snapshot";
+import { resolveGuestRoomPrice, type GuestPromotion, type GuestRatePlanPrice } from "@/lib/guest-pricing";
+import {
+  parseHotelContentSnapshot,
+  type HotelContentSnapshot,
+} from "@/lib/schemas/hotel-content-snapshot";
 
 function isDbAvailable(): boolean {
   return Boolean(process.env.DATABASE_URL);
@@ -62,6 +65,83 @@ function toGuestHotel(row: {
     priceLabel: value("priceLabel", row.priceLabel) ?? undefined,
     roomTypes: mock?.roomTypes ?? [],
   };
+}
+
+// ---------------------------------------------------------------------------
+// Snapshot → misafir fiyatlandırma girdileri
+//
+// Aynı eşleme hem otel detayında (getPublishedHotelContent) hem liste
+// kartlarında (getPublishedHotelsForBrowse) kullanılır; tek kaynakta durur ki
+// kart fiyatı ile detay fiyatı birbirinden ayrışmasın.
+// ---------------------------------------------------------------------------
+
+function snapshotPromotions(snapshot: HotelContentSnapshot): GuestPromotion[] {
+  return (snapshot.promotions as unknown as Promotion[])
+    .filter((item) => item.isActive)
+    .map((item) => ({
+      name: item.name,
+      discountPercent: item.discountPercent,
+      validFrom: item.validFrom ? String(item.validFrom) : null,
+      validTo: item.validTo ? String(item.validTo) : null,
+      minNights: item.minNights,
+      roomIds: item.roomIds,
+      isActive: item.isActive,
+    }));
+}
+
+function snapshotRatePlanPrices(snapshot: HotelContentSnapshot): GuestRatePlanPrice[] {
+  const defaultPlan = snapshot.ratePlans.find((plan) => plan.isDefault === true);
+  return snapshot.ratePlanPrices
+    .filter((price) => price.ratePlanId === defaultPlan?.id)
+    .map((item) => ({
+      roomId: String(item.roomId),
+      name: String(item.name),
+      startDate: String(item.startDate),
+      endDate: String(item.endDate),
+      priceMinor: Number(item.priceMinor),
+      currency: String(item.currency),
+      minStayNights: item.minStayNights == null ? null : Number(item.minStayNights),
+      occupancyPrices:
+        (item.occupancyPrices as { guestCount: number; priceMinor: number }[] | undefined) ?? [],
+    }));
+}
+
+/**
+ * Snapshot'taki odaların indirim/dönemsel fiyat uygulanmış EN DÜŞÜK gecelik
+ * fiyatı. Liste kartındaki "gecelik başlayan" değeri, detay sayfasındaki
+ * fiyatla aynı motordan geçsin diye ham priceMinor yerine bu kullanılır.
+ */
+function snapshotMinPriceMinor(snapshot: HotelContentSnapshot): number | null {
+  const rooms = snapshot.rooms as unknown as Room[];
+  const rates = snapshot.roomRates as unknown as RoomRate[];
+  const ratesByRoom = new Map<string, RoomRate[]>();
+  for (const rate of rates) {
+    ratesByRoom.set(rate.roomId, [...(ratesByRoom.get(rate.roomId) ?? []), rate]);
+  }
+  const promotions = snapshotPromotions(snapshot);
+  const ratePlanPrices = snapshotRatePlanPrices(snapshot);
+
+  let min: number | null = null;
+  for (const room of rooms) {
+    if (room.isActive === false || room.priceOnRequest === true) continue;
+    const priced = resolveGuestRoomPrice({
+      room: {
+        id: room.id,
+        priceMinor: room.priceMinor,
+        currency: room.currency,
+        priceOnRequest: room.priceOnRequest,
+        discountPercent: room.discountPercent,
+        discountLabel: room.discountLabel,
+        minStayNights: room.minStayNights,
+      },
+      rates: ratesByRoom.get(room.id) ?? [],
+      promotions,
+      ratePlanPrices,
+    });
+    if (priced.priceOnRequest || priced.priceMinor == null) continue;
+    min = min == null ? priced.priceMinor : Math.min(min, priced.priceMinor);
+  }
+  return min;
 }
 
 /** Yayında olan otelleri döner (misafir /browse). */
@@ -219,9 +299,9 @@ export async function getPublishedHotelsForBrowse(
           starRating: value("starRating", row.starRating),
           amenities: value("amenities", row.amenities),
           petsAllowed: value("petsAllowed", row.petsAllowed),
+          // İndirim/dönemsel fiyat uygulanmış gerçek "başlayan" fiyat.
           minPriceMinor: parsed.success
-            ? parsed.data.rooms.filter((room) => room.isActive !== false && room.priceOnRequest !== true && typeof room.priceMinor === "number")
-                .reduce<number | null>((acc, room) => acc == null ? room.priceMinor as number : Math.min(acc, room.priceMinor as number), null)
+            ? snapshotMinPriceMinor(parsed.data)
             : (minPriceByHotel.get(row.id) ?? null),
           reviewAverage: reviewsByHotel.get(row.id)?.average ?? null,
           reviewCount: reviewsByHotel.get(row.id)?.total ?? 0,
@@ -428,8 +508,6 @@ export async function getPublishedHotelContent(
       const rates = snapshot.roomRates as unknown as RoomRate[];
       const ratesByRoom = new Map<string, RoomRate[]>();
       for (const rate of rates) ratesByRoom.set(rate.roomId, [...(ratesByRoom.get(rate.roomId) ?? []), rate]);
-      const defaultPlan = snapshot.ratePlans.find((plan) => plan.isDefault === true);
-      const prices = snapshot.ratePlanPrices.filter((price) => price.ratePlanId === defaultPlan?.id);
       return {
         name: (hotel.name as string | null) ?? null,
         rooms: rooms.filter((room) => room.isActive).sort((a, b) => a.orderIndex - b.orderIndex).map((room) => ({ ...room, rates: ratesByRoom.get(room.id) ?? [] })),
@@ -455,8 +533,8 @@ export async function getPublishedHotelContent(
         latitude: (hotel.latitude as string | null) ?? null,
         longitude: (hotel.longitude as string | null) ?? null,
         availabilityNotes: snapshot.availabilityNotes.map((item) => ({ label: String(item.label), startDate: item.startDate == null ? null : String(item.startDate), endDate: item.endDate == null ? null : String(item.endDate), isBlackout: Boolean(item.isBlackout) })),
-        promotions: (snapshot.promotions as unknown as Promotion[]).filter((item) => item.isActive).map((item) => ({ name: item.name, discountPercent: item.discountPercent, validFrom: item.validFrom ? String(item.validFrom) : null, validTo: item.validTo ? String(item.validTo) : null, minNights: item.minNights, roomIds: item.roomIds, isActive: item.isActive })),
-        ratePlanPrices: prices.map((item) => ({ roomId: String(item.roomId), name: String(item.name), startDate: String(item.startDate), endDate: String(item.endDate), priceMinor: Number(item.priceMinor), currency: String(item.currency), minStayNights: item.minStayNights == null ? null : Number(item.minStayNights), occupancyPrices: (item.occupancyPrices as { guestCount: number; priceMinor: number }[] | undefined) ?? [] })),
+        promotions: snapshotPromotions(snapshot),
+        ratePlanPrices: snapshotRatePlanPrices(snapshot),
       };
     }
 

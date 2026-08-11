@@ -43,9 +43,9 @@ export default async function TourPage({ params, searchParams }: PageProps) {
             alignItems: "center",
             justifyContent: "center",
             height: "100dvh",
-            background: "var(--lux-bg)",
-            color: "var(--lux-muted)",
-            fontFamily: "var(--lux-font-sans)",
+            background: "var(--er-bg)",
+            color: "var(--er-text-muted)",
+            fontFamily: "var(--er-font-sans)",
             fontSize: 14,
             letterSpacing: "0.1em",
           }}

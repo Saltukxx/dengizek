@@ -3,14 +3,23 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  IconBed,
-  IconBuildingCastle,
-  IconHome,
-  IconLeaf,
-  IconMenu2,
+  IconBarbell,
+  IconBeach,
+  IconBellRinging,
+  IconCar,
+  IconChevronRight,
+  IconCircleCheck,
+  IconMapPin,
+  IconMessageCircle,
+  IconPaw,
+  IconPool,
+  IconSnowflake,
   IconSoup,
-  IconUserCircle,
+  IconSparkles,
+  IconStarFilled,
+  IconToolsKitchen2,
   IconView360,
+  IconWifi,
 } from "@tabler/icons-react";
 import {
   getPublishedHotelBySlug,
@@ -18,6 +27,7 @@ import {
   getPublishedReviews,
   getPublishedTours,
 } from "@/lib/hotels-repo";
+import { ViewTracker } from "@/components/guest/analytics-tracker";
 import { AmenitiesSection } from "@/components/guest/amenities-section";
 import { AvailabilitySection } from "@/components/guest/availability-section";
 import { ExtrasSection } from "@/components/guest/extras-section";
@@ -27,19 +37,36 @@ import { PoliciesSection } from "@/components/guest/policies-section";
 import { RestaurantsSection } from "@/components/guest/restaurants-section";
 import { RoomsSection } from "@/components/guest/rooms-section";
 import { ReviewsSection } from "@/components/guest/reviews-section";
+import { amenityLabel } from "@/lib/amenities-catalog";
+import { resolveGuestRoomPrice } from "@/lib/guest-pricing";
+import { formatPrice } from "@/lib/price";
 
 type PageProps = { params: Promise<{ slug: string }> };
 
-const heroImage =
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuBbCgeR0p5johbDZqyFqrDnWnBsbxmfvtg7US_-TmrugxW99qf_ZyIKqBsCgUe5rIkfcvMS-11rzhGwTDmQ9D_2fWljixHY3HyOD34I-GpnNnxYwChIE-m35MBlmAWygXPP3tf35GfJNHvd-MRf2UItw2Xv6scAVlZDsF52udPHunxQmUIe3xnNbm1LAExLUnBbIM9XqJrAiiezIwuQX7i162wWYw06w5A-BpqFIsAPoSxbcsGDDpBrBSt0UwsT5qudtF26KuObMc0";
-
-const roomImages = {
-  signature:
-    "https://lh3.googleusercontent.com/aida-public/AB6AXuBGndoHp4lrs1jWBWZM5p0jwpjoHUD6bPtg4QidaZLvXhuGRgyTDP1gueQ25UAS1-bl5j-rU7PaNF28uJedCsIvCOk3nx7d-G2mweOsm-EruHcpKHPtePfwPr1Ax07AMAp8IlVRSSoooJvRunpfsxjGTmFGNbH0CiAWjHXCIlC_UQxlq6O7gdvRjW39SAFfWghyoI79k_WDueJowKA1bIZfpinQGc6x-TVRuJfOa8X8Oa2zNwz09Pi0ZuGM2GyQ_WoS-HBAfl0TlR8",
-  bath:
-    "https://lh3.googleusercontent.com/aida-public/AB6AXuAnpjBU9H1xFuLKm1xQ4TjsK2W3P0pmdrys-JYbK51VkvavPjMBChqzxhzV0IQoDC5JHqDBKka2p26PwsCBr8dE7ASzDKzN01NLx0VVlMB8Dns5w5FjXxDag1Iyqq0OSh-N58yygvRdaAaQif-GjcSM3jY-uRp8Z_0zyixNDGNleY2ZYeYY-wR9B-bYCyhvPjiMJHwH8hjEjDIaociz7ZwZHQe4LmoCdqE9vDbFZWv5RjxO5qc_39oewxUyejzEqVzn_xAaIhMoHjo",
-  lounge:
-    "https://lh3.googleusercontent.com/aida-public/AB6AXuCucM24PIBQh43xpVAqjkEoNZoCUZIoOhcaXKbFDRCPTvtDeNyURycB9rOcKUZW7Aick189MuZYHKRbRaMsSV1XnDitzoXbVmZYVbTWzmPt_Is8nHJd41vjkDBbMx9w4ya5yiLh0vRxCg2rlps4_vPxAwep8ffX7NG9K1WHR_by6nRaAZ10ayO16dCtkGFlepI4NwDA8mdz-qFN9qdyenEt9_iLwpzUUNIFaWdBVOL0MIW1p41pX3qacM0zqzfN6SiL15Hw6FTJ_PA",
+/** Öne çıkan olanak kutuları için ikon eşlemesi — eşleşmeyen anahtar için varsayılan. */
+const AMENITY_ICONS: Record<string, typeof IconPool> = {
+  "acik-havuz": IconPool,
+  "kapali-havuz": IconPool,
+  "cocuk-havuzu": IconPool,
+  "ozel-plaj": IconBeach,
+  "plaj-bari": IconBeach,
+  "spa-merkezi": IconSparkles,
+  hamam: IconSparkles,
+  sauna: IconSparkles,
+  masaj: IconSparkles,
+  fitness: IconBarbell,
+  restoran: IconToolsKitchen2,
+  bar: IconSoup,
+  "kahvalti-dahil": IconToolsKitchen2,
+  "her-sey-dahil": IconToolsKitchen2,
+  "oda-servisi": IconToolsKitchen2,
+  "ucretsiz-wifi": IconWifi,
+  klima: IconSnowflake,
+  "resepsiyon-7-24": IconBellRinging,
+  concierge: IconBellRinging,
+  otopark: IconCar,
+  vale: IconCar,
+  "evcil-hayvan": IconPaw,
 };
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -57,337 +84,325 @@ export default async function HotelPage({ params }: PageProps) {
   const hotel = await getPublishedHotelBySlug(slug);
   if (!hotel) notFound();
 
-  // Panelde tanımlanan içerik (DB yoksa boş döner — mock akışı bozulmaz)
   const [content, reviews, tours] = await Promise.all([
     getPublishedHotelContent(slug),
     getPublishedReviews(slug),
     getPublishedTours(slug),
   ]);
+
   // Otelin genel turu (oda turu olmayan ilk tur); yoksa ilk tur.
   const featuredTour = tours.find((t) => t.roomSlug == null) ?? tours[0];
 
-  if (slug !== "aurelia-bay") {
-    return (
-      <main className="luxury-full-bleed" style={{ padding: "96px 32px", minHeight: "100dvh" }}>
-        <section style={{ maxWidth: 960, margin: "0 auto" }}>
-          <Link href="/browse" className="luxury-label" style={{ color: "var(--lux-gold)", textDecoration: "none" }}>
-            Koleksiyona dön
-          </Link>
-          <div className="luxury-glass" style={{ marginTop: 28, padding: 32, borderRadius: 8 }}>
-            <p className="luxury-label" style={{ margin: 0 }}>
-              {hotel.city}, {hotel.country}
-            </p>
-            <h1 className="luxury-sans-title" style={{ fontSize: 54, margin: "18px 0 14px" }}>
-              {hotel.name}
-            </h1>
-            <p style={{ maxWidth: 680, color: "var(--lux-muted)", fontSize: 18, lineHeight: 1.7 }}>
-              {hotel.longDescription}
-            </p>
-            {/* Yayımlanmış turu olan her tesis için giriş noktası — eskiden
-                yalnızca demo oteline sabitlenmişti. */}
-            {featuredTour && (
-              <Link
-                href={`/tours/${slug}/${featuredTour.tourId}`}
-                className="luxury-gold-button"
-                style={{ marginTop: 28 }}
-              >
-                <IconView360 size={20} />
-                Video Tura Başla
-              </Link>
-            )}
-          </div>
-        </section>
-        <RoomsSection
-          hotelSlug={slug}
-          rooms={content.rooms}
-          promotions={content.promotions}
-          ratePlanPrices={content.ratePlanPrices}
-        />
-        <GallerySection images={content.gallery} />
-        <HotelMapSection
-          latitude={content.latitude}
-          longitude={content.longitude}
-          address={content.specs.address}
-          hotelName={hotel.name}
-        />
-        <AvailabilitySection
-          hotelSlug={slug}
-          notes={content.availabilityNotes}
-          blackoutText={content.specs.blackoutText}
-        />
-        <AmenitiesSection amenities={content.amenities} specs={content.specs} />
-        <RestaurantsSection restaurants={content.restaurants} />
-        <ExtrasSection extras={content.extras} />
-        <PoliciesSection specs={content.specs} />
-        <ReviewsSection summary={reviews} />
-      </main>
-    );
-  }
+  // Galeri ızgarası: kapak görseli + panelden gelen görsellerin ilk birkaçı.
+  const galleryImages = [
+    ...(hotel.imageUrl ? [{ url: hotel.imageUrl, caption: hotel.name }] : []),
+    ...content.gallery,
+  ];
+  const gridImages = galleryImages.slice(0, 5);
+
+  const stars = content.specs.starRating;
+  const featuredAmenities = content.amenities.slice(0, 4);
+
+  // Panelde gösterilecek "başlayan" fiyat, oda kartlarıyla AYNI motordan
+  // geçer: dönemsel fiyat, rate plan ve promosyon indirimleri dahil.
+  // (Ham room.priceMinor okumak panelde indirimsiz fiyat gösteriyordu.)
+  const pricedRooms = content.rooms.map((room) =>
+    resolveGuestRoomPrice({
+      room: {
+        id: room.id,
+        priceMinor: room.priceMinor,
+        currency: room.currency,
+        priceOnRequest: room.priceOnRequest,
+        discountPercent: room.discountPercent,
+        discountLabel: room.discountLabel,
+        minStayNights: room.minStayNights,
+      },
+      rates: room.rates,
+      promotions: content.promotions,
+      ratePlanPrices: content.ratePlanPrices,
+    }),
+  );
+  const cheapest = pricedRooms
+    .filter((p) => !p.priceOnRequest && p.priceMinor != null && p.priceMinor > 0)
+    .sort((a, b) => (a.priceMinor as number) - (b.priceMinor as number))[0];
+  const fromPrice = cheapest?.priceMinor ?? null;
+  const fromOriginalPrice =
+    cheapest?.originalPriceMinor != null && cheapest.originalPriceMinor > (fromPrice ?? 0)
+      ? cheapest.originalPriceMinor
+      : null;
+  const currency = cheapest?.currency ?? content.rooms.find((r) => r.currency)?.currency ?? "TRY";
 
   return (
-    <main className="luxury-full-bleed">
-      <header
+    <div className="er-container" style={{ paddingBlock: "clamp(20px, 3vw, 32px)" }}>
+      {/* Otel görüntüleme olayı — panel analitiğinin huni girişi */}
+      <ViewTracker
+        eventType="hotel_view"
+        hotelSlug={slug}
+        payload={{ hasTour: Boolean(featuredTour), roomCount: content.rooms.length }}
+      />
+
+      {/* ── Başlık ────────────────────────────────────────────────────────── */}
+      <nav
+        aria-label="Sayfa yolu"
         style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 70,
-          height: 64,
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 28px",
-          background: "rgba(15, 23, 42, 0.66)",
-          borderBottom: "1px solid rgba(255,255,255,0.1)",
-          backdropFilter: "blur(28px)",
+          gap: 6,
+          fontSize: 12,
+          fontWeight: 600,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: "var(--er-text-dim)",
+          marginBottom: 10,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-          <IconMenu2 size={22} color="var(--lux-dim)" />
-          <Link
-            href="/hotels/aurelia-bay"
-            style={{
-              color: "var(--lux-gold)",
-              fontSize: 22,
-              fontWeight: 700,
-              letterSpacing: "-0.04em",
-              textDecoration: "none",
-            }}
-          >
-            AURELIA
-          </Link>
-        </div>
-        <nav
+        <Link href="/browse" style={{ color: "var(--er-primary)" }}>
+          Oteller
+        </Link>
+        <IconChevronRight size={13} />
+        <span>{[hotel.city, hotel.country].filter(Boolean).join(", ")}</span>
+      </nav>
+
+      <div style={{ marginBottom: 20 }}>
+        <h1 className="er-display er-h1">{hotel.name}</h1>
+        <div
           style={{
             display: "flex",
-            gap: 34,
             alignItems: "center",
+            gap: 14,
+            flexWrap: "wrap",
+            marginTop: 10,
           }}
-          className="luxury-home-nav"
-          aria-label="Aurelia Bay navigation"
         >
-          {["Aurelia Bay Resort", "Odalarımız", "Gastronomi", "Spa & Wellness"].map((item, i) => (
-            <a
-              key={item}
-              href={i === 0 ? "#top" : i === 1 ? "#odalar" : "#deneyimler"}
-              className="luxury-label"
+          {stars ? (
+            <span style={{ display: "inline-flex", gap: 2 }} aria-label={`${stars} yıldız`}>
+              {Array.from({ length: stars }).map((_, i) => (
+                <IconStarFilled key={i} size={16} style={{ color: "var(--er-cta)" }} />
+              ))}
+            </span>
+          ) : null}
+          {reviews.count > 0 && reviews.average != null && (
+            <span style={{ fontSize: 14, color: "var(--er-text-muted)" }}>
+              <strong style={{ color: "var(--er-primary)" }}>
+                {reviews.average.toLocaleString("tr-TR", { minimumFractionDigits: 1 })}
+              </strong>{" "}
+              ({reviews.count} değerlendirme)
+            </span>
+          )}
+          {content.specs.address && (
+            <span
               style={{
-                color: i === 0 ? "var(--lux-gold)" : "rgba(208,197,178,0.76)",
-                textDecoration: "none",
-                fontSize: 13,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                fontSize: 14,
+                color: "var(--er-text-muted)",
               }}
             >
-              {item}
-            </a>
-          ))}
-        </nav>
-        <div
-          aria-hidden
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: "50%",
-            display: "grid",
-            placeItems: "center",
-            border: "1px solid rgba(212,175,55,0.45)",
-            background: "rgba(0,0,0,0.35)",
-            color: "var(--lux-gold)",
-          }}
-        >
-          <IconUserCircle size={20} />
+              <IconMapPin size={15} stroke={1.8} />
+              {content.specs.address}
+            </span>
+          )}
         </div>
-      </header>
+      </div>
 
-      <section
-        id="top"
-        className="luxury-grain"
-        style={{
-          position: "relative",
-          minHeight: "100dvh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          overflow: "hidden",
-          textAlign: "center",
-          padding: "96px 24px 120px",
-        }}
-      >
-        <img
-          src={heroImage}
-          alt="Aurelia Bay Resort coastline at twilight"
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            opacity: 0.58,
-            filter: "grayscale(1) contrast(1.08) brightness(0.72)",
-          }}
-        />
+      {/* ── Galeri ızgarası ───────────────────────────────────────────────── */}
+      {gridImages.length > 0 && (
         <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "linear-gradient(to top, var(--lux-bg) 0%, rgba(11,15,18,0.7) 28%, rgba(11,15,18,0.18) 66%, rgba(11,15,18,0.55) 100%)",
-          }}
-        />
-        <div style={{ position: "relative", zIndex: 2, maxWidth: 880 }}>
-          <div
-            className="luxury-label"
-            style={{
-              display: "inline-flex",
-              border: "1px solid rgba(212,175,55,0.42)",
-              borderRadius: 999,
-              padding: "7px 16px",
-              background: "rgba(0,0,0,0.18)",
-              marginBottom: 34,
-            }}
-          >
-            Gecenin Zarafeti
+          className="er-gallery"
+          data-count={gridImages.length}
+          style={{ marginBottom: "clamp(24px, 3vw, 40px)" }}
+        >
+          {gridImages.map((img, i) => (
+            <div key={img.url + i}>
+              <img src={img.url} alt={img.caption ?? hotel.name} />
+              {i === gridImages.length - 1 && galleryImages.length > gridImages.length && (
+                <span
+                  className="er-rating-badge"
+                  style={{ position: "absolute", right: 12, bottom: 12 }}
+                >
+                  +{galleryImages.length - gridImages.length} fotoğraf
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── İçerik + rezervasyon paneli ───────────────────────────────────── */}
+      <div className="er-detail-grid">
+        <div>
+          <section>
+            <h2 className="er-display er-h2">Bu tesis hakkında</h2>
+            <p className="er-lede" style={{ marginTop: 12 }}>
+              {hotel.longDescription || hotel.shortDescription}
+            </p>
+
+            {featuredAmenities.length > 0 && (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                  gap: 12,
+                  marginTop: 24,
+                }}
+              >
+                {featuredAmenities.map((key) => {
+                  const Icon = AMENITY_ICONS[key] ?? IconCircleCheck;
+                  return (
+                    <div key={key} className="er-feature-box">
+                      <Icon size={26} stroke={1.6} />
+                      {amenityLabel(key)}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <RoomsSection
+            hotelSlug={slug}
+            rooms={content.rooms}
+            promotions={content.promotions}
+            ratePlanPrices={content.ratePlanPrices}
+          />
+          <AvailabilitySection
+            hotelSlug={slug}
+            notes={content.availabilityNotes}
+            blackoutText={content.specs.blackoutText}
+          />
+          <AmenitiesSection amenities={content.amenities} specs={content.specs} />
+          <RestaurantsSection restaurants={content.restaurants} />
+          <ExtrasSection extras={content.extras} />
+          <GallerySection images={content.gallery} />
+          <HotelMapSection
+            latitude={content.latitude}
+            longitude={content.longitude}
+            address={content.specs.address}
+            hotelName={hotel.name}
+          />
+          <PoliciesSection specs={content.specs} />
+          <ReviewsSection summary={reviews} />
+        </div>
+
+        {/* ── Yapışkan panel ──────────────────────────────────────────────── */}
+        <aside className="er-booking-panel">
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+            {fromOriginalPrice != null && (
+              <span
+                className="er-price-note"
+                style={{ textDecoration: "line-through", order: -1, width: "100%" }}
+              >
+                {formatPrice(fromOriginalPrice, currency)}
+              </span>
+            )}
+            <span className="er-price" style={{ fontSize: 30 }}>
+              {fromPrice != null ? formatPrice(fromPrice, currency) : "Talep üzerine"}
+            </span>
+            {fromPrice != null && <span className="er-price-note">/ gece</span>}
+            {cheapest?.discountLabel && (
+              <span
+                className="er-chip"
+                style={{ background: "var(--er-cta-tint)", color: "var(--er-cta)" }}
+              >
+                {cheapest.discountLabel}
+              </span>
+            )}
           </div>
-          <h1
-            className="luxury-sans-title"
-            style={{
-              margin: 0,
-              fontSize: "clamp(48px, 7vw, 82px)",
-              lineHeight: 1.06,
-              color: "var(--lux-text)",
-              textShadow: "0 2px 20px rgba(0,0,0,0.55)",
-            }}
-          >
-            Aurelia Bay Resort
-          </h1>
-          <p
-            style={{
-              margin: "28px auto 0",
-              maxWidth: 700,
-              color: "var(--lux-muted)",
-              fontSize: "clamp(16px, 1.6vw, 20px)",
-              lineHeight: 1.7,
-            }}
-          >
-            Zamanın durduğu, doğanın ve lüksün kusursuz bir uyum içinde dans ettiği o saklı koya hoş geldiniz.
-          </p>
+
+          {content.specs.checkInTime && content.specs.checkOutTime && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div
+                style={{
+                  border: "1px solid var(--er-line)",
+                  borderRadius: "var(--er-radius)",
+                  padding: "10px 12px",
+                }}
+              >
+                <div className="er-field-label" style={{ marginBottom: 2 }}>
+                  Giriş
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 600 }}>{content.specs.checkInTime}</div>
+              </div>
+              <div
+                style={{
+                  border: "1px solid var(--er-line)",
+                  borderRadius: "var(--er-radius)",
+                  padding: "10px 12px",
+                }}
+              >
+                <div className="er-field-label" style={{ marginBottom: 2 }}>
+                  Çıkış
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 600 }}>{content.specs.checkOutTime}</div>
+              </div>
+            </div>
+          )}
+
+          <Link href={`/inquiry?hotel=${slug}`} className="er-btn er-btn-cta er-btn-block">
+            Rezervasyon Talebi Gönder
+          </Link>
+
           {featuredTour && (
             <Link
               href={`/tours/${slug}/${featuredTour.tourId}`}
-              className="luxury-gold-button"
-              style={{ marginTop: 52 }}
+              className="er-btn er-btn-primary er-btn-block"
             >
               <IconView360 size={20} />
-              Sanal Turu Deneyimle
+              Sanal Turu Başlat
             </Link>
           )}
-        </div>
-      </section>
 
-      {content.rooms.length > 0 ? (
-        <RoomsSection
-          hotelSlug={slug}
-          rooms={content.rooms}
-          promotions={content.promotions}
-          ratePlanPrices={content.ratePlanPrices}
-        />
-      ) : (
-      <section
-        id="odalar"
-        style={{
-          maxWidth: 1280,
-          margin: "0 auto",
-          padding: "64px 32px 96px",
-        }}
-      >
-        <div style={{ marginBottom: 42 }}>
-          <h2
-            className="luxury-sans-title"
-            style={{ margin: 0, fontSize: "clamp(42px, 5vw, 64px)", lineHeight: 1.08 }}
-          >
-            Odalarımız
-          </h2>
-          <div style={{ width: 50, height: 4, background: "var(--lux-gold)", marginTop: 16 }} />
-        </div>
+          <p style={{ margin: 0, textAlign: "center", fontSize: 12, color: "var(--er-text-dim)" }}>
+            Şu anda ücret alınmaz — talebiniz tesise iletilir.
+          </p>
 
-        <div className="aurelia-room-grid">
-          <Link href="/hotels/aurelia-bay/rooms/seaview-deluxe" className="aurelia-room-card large">
-            <img src={roomImages.signature} alt="Signature Villa bedroom" />
-            <span className="room-overlay" />
-            <span className="room-copy">
-              <strong>Signature Villa</strong>
-              <small><IconBed size={16} /> Özel Havuzlu Lüks</small>
-            </span>
-          </Link>
-          <Link href="/hotels/aurelia-bay/rooms/courtyard-quiet" className="aurelia-room-card icon">
-            <IconBuildingCastle size={54} />
-            <strong>Kral Dairesi</strong>
-            <small>Detayları İncele</small>
-          </Link>
-          <Link href="/hotels/aurelia-bay/rooms/seaview-deluxe" className="aurelia-room-card half">
-            <img src={roomImages.bath} alt="Ocean view suite bathroom" />
-            <span className="room-overlay" />
-            <span className="room-copy">
-              <strong>Okyanus Manzaralı Süit</strong>
-            </span>
-          </Link>
-          <Link href="/hotels/aurelia-bay/rooms/courtyard-quiet" className="aurelia-room-card half">
-            <img src={roomImages.lounge} alt="Premium room lounge" />
-            <span className="room-overlay" />
-            <span className="room-copy">
-              <strong>Premium Odalar</strong>
-            </span>
-          </Link>
-        </div>
-      </section>
-      )}
+          {tours.length > 1 && (
+            <div style={{ borderTop: "1px solid var(--er-line)", paddingTop: 14 }}>
+              <p className="er-field-label">Diğer turlar</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {tours.slice(0, 4).map((t) => (
+                  <Link
+                    key={t.tourId}
+                    href={`/tours/${slug}/${t.tourId}`}
+                    className="er-link"
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                  >
+                    <IconView360 size={16} />
+                    {t.title ?? t.tourId}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
-      <div id="deneyimler">
-        <HotelMapSection
-          latitude={content.latitude}
-          longitude={content.longitude}
-          address={content.specs.address}
-          hotelName={hotel.name}
-        />
-        <AvailabilitySection
-          hotelSlug={slug}
-          notes={content.availabilityNotes}
-          blackoutText={content.specs.blackoutText}
-        />
-        <AmenitiesSection amenities={content.amenities} specs={content.specs} />
-        <RestaurantsSection restaurants={content.restaurants} />
-        <ExtrasSection extras={content.extras} />
-        <PoliciesSection specs={content.specs} />
-        <ReviewsSection summary={reviews} />
-      </div>
-
-      <nav className="luxury-mobile-bottom-nav" aria-label="Mobile Aurelia navigation">
-        {[
-          ["Home", IconHome],
-          ["Tours", IconView360],
-          ["Gastronomi", IconSoup],
-          ["Spa", IconLeaf],
-          ["Profile", IconUserCircle],
-        ].map(([label, Icon], index) => (
-          <Link
-            key={String(label)}
-            href={index === 1 && featuredTour ? `/tours/${slug}/${featuredTour.tourId}` : "#top"}
+          <div
             style={{
               display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 4,
-              color: index === 0 ? "var(--lux-gold)" : "rgba(138,155,176,0.82)",
-              fontSize: 10,
-              fontWeight: 600,
-              textDecoration: "none",
+              gap: 10,
+              alignItems: "flex-start",
+              padding: 14,
+              borderRadius: "var(--er-radius)",
+              background: "var(--er-primary-tint)",
             }}
           >
-            <Icon size={22} />
-            {String(label)}
-          </Link>
-        ))}
-      </nav>
-    </main>
+            <IconMessageCircle
+              size={20}
+              stroke={1.8}
+              style={{ color: "var(--er-primary)", flexShrink: 0, marginTop: 2 }}
+            />
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--er-primary)" }}>
+                Sorunuz mu var?
+              </div>
+              <div style={{ fontSize: 13, color: "var(--er-text-muted)" }}>
+                Tur sırasında dijital asistana sorabilir ya da talep formundan bize
+                yazabilirsiniz.
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
   );
 }

@@ -19,6 +19,7 @@ export function InquiryForm() {
   const sourceFromQuery = search.get("source") ?? "web";
 
   const [rooms, setRooms] = useState<RoomOption[]>([]);
+  const [hotelName, setHotelName] = useState<string | null>(null);
   const [cancellationSummary, setCancellationSummary] = useState<string | null>(null);
 
   const {
@@ -52,7 +53,10 @@ export function InquiryForm() {
     void fetch(`/api/public/hotels/${hotelFromQuery}/rooms`)
       .then((r) => r.json())
       .then((j) => {
-        if (j.ok) setRooms(j.rooms);
+        if (!j.ok) return;
+        setRooms(j.rooms);
+        // Bağlam rozetinde slug yerine tesisin yayındaki adı gösterilir.
+        if (j.hotel?.name) setHotelName(j.hotel.name as string);
       });
     void fetch(`/api/public/hotels/${hotelFromQuery}/cancellation-summary`)
       .then((r) => r.json())
@@ -96,34 +100,13 @@ export function InquiryForm() {
       }}
     >
       <div style={{ marginBottom: "clamp(28px, 4vw, 48px)" }}>
-        <p
-          style={{
-            margin: "0 0 10px",
-            fontFamily: "var(--lux-font-sans)",
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: "0.24em",
-            textTransform: "uppercase",
-            color: "var(--lux-gold)",
-          }}
-        >
+        <p className="er-eyebrow" style={{ marginBottom: 10, color: "var(--er-primary)" }}>
           Rezervasyon
         </p>
-        <h1
-          style={{
-            margin: "0 0 12px",
-            fontFamily: "var(--lux-font-sans)",
-            fontSize: "clamp(28px, 4vw, 40px)",
-            fontWeight: 700,
-            letterSpacing: "-0.025em",
-            lineHeight: 1.1,
-            color: "var(--lux-text)",
-          }}
-        >
+        <h1 className="er-display er-h1" style={{ marginBottom: 12 }}>
           Talep Gönder
         </h1>
-        <div style={{ width: 48, height: 2, background: "var(--lux-gold)", opacity: 0.6, marginBottom: 16 }} />
-        <p style={{ margin: 0, color: "var(--lux-muted)", fontSize: 14, lineHeight: 1.6 }}>
+        <p style={{ margin: 0, color: "var(--er-text-muted)", fontSize: 15, lineHeight: 1.6 }}>
           Talebiniz otele iletilecek. Müsaitlik bilgilendiricidir; kesin onay otelden gelir.
         </p>
       </div>
@@ -133,19 +116,23 @@ export function InquiryForm() {
           style={{
             marginBottom: 24,
             padding: "10px 16px",
-            background: "rgba(212,175,55,0.07)",
-            border: "1px solid rgba(212,175,55,0.22)",
+            background: "var(--er-primary-tint)",
+            border: "1px solid var(--er-line)",
             borderRadius: 4,
-            fontFamily: "var(--lux-font-sans)",
+            fontFamily: "var(--er-font-sans)",
             fontSize: 13,
-            color: "var(--lux-muted)",
+            color: "var(--er-text-muted)",
           }}
         >
-          Otel: <strong style={{ color: "var(--lux-gold)" }}>{hotelFromQuery}</strong>
+          Otel:{" "}
+          <strong style={{ color: "var(--er-primary)" }}>{hotelName ?? hotelFromQuery}</strong>
           {roomFromQuery && (
             <>
               {" "}
-              · Oda: <strong>{roomFromQuery}</strong>
+              · Oda:{" "}
+              <strong>
+                {rooms.find((r) => r.slug === roomFromQuery)?.name ?? roomFromQuery}
+              </strong>
             </>
           )}
         </div>
@@ -156,16 +143,16 @@ export function InquiryForm() {
           style={{
             marginBottom: 24,
             padding: "12px 16px",
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(208,197,178,0.18)",
-            borderRadius: 4,
-            fontFamily: "var(--lux-font-sans)",
+            background: "var(--er-surface-2)",
+            border: "1px solid var(--er-line)",
+            borderRadius: "var(--er-radius)",
+            fontFamily: "var(--er-font-sans)",
             fontSize: 13,
-            color: "var(--lux-muted)",
+            color: "var(--er-text-muted)",
             lineHeight: 1.55,
           }}
         >
-          <strong style={{ color: "var(--lux-text)", display: "block", marginBottom: 4 }}>
+          <strong style={{ color: "var(--er-text)", display: "block", marginBottom: 4 }}>
             İptal koşulları
           </strong>
           {cancellationSummary}
@@ -173,15 +160,15 @@ export function InquiryForm() {
       )}
 
       <form onSubmit={onSubmit}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {errors.root && (
             <div
               style={{
                 padding: "10px 16px",
-                background: "rgba(255,80,80,0.08)",
-                border: "1px solid rgba(255,80,80,0.22)",
-                borderRadius: 4,
-                color: "#ff8080",
+                background: "var(--er-error-tint)",
+                border: "1px solid var(--er-error)",
+                borderRadius: "var(--er-radius)",
+                color: "var(--er-error)",
                 fontSize: 13,
               }}
             >
@@ -191,30 +178,30 @@ export function InquiryForm() {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>
-              <label className="lux-input-label">Giriş</label>
-              <input type="date" {...register("checkIn")} className="lux-input" />
+              <label className="er-field-label">Giriş</label>
+              <input type="date" {...register("checkIn")} className="er-input" />
             </div>
             <div>
-              <label className="lux-input-label">Çıkış</label>
-              <input type="date" {...register("checkOut")} className="lux-input" />
+              <label className="er-field-label">Çıkış</label>
+              <input type="date" {...register("checkOut")} className="er-input" />
             </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>
-              <label className="lux-input-label">Yetişkin</label>
-              <input type="number" min={1} max={20} {...register("adults")} className="lux-input" />
+              <label className="er-field-label">Yetişkin</label>
+              <input type="number" min={1} max={20} {...register("adults")} className="er-input" />
             </div>
             <div>
-              <label className="lux-input-label">Çocuk</label>
-              <input type="number" min={0} max={20} {...register("children")} className="lux-input" />
+              <label className="er-field-label">Çocuk</label>
+              <input type="number" min={0} max={20} {...register("children")} className="er-input" />
             </div>
           </div>
 
           {rooms.length > 0 && (
             <div>
-              <label className="lux-input-label">Oda tipi</label>
-              <select {...register("roomSlug")} className="lux-input" defaultValue={roomFromQuery ?? ""}>
+              <label className="er-field-label">Oda tipi</label>
+              <select {...register("roomSlug")} className="er-input" defaultValue={roomFromQuery ?? ""}>
                 <option value="">Seçin (opsiyonel)</option>
                 {rooms.map((r) => (
                   <option key={r.slug} value={r.slug}>
@@ -226,32 +213,32 @@ export function InquiryForm() {
           )}
 
           <div>
-            <label className="lux-input-label">
-              Ad Soyad <span style={{ color: "rgba(212,175,55,0.6)" }}>*</span>
+            <label className="er-field-label">
+              Ad Soyad <span style={{ color: "var(--er-cta)" }}>*</span>
             </label>
-            <input {...register("name")} className="lux-input" placeholder="Adınız ve soyadınız" />
-            {errors.name && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#ff8080" }}>{errors.name.message}</p>}
+            <input {...register("name")} className="er-input" placeholder="Adınız ve soyadınız" />
+            {errors.name && <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--er-error)" }}>{errors.name.message}</p>}
           </div>
 
           <div>
-            <label className="lux-input-label">
-              E-posta <span style={{ color: "rgba(212,175,55,0.6)" }}>*</span>
+            <label className="er-field-label">
+              E-posta <span style={{ color: "var(--er-cta)" }}>*</span>
             </label>
-            <input {...register("email")} type="email" className="lux-input" placeholder="ornek@email.com" />
-            {errors.email && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#ff8080" }}>{errors.email.message}</p>}
+            <input {...register("email")} type="email" className="er-input" placeholder="ornek@email.com" />
+            {errors.email && <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--er-error)" }}>{errors.email.message}</p>}
           </div>
 
           <div>
-            <label className="lux-input-label">Telefon</label>
-            <input {...register("phone")} type="tel" className="lux-input" placeholder="+90 5xx xxx xx xx" />
+            <label className="er-field-label">Telefon</label>
+            <input {...register("phone")} type="tel" className="er-input" placeholder="+90 5xx xxx xx xx" />
           </div>
 
           <div>
-            <label className="lux-input-label">
-              Mesaj <span style={{ color: "rgba(212,175,55,0.6)" }}>*</span>
+            <label className="er-field-label">
+              Mesaj <span style={{ color: "var(--er-cta)" }}>*</span>
             </label>
-            <textarea {...register("message")} className="lux-textarea" placeholder="Özel talepler…" rows={5} />
-            {errors.message && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#ff8080" }}>{errors.message.message}</p>}
+            <textarea {...register("message")} className="er-textarea" placeholder="Özel talepler…" rows={5} />
+            {errors.message && <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--er-error)" }}>{errors.message.message}</p>}
           </div>
 
           <input type="hidden" {...register("hotelSlug")} />
@@ -263,20 +250,20 @@ export function InquiryForm() {
             name="marketingConsent"
             control={control}
             render={({ field }) => (
-              <label style={{ display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer", fontSize: 13, color: "var(--lux-muted)" }}>
+              <label style={{ display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer", fontSize: 13, color: "var(--er-text-muted)" }}>
                 <input
                   type="checkbox"
                   checked={field.value}
                   onChange={(e) => field.onChange(e.currentTarget.checked)}
                   onBlur={field.onBlur}
-                  style={{ marginTop: 2, accentColor: "var(--lux-gold)" }}
+                  style={{ marginTop: 2, accentColor: "var(--er-primary)" }}
                 />
                 Bu talep ve (isteğe bağlı) gelecek teklifler için benimle iletişime geçilmesini kabul ediyorum
               </label>
             )}
           />
 
-          <button type="submit" disabled={isSubmitting} className="luxury-gold-button" data-testid="inquiry-submit">
+          <button type="submit" disabled={isSubmitting} className="er-btn er-btn-cta" data-testid="inquiry-submit">
             {isSubmitting ? "Gönderiliyor…" : "Talebi Gönder"}
           </button>
         </div>

@@ -51,15 +51,14 @@ export function PoliciesSection({ specs }: { specs: HotelSpecs }) {
   if (policies.length === 0 && contact.length === 0) return null;
 
   return (
-    <section style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px 96px" }}>
-      <div style={{ marginBottom: 42 }}>
+    <section className="er-detail-section">
+      <div style={{ marginBottom: 24 }}>
         <h2
-          className="luxury-sans-title"
-          style={{ margin: 0, fontSize: "clamp(36px, 4.5vw, 56px)", lineHeight: 1.08 }}
+          className="er-display er-h2"
         >
           Bilmeniz Gerekenler
         </h2>
-        <div style={{ width: 50, height: 4, background: "var(--lux-gold)", marginTop: 16 }} />
+        
       </div>
 
       {policies.length > 0 && (
@@ -74,28 +73,28 @@ export function PoliciesSection({ specs }: { specs: HotelSpecs }) {
           {policies.map((p) => (
             <div
               key={p.title}
-              className="luxury-glass"
+              className="er-card"
               style={{
                 padding: "22px 24px",
-                borderRadius: 8,
-                border: "1px solid rgba(212,175,55,0.16)",
+                borderRadius: "var(--er-radius-md)",
+                border: "1px solid var(--er-line)",
               }}
             >
               <p
-                className="luxury-label"
+                className="er-eyebrow"
                 style={{
                   margin: "0 0 10px",
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
-                  color: "var(--lux-gold)",
+                  color: "var(--er-primary)",
                   fontSize: 12,
                 }}
               >
                 <p.icon size={16} />
                 {p.title}
               </p>
-              <p style={{ margin: 0, color: "var(--lux-muted)", fontSize: 14, lineHeight: 1.65 }}>
+              <p style={{ margin: 0, color: "var(--er-text-muted)", fontSize: 14, lineHeight: 1.65 }}>
                 {p.body}
               </p>
             </div>
@@ -109,13 +108,13 @@ export function PoliciesSection({ specs }: { specs: HotelSpecs }) {
             display: "flex",
             flexWrap: "wrap",
             gap: 24,
-            color: "var(--lux-muted)",
+            color: "var(--er-text-muted)",
             fontSize: 14,
           }}
         >
           {contact.map((c) => (
             <span key={c.label} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <c.icon size={17} color="var(--lux-gold)" />
+              <c.icon size={17} color="var(--er-primary)" />
               {c.label}
             </span>
           ))}

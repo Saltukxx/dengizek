@@ -18,18 +18,16 @@ export function TourGuideChips({ chips, onChipClick, disabled }: TourGuideChipsP
           key={chip}
           size="xs"
           variant="outline"
-          radius={0}
+          radius={999}
           disabled={disabled}
           onClick={() => onChipClick(chip)}
           styles={{
             root: {
-              color: "var(--lux-muted)",
-              borderColor: "rgba(212,175,55,0.32)",
-              background: "rgba(212,175,55,0.04)",
-              fontFamily: "var(--lux-font-sans)",
-              fontWeight: 800,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
+              color: "var(--er-primary)",
+              borderColor: "var(--er-line-strong)",
+              background: "var(--er-surface)",
+              fontFamily: "var(--er-font-sans)",
+              fontWeight: 600,
             },
           }}
         >

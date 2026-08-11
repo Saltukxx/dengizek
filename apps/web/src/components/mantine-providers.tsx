@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 
 export function MantineProviders({ children }: { children: ReactNode }) {
   return (
-    <MantineProvider defaultColorScheme="dark" theme={appTheme}>
+    <MantineProvider forceColorScheme="light" theme={appTheme}>
       <Notifications position="top-right" zIndex={1000} />
       {children}
     </MantineProvider>

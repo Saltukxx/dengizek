@@ -11,15 +11,14 @@ export function ExtrasSection({ extras }: { extras: Extra[] }) {
   if (extras.length === 0) return null;
 
   return (
-    <section style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px 96px" }}>
-      <div style={{ marginBottom: 42 }}>
+    <section className="er-detail-section">
+      <div style={{ marginBottom: 24 }}>
         <h2
-          className="luxury-sans-title"
-          style={{ margin: 0, fontSize: "clamp(36px, 4.5vw, 56px)", lineHeight: 1.08 }}
+          className="er-display er-h2"
         >
           Ekstra Hizmetler
         </h2>
-        <div style={{ width: 50, height: 4, background: "var(--lux-gold)", marginTop: 16 }} />
+        
       </div>
 
       <div
@@ -32,11 +31,11 @@ export function ExtrasSection({ extras }: { extras: Extra[] }) {
         {extras.map((extra) => (
           <article
             key={extra.id}
-            className="luxury-glass"
+            className="er-card"
             style={{
-              borderRadius: 8,
+              borderRadius: "var(--er-radius-md)",
               overflow: "hidden",
-              border: "1px solid rgba(212,175,55,0.16)",
+              border: "1px solid var(--er-line)",
               display: "flex",
               flexDirection: "column",
             }}
@@ -49,14 +48,14 @@ export function ExtrasSection({ extras }: { extras: Extra[] }) {
               />
             )}
             <div style={{ padding: "18px 20px 20px", display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
-              <p className="luxury-label" style={{ margin: 0, color: "var(--lux-gold)", fontSize: 10 }}>
+              <p className="er-eyebrow" style={{ margin: 0, color: "var(--er-primary)", fontSize: 10 }}>
                 {extraCategoryLabels[extra.category as keyof typeof extraCategoryLabels] ?? extra.category}
               </p>
-              <h3 style={{ margin: 0, color: "var(--lux-text)", fontSize: 19, fontWeight: 700 }}>
+              <h3 style={{ margin: 0, color: "var(--er-text)", fontSize: 19, fontWeight: 700 }}>
                 {extra.name}
               </h3>
               {extra.description && (
-                <p style={{ margin: 0, color: "var(--lux-muted)", fontSize: 14, lineHeight: 1.6 }}>
+                <p style={{ margin: 0, color: "var(--er-text-muted)", fontSize: 14, lineHeight: 1.6 }}>
                   {extra.description}
                 </p>
               )}
@@ -69,11 +68,11 @@ export function ExtrasSection({ extras }: { extras: Extra[] }) {
                   alignItems: "baseline",
                 }}
               >
-                <span style={{ color: "var(--lux-gold)", fontWeight: 700, fontSize: 16 }}>
+                <span style={{ color: "var(--er-primary)", fontWeight: 700, fontSize: 16 }}>
                   {formatPrice(extra.priceMinor, extra.currency, extra.priceOnRequest)}
                 </span>
                 {extra.unitLabel && (
-                  <span style={{ color: "var(--lux-dim)", fontSize: 12 }}>{extra.unitLabel}</span>
+                  <span style={{ color: "var(--er-text-dim)", fontSize: 12 }}>{extra.unitLabel}</span>
                 )}
               </div>
             </div>

@@ -20,16 +20,16 @@ export function TourGuidePriceCards({ cards }: { cards: AiPriceCard[] }) {
           p="sm"
           radius="md"
           style={{
-            background: "rgba(51,53,53,0.55)",
-            border: "0.5px solid rgba(212,175,55,0.28)",
+            background: "var(--er-surface)",
+            border: "1px solid var(--er-line)",
           }}
         >
-          <Text size="sm" fw={600} c="var(--lux-gold)" mb={6}>
+          <Text size="sm" fw={600} c="var(--er-primary)" mb={6}>
             {card.roomName}
           </Text>
           <Stack gap={4}>
             {card.lines.map((line) => (
-              <Text key={`${line.label}-${line.value}`} size="xs" c="var(--lux-text)">
+              <Text key={`${line.label}-${line.value}`} size="xs" c="var(--er-text)">
                 <Text span fw={600}>
                   {line.label}:{" "}
                 </Text>
@@ -64,23 +64,23 @@ export function TourGuideFactCards({
           p="sm"
           radius="md"
           style={{
-            background: "rgba(51,53,53,0.55)",
-            border: "0.5px solid rgba(153,144,126,0.32)",
+            background: "var(--er-surface)",
+            border: "1px solid var(--er-line)",
           }}
         >
           <Badge size="xs" variant="light" color={KIND_COLORS[card.kind]} mb={6}>
             {card.label}
           </Badge>
           {card.title && (
-            <Text size="sm" fw={600} c="var(--lux-text)" mb={4}>
+            <Text size="sm" fw={600} c="var(--er-text)" mb={4}>
               {card.title}
             </Text>
           )}
-          <Text size="xs" c="var(--lux-muted)" style={{ lineHeight: 1.6 }}>
+          <Text size="xs" c="var(--er-text-muted)" style={{ lineHeight: 1.6 }}>
             {card.text}
           </Text>
           {sourceLanguageNote && (
-            <Text size="xs" fs="italic" mt={4} style={{ color: "rgba(208,197,178,0.5)" }}>
+            <Text size="xs" fs="italic" mt={4} style={{ color: "var(--er-text-dim)" }}>
               {sourceLanguageNote}
             </Text>
           )}

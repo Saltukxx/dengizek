@@ -22,27 +22,16 @@ export function PageHeader({ title, description, action, order = 1 }: PageHeader
     >
       <div style={{ maxWidth: 640 }}>
         <Tag
+          className="er-display"
           style={{
-            margin: "0 0 8px",
-            fontFamily: "var(--lux-font-sans)",
-            fontSize: order === 1 ? "clamp(24px, 4vw, 40px)" : "clamp(20px, 3vw, 30px)",
-            fontWeight: 700,
-            letterSpacing: "-0.025em",
-            color: "var(--lux-text)",
+            marginBottom: 8,
+            fontSize: order === 1 ? "clamp(26px, 4vw, 40px)" : "clamp(20px, 3vw, 30px)",
           }}
         >
           {title}
         </Tag>
         {description && (
-          <p
-            style={{
-              margin: 0,
-              fontFamily: "var(--lux-font-sans)",
-              fontSize: 14,
-              color: "var(--lux-muted)",
-              lineHeight: 1.6,
-            }}
-          >
+          <p className="er-muted" style={{ margin: 0, fontSize: 15, lineHeight: 1.6 }}>
             {description}
           </p>
         )}

@@ -33,6 +33,35 @@ const securityHeaders = [
   },
 ];
 
+/**
+ * Panelden yüklenen görseller R2 public URL'inde, video kapakları Bunny
+ * Stream CDN'inde durur. Bu host'lar env'e bağlı olduğu için remotePatterns
+ * çalışma zamanında türetilir; aksi halde next/image gerçek otel görsellerini
+ * (yalnızca demo/stok görselleri değil) reddeder.
+ */
+function mediaHostPatterns() {
+  const hosts = [
+    process.env.R2_PUBLIC_URL,
+    process.env.BUNNY_STREAM_CDN_HOSTNAME,
+    process.env.NEXT_PUBLIC_MEDIA_HOST,
+  ]
+    .filter((v): v is string => Boolean(v))
+    .map((value) => {
+      try {
+        return new URL(value.startsWith("http") ? value : `https://${value}`).hostname;
+      } catch {
+        return null;
+      }
+    })
+    .filter((v): v is string => Boolean(v));
+
+  return [...new Set(hosts)].map((hostname) => ({
+    protocol: "https" as const,
+    hostname,
+    pathname: "/**",
+  }));
+}
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   images: {
@@ -47,6 +76,7 @@ const nextConfig: NextConfig = {
         hostname: "lh3.googleusercontent.com",
         pathname: "/**",
       },
+      ...mediaHostPatterns(),
     ],
   },
   async headers() {

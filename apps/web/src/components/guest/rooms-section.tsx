@@ -24,15 +24,14 @@ export function RoomsSection({
   if (rooms.length === 0) return null;
 
   return (
-    <section id="odalar" style={{ maxWidth: 1280, margin: "0 auto", padding: "64px 32px 96px" }}>
-      <div style={{ marginBottom: 42 }}>
+    <section id="odalar" className="er-detail-section">
+      <div style={{ marginBottom: 24 }}>
         <h2
-          className="luxury-sans-title"
-          style={{ margin: 0, fontSize: "clamp(42px, 5vw, 64px)", lineHeight: 1.08 }}
+          className="er-display er-h2"
         >
           Odalarımız
         </h2>
-        <div style={{ width: 50, height: 4, background: "var(--lux-gold)", marginTop: 16 }} />
+        
       </div>
 
       <div
@@ -66,14 +65,16 @@ export function RoomsSection({
           <Link
             key={room.id}
             href={`/hotels/${hotelSlug}/rooms/${room.slug}`}
-            className="luxury-glass"
+            className="er-card"
             style={{
               display: "flex",
               flexDirection: "column",
-              borderRadius: 8,
+              borderRadius: "var(--er-radius-md)",
               overflow: "hidden",
               textDecoration: "none",
-              border: "1px solid rgba(212,175,55,0.18)",
+              border: "1px solid var(--er-line)",
+              background: "var(--er-surface)",
+              boxShadow: "var(--er-shadow-sm)",
             }}
           >
             {room.imageUrl && (
@@ -87,7 +88,7 @@ export function RoomsSection({
                   style={{
                     position: "absolute",
                     inset: 0,
-                    background: "linear-gradient(to top, rgba(11,15,18,0.55), transparent 60%)",
+                    background: "linear-gradient(to top, rgba(14,31,64,0.45), transparent 60%)",
                   }}
                 />
                 {priced.hasCampaign && (
@@ -102,8 +103,8 @@ export function RoomsSection({
                       textTransform: "uppercase",
                       padding: "5px 10px",
                       borderRadius: 4,
-                      background: "rgba(212,175,55,0.92)",
-                      color: "#1a1510",
+                      background: "var(--er-cta)",
+                      color: "#fff",
                     }}
                   >
                     Kampanya
@@ -113,17 +114,17 @@ export function RoomsSection({
             )}
             <div style={{ padding: "20px 22px 22px", display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
               {room.tagline && (
-                <p className="luxury-label" style={{ margin: 0, color: "var(--lux-gold)", fontSize: 11 }}>
+                <p className="er-eyebrow" style={{ margin: 0, color: "var(--er-primary)", fontSize: 11 }}>
                   {room.tagline}
                 </p>
               )}
               <h3
-                className="luxury-sans-title"
-                style={{ margin: 0, fontSize: 24, color: "var(--lux-text)" }}
+                className="er-display"
+                style={{ margin: 0, fontSize: 24, color: "var(--er-text)" }}
               >
                 {room.name}
               </h3>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 14, color: "var(--lux-dim)", fontSize: 13 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 14, color: "var(--er-text-dim)", fontSize: 13 }}>
                 {room.sizeSqm != null && (
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                     <IconRulerMeasure size={15} /> {room.sizeSqm} m²
@@ -147,8 +148,8 @@ export function RoomsSection({
                         fontSize: 11,
                         padding: "3px 10px",
                         borderRadius: 999,
-                        border: "1px solid rgba(208,197,178,0.25)",
-                        color: "var(--lux-muted)",
+                        border: "1px solid var(--er-line)",
+                        color: "var(--er-text-muted)",
                       }}
                     >
                       {boardTypeLabels[room.boardType as keyof typeof boardTypeLabels] ??
@@ -161,8 +162,8 @@ export function RoomsSection({
                         fontSize: 11,
                         padding: "3px 10px",
                         borderRadius: 999,
-                        border: "1px solid rgba(212,175,55,0.45)",
-                        color: "var(--lux-gold)",
+                        border: "1px solid var(--er-line)",
+                        color: "var(--er-primary)",
                       }}
                     >
                       {priced.discountLabel}
@@ -171,11 +172,11 @@ export function RoomsSection({
                 </div>
               )}
               <div style={{ marginTop: "auto", paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <span style={{ color: "var(--lux-gold)", fontWeight: 700, fontSize: 17 }}>
+                <span style={{ color: "var(--er-primary)", fontWeight: 700, fontSize: 17 }}>
                   {hasDiscount && (
                     <span
                       style={{
-                        color: "var(--lux-dim)",
+                        color: "var(--er-text-dim)",
                         fontWeight: 400,
                         fontSize: 13,
                         textDecoration: "line-through",
@@ -188,7 +189,7 @@ export function RoomsSection({
                   {formatPrice(priced.priceMinor, priced.currency, priced.priceOnRequest)}
                 </span>
                 {!priced.priceOnRequest && (
-                  <span style={{ color: "var(--lux-dim)", fontSize: 12 }}>gecelik</span>
+                  <span style={{ color: "var(--er-text-dim)", fontSize: 12 }}>gecelik</span>
                 )}
               </div>
             </div>

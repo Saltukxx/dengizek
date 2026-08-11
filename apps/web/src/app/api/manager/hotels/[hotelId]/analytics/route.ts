@@ -7,6 +7,7 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { analyticsEventsTable, inquiriesTable } from "@/lib/db/schema";
+import { analyticsFunnel } from "@/lib/schemas/analytics";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -52,10 +53,9 @@ export async function GET(req: Request, { params }: RouteParams) {
 
   const byType = Object.fromEntries(eventRows.map((r) => [r.eventType, r.count]));
   const totalEvents = eventRows.reduce((sum, r) => sum + r.count, 0);
-  const tourViews = byType.tour_view ?? 0;
-  const inquirySubmits = byType.inquiry_submit ?? 0;
-  const conversionRate =
-    tourViews > 0 ? Math.round((inquirySubmits / tourViews) * 1000) / 10 : null;
+
+  // Huni: otel sayfası görüntüleme → tur başlatma → talep gönderme.
+  const { conversionRate, ...funnel } = analyticsFunnel(byType);
 
   return NextResponse.json({
     ok: true,
@@ -63,6 +63,7 @@ export async function GET(req: Request, { params }: RouteParams) {
     totalEvents,
     total: totalEvents,
     byType,
+    funnel,
     inquiries: inquiryCount[0]?.count ?? 0,
     timeSeries: timeSeriesRows.map((r) => ({ day: String(r.day), count: r.count })),
     conversionRate,

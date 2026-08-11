@@ -9,8 +9,8 @@ export function GallerySection({ images }: { images: GalleryImage[] }) {
   if (images.length === 0) return null;
 
   return (
-    <section style={{ maxWidth: 960, margin: "48px auto", padding: "0 32px" }}>
-      <h2 className="luxury-sans-title" style={{ fontSize: 28, marginBottom: 20 }}>
+    <section className="er-detail-section">
+      <h2 className="er-display" style={{ fontSize: 28, marginBottom: 20 }}>
         Galeri
       </h2>
       <div
@@ -29,11 +29,11 @@ export function GallerySection({ images }: { images: GalleryImage[] }) {
                 width: "100%",
                 height: 180,
                 objectFit: "cover",
-                borderRadius: 8,
+                borderRadius: "var(--er-radius-md)",
               }}
             />
             {img.caption && (
-              <figcaption style={{ fontSize: 13, color: "var(--lux-muted)", marginTop: 6 }}>
+              <figcaption style={{ fontSize: 13, color: "var(--er-text-muted)", marginTop: 6 }}>
                 {img.caption}
               </figcaption>
             )}

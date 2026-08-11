@@ -3,40 +3,68 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useCallback, type ReactNode } from "react";
+import {
+  IconBuildingSkyscraper,
+  IconHome,
+  IconLayoutDashboard,
+  IconMail,
+  IconMenu2,
+  IconUserCircle,
+  IconX,
+} from "@tabler/icons-react";
 import { ConsentBanner } from "./consent-banner";
 
 const NAV = [
-  { href: "/",         label: "Anasayfa"    },
-  { href: "/browse",   label: "Keşfet"      },
-  { href: "/inquiry",  label: "İletişim"    },
-  { href: "/dashboard",label: "Otel Paneli" },
+  { href: "/", label: "Anasayfa" },
+  { href: "/browse", label: "Oteller" },
+  { href: "/inquiry", label: "İletişim" },
+  { href: "/dashboard", label: "Otel Paneli" },
 ] as const;
 
 const MOBILE_NAV = [
-  { href: "/",          label: "Anasayfa",  icon: "home"           },
-  { href: "/browse",    label: "Keşfet",    icon: "travel_explore"  },
-  { href: "/inquiry",   label: "İletişim", icon: "mail"            },
-  { href: "/dashboard", label: "Panel",     icon: "dashboard"      },
+  { href: "/", label: "Anasayfa", Icon: IconHome },
+  { href: "/browse", label: "Oteller", Icon: IconBuildingSkyscraper },
+  { href: "/inquiry", label: "İletişim", Icon: IconMail },
+  { href: "/dashboard", label: "Panel", Icon: IconLayoutDashboard },
 ] as const;
+
+const FOOTER_LINKS = {
+  kesfet: [
+    { href: "/browse", label: "Otelleri Keşfet" },
+    { href: "/inquiry", label: "Talep Gönder" },
+  ],
+  kurumsal: [
+    { href: "/dashboard", label: "Otel Paneli" },
+    { href: "/giris", label: "Giriş Yap" },
+  ],
+} as const;
+
+/** Sunucuda çözülen oturumun kabukta gösterilen kısmı. */
+export type GuestAccount = { name: string; role: "admin" | "manager" };
 
 function navActive(path: string | null, href: string) {
   if (href === "/") return path === "/";
   return path?.startsWith(href) ?? false;
 }
 
-export function GuestAppShell({ children }: { children: ReactNode }) {
+export function GuestAppShell({
+  children,
+  account = null,
+}: {
+  children: ReactNode;
+  account?: GuestAccount | null;
+}) {
   const path = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // Giriş yapmış kullanıcıya paneli, misafire giriş bağlantısını göster.
+  const accountHref = account?.role === "admin" ? "/admin" : "/dashboard";
+
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
-  // Tour pages and hotel detail pages handle their own full-bleed layout
-  const isFullBleed =
-    path?.startsWith("/tours/") ||
-    path?.startsWith("/hotels/");
+  // Tur oynatıcı kendi tam ekran düzenini yönetir; kabuk devre dışı kalır.
+  const isFullBleed = path?.startsWith("/tours/");
 
-  // Tam ekran sayfalarda da onay bandı gösterilir — analitiğin çoğu tur
-  // sayfasında üretiliyor, onay kapısı orada da geçerli olmalı.
   if (isFullBleed)
     return (
       <>
@@ -46,140 +74,157 @@ export function GuestAppShell({ children }: { children: ReactNode }) {
     );
 
   return (
-    <div style={{ background: "var(--lux-bg)", color: "var(--lux-text)", minHeight: "100dvh" }}>
-
-      {/* ── Fixed luxury header ──────────────────────────────────────────────────── */}
-      <header className="luxury-header">
-        {/* Mobile: hamburger — shown via CSS .luxury-hamburger */}
+    <>
+      <header className="er-header">
         <button
+          type="button"
           onClick={() => setDrawerOpen(true)}
-          aria-label="Menü aç"
-          className="luxury-hamburger"
+          aria-label="Menüyü aç"
+          className="er-hamburger"
         >
-          <svg width="22" height="16" viewBox="0 0 22 16" fill="none">
-            <rect y="0"  width="22" height="2" rx="1" fill="currentColor" />
-            <rect y="7"  width="16" height="2" rx="1" fill="currentColor" />
-            <rect y="14" width="22" height="2" rx="1" fill="currentColor" />
-          </svg>
+          <IconMenu2 size={22} />
         </button>
 
-        {/* Brand */}
-        <Link href="/" className="luxury-brand">
+        <Link href="/" className="er-brand">
           Dengizek
         </Link>
 
-        {/* Desktop nav */}
-        <nav className="luxury-home-nav" style={{ display: "flex", gap: 32, alignItems: "center" }}>
+        <nav className="er-nav" aria-label="Ana navigasyon">
           {NAV.map((n) => (
             <Link
               key={n.href}
               href={n.href}
-              className={"luxury-nav-link" + (navActive(path, n.href) ? " active" : "")}
+              className="er-nav-link"
+              data-active={navActive(path, n.href)}
             >
               {n.label}
             </Link>
           ))}
         </nav>
 
-        {/* Right: user icon */}
-        <div style={{ width: 32, display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: "50%",
-              border: "1px solid rgba(212,175,55,0.35)",
-              background: "rgba(0,0,0,0.35)",
-              display: "grid",
-              placeItems: "center",
-              color: "var(--lux-gold)",
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <circle cx="12" cy="8" r="4"/>
-              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-            </svg>
-          </div>
+        <div className="er-header-actions">
+          {account ? (
+            <Link
+              href={accountHref}
+              className="er-nav-link"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+              title={account.role === "admin" ? "Yönetim paneli" : "Otel paneli"}
+            >
+              <IconUserCircle size={18} />
+              {account.name}
+            </Link>
+          ) : (
+            <Link href="/giris" className="er-nav-link">
+              Giriş Yap
+            </Link>
+          )}
+          <Link href="/inquiry" className="er-btn er-btn-primary">
+            Talep Gönder
+          </Link>
         </div>
       </header>
 
-      {/* ── Mobile drawer overlay ──────────────────────────────────────────────── */}
       {drawerOpen && (
         <>
-          <div className="luxury-drawer-overlay" onClick={closeDrawer} />
-          <nav className="luxury-drawer">
+          <div className="er-drawer-overlay" onClick={closeDrawer} />
+          <nav className="er-drawer" aria-label="Mobil menü">
             <div
               style={{
-                padding: "8px 24px 24px",
-                borderBottom: "1px solid rgba(212,175,55,0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "0 20px 16px 24px",
+                borderBottom: "1px solid var(--er-line)",
                 marginBottom: 8,
               }}
             >
-              <span className="luxury-brand" style={{ fontSize: 16 }}>Dengizek</span>
+              <span className="er-brand">Dengizek</span>
+              <button
+                type="button"
+                onClick={closeDrawer}
+                aria-label="Menüyü kapat"
+                className="er-hamburger"
+                style={{ display: "flex", margin: 0 }}
+              >
+                <IconX size={20} />
+              </button>
             </div>
             {NAV.map((n) => (
               <Link
                 key={n.href}
                 href={n.href}
                 onClick={closeDrawer}
-                style={{
-                  display: "block",
-                  padding: "14px 24px",
-                  fontFamily: "var(--lux-font-sans)",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  letterSpacing: "0.16em",
-                  textTransform: "uppercase",
-                  color: navActive(path, n.href) ? "var(--lux-gold)" : "rgba(208,197,178,0.72)",
-                  textDecoration: "none",
-                  borderLeft: navActive(path, n.href) ? "2px solid var(--lux-gold)" : "2px solid transparent",
-                  transition: "color 200ms",
-                }}
+                data-active={navActive(path, n.href)}
               >
                 {n.label}
               </Link>
             ))}
+            <div style={{ padding: "16px 24px 0" }}>
+              <Link
+                href={account ? accountHref : "/giris"}
+                onClick={closeDrawer}
+                className="er-btn er-btn-ghost er-btn-block"
+              >
+                <IconUserCircle size={18} />
+                {account ? account.name : "Giriş Yap"}
+              </Link>
+            </div>
           </nav>
         </>
       )}
 
-      {/* ── Page content ──────────────────────────────────────────────────────────────── */}
-      <main className="luxury-page-content">
-        {children}
-      </main>
+      <main className="er-page">{children}</main>
 
-      {/* ── Mobile bottom nav ───────────────────────────────────────────────────── */}
-      <nav className="luxury-mobile-bottom-nav" aria-label="Mobil navigasyon">
-        {MOBILE_NAV.map((n) => {
-          const active = navActive(path, n.href);
-          return (
-            <Link
-              key={n.href}
-              href={n.href}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 4,
-                color: active ? "var(--lux-gold)" : "rgba(138,155,176,0.7)",
-                fontSize: 9,
-                fontWeight: 600,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                textDecoration: "none",
-                transition: "color 200ms",
-              }}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>
-                {n.icon}
-              </span>
-              {n.label}
-            </Link>
-          );
-        })}
+      <footer className="er-footer">
+        <div className="er-container">
+          <div className="er-footer-grid">
+            <div>
+              <span className="er-brand">Dengizek</span>
+              <p
+                className="er-muted"
+                style={{ margin: "12px 0 0", maxWidth: 320, fontSize: 14 }}
+              >
+                Otelleri gitmeden önce gezin: lobiden odalara, adım adım
+                ilerleyen etkileşimli video turları.
+              </p>
+            </div>
+
+            <div>
+              <p className="er-footer-col-title">Keşfet</p>
+              {FOOTER_LINKS.kesfet.map((l) => (
+                <Link key={l.href} href={l.href}>
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+
+            <div>
+              <p className="er-footer-col-title">Kurumsal</p>
+              {FOOTER_LINKS.kurumsal.map((l) => (
+                <Link key={l.href} href={l.href}>
+                  {/* Oturum açıkken "Giriş Yap" yerine hesap bağlantısı */}
+                  {l.href === "/giris" && account ? "Hesabım" : l.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div className="er-footer-bottom">
+            © {new Date().getFullYear()} Dengizek. Tüm hakları saklıdır.
+          </div>
+        </div>
+      </footer>
+
+      <nav className="er-mobile-nav" aria-label="Mobil navigasyon">
+        {MOBILE_NAV.map(({ href, label, Icon }) => (
+          <Link key={href} href={href} data-active={navActive(path, href)}>
+            <Icon size={22} stroke={1.7} />
+            {label}
+          </Link>
+        ))}
       </nav>
 
       <ConsentBanner />
-    </div>
+    </>
   );
 }
