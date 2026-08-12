@@ -35,6 +35,23 @@ interface ReviewRow {
   reply: string | null;
 }
 
+/**
+ * Gövdesi olmayan ya da JSON olmayan yanıtlarda null döner.
+ *
+ * Uçlar hata durumunda (ör. veritabanına ulaşılamıyor) boş gövdeli 500
+ * dönebiliyor; doğrudan res.json() çağrısı o noktada exception atıp
+ * bileşeni sonsuz yükleniyor durumunda bırakıyordu.
+ */
+async function readJson(res: Response): Promise<{ ok?: boolean; error?: string; [key: string]: unknown } | null> {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+const GENERIC_ERROR = "Şu anda bağlantı kurulamadı. Lütfen biraz sonra tekrar deneyin.";
+
 const reviewStatusText: Record<ReviewRow["status"], string> = {
   beklemede: "Yorumunuz inceleniyor — onaylandıktan sonra tesis sayfasında görünecek.",
   yayinda: "Yorumunuz yayında.",
@@ -54,22 +71,30 @@ export function InquiryPortalClient({ token }: { token: string }) {
   const [erased, setErased] = useState(false);
 
   const reload = useCallback(async () => {
-    const [msgRes, reviewRes] = await Promise.all([
-      fetch(`/api/inquiry/portal/${token}/messages`),
-      fetch(`/api/inquiry/portal/${token}/review`),
-    ]);
-    const json = await msgRes.json();
-    if (json.ok) {
-      setInquiry(json.inquiry);
-      setMessages(json.messages);
-      setError(null);
-    } else {
-      setError(json.error ?? "Bağlantı geçersiz.");
-    }
-    const reviewJson = await reviewRes.json();
-    if (reviewJson.ok) {
-      setReview(reviewJson.review);
-      setCanReview(reviewJson.canReview);
+    try {
+      const [msgRes, reviewRes] = await Promise.all([
+        fetch(`/api/inquiry/portal/${token}/messages`),
+        fetch(`/api/inquiry/portal/${token}/review`),
+      ]);
+      const json = await readJson(msgRes);
+      if (json?.ok) {
+        setInquiry(json.inquiry as typeof inquiry);
+        setMessages(json.messages as MessageRow[]);
+        setError(null);
+      } else {
+        setError(json?.error ?? GENERIC_ERROR);
+        // Yükleniyor durumundan çık: hata ekranı gösterilebilsin.
+        setMessages([]);
+      }
+      const reviewJson = await readJson(reviewRes);
+      if (reviewJson?.ok) {
+        setReview(reviewJson.review as ReviewRow | null);
+        setCanReview(Boolean(reviewJson.canReview));
+      }
+    } catch {
+      // Ağ hatası — fetch'in kendisi reddetti.
+      setError(GENERIC_ERROR);
+      setMessages([]);
     }
   }, [token]);
 
@@ -84,12 +109,12 @@ export function InquiryPortalClient({ token }: { token: string }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ body }),
     });
-    const json = await res.json();
-    if (json.ok) {
+    const json = await readJson(res);
+    if (json?.ok) {
       setBody("");
       void reload();
     } else {
-      notifications.show({ color: "red", message: json.error ?? "Gönderilemedi." });
+      notifications.show({ color: "red", message: json?.error ?? "Gönderilemedi." });
     }
   }
 
@@ -105,22 +130,22 @@ export function InquiryPortalClient({ token }: { token: string }) {
         body: reviewForm.body,
       }),
     });
-    const json = await res.json();
+    const json = await readJson(res);
     setSendingReview(false);
-    if (json.ok) {
+    if (json?.ok) {
       notifications.show({ color: "green", message: "Yorumunuz alındı — inceleme sonrası yayınlanacak." });
       setReviewForm({ rating: 0, title: "", body: "" });
       void reload();
     } else {
-      notifications.show({ color: "red", message: json.error ?? "Yorum gönderilemedi." });
+      notifications.show({ color: "red", message: json?.error ?? "Yorum gönderilemedi." });
     }
   }
 
   async function downloadData() {
     const res = await fetch(`/api/inquiry/portal/${token}/data`);
-    const json = await res.json();
-    if (!json.ok) {
-      notifications.show({ color: "red", message: json.error ?? "Veriler alınamadı." });
+    const json = await readJson(res);
+    if (!json?.ok) {
+      notifications.show({ color: "red", message: json?.error ?? "Veriler alınamadı." });
       return;
     }
     // Tarayıcıda dosya olarak indir — sunucuda kopya bırakmaya gerek yok.
@@ -139,23 +164,34 @@ export function InquiryPortalClient({ token }: { token: string }) {
     }
     setErasing(true);
     const res = await fetch(`/api/inquiry/portal/${token}/data`, { method: "POST" });
-    const json = await res.json();
+    const json = await readJson(res);
     setErasing(false);
-    if (json.ok) {
+    if (json?.ok) {
       setErased(true);
     } else {
-      notifications.show({ color: "red", message: json.error ?? "Silinemedi." });
+      notifications.show({ color: "red", message: json?.error ?? "Silinemedi." });
     }
   }
 
-  if (!messages) return <Loader />;
-
+  // Hata, yükleniyor durumundan ÖNCE gelir: istek başarısızsa messages null
+  // kalabiliyor ve ekran sonsuz spinner'da takılıyordu.
   if (error) {
     return (
       <Stack maw={640} mx="auto" py="xl" px="md">
         <Alert color="red" icon={<IconAlertCircle size={16} />}>
           {error}
         </Alert>
+        <Button variant="light" onClick={() => void reload()} style={{ alignSelf: "flex-start" }}>
+          Tekrar dene
+        </Button>
+      </Stack>
+    );
+  }
+
+  if (!messages) {
+    return (
+      <Stack maw={640} mx="auto" py="xl" px="md" align="center">
+        <Loader />
       </Stack>
     );
   }
