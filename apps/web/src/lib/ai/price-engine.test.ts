@@ -18,6 +18,7 @@ const emptySpecs = {
   childPolicy: null,
   petsAllowed: null,
   paymentMethods: [],
+  seasons: [],
   address: null,
   phone: null,
   contactEmail: null,

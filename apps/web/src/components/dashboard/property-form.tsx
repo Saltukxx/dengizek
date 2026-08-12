@@ -29,6 +29,7 @@ import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconSend } from "@tabler/icons-react";
 import { amenitiesCatalog, amenityLabel } from "@/lib/amenities-catalog";
 import {
+  hotelSeasonLabels,
   paymentMethodLabels,
   paymentMethods,
 } from "@/lib/schemas/hotel-content";
@@ -63,6 +64,7 @@ interface HotelDetail {
   checkInTime: string | null;
   checkOutTime: string | null;
   amenities: string[];
+  seasons: string[];
   cancellationPolicy: string | null;
   childPolicy: string | null;
   petsAllowed: boolean | null;
@@ -143,6 +145,7 @@ export function PropertyForm() {
         checkInTime: detail.checkInTime ?? "",
         checkOutTime: detail.checkOutTime ?? "",
         amenities: detail.amenities,
+        seasons: detail.seasons,
         cancellationPolicy: detail.cancellationPolicy ?? undefined,
         childPolicy: detail.childPolicy ?? undefined,
         petsAllowed: detail.petsAllowed,
@@ -283,6 +286,14 @@ export function PropertyForm() {
             onChange={(v) =>
               set("propertyType", (v ?? "otel") as HotelDetail["propertyType"])
             }
+          />
+          <MultiSelect
+            label="Tatil sezonu"
+            description="Tesis hangi sezon(lar)da hizmet veriyor? İkisi birden seçilebilir; boş bırakılırsa sezon filtrelerinin dışında kalır."
+            data={Object.entries(hotelSeasonLabels).map(([v, l]) => ({ value: v, label: l }))}
+            value={detail.seasons ?? []}
+            onChange={(v) => set("seasons", v)}
+            clearable
           />
           <Group grow>
             <TextInput

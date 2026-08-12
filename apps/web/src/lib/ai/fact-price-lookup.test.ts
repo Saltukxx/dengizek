@@ -24,6 +24,7 @@ const emptySpecs = {
   childPolicy: null,
   petsAllowed: false,
   paymentMethods: [],
+  seasons: [],
   address: null,
   phone: null,
   contactEmail: null,

@@ -31,6 +31,21 @@ export const boardTypeLabels: Record<(typeof boardTypes)[number], string> = {
   "hersey-dahil": "Her şey dahil",
 };
 
+/**
+ * Tatil sezonu kategorileri.
+ *
+ * Çoklu: bir tesis hem yaz hem kış kategorisinde olabilir (yıl boyu açık
+ * sahil otelleri, termal tesisler, şehir otelleri). Boş dizi "belirtilmedi"
+ * demektir — misafir yüzeyinde bu oteller sezon filtresine takılmaz.
+ */
+export const hotelSeasons = ["yaz", "kis"] as const;
+export type HotelSeason = (typeof hotelSeasons)[number];
+
+export const hotelSeasonLabels: Record<HotelSeason, string> = {
+  yaz: "Yaz tatili",
+  kis: "Kış tatili",
+};
+
 export const paymentMethods = ["nakit", "kredi-karti", "havale", "online"] as const;
 
 export const paymentMethodLabels: Record<(typeof paymentMethods)[number], string> = {
@@ -352,6 +367,7 @@ export const hotelSpecsSchema = z.object({
     .optional()
     .or(z.literal("")),
   amenities: z.array(z.string().min(1).max(120)).max(100, "En fazla 100 olanak").optional(),
+  seasons: z.array(z.enum(hotelSeasons)).max(hotelSeasons.length).optional(),
 
   // Politikalar
   cancellationPolicy: z.string().max(2000, "İptal politikası en fazla 2000 karakter").optional(),
