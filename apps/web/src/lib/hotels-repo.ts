@@ -175,6 +175,8 @@ export interface BrowseHotelRow {
   starRating: number | null;
   amenities: string[];
   petsAllowed: boolean | null;
+  /** Tatil sezonu kategorileri ("yaz"|"kis"); boş = belirtilmedi. */
+  seasons: string[];
   minPriceMinor: number | null;
   /** Yayındaki yorumların ortalaması (1–5); yorum yoksa null */
   reviewAverage: number | null;
@@ -247,6 +249,7 @@ export async function getPublishedHotelsForBrowse(
             starRating: hotelsTable.starRating,
             amenities: hotelsTable.amenities,
             petsAllowed: hotelsTable.petsAllowed,
+            seasons: hotelsTable.seasons,
             publishedSnapshot: hotelsTable.publishedSnapshot,
           })
           .from(hotelsTable)
@@ -299,6 +302,7 @@ export async function getPublishedHotelsForBrowse(
           starRating: value("starRating", row.starRating),
           amenities: value("amenities", row.amenities),
           petsAllowed: value("petsAllowed", row.petsAllowed),
+          seasons: value("seasons", row.seasons) ?? [],
           // İndirim/dönemsel fiyat uygulanmış gerçek "başlayan" fiyat.
           minPriceMinor: parsed.success
             ? snapshotMinPriceMinor(parsed.data)
@@ -334,6 +338,7 @@ export async function getPublishedHotelsForBrowse(
     starRating: null,
     amenities: [] as string[],
     petsAllowed: null,
+    seasons: [] as string[],
     minPriceMinor: null,
     reviewAverage: null,
     reviewCount: 0,
@@ -377,6 +382,8 @@ export interface HotelSpecs {
   cancellationPolicy: string | null;
   childPolicy: string | null;
   petsAllowed: boolean | null;
+  /** Tatil sezonu kategorileri ("yaz"|"kis"); boş = belirtilmedi. */
+  seasons: string[];
   paymentMethods: string[];
   address: string | null;
   phone: string | null;
@@ -418,6 +425,7 @@ const emptySpecs: HotelSpecs = {
   cancellationPolicy: null,
   childPolicy: null,
   petsAllowed: null,
+  seasons: [],
   paymentMethods: [],
   address: null,
   phone: null,
@@ -522,6 +530,7 @@ export async function getPublishedHotelContent(
           cancellationPolicy: (hotel.cancellationPolicy as string | null) ?? null,
           childPolicy: (hotel.childPolicy as string | null) ?? null,
           petsAllowed: (hotel.petsAllowed as boolean | null) ?? null,
+          seasons: (hotel.seasons as string[] | undefined) ?? [],
           paymentMethods: (hotel.paymentMethods as string[] | undefined) ?? [],
           address: (hotel.address as string | null) ?? null,
           phone: (hotel.phone as string | null) ?? null,
@@ -552,6 +561,7 @@ export async function getPublishedHotelContent(
         cancellationPolicy: hotelsTable.cancellationPolicy,
         childPolicy: hotelsTable.childPolicy,
         petsAllowed: hotelsTable.petsAllowed,
+        seasons: hotelsTable.seasons,
         paymentMethods: hotelsTable.paymentMethods,
         address: hotelsTable.address,
         phone: hotelsTable.phone,
@@ -665,6 +675,7 @@ export async function getPublishedHotelContent(
         cancellationPolicy: hotel.cancellationPolicy,
         childPolicy: hotel.childPolicy,
         petsAllowed: hotel.petsAllowed,
+        seasons: hotel.seasons ?? [],
         paymentMethods: hotel.paymentMethods,
         address: hotel.address,
         phone: hotel.phone,

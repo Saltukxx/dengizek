@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { describe, expect, it } from "vitest";
+import { hotelSeasonLabels, hotelSeasons } from "@/lib/schemas/hotel-content";
 import {
   extraUpsertSchema,
   hotelSpecsSchema,
@@ -225,5 +226,27 @@ describe("hotelSpecsSchema", () => {
   it("yıldız 1-5 dışında reddedilir", () => {
     expect(hotelSpecsSchema.safeParse({ starRating: 6 }).success).toBe(false);
     expect(hotelSpecsSchema.safeParse({ starRating: 5 }).success).toBe(true);
+  });
+});
+
+describe("tatil sezonu kategorileri", () => {
+  it("yaz, kış ve ikisi birden kabul edilir", () => {
+    for (const seasons of [["yaz"], ["kis"], ["yaz", "kis"], []]) {
+      expect(hotelSpecsSchema.safeParse({ seasons }).success).toBe(true);
+    }
+  });
+
+  it("katalog dışı sezon reddedilir", () => {
+    expect(hotelSpecsSchema.safeParse({ seasons: ["ilkbahar"] }).success).toBe(false);
+  });
+
+  it("alan zorunlu değil — sezonu girilmemiş tesisler geçerli kalır", () => {
+    expect(hotelSpecsSchema.safeParse({}).success).toBe(true);
+  });
+
+  it("her sezonun Türkçe etiketi vardır", () => {
+    for (const season of hotelSeasons) {
+      expect(hotelSeasonLabels[season]).toBeTruthy();
+    }
   });
 });

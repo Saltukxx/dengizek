@@ -132,6 +132,9 @@ export const hotelsTable = pgTable("hotels", {
   checkOutTime: text("check_out_time"), // "12:00"
   // Olanak anahtarları — src/lib/amenities-catalog.ts kataloğundan (+ serbest metin)
   amenities: text("amenities").array().default([]).notNull(),
+  // Tatil sezonu kategorileri ("yaz", "kis") — bkz. hotelSeasons.
+  // Dizi: bir tesis iki sezonda da hizmet verebilir. Boş dizi = belirtilmedi.
+  seasons: text("seasons").array().default([]).notNull(),
 
   // Politikalar (yapılandırılmış — aiPolicies serbest metninden ayrı, misafir
   // sayfasındaki "Bilmeniz Gerekenler" bölümünü ve AI gerçeklerini besler)
