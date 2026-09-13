@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.env
+.env.local
+.env.*.local
+.env.production
+npm-debug.log*
+test-results
+playwright-report
+e2e/__screenshots__
+coverage
+tsconfig.tsbuildinfo
+*.md
