@@ -6,7 +6,20 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function InquirySuccessPage() {
+export async function InquirySuccessPage({
+  searchParams,
+  surface = "yaz",
+}: {
+  searchParams: Promise<{ emailStatus?: string }>;
+  surface?: "yaz" | "kis";
+}) {
+  const { emailStatus } = await searchParams;
+  const statusMessage =
+    emailStatus === "sent"
+      ? "Talebiniz otele iletildi ve takip bağlantınız e-posta adresinize gönderildi."
+      : emailStatus === "queued"
+        ? "Talebiniz otele iletildi. Takip e-postanız gönderim kuyruğuna alındı."
+        : "Talebiniz otele iletildi. E-posta bildirimi şu anda kullanılamıyor; otel verdiğiniz iletişim bilgilerinden dönüş yapabilir.";
   return (
     <div
       style={{
@@ -71,16 +84,18 @@ export default function InquirySuccessPage() {
           color: "var(--er-text-muted)",
         }}
       >
-        Mesajınız alındı (demo). Canlı ortamda otel temsilcisi e-posta veya telefonla dönüş yapardı.
+        {statusMessage}
       </p>
 
       <Link
-        href="/browse"
+        href={surface === "kis" ? "/kis/oteller" : "/browse"}
         className="er-btn er-btn-cta"
         
       >
-        Keşfet Sayfasına Dön
+        {surface === "kis" ? "Kış Otellerine Dön" : "Keşfet Sayfasına Dön"}
       </Link>
     </div>
   );
 }
+
+export default InquirySuccessPage;

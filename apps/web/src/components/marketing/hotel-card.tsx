@@ -18,6 +18,7 @@ type HotelCardProps = {
   /** En düşük oda fiyatı (en küçük birim); yoksa priceLabel kullanılır. */
   minPriceMinor?: number | null;
   currency?: string;
+  actionLabel?: string;
 };
 
 /**
@@ -33,6 +34,7 @@ export function HotelCard({
   amenities = [],
   minPriceMinor,
   currency = "TRY",
+  actionLabel = "Detayları Gör",
 }: HotelCardProps) {
   const hasReviews = reviewAverage != null && reviewCount > 0;
   const priceText =
@@ -131,7 +133,7 @@ export function HotelCard({
           )}
         </div>
         <Link href={href} className="er-btn er-btn-primary" style={{ minHeight: 44 }}>
-          Detayları Gör
+          {actionLabel}
         </Link>
       </div>
     </article>

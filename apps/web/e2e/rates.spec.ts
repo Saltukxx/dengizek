@@ -93,6 +93,10 @@ test.describe("Dönemsel fiyatlar", () => {
     await expect(page.getByText("Fiyat Dönemleri")).toBeVisible();
     await expect(page.getByText("Yaz 2026").first()).toBeVisible();
     await expect(page.getByText("Erken rezervasyona ozel").first()).toBeVisible();
+    // Yalnızca dönem/indirim etiketinin görünmesi yetmez: fiyat motorunun
+    // gerçekten 6.200 → 5.580 TL hesabını ekrana taşıdığını doğrula.
+    await expect(page.getByText(/₺\s?6\.200/).first()).toBeVisible();
+    await expect(page.getByText(/₺\s?5\.580/).first()).toBeVisible();
 
     // Fiyat dönemleri tablosunda kış dönemi de listelenir
     await expect(page.getByText("Kis 2026-27")).toBeVisible();

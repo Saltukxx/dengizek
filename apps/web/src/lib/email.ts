@@ -10,6 +10,8 @@ export interface EmailInput {
   html?: string;
 }
 
+export type EmailStatus = "queued" | "sent" | "unavailable";
+
 async function deliver(input: EmailInput) {
   if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
     if (process.env.NODE_ENV === "production") throw new Error("EMAIL_NOT_CONFIGURED");
@@ -31,9 +33,15 @@ async function deliver(input: EmailInput) {
 }
 
 /** E-postayı kalıcı kuyruğa alır. DB'siz geliştirmede doğrudan teslim eder. */
-export async function sendEmail(input: EmailInput) {
+export async function sendEmail(input: EmailInput): Promise<EmailStatus> {
   if (!isDbConfigured()) {
-    try { await deliver(input); return true; } catch (err) { console.error("[email]", err); return false; }
+    try {
+      await deliver(input);
+      return process.env.RESEND_API_KEY && process.env.EMAIL_FROM ? "sent" : "unavailable";
+    } catch (err) {
+      console.error("[email]", err);
+      return "unavailable";
+    }
   }
   await getDb().insert(emailOutboxTable).values({
     to: input.to,
@@ -41,7 +49,9 @@ export async function sendEmail(input: EmailInput) {
     text: input.text,
     html: input.html ?? null,
   });
-  return true;
+  return process.env.RESEND_API_KEY && process.env.EMAIL_FROM && process.env.CRON_SECRET
+    ? "queued"
+    : "unavailable";
 }
 
 /** Cron/worker giriş noktası: pending kayıtları retry/backoff ile teslim eder. */

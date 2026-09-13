@@ -20,12 +20,25 @@ const panelBrand = [
   "#312e81",
 ] as const;
 
+const accessibleGray = [
+  "#f8f9fa",
+  "#f1f3f5",
+  "#e9ecef",
+  "#dee2e6",
+  "#ced4da",
+  "#8b9096",
+  "#5f6368",
+  "#474b50",
+  "#343a40",
+  "#212529",
+] as const;
+
 export const panelTheme = createTheme({
   fontFamily: "var(--font-inter), var(--font-plus-jakarta), system-ui, sans-serif",
   primaryColor: "indigo",
   primaryShade: 6,
   defaultRadius: "md",
-  colors: { brand: [...panelBrand] },
+  colors: { brand: [...panelBrand], gray: [...accessibleGray] },
   fontSizes: {
     xs: rem(12),
     sm: rem(14),

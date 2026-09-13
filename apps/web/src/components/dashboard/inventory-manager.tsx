@@ -249,7 +249,7 @@ export function InventoryManager() {
     setSaving(false);
     if (lock.consumeResponse(json)) return;
     if (json.ok) {
-      setDirty(false);
+      await loadInventory();
       notifications.show({ color: "green", message: "Envanter kaydedildi." });
     } else {
       notifications.show({ color: "red", message: json.error ?? "Kaydedilemedi." });
@@ -351,6 +351,7 @@ export function InventoryManager() {
                         </Table.Td>
                         <Table.Td>
                           <NumberInput
+                            aria-label={`${date} kontenjan`}
                             min={0}
                             max={999}
                             size="xs"
@@ -363,6 +364,7 @@ export function InventoryManager() {
                         </Table.Td>
                         <Table.Td>
                           <Switch
+                            aria-label={`${date} stop-sell`}
                             size="sm"
                             checked={row.stopSell}
                             onChange={(e) => patchDay(date, { stopSell: e.currentTarget.checked })}
@@ -370,6 +372,7 @@ export function InventoryManager() {
                         </Table.Td>
                         <Table.Td>
                           <NumberInput
+                            aria-label={`${date} minimum gece`}
                             min={1}
                             size="xs"
                             w={80}
@@ -379,8 +382,8 @@ export function InventoryManager() {
                             }
                           />
                         </Table.Td>
-                        <Table.Td><Switch size="sm" checked={row.cta} onChange={(e) => patchDay(date, { cta: e.currentTarget.checked })} /></Table.Td>
-                        <Table.Td><Switch size="sm" checked={row.ctd} onChange={(e) => patchDay(date, { ctd: e.currentTarget.checked })} /></Table.Td>
+                        <Table.Td><Switch aria-label={`${date} girişe kapalı`} size="sm" checked={row.cta} onChange={(e) => patchDay(date, { cta: e.currentTarget.checked })} /></Table.Td>
+                        <Table.Td><Switch aria-label={`${date} çıkışa kapalı`} size="sm" checked={row.ctd} onChange={(e) => patchDay(date, { ctd: e.currentTarget.checked })} /></Table.Td>
                       </Table.Tr>
                     );
                   })}
@@ -423,6 +426,7 @@ export function InventoryManager() {
                   }}
                 />
                 <NumberInput
+                  aria-label="Toplu kontenjan değeri"
                   min={0}
                   max={999}
                   size="xs"
@@ -445,6 +449,7 @@ export function InventoryManager() {
                   }}
                 />
                 <Switch
+                  aria-label="Toplu stop-sell değeri"
                   disabled={!bulkFields.stopSell.enabled}
                   checked={bulkFields.stopSell.value}
                   onChange={(e) => {
@@ -463,6 +468,7 @@ export function InventoryManager() {
                   }}
                 />
                 <NumberInput
+                  aria-label="Toplu minimum gece değeri"
                   min={1}
                   size="xs"
                   w={100}
@@ -484,6 +490,7 @@ export function InventoryManager() {
                   }}
                 />
                 <Switch
+                  aria-label="Toplu girişe kapalı değeri"
                   disabled={!bulkFields.cta.enabled}
                   checked={bulkFields.cta.value}
                   onChange={(e) => {
@@ -502,6 +509,7 @@ export function InventoryManager() {
                   }}
                 />
                 <Switch
+                  aria-label="Toplu çıkışa kapalı değeri"
                   disabled={!bulkFields.ctd.enabled}
                   checked={bulkFields.ctd.value}
                   onChange={(e) => {

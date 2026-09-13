@@ -10,11 +10,13 @@ import { MantineProvider } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 import { panelTheme } from "@/theme/panel-theme";
 import type { ReactNode } from "react";
+import { PanelNetworkGuard } from "@/components/panel-network-guard";
 
 export function PanelProviders({ children }: { children: ReactNode }) {
   return (
     <MantineProvider forceColorScheme="light" theme={panelTheme}>
       <Notifications position="top-right" zIndex={1000} />
+      <PanelNetworkGuard />
       {children}
     </MantineProvider>
   );

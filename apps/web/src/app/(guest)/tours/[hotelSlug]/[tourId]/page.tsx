@@ -7,8 +7,8 @@ import { TourRouteClient } from "./tour-route-client";
 
 type PageProps = {
   params: Promise<{ hotelSlug: string; tourId: string }>;
-  /** ?room= — hangi oda bağlamından gelindiği (oda sayfasındaki tur bağlantısı). */
-  searchParams: Promise<{ room?: string }>;
+  /** ?room= oda bağlamı; ?surface=kis kış vitrininin tema ve dönüş bağlamı. */
+  searchParams: Promise<{ room?: string; surface?: string }>;
 };
 
 export async function generateMetadata({ params }: Pick<PageProps, "params">): Promise<Metadata> {
@@ -22,7 +22,8 @@ export async function generateMetadata({ params }: Pick<PageProps, "params">): P
 
 export default async function TourPage({ params, searchParams }: PageProps) {
   const { hotelSlug, tourId } = await params;
-  const { room } = await searchParams;
+  const { room, surface: requestedSurface } = await searchParams;
+  const surface = requestedSurface === "kis" ? "kis" : "yaz";
 
   let manifest;
   try {
@@ -59,6 +60,7 @@ export default async function TourPage({ params, searchParams }: PageProps) {
         hotelSlug={hotelSlug}
         hotelName={hotel.name}
         contextRoomSlug={room}
+        surface={surface}
       />
     </Suspense>
   );

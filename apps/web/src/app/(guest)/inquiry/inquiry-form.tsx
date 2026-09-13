@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
-import { useSearchParams, useRouter } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { inquiryFormSchema, type InquiryFormValues } from "@/lib/schemas/inquiry";
 import { trackEvent } from "@/lib/analytics-client";
@@ -12,6 +12,8 @@ type RoomOption = { slug: string; name: string };
 export function InquiryForm() {
   const search = useSearchParams();
   const router = useRouter();
+  const pathname = usePathname();
+  const isWinter = pathname.startsWith("/kis/");
   const hotelFromQuery = search.get("hotel") ?? undefined;
   const roomFromQuery = search.get("room") ?? undefined;
   const tourFromQuery = search.get("tour") ?? undefined;
@@ -84,11 +86,15 @@ export function InquiryForm() {
       setError("root", { message: "Çok fazla istek. Lütfen daha sonra tekrar deneyin." });
       return;
     }
-    if (!res.ok) {
-      setError("root", { message: "Gönderilemedi. Lütfen tekrar deneyin." });
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.ok) {
+      setError("root", { message: json?.error ?? "Gönderilemedi. Lütfen tekrar deneyin." });
       return;
     }
-    router.push("/inquiry/success");
+    const emailStatus = ["queued", "sent", "unavailable"].includes(json.emailStatus)
+      ? json.emailStatus
+      : "unavailable";
+    router.push(`${isWinter ? "/kis/talep/basarili" : "/inquiry/success"}?emailStatus=${emailStatus}`);
   });
 
   return (
@@ -176,32 +182,32 @@ export function InquiryForm() {
             </div>
           )}
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div className="er-inquiry-pair">
             <div>
-              <label className="er-field-label">Giriş</label>
-              <input type="date" {...register("checkIn")} className="er-input" />
+              <label className="er-field-label" htmlFor="inquiry-check-in">Giriş</label>
+              <input id="inquiry-check-in" type="date" {...register("checkIn")} className="er-input" />
             </div>
             <div>
-              <label className="er-field-label">Çıkış</label>
-              <input type="date" {...register("checkOut")} className="er-input" />
+              <label className="er-field-label" htmlFor="inquiry-check-out">Çıkış</label>
+              <input id="inquiry-check-out" type="date" {...register("checkOut")} className="er-input" />
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div className="er-inquiry-pair">
             <div>
-              <label className="er-field-label">Yetişkin</label>
-              <input type="number" min={1} max={20} {...register("adults")} className="er-input" />
+              <label className="er-field-label" htmlFor="inquiry-adults">Yetişkin</label>
+              <input id="inquiry-adults" type="number" min={1} max={20} {...register("adults")} className="er-input" />
             </div>
             <div>
-              <label className="er-field-label">Çocuk</label>
-              <input type="number" min={0} max={20} {...register("children")} className="er-input" />
+              <label className="er-field-label" htmlFor="inquiry-children">Çocuk</label>
+              <input id="inquiry-children" type="number" min={0} max={20} {...register("children")} className="er-input" />
             </div>
           </div>
 
           {rooms.length > 0 && (
             <div>
-              <label className="er-field-label">Oda tipi</label>
-              <select {...register("roomSlug")} className="er-input" defaultValue={roomFromQuery ?? ""}>
+              <label className="er-field-label" htmlFor="inquiry-room">Oda tipi</label>
+              <select id="inquiry-room" {...register("roomSlug")} className="er-input" defaultValue={roomFromQuery ?? ""}>
                 <option value="">Seçin (opsiyonel)</option>
                 {rooms.map((r) => (
                   <option key={r.slug} value={r.slug}>
@@ -213,31 +219,31 @@ export function InquiryForm() {
           )}
 
           <div>
-            <label className="er-field-label">
+            <label className="er-field-label" htmlFor="inquiry-name">
               Ad Soyad <span style={{ color: "var(--er-cta)" }}>*</span>
             </label>
-            <input {...register("name")} className="er-input" placeholder="Adınız ve soyadınız" />
+            <input id="inquiry-name" {...register("name")} className="er-input" placeholder="Adınız ve soyadınız" />
             {errors.name && <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--er-error)" }}>{errors.name.message}</p>}
           </div>
 
           <div>
-            <label className="er-field-label">
+            <label className="er-field-label" htmlFor="inquiry-email">
               E-posta <span style={{ color: "var(--er-cta)" }}>*</span>
             </label>
-            <input {...register("email")} type="email" className="er-input" placeholder="ornek@email.com" />
+            <input id="inquiry-email" {...register("email")} type="email" className="er-input" placeholder="ornek@email.com" />
             {errors.email && <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--er-error)" }}>{errors.email.message}</p>}
           </div>
 
           <div>
-            <label className="er-field-label">Telefon</label>
-            <input {...register("phone")} type="tel" className="er-input" placeholder="+90 5xx xxx xx xx" />
+            <label className="er-field-label" htmlFor="inquiry-phone">Telefon</label>
+            <input id="inquiry-phone" {...register("phone")} type="tel" className="er-input" placeholder="+90 5xx xxx xx xx" />
           </div>
 
           <div>
-            <label className="er-field-label">
+            <label className="er-field-label" htmlFor="inquiry-message">
               Mesaj <span style={{ color: "var(--er-cta)" }}>*</span>
             </label>
-            <textarea {...register("message")} className="er-textarea" placeholder="Özel talepler…" rows={5} />
+            <textarea id="inquiry-message" {...register("message")} className="er-textarea" placeholder="Özel talepler…" rows={5} />
             {errors.message && <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--er-error)" }}>{errors.message.message}</p>}
           </div>
 

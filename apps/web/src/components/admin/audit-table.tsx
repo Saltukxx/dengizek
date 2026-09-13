@@ -10,13 +10,14 @@ import {
   Button,
   Code,
   Group,
-  Loader,
   Paper,
   Select,
   Stack,
   Table,
   Text,
 } from "@mantine/core";
+import { panelApi } from "@/lib/panel-api";
+import { PanelEmpty, PanelError, PanelLoading } from "@/components/panel-resource-state";
 
 interface AuditEntry {
   id: string;
@@ -41,16 +42,19 @@ export function AuditTable() {
   const [entityType, setEntityType] = useState<string | null>(null);
   const [sayfa, setSayfa] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     const params = new URLSearchParams();
     if (entityType) params.set("entityType", entityType);
     params.set("sayfa", String(sayfa));
-    const res = await fetch(`/api/admin/audit-log?${params}`);
-    const json = await res.json();
-    if (json.ok) {
+    setError(null);
+    try {
+      const json = await panelApi<{ entries: AuditEntry[]; hasMore?: boolean }>(`/api/admin/audit-log?${params}`);
       setEntries(json.entries);
       setHasMore(json.hasMore ?? false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Denetim kayıtları yüklenemedi.");
     }
   }, [entityType, sayfa]);
 
@@ -58,7 +62,8 @@ export function AuditTable() {
     void reload();
   }, [reload]);
 
-  if (!entries) return <Loader />;
+  if (error) return <PanelError message={error} onRetry={() => void reload()} />;
+  if (!entries) return <PanelLoading label="Denetim kayıtları yükleniyor…" />;
 
   return (
     <Stack gap="md">
@@ -111,9 +116,7 @@ export function AuditTable() {
             {entries.length === 0 && (
               <Table.Tr>
                 <Table.Td colSpan={5}>
-                  <Text c="dimmed" size="sm" py="sm">
-                    Kayıt bulunamadı.
-                  </Text>
+                  <PanelEmpty title="Kayıt bulunamadı" description="Bu filtreyle eşleşen denetim kaydı yok." />
                 </Table.Td>
               </Table.Tr>
             )}

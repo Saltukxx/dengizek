@@ -3,6 +3,8 @@
 // ---------------------------------------------------------------------------
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { hotelMembersTable } from "@/lib/db/schema";
 
 const authMock = vi.fn();
 vi.mock("@/auth", () => ({
@@ -11,13 +13,17 @@ vi.mock("@/auth", () => ({
 
 // Drizzle sorgu zinciri taklidi: select().from().where().limit() → satırlar
 const limitMock = vi.fn();
+const whereConditions = vi.hoisted(() => [] as unknown[]);
 vi.mock("@/lib/db", () => ({
   getDb: () => ({
     select: () => ({
       from: () => ({
-        where: () => ({
+        where: (condition: unknown) => {
+          whereConditions.push(condition);
+          return ({
           limit: (...args: unknown[]) => limitMock(...args),
-        }),
+          });
+        },
       }),
     }),
   }),
@@ -38,6 +44,7 @@ const userRow = (session: typeof adminSession | typeof managerSession) => ({ ...
 beforeEach(() => {
   authMock.mockReset();
   limitMock.mockReset();
+  whereConditions.length = 0;
 });
 
 describe("requireUser", () => {
@@ -131,6 +138,27 @@ describe("requireHotelAccess", () => {
     const result = await requireHotelAccess("aurelia-bay", "owner");
     expect(result.response).toBeNull();
     expect(result.user?.id).toBe("u-manager");
+  });
+
+  it("üyelik sorgusunu hem oturum kullanıcısı hem çözülmüş otel kimliğiyle sınırlar", async () => {
+    authMock.mockResolvedValue(managerSession);
+    limitMock
+      .mockResolvedValueOnce([userRow(managerSession)])
+      .mockResolvedValueOnce([hotelRow])
+      .mockResolvedValueOnce([{ role: "owner" }]);
+
+    await requireHotelAccess("aurelia-bay", "owner");
+
+    const membershipWhere = whereConditions.at(-1);
+    const query = drizzle({} as never)
+      .select()
+      .from(hotelMembersTable)
+      .where(membershipWhere as never)
+      .toSQL();
+    expect(query.sql).toContain('"hotel_members"."user_id" =');
+    expect(query.sql).toContain('"hotel_members"."hotel_id" =');
+    expect(query.sql).toContain(" and ");
+    expect(query.params).toEqual(expect.arrayContaining([managerSession.user.id, hotelRow.id]));
   });
 
   it("otel bulunamazsa bilgi sızdırmadan 403 döner", async () => {

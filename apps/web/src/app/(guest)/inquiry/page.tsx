@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { InquiryForm } from "./inquiry-form";
 
-export default function InquiryPage() {
+export function InquiryPage() {
   return (
     <Suspense
       fallback={
@@ -20,3 +20,5 @@ export default function InquiryPage() {
     </Suspense>
   );
 }
+
+export default InquiryPage;

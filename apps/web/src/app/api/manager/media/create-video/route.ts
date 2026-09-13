@@ -30,9 +30,16 @@ export async function POST(req: Request) {
     created = await createVideo(parsed.data.title);
   } catch (err) {
     console.error("[media] Bunny video oluşturma hatası:", err);
+    const unavailable = err instanceof Error && err.message === "BUNNY_NOT_CONFIGURED";
     return NextResponse.json(
-      { ok: false, error: "Video servisi şu anda kullanılamıyor. Lütfen tekrar deneyin." },
-      { status: 502 },
+      {
+        ok: false,
+        error: unavailable
+          ? "Video servisi yapılandırılmamış. Bunny Stream ayarlarını tamamlayıp tekrar deneyin."
+          : "Video servisi şu anda kullanılamıyor. Lütfen tekrar deneyin.",
+        code: unavailable ? "VIDEO_UNAVAILABLE" : "VIDEO_PROVIDER_ERROR",
+      },
+      { status: unavailable ? 503 : 502 },
     );
   }
 

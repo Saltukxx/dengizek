@@ -14,7 +14,6 @@ import {
   Button,
   FileInput,
   Group,
-  Loader,
   Paper,
   Progress,
   Stack,
@@ -25,6 +24,9 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconRefresh, IconTrash, IconUpload } from "@tabler/icons-react";
 import { mediaStatusColors, mediaStatusLabels } from "@/lib/labels";
+import { panelApi } from "@/lib/panel-api";
+import type { RuntimeCapabilities, ServiceStatus } from "@/lib/runtime-capabilities";
+import { PanelEmpty, PanelError, PanelLoading } from "@/components/panel-resource-state";
 import { useMyHotel } from "./use-my-hotel";
 import { ListPagination } from "./list-pagination";
 
@@ -40,8 +42,10 @@ interface MediaAsset {
 }
 
 export function MediaUploader() {
-  const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
+  const { hotel, loading: hotelLoading, error: hotelError, reload: reloadHotels } = useMyHotel();
   const [media, setMedia] = useState<MediaAsset[] | null>(null);
+  const [videoStatus, setVideoStatus] = useState<ServiceStatus | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [sayfa, setSayfa] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -53,12 +57,20 @@ export function MediaUploader() {
 
   const reload = useCallback(async () => {
     if (!hotel) return;
-    const res = await fetch(`/api/manager/media?hotelId=${hotel.id}&sayfa=${sayfa}`);
-    const json = await res.json();
-    if (json.ok) {
+    setLoadError(null);
+    try {
+      const [json, capabilityJson] = await Promise.all([
+        panelApi<{ media: MediaAsset[]; totalCount?: number; hasMore?: boolean }>(
+          `/api/manager/media?hotelId=${hotel.id}&sayfa=${sayfa}`,
+        ),
+        panelApi<{ capabilities: RuntimeCapabilities }>("/api/manager/capabilities"),
+      ]);
       setMedia(json.media);
       setTotalCount(json.totalCount ?? json.media.length);
       setHasMore(json.hasMore ?? false);
+      setVideoStatus(capabilityJson.capabilities.services.video);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Medya kütüphanesi yüklenemedi.");
     }
   }, [hotel, sayfa]);
 
@@ -66,15 +78,10 @@ export function MediaUploader() {
     void reload();
   }, [reload]);
 
-  if (hotelLoading) return <Loader />;
-  if (hotelError) {
-    return (
-      <Alert color="red" icon={<IconAlertCircle size={16} />}>
-        {hotelError}
-      </Alert>
-    );
-  }
-  if (!hotel || !media) return <Loader />;
+  if (hotelLoading) return <PanelLoading />;
+  if (hotelError) return <PanelError message={hotelError} onRetry={() => void reloadHotels()} />;
+  if (loadError) return <PanelError message={loadError} onRetry={() => void reload()} />;
+  if (!hotel || !media || !videoStatus) return <PanelLoading label="Medya kütüphanesi yükleniyor…" />;
 
   async function startUpload() {
     if (!hotel || !file) return;
@@ -165,6 +172,17 @@ export function MediaUploader() {
 
   return (
     <Stack gap="md">
+      {videoStatus !== "ready" && (
+        <Alert
+          color={videoStatus === "development" ? "yellow" : "red"}
+          icon={<IconAlertCircle size={18} />}
+          title={videoStatus === "development" ? "Geliştirme video modu" : "Video servisi kullanılamıyor"}
+        >
+          {videoStatus === "development"
+            ? "Bunny Stream bağlı değil. Bu ortamda oluşturulan kayıtlar açıkça demo olarak işaretlenir; üretimde mock video oluşturulmaz."
+            : "Bunny Stream yapılandırılmadığı için video yükleme kapalı. API anahtarı, kütüphane, CDN ve webhook ayarları tamamlandığında yeniden deneyin."}
+        </Alert>
+      )}
       <Paper withBorder p="md" radius="md">
         <Stack gap="sm">
           <Text fw={600}>Video yükle</Text>
@@ -172,6 +190,7 @@ export function MediaUploader() {
             <FileInput
               label="Video dosyası"
               placeholder="MP4 / MOV seçin"
+              styles={{ placeholder: { color: "var(--mantine-color-gray-7)" } }}
               accept="video/*"
               value={file}
               onChange={setFile}
@@ -185,7 +204,7 @@ export function MediaUploader() {
             />
             <Button
               leftSection={<IconUpload size={16} />}
-              disabled={!file || uploadPct !== null}
+              disabled={!file || uploadPct !== null || videoStatus === "unavailable"}
               onClick={startUpload}
             >
               Yükle
@@ -223,9 +242,7 @@ export function MediaUploader() {
             {media.length === 0 && (
               <Table.Tr>
                 <Table.Td colSpan={5}>
-                  <Text c="dimmed" size="sm" py="sm">
-                    Henüz medya yok. Yukarıdan video yükleyin.
-                  </Text>
+                  <PanelEmpty title="Henüz medya yok" description="Servis hazır olduğunda yukarıdan ilk videonuzu yükleyin." />
                 </Table.Td>
               </Table.Tr>
             )}

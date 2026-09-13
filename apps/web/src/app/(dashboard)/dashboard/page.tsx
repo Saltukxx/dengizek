@@ -269,7 +269,12 @@ export default async function DashboardHomePage() {
               <Text size="xs" c="dimmed" tt="uppercase" fw={700} lts="0.04em">
                 {c.label}
               </Text>
-              <Title order={1} mt={4} c={"warn" in c && c.warn ? "orange" : undefined}>
+              <Title
+                order={3}
+                size="h1"
+                mt={4}
+                c={"warn" in c && c.warn ? "orange.9" : undefined}
+              >
                 {c.value}
               </Title>
               <Text size="xs" c="dimmed" mt={2}>

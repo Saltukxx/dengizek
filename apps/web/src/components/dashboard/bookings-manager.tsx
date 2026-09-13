@@ -170,7 +170,7 @@ export function BookingsManager() {
     if (json.ok) {
       notifications.show({ color: "green", message: "Rezervasyon oluşturuldu." });
       setOpen(false);
-      void reload();
+      await reload();
     } else {
       notifications.show({ color: "red", message: json.error ?? "Oluşturulamadı." });
     }
@@ -186,8 +186,12 @@ export function BookingsManager() {
     });
     const json = await res.json();
     if (json.ok) {
-      void reload();
+      await reload();
       if (detail?.id === id) setDetail((d) => (d ? { ...d, status } : d));
+      notifications.show({
+        color: "green",
+        message: `Rezervasyon ${bookingStatusLabels[status].toLocaleLowerCase("tr-TR")} olarak güncellendi.`,
+      });
     } else {
       notifications.show({ color: "red", message: json.error ?? "Güncellenemedi." });
     }
@@ -202,7 +206,7 @@ export function BookingsManager() {
     });
     if ((await res.json()).ok) {
       notifications.show({ color: "green", message: "Notlar kaydedildi." });
-      void reload();
+      await reload();
     }
   }
 
@@ -309,15 +313,16 @@ export function BookingsManager() {
                         </Button>
                       </>
                     )}
-                    {paymentsEnabled && b.status === "onaylandi" && b.totalMinor != null && (
+                    {b.status === "onaylandi" && b.totalMinor != null && (
                       <Button
                         size="xs"
                         variant="light"
                         color="teal"
                         leftSection={<IconWallet size={14} />}
+                        disabled={!paymentsEnabled}
                         onClick={() => startPayment(b)}
                       >
-                        Tahsilat başlat
+                        {paymentsEnabled ? "Tahsilat başlat" : "Tahsilat yakında"}
                       </Button>
                     )}
                   </Group>
@@ -478,14 +483,15 @@ export function BookingsManager() {
                   </Button>
                 </>
               )}
-              {paymentsEnabled && detail.status === "onaylandi" && detail.totalMinor != null && (
+              {detail.status === "onaylandi" && detail.totalMinor != null && (
                 <Button
                   size="sm"
                   color="teal"
                   leftSection={<IconWallet size={14} />}
+                  disabled={!paymentsEnabled}
                   onClick={() => startPayment(detail)}
                 >
-                  Tahsilat başlat
+                  {paymentsEnabled ? "Tahsilat başlat" : "Tahsilat yakında"}
                 </Button>
               )}
             </Group>

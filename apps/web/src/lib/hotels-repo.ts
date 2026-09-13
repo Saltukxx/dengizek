@@ -52,8 +52,6 @@ function toGuestHotel(row: {
   const parsed = parseHotelContentSnapshot(row.publishedSnapshot);
   const snapshot = parsed.success ? parsed.data.hotel : {};
   const value = <T>(key: string, fallback: T) => (key in snapshot ? snapshot[key] as T : fallback);
-  // Oda tipleri henüz DB'de modellenmedi — mock'ta varsa oradan tamamlanır
-  const mock = getMockHotelBySlug(row.slug);
   return {
     slug: row.slug,
     name: value("name", row.name),
@@ -63,7 +61,9 @@ function toGuestHotel(row: {
     longDescription: value("longDescription", row.longDescription) ?? "",
     imageUrl: value("imageUrl", row.imageUrl) ?? "",
     priceLabel: value("priceLabel", row.priceLabel) ?? undefined,
-    roomTypes: mock?.roomTypes ?? [],
+    // Gerçek oda verisi roomsTable'dan getPublishedHotelContent/getPublishedRoom
+    // ile ayrıca okunur; HotelMock uyumluluğu için burada boş bırakılır.
+    roomTypes: [],
   };
 }
 
@@ -144,25 +144,18 @@ function snapshotMinPriceMinor(snapshot: HotelContentSnapshot): number | null {
   return min;
 }
 
-/** Yayında olan otelleri döner (misafir /browse). */
-export async function getPublishedHotels(): Promise<HotelMock[]> {
-  const rows = await getPublishedHotelsForBrowse();
-  return rows.map((row) => {
-    const mock = getMockHotelBySlug(row.slug);
-    return {
-      slug: row.slug,
-      name: row.name,
-      city: row.city ?? "",
-      country: row.country ?? "",
-      shortDescription: row.shortDescription ?? "",
-      longDescription: row.longDescription ?? "",
-      imageUrl: row.imageUrl ?? "",
-      priceLabel: row.priceLabel ?? undefined,
-      roomTypes: mock?.roomTypes ?? [],
-    };
-  });
+/**
+ * Kış vitrini yalnızca açıkça "kis" seçilmiş tesisleri kabul eder. Sezonu
+ * girilmemiş eski tesisler filtresiz yaz yüzeyinde görünmeye devam eder.
+ */
+export function matchesSeason(seasons: string[] | null | undefined, season?: string): boolean {
+  if (!season) return true;
+  const list = seasons ?? [];
+  if (season === "kis") return list.includes("kis");
+  return list.length === 0 || list.includes(season);
 }
 
+/** Yayında olan otelleri döner (misafir /browse). */
 export interface BrowseHotelRow {
   slug: string;
   name: string;
@@ -186,6 +179,11 @@ export interface BrowseHotelRow {
 export interface BrowseFilters {
   /** Serbest metin — ad/şehir/ülke üzerinde arar. */
   q?: string;
+  /**
+   * Tatil sezonu ("yaz" | "kis"). Kış filtresi yalnızca açıkça "kis"
+   * seçilmiş tesisleri kabul eder.
+   */
+  season?: string;
 }
 
 /**
@@ -310,7 +308,11 @@ export async function getPublishedHotelsForBrowse(
           reviewAverage: reviewsByHotel.get(row.id)?.average ?? null,
           reviewCount: reviewsByHotel.get(row.id)?.total ?? 0,
         };
-      });
+      })
+      // Sezon süzmesi eşlemeden SONRA yapılır: yayındaki değer snapshot'tan
+      // geliyor, kolondan değil. SQL'de kolona bakmak, sezonu değiştirip
+      // henüz yayımlamamış bir tesisi yanlış listede gösterirdi.
+      .filter((row) => matchesSeason(row.seasons, filters.season));
     } catch (err) {
       rethrowUnlessMockAllowed("DB sorgusu başarısız", err);
     }
@@ -326,23 +328,25 @@ export async function getPublishedHotelsForBrowse(
           h.country.toLowerCase().includes(needle),
       )
     : getMockHotels();
-  return mockHotels.map((h) => ({
-    slug: h.slug,
-    name: h.name,
-    city: h.city,
-    country: h.country,
-    shortDescription: h.shortDescription,
-    longDescription: h.longDescription,
-    imageUrl: h.imageUrl,
-    priceLabel: h.priceLabel ?? null,
-    starRating: null,
-    amenities: [] as string[],
-    petsAllowed: null,
-    seasons: [] as string[],
-    minPriceMinor: null,
-    reviewAverage: null,
-    reviewCount: 0,
-  }));
+  return mockHotels
+    .map((h) => ({
+      slug: h.slug,
+      name: h.name,
+      city: h.city,
+      country: h.country,
+      shortDescription: h.shortDescription,
+      longDescription: h.longDescription,
+      imageUrl: h.imageUrl,
+      priceLabel: h.priceLabel ?? null,
+      starRating: null,
+      amenities: [] as string[],
+      petsAllowed: null,
+      seasons: [] as string[],
+      minPriceMinor: null,
+      reviewAverage: null,
+      reviewCount: 0,
+    }))
+    .filter((row) => matchesSeason(row.seasons, filters.season));
 }
 
 /** Yayında olan tek oteli döner (misafir /hotels/[slug]). */

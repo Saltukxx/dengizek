@@ -69,11 +69,12 @@ export function ConsentBanner() {
           type="button"
           onClick={() => decide("denied")}
           style={{
+            minHeight: 44,
             padding: "9px 16px",
             borderRadius: "var(--er-radius)",
-            border: "1px solid var(--er-line-strong)",
-            background: "transparent",
-            color: "var(--er-text-muted)",
+            border: "1px solid #0e1f40",
+            background: "#ffffff",
+            color: "#0e1f40",
             fontSize: 13,
             cursor: "pointer",
           }}
@@ -84,10 +85,11 @@ export function ConsentBanner() {
           type="button"
           onClick={() => decide("granted")}
           style={{
+            minHeight: 44,
             padding: "9px 16px",
             borderRadius: "var(--er-radius)",
-            border: "1px solid var(--er-primary)",
-            background: "var(--er-primary)",
+            border: "1px solid #0e1f40",
+            background: "#0e1f40",
             color: "#fff",
             fontSize: 13,
             fontWeight: 600,

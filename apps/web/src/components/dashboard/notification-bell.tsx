@@ -48,11 +48,11 @@ export function NotificationBell() {
   return (
     <Menu position="bottom-end" width={320} withinPortal>
       <Menu.Target>
-        <Indicator inline disabled={unread === 0} label={unread} size={16}>
-          <ActionIcon variant="subtle" color="gray" aria-label="Bildirimler">
+        <ActionIcon variant="subtle" color="gray" aria-label="Bildirimler">
+          <Indicator inline disabled={unread === 0} label={unread} size={16}>
             <IconBell size={18} />
-          </ActionIcon>
-        </Indicator>
+          </Indicator>
+        </ActionIcon>
       </Menu.Target>
       <Menu.Dropdown>
         {items.length === 0 && (

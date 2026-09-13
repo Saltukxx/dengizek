@@ -49,7 +49,12 @@ export async function POST(req: Request) {
   if (!isDbConfigured()) {
     if (process.env.NODE_ENV === "development" || process.env.USE_MOCK_DATA === "true") {
       console.info("[inquiry:mock]", parsed.data);
-      return NextResponse.json({ ok: true, id: `mock-${Date.now()}`, emailSent: false });
+      return NextResponse.json({
+        ok: true,
+        id: `mock-${Date.now()}`,
+        emailSent: false,
+        emailStatus: "unavailable" as const,
+      });
     }
     return apiServiceUnavailable("Talep kaydı yapılandırılmamış.");
   }
@@ -132,11 +137,17 @@ export async function POST(req: Request) {
   }
 
   const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/inquiry/portal/${portalToken}`;
-  const emailSent = await sendEmail({
+  const emailStatus = await sendEmail({
     to: data.email,
     subject: "Talebiniz alındı — Dengizek",
     text: `Merhaba ${data.name},\n\nTalebiniz otele iletildi. Yanıtları takip etmek için: ${portalUrl}`,
   });
 
-  return NextResponse.json({ ok: true, id: inquiry.id, emailSent });
+  return NextResponse.json({
+    ok: true,
+    id: inquiry.id,
+    // Geriye uyumlu alan: kuyruğa alınmak teslim edilmiş olmak değildir.
+    emailSent: emailStatus === "sent",
+    emailStatus,
+  });
 }

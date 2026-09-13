@@ -1,14 +1,20 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+let pathname = "/browse";
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/browse",
+  usePathname: () => pathname,
 }));
 
 // Onay bandı localStorage'a bakar; kabuk testinde ilgisiz.
 vi.mock("./consent-banner", () => ({ ConsentBanner: () => null }));
 
 import { GuestAppShell } from "./guest-app-shell";
+
+beforeEach(() => {
+  pathname = "/browse";
+});
 
 describe("GuestAppShell — oturum durumu", () => {
   it("oturum yoksa giriş bağlantısı gösterir", () => {
@@ -38,5 +44,30 @@ describe("GuestAppShell — oturum durumu", () => {
       </GuestAppShell>,
     );
     expect(screen.getAllByText("Admin")[0].closest("a")).toHaveAttribute("href", "/admin");
+  });
+});
+
+describe("GuestAppShell — kış yüzeyi", () => {
+  it("kış rotalarında Alpine Nocturne kabuğunu ve kış navigasyonunu kullanır", () => {
+    pathname = "/kis/oteller";
+    const { container } = render(
+      <GuestAppShell>
+        <p>kış içeriği</p>
+      </GuestAppShell>,
+    );
+
+    expect(container.firstElementChild).toHaveClass("er-winter");
+    expect(screen.getAllByRole("link", { name: "Kış Otelleri" })[0]).toHaveAttribute(
+      "href",
+      "/kis",
+    );
+    expect(screen.getByRole("link", { name: "Kış Planı Oluştur" })).toHaveAttribute(
+      "href",
+      "/inquiry",
+    );
+    expect(screen.getAllByRole("link", { name: "Yaz Otelleri" })[0]).toHaveAttribute(
+      "href",
+      "/",
+    );
   });
 });

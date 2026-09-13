@@ -20,6 +20,7 @@ import {
   usersTable,
 } from "./schema";
 import { getManifestFromDB } from "./manifest";
+import { buildHotelContentSnapshot } from "../hotel-content-snapshot";
 
 async function seed() {
   const url = process.env.DATABASE_URL;
@@ -44,6 +45,7 @@ async function seed() {
       priceLabel:       "Talep uzerine",
       aiPersona:        "Yapay Zeka Rehberi",
       aiLanguage:       "tr",
+      seasons:          ["yaz", "kis"],
       aiFacts: [
         "5 yildiz otel",
         "200 oda kapasitesi",
@@ -68,6 +70,7 @@ async function seed() {
       set: {
         aiPersona:   "Yapay Zeka Rehberi",
         aiLanguage:  "tr",
+        seasons:     ["yaz", "kis"],
         status:      "yayinda",
         updatedAt:   new Date(),
       },
@@ -511,6 +514,20 @@ async function seed() {
     }
     console.log(`  ✓ ${extra.name}`);
   }
+
+  // Seed kaydı da üretimdeki onay akışı gibi değişmez bir yayın snapshot'ına
+  // sahiptir; kış vitrini yalnız açıkça seçilmiş bu sezon değerini okur.
+  const publishedSnapshot = await buildHotelContentSnapshot(db, hotel.id);
+  await db
+    .update(hotelsTable)
+    .set({
+      publishedSnapshot,
+      publishedRevision: 1,
+      status: "yayinda",
+      updatedAt: new Date(),
+    })
+    .where(eq(hotelsTable.id, hotel.id));
+  console.log("  ✓ yayin snapshot'i (yaz + kis)");
 
   console.log("\nSeed tamamlandi!");
 }

@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Loader, Paper, Select, SimpleGrid, Stack, Text, Title } from "@mantine/core";
-import { IconAlertCircle } from "@tabler/icons-react";
+import { Paper, Select, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { ANALYTICS_EVENT_LABELS } from "@/lib/schemas/analytics";
+import { panelApi } from "@/lib/panel-api";
+import { PanelError, PanelLoading } from "@/components/panel-resource-state";
 import { useMyHotel } from "./use-my-hotel";
 
 interface AnalyticsData {
@@ -50,30 +51,29 @@ function GroupBar({ label, count, max }: { label: string; count: number; max: nu
 }
 
 export function AnalyticsPanel() {
-  const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
+  const { hotel, loading: hotelLoading, error: hotelError, reload: reloadHotels } = useMyHotel();
   const [data, setData] = useState<AnalyticsData | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState("30");
 
   const reload = useCallback(async () => {
     if (!hotel) return;
-    const res = await fetch(`/api/manager/hotels/${hotel.id}/analytics?period=${period}`);
-    const json = await res.json();
-    if (json.ok) setData(json);
+    setError(null);
+    try {
+      setData(await panelApi<AnalyticsData>(`/api/manager/hotels/${hotel.id}/analytics?period=${period}`));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Analitik verileri yüklenemedi.");
+    }
   }, [hotel, period]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
-  if (hotelLoading) return <Loader />;
-  if (hotelError) {
-    return (
-      <Alert color="red" icon={<IconAlertCircle size={16} />}>
-        {hotelError}
-      </Alert>
-    );
-  }
-  if (!data) return <Loader />;
+  if (hotelLoading) return <PanelLoading />;
+  if (hotelError) return <PanelError message={hotelError} onRetry={() => void reloadHotels()} />;
+  if (error) return <PanelError message={error} onRetry={() => void reload()} />;
+  if (!data) return <PanelLoading label="Analitik verileri yükleniyor…" />;
 
   const maxDay = Math.max(...data.timeSeries.map((d) => d.count), 1);
 

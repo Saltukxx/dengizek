@@ -50,6 +50,7 @@ import { signOut } from "next-auth/react";
 import { ReactNode } from "react";
 import { useHotelContext } from "./hotel-context";
 import { NotificationBell } from "./notification-bell";
+import { PanelError, PanelLoading } from "@/components/panel-resource-state";
 
 const links = [
   { href: "/dashboard", label: "Genel bakış", icon: IconLayoutDashboard },
@@ -82,7 +83,14 @@ export function DashboardShell({
 }) {
   const path = usePathname();
   const [opened, { toggle, close }] = useDisclosure();
-  const { hotels, hotel, selectHotel, loading: hotelsLoading } = useHotelContext();
+  const {
+    hotels,
+    hotel,
+    selectHotel,
+    loading: hotelsLoading,
+    error: hotelsError,
+    reload: reloadHotels,
+  } = useHotelContext();
 
   const initials = (userName ?? "?")
     .split(" ")
@@ -255,7 +263,13 @@ export function DashboardShell({
 
       <AppShell.Main>
         <Box maw={1120} mx="auto">
-          {children}
+          {hotelsLoading ? (
+            <PanelLoading label="Tesisleriniz yükleniyor…" />
+          ) : hotelsError ? (
+            <PanelError message={hotelsError} onRetry={() => void reloadHotels()} />
+          ) : (
+            children
+          )}
         </Box>
       </AppShell.Main>
     </AppShell>

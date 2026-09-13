@@ -13,9 +13,9 @@
   --er-primary-tint: rgba(28, 86, 166, 0.08);
   --er-primary-tint-strong: rgba(28, 86, 166, 0.14);
 
-  --er-cta: #f26522; /* Action Orange — yalnız rezervasyon eylemleri */
-  --er-cta-hover: #dd5511;
-  --er-cta-tint: rgba(242, 101, 34, 0.1);
+  --er-cta: #c2410c; /* WCAG AA Action Orange — yalnız rezervasyon eylemleri */
+  --er-cta-hover: #9a3412;
+  --er-cta-tint: rgba(194, 65, 12, 0.1);
 
   /* ── Renk: yüzey ─────────────────────────────────────────────────────── */
   --er-bg: #f8f9fa; /* Ice White — global tuval */
@@ -26,7 +26,7 @@
   /* ── Renk: metin & çizgi ─────────────────────────────────────────────── */
   --er-text: #0e1f40;
   --er-text-muted: #424751;
-  --er-text-dim: #737783;
+  --er-text-dim: #6b6f78;
   --er-line: #e1e3e4;
   --er-line-strong: #c3c6d3;
 
@@ -56,6 +56,45 @@
   /* ── Tipografi ───────────────────────────────────────────────────────── */
   --er-font-display: var(--font-manrope), "Manrope", system-ui, sans-serif;
   --er-font-sans: var(--font-plus-jakarta), var(--font-inter), system-ui, sans-serif;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Kış yüzeyi (/kis) — aynı tasarım sistemi, alp paleti
+
+   Yalnızca token'lar değişir; bileşen sınıflarının hiçbiri kopyalanmaz.
+   Marka mavisi buzul tonuna iner, CTA turuncusu şömine kızılına döner,
+   zemin kar beyazına çekilir. Görsel yön değişecekse tek yer burasıdır.
+───────────────────────────────────────────────────────────────────────────── */
+
+.er-winter {
+  --er-primary: #17527a;
+  --er-primary-strong: #0d3a5c;
+  --er-primary-hover: #124867;
+  --er-navy: #0b2a40;
+  --er-primary-tint: rgba(23, 82, 122, 0.09);
+  --er-primary-tint-strong: rgba(23, 82, 122, 0.16);
+
+  --er-cta: #c4462c;
+  --er-cta-hover: #a83a22;
+  --er-cta-tint: rgba(196, 70, 44, 0.1);
+
+  --er-bg: #f4f7f9;
+  --er-surface: #ffffff;
+  --er-surface-2: #eef2f5;
+  --er-surface-3: #e4eaef;
+
+  --er-text: #0b2a40;
+  --er-text-muted: #3d4a55;
+  --er-text-dim: #6b7885;
+  --er-line: #dbe3e9;
+  --er-line-strong: #b9c6d1;
+
+  --er-shadow-sm: 0 1px 2px rgba(11, 42, 64, 0.06);
+  --er-shadow: 0 8px 32px rgba(11, 42, 64, 0.09);
+  --er-shadow-lg: 0 16px 48px rgba(11, 42, 64, 0.13);
+
+  background: var(--er-bg);
+  color: var(--er-text);
 }
 
 html,
@@ -826,6 +865,63 @@ a {
   }
 }
 
+/* Panel güvenlik ağı: dar ekranlarda tablolar sayfayı taşırmaz ve temel eylemler
+   erişilebilir dokunma alanını korur. */
+.mantine-AppShell-main .mantine-Paper-root {
+  max-width: 100%;
+}
+
+.mantine-AppShell-main .mantine-Table-root {
+  min-width: 680px;
+}
+
+.mantine-AppShell-main .mantine-Paper-root:has(> .mantine-Table-root) {
+  overflow-x: auto;
+}
+
+.mantine-AppShell-main button,
+.mantine-AppShell-main [role="button"] {
+  min-height: 44px;
+}
+
+/* Mantine'in açık renk badge metinleri 12px boyutta semantik rengin 6.
+   tonuyla AA eşiğinin altında kalıyor. Arka plan durum rengini korurken metin
+   için ortak yüksek kontrast kullanılır. */
+.mantine-AppShell-root .mantine-Badge-label {
+  color: var(--mantine-color-gray-8);
+}
+
+.mantine-AppShell-root .mantine-NavLink-label {
+  color: var(--mantine-color-gray-8);
+}
+
+.mantine-AppShell-root .mantine-Alert-title,
+.mantine-AppShell-root .mantine-Alert-message {
+  color: var(--mantine-color-gray-8);
+}
+
+.mantine-AppShell-root input::placeholder,
+.mantine-AppShell-root textarea::placeholder {
+  color: var(--mantine-color-gray-7);
+  opacity: 1;
+}
+
+.er-inquiry-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 48em) {
+  .mantine-AppShell-main {
+    padding: 76px 12px 20px !important;
+  }
+
+  .er-inquiry-pair {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
    Otel detay — galeri ızgarası ve rezervasyon paneli
 ───────────────────────────────────────────────────────────────────────────── */
@@ -1066,4 +1162,572 @@ a {
 .er-detail-section:first-of-type {
   border-top: none;
   margin-top: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Kış vitrini — Alpine Nocturne
+   Bu blok yalnızca /kis kabuğunda ve surface=kis turunda etkinleşir.
+───────────────────────────────────────────────────────────────────────────── */
+
+.er-winter,
+.er-tour-winter {
+  --er-primary: #8dcbe6;
+  --er-primary-hover: #b8e3f5;
+  --er-primary-strong: #081827;
+  --er-primary-tint: rgba(141, 203, 230, 0.1);
+  --er-primary-tint-strong: rgba(141, 203, 230, 0.18);
+  --er-cta: #a94724;
+  --er-cta-hover: #923b1d;
+  --er-cta-tint: rgba(169, 71, 36, 0.14);
+  --er-navy: #081827;
+  --er-bg: #101415;
+  --er-surface: #181c1d;
+  --er-surface-2: #1f2425;
+  --er-surface-3: #292e2f;
+  --er-text: #f3f6f7;
+  --er-text-muted: #c4c9cc;
+  --er-text-dim: #8f999e;
+  --er-line: rgba(141, 203, 230, 0.14);
+  --er-line-strong: rgba(141, 203, 230, 0.3);
+  --er-font-display: var(--font-eb-garamond), Georgia, serif;
+  --er-font-sans: var(--font-hanken-grotesk), Arial, sans-serif;
+  --er-shadow-sm: 0 12px 30px rgba(0, 0, 0, 0.22);
+  --er-shadow: 0 20px 48px rgba(0, 0, 0, 0.32);
+  --er-shadow-lg: 0 28px 80px rgba(0, 0, 0, 0.42);
+  color-scheme: dark;
+  background: var(--er-bg);
+  color: var(--er-text);
+  font-family: var(--er-font-sans);
+}
+
+.er-winter .er-page {
+  min-height: calc(100dvh - var(--er-header-h));
+  background:
+    radial-gradient(circle at 15% 10%, rgba(141, 203, 230, 0.07), transparent 30rem),
+    var(--er-bg);
+}
+
+.er-winter .er-display,
+.er-winter .er-brand,
+.er-tour-winter .er-display {
+  font-family: var(--er-font-display);
+}
+
+.er-winter .er-display {
+  color: var(--er-text);
+}
+
+.er-winter .er-header {
+  border-color: var(--er-line);
+  background: rgba(8, 24, 39, 0.9);
+  box-shadow: 0 1px 0 rgba(141, 203, 230, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.er-winter .er-brand,
+.er-winter .er-nav-link,
+.er-winter .er-hamburger {
+  color: var(--er-text);
+}
+
+.er-winter .er-brand {
+  font-size: 25px;
+  letter-spacing: 0.02em;
+}
+
+.er-winter .er-nav-link[data-active="true"],
+.er-winter .er-nav-link:hover {
+  color: var(--er-primary);
+}
+
+.er-winter .er-pill,
+.er-winter .er-btn-ghost {
+  border-color: var(--er-line-strong);
+  background: rgba(141, 203, 230, 0.06);
+  color: var(--er-primary);
+}
+
+.er-winter .er-btn-primary {
+  background: var(--er-primary);
+  color: var(--er-primary-strong);
+}
+
+.er-winter .er-btn-primary:hover {
+  background: var(--er-primary-hover);
+  box-shadow: 0 8px 24px rgba(141, 203, 230, 0.2);
+}
+
+.er-winter .er-input,
+.er-winter .er-select,
+.er-winter .er-textarea {
+  border-color: var(--er-line-strong);
+  background: rgba(8, 24, 39, 0.72);
+  color: var(--er-text);
+}
+
+.er-winter .er-input::placeholder,
+.er-winter .er-textarea::placeholder {
+  color: var(--er-text-dim);
+}
+
+.er-winter .er-footer {
+  margin-top: 0;
+  border-color: var(--er-line);
+  background: #08121b;
+}
+
+.er-winter .er-mobile-nav,
+.er-winter .er-drawer {
+  border-color: var(--er-line);
+  background: rgba(8, 24, 39, 0.97);
+}
+
+/* Kış ana sayfası */
+.er-winter-home {
+  overflow: hidden;
+}
+
+.er-winter-hero {
+  position: relative;
+  min-height: min(760px, calc(100dvh - var(--er-header-h)));
+  display: flex;
+  align-items: flex-end;
+  isolation: isolate;
+  background-position: center;
+  background-size: cover;
+}
+
+.er-winter-hero-shade {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(90deg, rgba(3, 13, 22, 0.92) 0%, rgba(3, 13, 22, 0.63) 48%, rgba(3, 13, 22, 0.18) 78%),
+    linear-gradient(0deg, #101415 0%, transparent 42%);
+}
+
+.er-winter-hero-inner {
+  width: 100%;
+  padding-block: clamp(76px, 11vw, 132px) clamp(56px, 8vw, 96px);
+}
+
+.er-winter-hero-copy {
+  max-width: 720px;
+}
+
+.er-winter-eyebrow,
+.er-winter .er-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 18px;
+  color: var(--er-primary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.er-winter-hero h1 {
+  max-width: 680px;
+  margin: 0;
+  font-size: clamp(52px, 7.5vw, 96px);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  line-height: 0.94;
+}
+
+.er-winter-hero-copy > p:not(.er-winter-eyebrow) {
+  max-width: 600px;
+  margin: 24px 0 30px;
+  color: rgba(243, 246, 247, 0.78);
+  font-size: clamp(17px, 2vw, 21px);
+  line-height: 1.55;
+}
+
+.er-winter-hero .er-search-console {
+  max-width: 980px;
+  border: 1px solid rgba(141, 203, 230, 0.22);
+  background: rgba(8, 24, 39, 0.76);
+  box-shadow: var(--er-shadow-lg);
+  backdrop-filter: blur(18px);
+}
+
+.er-winter-trust {
+  display: flex;
+  gap: 18px 28px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+  color: rgba(243, 246, 247, 0.72);
+  font-size: 13px;
+}
+
+.er-winter-trust span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.er-winter-featured,
+.er-winter-experience,
+.er-winter-final,
+.er-winter-owner {
+  padding-block: clamp(64px, 9vw, 112px);
+}
+
+.er-winter-section-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: clamp(28px, 5vw, 48px);
+}
+
+.er-winter-section-head h2,
+.er-winter-experience h2,
+.er-winter-final h2 {
+  max-width: 720px;
+  margin: 0;
+  font-size: clamp(38px, 5vw, 64px);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.er-winter-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.er-winter .er-hotel-card {
+  border-color: var(--er-line);
+  background: linear-gradient(155deg, #1d2223, #141819);
+  box-shadow: var(--er-shadow-sm);
+}
+
+.er-winter .er-hotel-card:hover {
+  border-color: var(--er-line-strong);
+  box-shadow: var(--er-shadow);
+  transform: translateY(-5px);
+}
+
+.er-winter .er-hotel-card .er-hotel-title {
+  color: var(--er-text);
+  font-size: 26px;
+  font-weight: 500;
+}
+
+.er-winter .er-hotel-card .er-btn-primary {
+  background: var(--er-cta);
+  color: #fff;
+}
+
+.er-winter-experience {
+  border-block: 1px solid var(--er-line);
+  background:
+    radial-gradient(circle at 85% 25%, rgba(141, 203, 230, 0.09), transparent 28rem),
+    #0b171f;
+}
+
+.er-winter-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 48px;
+  border: 1px solid var(--er-line);
+  background: var(--er-line);
+}
+
+.er-winter-step {
+  min-height: 260px;
+  padding: clamp(28px, 4vw, 48px);
+  background: #0b171f;
+}
+
+.er-winter-step > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--er-line-strong);
+  border-radius: 50%;
+  color: var(--er-primary);
+}
+
+.er-winter-step h3 {
+  margin: 48px 0 10px;
+  font-family: var(--er-font-display);
+  font-size: 27px;
+  font-weight: 500;
+}
+
+.er-winter-step p {
+  margin: 0;
+  color: var(--er-text-muted);
+  line-height: 1.65;
+}
+
+.er-winter-final {
+  text-align: center;
+  background:
+    linear-gradient(rgba(8, 24, 39, 0.8), rgba(8, 24, 39, 0.92)),
+    radial-gradient(circle at center, rgba(141, 203, 230, 0.16), transparent 38rem);
+}
+
+.er-winter-final h2,
+.er-winter-final p {
+  margin-inline: auto;
+}
+
+.er-winter-final p {
+  max-width: 560px;
+  color: var(--er-text-muted);
+}
+
+.er-winter-owner {
+  padding-block: 40px;
+  border-top: 1px solid var(--er-line);
+}
+
+.er-winter-owner .er-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+/* Kış otel listesi */
+.er-winter-browse {
+  padding-block: clamp(38px, 6vw, 72px) !important;
+}
+
+.er-winter-browse-intro {
+  max-width: 780px;
+  margin-bottom: clamp(30px, 5vw, 54px);
+}
+
+.er-winter-browse-intro h1 {
+  margin: 0 0 14px;
+  font-size: clamp(46px, 6vw, 76px);
+  font-weight: 500;
+  line-height: 0.98;
+}
+
+.er-winter-browse-intro p:last-child {
+  max-width: 640px;
+  color: var(--er-text-muted);
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.er-winter .er-browse-filters {
+  border-color: var(--er-line) !important;
+  background: rgba(24, 28, 29, 0.9) !important;
+  box-shadow: var(--er-shadow-sm) !important;
+  backdrop-filter: blur(16px);
+}
+
+/* Kış otel detayı */
+.er-winter-detail {
+  padding-block: clamp(18px, 3vw, 30px) clamp(64px, 8vw, 100px) !important;
+}
+
+.er-winter-detail-hero {
+  position: relative;
+  min-height: min(680px, 72dvh);
+  overflow: hidden;
+  margin: 0 calc(50% - 50vw) clamp(50px, 7vw, 84px);
+  padding-inline: max(24px, calc((100vw - 1200px) / 2));
+}
+
+.er-winter-detail-hero .er-gallery {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  border: 0;
+  border-radius: 0;
+  margin: 0 !important;
+}
+
+.er-winter-detail-hero .er-gallery::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(0deg, rgba(5, 14, 21, 0.96), rgba(5, 14, 21, 0.05) 72%);
+}
+
+.er-winter-detail-hero .er-gallery > * {
+  display: none;
+  height: 100%;
+}
+
+.er-winter-detail-hero .er-gallery > *:first-child {
+  display: block;
+}
+
+.er-winter-detail-hero .er-gallery img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.er-winter-detail-title {
+  position: absolute;
+  right: max(24px, calc((100vw - 1200px) / 2));
+  bottom: clamp(36px, 6vw, 72px);
+  left: max(24px, calc((100vw - 1200px) / 2));
+  z-index: 1;
+  max-width: 820px;
+  margin: 0 !important;
+}
+
+.er-winter-detail-title h1 {
+  font-size: clamp(52px, 7vw, 90px);
+  font-weight: 500;
+  line-height: 0.94;
+}
+
+.er-winter .er-booking-panel,
+.er-winter .er-feature-box {
+  border-color: var(--er-line);
+  background: var(--er-surface);
+  box-shadow: var(--er-shadow-sm);
+}
+
+.er-winter .er-booking-panel {
+  top: calc(var(--er-header-h) + 22px);
+}
+
+/* Kış sanal turu — aynı oynatıcı, farklı yüzey ve mobil hızlı eylemler. */
+.er-tour-winter .er-header {
+  border-color: var(--er-line);
+  background: rgba(8, 24, 39, 0.92);
+  backdrop-filter: blur(18px);
+}
+
+.er-tour-winter .er-brand,
+.er-tour-winter .er-nav-link {
+  color: var(--er-text);
+}
+
+.er-tour-winter .er-nav-link:hover,
+.er-tour-winter .er-nav-link[data-active="true"] {
+  color: var(--er-primary);
+}
+
+.er-tour-winter .er-tour-step-pill {
+  border: 1px solid rgba(141, 203, 230, 0.28);
+  background: rgba(8, 24, 39, 0.76);
+  color: var(--er-text);
+  box-shadow: var(--er-shadow-sm);
+}
+
+.er-tour-winter .er-tour-stage {
+  border: 1px solid rgba(141, 203, 230, 0.15);
+}
+
+.er-tour-winter .er-tour-round-btn {
+  border: 1px solid rgba(141, 203, 230, 0.24);
+  background: rgba(8, 24, 39, 0.7);
+}
+
+.er-tour-winter .er-tour-resume {
+  border-color: var(--er-line-strong) !important;
+  background: rgba(8, 24, 39, 0.9) !important;
+  backdrop-filter: blur(18px) !important;
+}
+
+.er-winter-tour-mobile-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  height: 100%;
+  padding: 38px 16px 14px;
+}
+
+.er-winter-tour-mobile-actions button,
+.er-winter-tour-mobile-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--er-line-strong);
+  border-radius: 999px;
+  background: var(--er-primary-tint);
+  color: var(--er-primary);
+  font-family: var(--er-font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.er-winter-tour-mobile-actions a {
+  border-color: transparent;
+  background: var(--er-cta);
+  color: #fff;
+}
+
+@media (max-width: 64em) {
+  .er-winter-card-grid,
+  .er-winter-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .er-winter-step {
+    min-height: auto;
+  }
+
+  .er-winter-step h3 {
+    margin-top: 28px;
+  }
+}
+
+@media (max-width: 48em) {
+  .er-winter .er-header-actions > .er-nav-link,
+  .er-winter .er-header-actions > .er-btn {
+    display: none;
+  }
+
+  .er-winter .er-header-actions {
+    gap: 0;
+  }
+
+  .er-winter .er-header-actions .er-pill {
+    padding-inline: 12px !important;
+  }
+
+  .er-winter-hero {
+    min-height: 700px;
+    background-position: 62% center;
+  }
+
+  .er-winter-hero-shade {
+    background:
+      linear-gradient(90deg, rgba(3, 13, 22, 0.84), rgba(3, 13, 22, 0.26)),
+      linear-gradient(0deg, #101415 0%, transparent 62%);
+  }
+
+  .er-winter-hero-inner {
+    padding-block: 62px 48px;
+  }
+
+  .er-winter-hero h1 {
+    font-size: clamp(48px, 14vw, 68px);
+  }
+
+  .er-winter-section-head,
+  .er-winter-owner .er-container {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .er-winter-detail-hero {
+    min-height: 560px;
+  }
+
+  .er-winter-detail-title h1 {
+    font-size: clamp(46px, 14vw, 66px);
+  }
 }

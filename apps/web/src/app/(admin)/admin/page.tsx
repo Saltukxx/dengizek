@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Group, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { Badge, Group, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { count, eq } from "drizzle-orm";
 import { getDb, isDbConfigured } from "@/lib/db";
 import {
@@ -9,6 +9,7 @@ import {
   toursTable,
   usersTable,
 } from "@/lib/db/schema";
+import { getRuntimeCapabilities, type ServiceStatus } from "@/lib/runtime-capabilities";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,17 @@ async function getCounts() {
 
 export default async function AdminOverviewPage() {
   const counts = await getCounts();
+  const capabilities = getRuntimeCapabilities();
+  const statusLabel: Record<ServiceStatus, string> = {
+    ready: "Hazır",
+    unavailable: "Yapılandırılmamış",
+    development: "Geliştirme modu",
+  };
+  const statusColor: Record<ServiceStatus, string> = {
+    ready: "green",
+    unavailable: "red",
+    development: "yellow",
+  };
 
   const cards = counts
     ? [
@@ -106,6 +118,25 @@ export default async function AdminOverviewPage() {
           </Paper>
         ))}
       </SimpleGrid>
+      <Paper withBorder p="md" radius="md">
+        <Title order={3} mb="sm">Servis durumu</Title>
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }}>
+          {Object.entries(capabilities.services).map(([service, status]) => (
+            <Group key={service} justify="space-between" wrap="nowrap">
+              <Text size="sm">{{
+                video: "Video",
+                ai: "Yapay zekâ",
+                email: "E-posta",
+                imageStorage: "Görsel depolama",
+                scheduledJobs: "Zamanlanmış işler",
+              }[service]}</Text>
+              <Badge color={statusColor[status]} variant="light">
+                {statusLabel[status]}
+              </Badge>
+            </Group>
+          ))}
+        </SimpleGrid>
+      </Paper>
     </Stack>
   );
 }
