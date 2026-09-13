@@ -11,12 +11,16 @@
 // ---------------------------------------------------------------------------
 
 import { createHash } from "node:crypto";
+import { developmentFallbackEnabled } from "@/lib/runtime-capabilities";
 
 const TUS_ENDPOINT = "https://video.bunnycdn.com/tusupload";
 
 export function isBunnyConfigured(): boolean {
   return Boolean(
-    process.env.BUNNY_STREAM_API_KEY && process.env.BUNNY_STREAM_LIBRARY_ID,
+    process.env.BUNNY_STREAM_API_KEY &&
+      process.env.BUNNY_STREAM_LIBRARY_ID &&
+      process.env.BUNNY_STREAM_CDN_HOSTNAME &&
+      process.env.BUNNY_WEBHOOK_SECRET,
   );
 }
 
@@ -34,7 +38,10 @@ export interface BunnyCreatedVideo {
 /** Bunny kütüphanesinde boş video kaydı oluşturur ve GUID döner. */
 export async function createVideo(title: string): Promise<BunnyCreatedVideo> {
   if (!isBunnyConfigured()) {
-    // Mock mod — deterministik olmayan sahte GUID
+    if (!developmentFallbackEnabled()) {
+      throw new Error("BUNNY_NOT_CONFIGURED");
+    }
+    // Yalnız geliştirme/test modu — deterministik olmayan sahte GUID.
     return { guid: `mock-${crypto.randomUUID()}`, mock: true };
   }
 

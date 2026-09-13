@@ -49,4 +49,9 @@ jobs:
       - run: npm run test:ci
       - run: npm run build
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - name: E2E ürün akışları
+        run: npm run test:e2e:core
+      - name: WCAG 2.1 AA axe kapısı
+        run: npm run test:e2e:a11y
+      - name: Görsel regresyon kapısı
+        run: npm run test:e2e:visual

@@ -26,6 +26,7 @@ import {
   getPublishedHotelContent,
   getPublishedReviews,
   getPublishedTours,
+  matchesSeason,
 } from "@/lib/hotels-repo";
 import { ViewTracker } from "@/components/guest/analytics-tracker";
 import { AmenitiesSection } from "@/components/guest/amenities-section";
@@ -41,7 +42,11 @@ import { amenityLabel } from "@/lib/amenities-catalog";
 import { resolveGuestRoomPrice } from "@/lib/guest-pricing";
 import { formatPrice } from "@/lib/price";
 
-type PageProps = { params: Promise<{ slug: string }> };
+export type HotelDetailSurface = "yaz" | "kis";
+export type HotelDetailPageProps = {
+  params: Promise<{ slug: string }>;
+  surface?: HotelDetailSurface;
+};
 
 /** Öne çıkan olanak kutuları için ikon eşlemesi — eşleşmeyen anahtar için varsayılan. */
 const AMENITY_ICONS: Record<string, typeof IconPool> = {
@@ -69,17 +74,28 @@ const AMENITY_ICONS: Record<string, typeof IconPool> = {
   "evcil-hayvan": IconPaw,
 };
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateHotelMetadata(
+  { params }: HotelDetailPageProps,
+  surface: HotelDetailSurface = "yaz",
+): Promise<Metadata> {
   const { slug } = await params;
   const hotel = await getPublishedHotelBySlug(slug);
   if (!hotel) return { title: "Otel" };
+  if (surface === "kis") {
+    const content = await getPublishedHotelContent(slug);
+    if (!matchesSeason(content.specs.seasons, "kis")) return { title: "Otel" };
+  }
   return {
     title: hotel.name,
     description: hotel.shortDescription,
   };
 }
 
-export default async function HotelPage({ params }: PageProps) {
+export async function generateMetadata(props: HotelDetailPageProps): Promise<Metadata> {
+  return generateHotelMetadata(props);
+}
+
+export async function HotelDetailPage({ params, surface = "yaz" }: HotelDetailPageProps) {
   const { slug } = await params;
   const hotel = await getPublishedHotelBySlug(slug);
   if (!hotel) notFound();
@@ -89,6 +105,15 @@ export default async function HotelPage({ params }: PageProps) {
     getPublishedReviews(slug),
     getPublishedTours(slug),
   ]);
+
+  const isWinter = surface === "kis";
+  // Kış detay rotası da vitrinle aynı lansman korumasına tabidir. Sezonu boş
+  // eski tesisler yaz detayında çalışmaya devam eder, kış rotasında 404 olur.
+  if (isWinter && !matchesSeason(content.specs.seasons, "kis")) notFound();
+
+  const browseHref = isWinter ? "/kis/oteller" : "/browse";
+  const tourHref = (tourId: string) =>
+    `/tours/${slug}/${tourId}${isWinter ? "?surface=kis" : ""}`;
 
   // Otelin genel turu (oda turu olmayan ilk tur); yoksa ilk tur.
   const featuredTour = tours.find((t) => t.roomSlug == null) ?? tours[0];
@@ -133,7 +158,10 @@ export default async function HotelPage({ params }: PageProps) {
   const currency = cheapest?.currency ?? content.rooms.find((r) => r.currency)?.currency ?? "TRY";
 
   return (
-    <div className="er-container" style={{ paddingBlock: "clamp(20px, 3vw, 32px)" }}>
+    <div
+      className={`er-container${isWinter ? " er-winter-detail" : ""}`}
+      style={{ paddingBlock: "clamp(20px, 3vw, 32px)" }}
+    >
       {/* Otel görüntüleme olayı — panel analitiğinin huni girişi */}
       <ViewTracker
         eventType="hotel_view"
@@ -156,78 +184,83 @@ export default async function HotelPage({ params }: PageProps) {
           marginBottom: 10,
         }}
       >
-        <Link href="/browse" style={{ color: "var(--er-primary)" }}>
+        <Link href={browseHref} style={{ color: "var(--er-primary)" }}>
           Oteller
         </Link>
         <IconChevronRight size={13} />
         <span>{[hotel.city, hotel.country].filter(Boolean).join(", ")}</span>
       </nav>
 
-      <div style={{ marginBottom: 20 }}>
-        <h1 className="er-display er-h1">{hotel.name}</h1>
+      <div className={isWinter ? "er-winter-detail-hero" : undefined}>
         <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 14,
-            flexWrap: "wrap",
-            marginTop: 10,
-          }}
+          className={isWinter ? "er-winter-detail-title" : undefined}
+          style={{ marginBottom: 20 }}
         >
-          {stars ? (
-            <span style={{ display: "inline-flex", gap: 2 }} aria-label={`${stars} yıldız`}>
-              {Array.from({ length: stars }).map((_, i) => (
-                <IconStarFilled key={i} size={16} style={{ color: "var(--er-cta)" }} />
-              ))}
-            </span>
-          ) : null}
-          {reviews.count > 0 && reviews.average != null && (
-            <span style={{ fontSize: 14, color: "var(--er-text-muted)" }}>
-              <strong style={{ color: "var(--er-primary)" }}>
-                {reviews.average.toLocaleString("tr-TR", { minimumFractionDigits: 1 })}
-              </strong>{" "}
-              ({reviews.count} değerlendirme)
-            </span>
-          )}
-          {content.specs.address && (
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 5,
-                fontSize: 14,
-                color: "var(--er-text-muted)",
-              }}
-            >
-              <IconMapPin size={15} stroke={1.8} />
-              {content.specs.address}
-            </span>
-          )}
+          <h1 className="er-display er-h1">{hotel.name}</h1>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              flexWrap: "wrap",
+              marginTop: 10,
+            }}
+          >
+            {stars ? (
+              <span style={{ display: "inline-flex", gap: 2 }} aria-label={`${stars} yıldız`}>
+                {Array.from({ length: stars }).map((_, i) => (
+                  <IconStarFilled key={i} size={16} style={{ color: "var(--er-cta)" }} />
+                ))}
+              </span>
+            ) : null}
+            {reviews.count > 0 && reviews.average != null && (
+              <span style={{ fontSize: 14, color: "var(--er-text-muted)" }}>
+                <strong style={{ color: "var(--er-primary)" }}>
+                  {reviews.average.toLocaleString("tr-TR", { minimumFractionDigits: 1 })}
+                </strong>{" "}
+                ({reviews.count} değerlendirme)
+              </span>
+            )}
+            {content.specs.address && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  fontSize: 14,
+                  color: "var(--er-text-muted)",
+                }}
+              >
+                <IconMapPin size={15} stroke={1.8} />
+                {content.specs.address}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* ── Galeri ızgarası ───────────────────────────────────────────────── */}
-      {gridImages.length > 0 && (
-        <div
-          className="er-gallery"
-          data-count={gridImages.length}
-          style={{ marginBottom: "clamp(24px, 3vw, 40px)" }}
-        >
-          {gridImages.map((img, i) => (
-            <div key={img.url + i}>
-              <img src={img.url} alt={img.caption ?? hotel.name} />
-              {i === gridImages.length - 1 && galleryImages.length > gridImages.length && (
-                <span
-                  className="er-rating-badge"
-                  style={{ position: "absolute", right: 12, bottom: 12 }}
-                >
-                  +{galleryImages.length - gridImages.length} fotoğraf
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+        {/* ── Galeri ızgarası ─────────────────────────────────────────────── */}
+        {gridImages.length > 0 && (
+          <div
+            className="er-gallery"
+            data-count={gridImages.length}
+            style={{ marginBottom: "clamp(24px, 3vw, 40px)" }}
+          >
+            {gridImages.map((img, i) => (
+              <div key={img.url + i}>
+                <img src={img.url} alt={img.caption ?? hotel.name} />
+                {i === gridImages.length - 1 && galleryImages.length > gridImages.length && (
+                  <span
+                    className="er-rating-badge"
+                    style={{ position: "absolute", right: 12, bottom: 12 }}
+                  >
+                    +{galleryImages.length - gridImages.length} fotoğraf
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* ── İçerik + rezervasyon paneli ───────────────────────────────────── */}
       <div className="er-detail-grid">
@@ -339,13 +372,13 @@ export default async function HotelPage({ params }: PageProps) {
             </div>
           )}
 
-          <Link href={`/inquiry?hotel=${slug}`} className="er-btn er-btn-cta er-btn-block">
+          <Link href={`${isWinter ? "/kis/talep" : "/inquiry"}?hotel=${slug}`} className="er-btn er-btn-cta er-btn-block">
             Rezervasyon Talebi Gönder
           </Link>
 
           {featuredTour && (
             <Link
-              href={`/tours/${slug}/${featuredTour.tourId}`}
+              href={tourHref(featuredTour.tourId)}
               className="er-btn er-btn-primary er-btn-block"
             >
               <IconView360 size={20} />
@@ -364,7 +397,7 @@ export default async function HotelPage({ params }: PageProps) {
                 {tours.slice(0, 4).map((t) => (
                   <Link
                     key={t.tourId}
-                    href={`/tours/${slug}/${t.tourId}`}
+                    href={tourHref(t.tourId)}
                     className="er-link"
                     style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
                   >
@@ -405,4 +438,8 @@ export default async function HotelPage({ params }: PageProps) {
       </div>
     </div>
   );
+}
+
+export default async function HotelPage(props: HotelDetailPageProps) {
+  return <HotelDetailPage {...props} />;
 }

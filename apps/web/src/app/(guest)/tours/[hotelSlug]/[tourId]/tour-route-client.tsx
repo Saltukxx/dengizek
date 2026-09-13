@@ -10,15 +10,31 @@ type Props = {
   hotelName: string;
   /** ?room= bağlamı — talep formunu ön doldurur ve geri bağlantısını odaya çevirir. */
   contextRoomSlug?: string;
+  surface?: "yaz" | "kis";
 };
 
-export function TourRouteClient({ manifest, hotelSlug, hotelName, contextRoomSlug }: Props) {
+export function TourRouteClient({
+  manifest,
+  hotelSlug,
+  hotelName,
+  contextRoomSlug,
+  surface = "yaz",
+}: Props) {
+  const backHref =
+    surface === "kis"
+      ? `/kis/oteller/${hotelSlug}`
+      : contextRoomSlug
+        ? `/hotels/${hotelSlug}/rooms/${contextRoomSlug}`
+        : `/hotels/${hotelSlug}`;
+
   return (
     <TourPlayer
       manifest={manifest}
+      hotelName={hotelName}
+      surface={surface}
       contextRoomSlug={contextRoomSlug}
-      backHref={contextRoomSlug ? `/hotels/${hotelSlug}/rooms/${contextRoomSlug}` : `/hotels/${hotelSlug}`}
-      backLabel={contextRoomSlug ? "Oda sayfasına dön" : `${hotelName} sayfasına dön`}
+      backHref={backHref}
+      backLabel={surface === "kis" ? "Kış oteline dön" : contextRoomSlug ? "Oda sayfasına dön" : `${hotelName} sayfasına dön`}
       onComplete={() => {
         showNotification({
           title: "Tur bitti",

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { ColorSchemeScript, mantineHtmlProps } from "@mantine/core";
-import { Inter, Manrope, Plus_Jakarta_Sans } from "next/font/google";
+import { EB_Garamond, Hanken_Grotesk, Inter, Manrope, Plus_Jakarta_Sans } from "next/font/google";
 import { AppProviders } from "@/components/providers";
 import "./globals.css";
 
@@ -25,6 +25,19 @@ const inter = Inter({
   display: "swap",
 });
 
+// Alpine Nocturne: kış yüzeyinde editoryal başlık + yüksek okunurluklu UI.
+const ebGaramond = EB_Garamond({
+  variable: "--font-eb-garamond",
+  subsets: ["latin", "latin-ext"],
+  display: "swap",
+});
+
+const hankenGrotesk = Hanken_Grotesk({
+  variable: "--font-hanken-grotesk",
+  subsets: ["latin", "latin-ext"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: {
     default: "Dengizek — Otel video turları",
@@ -45,7 +58,7 @@ export default function RootLayout({
     // elemanda görünür olmaları gerekir.
     <html
       lang="tr"
-      className={`${plusJakarta.variable} ${manrope.variable} ${inter.variable}`}
+      className={`${plusJakarta.variable} ${manrope.variable} ${inter.variable} ${ebGaramond.variable} ${hankenGrotesk.variable}`}
       {...mantineHtmlProps}
     >
       <head>

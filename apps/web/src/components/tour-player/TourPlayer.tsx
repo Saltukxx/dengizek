@@ -18,9 +18,11 @@ import {
   IconChevronDown,
   IconChevronUp,
   IconMaximize,
+  IconMessageCircle,
   IconMinimize,
   IconPlayerPlayFilled,
   IconRefresh,
+  IconSparkles,
   IconVolume,
 } from "@tabler/icons-react";
 import Link from "next/link";
@@ -59,6 +61,8 @@ const GUIDE_PEEK_HEIGHT = 210;
 
 type TourPlayerProps = {
   manifest: TourManifest;
+  hotelName?: string;
+  surface?: "yaz" | "kis";
   /** ?room= bağlamı — AI oda belirtmediğinde talep formu bununla doldurulur. */
   contextRoomSlug?: string;
   backHref: string;
@@ -69,6 +73,8 @@ type TourPlayerProps = {
 
 export function TourPlayer({
   manifest,
+  hotelName,
+  surface = "yaz",
   contextRoomSlug,
   backHref,
   backLabel = "Otele dön",
@@ -78,6 +84,10 @@ export function TourPlayer({
   const reduceMotion = useReducedMotion();
   const isMobileGuide = useMediaQuery("(max-width: 48em)");
   const router = useRouter();
+  const isWinter = surface === "kis";
+  const inquiryPath = isWinter ? "/kis/talep" : "/inquiry";
+  const guidePeekHeight = isWinter ? 112 : GUIDE_PEEK_HEIGHT;
+  const rootClassName = `er-tour-page${isWinter ? " er-tour-winter" : ""}`;
   const {
     videoRef,
     machine,
@@ -149,11 +159,13 @@ export function TourPlayer({
     dismissResume();
   }, [resumeAvailable, dismissResume, goToStepId]);
 
-  // Otel adı: hotelSlug'dan türet
-  const hotelName = manifest.hotelSlug
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+  // Gerçek ad route'tan gelir; bağımsız kullanımda slug okunur bir ada çevrilir.
+  const resolvedHotelName =
+    hotelName?.trim() ||
+    manifest.hotelSlug
+      .split("-")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
 
   const {
     messages: guideMessages,
@@ -182,7 +194,7 @@ export function TourPlayer({
       if (inquiryRoom) params.set("room", inquiryRoom);
       const step = currentStep?.stepId;
       if (step) params.set("step", step);
-      router.push(`/inquiry?${params.toString()}`);
+      router.push(`${inquiryPath}?${params.toString()}`);
     },
   });
 
@@ -444,7 +456,7 @@ export function TourPlayer({
   if (machine.phase === "error") {
     return (
       <Box
-        className="er-tour-page"
+        className={rootClassName}
         style={{
           height: "100dvh",
           display: "flex",
@@ -484,7 +496,7 @@ export function TourPlayer({
   if (machine.phase === "ended") {
     return (
       <Box
-        className="er-tour-page"
+        className={rootClassName}
         style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
       >
         <div className="er-panel" style={{ padding: 32, maxWidth: 480, textAlign: "center" }}>
@@ -495,7 +507,7 @@ export function TourPlayer({
             Rehberli turu tamamladınız. Beğendiyseniz tesise bir talep bırakın.
           </Text>
           <Group justify="center" gap="sm" mt={24}>
-            <Link href={`/inquiry?hotel=${manifest.hotelSlug}`} className="er-btn er-btn-cta">
+            <Link href={`${inquiryPath}?hotel=${manifest.hotelSlug}`} className="er-btn er-btn-cta">
               Rezervasyon Talebi
             </Link>
             <Link href={backHref} className="er-btn er-btn-ghost">
@@ -535,7 +547,7 @@ export function TourPlayer({
       messages={guideMessages}
       isThinking={guideThinking}
       isAutoTour={isAutoTour}
-      hotelName={hotelName}
+      hotelName={resolvedHotelName}
       personaName={manifest.hotelProfile?.aiPersona}
       detectedLanguage={detectedLanguage}
       onSendMessage={sendMessage}
@@ -547,6 +559,7 @@ export function TourPlayer({
 
   const resumeBanner = resumeAvailable && (
     <Box
+      className="er-tour-resume"
       pos="absolute"
       top={isMobileGuide ? 110 : 88}
       left="50%"
@@ -762,7 +775,7 @@ export function TourPlayer({
             pos="absolute"
             left={{ base: 24, md: 64 }}
             bottom={{
-              base: isMobileGuide ? (guideExpanded ? 420 : GUIDE_PEEK_HEIGHT + 110) : 110,
+              base: isMobileGuide ? (guideExpanded ? 420 : guidePeekHeight + 110) : 110,
               md: 116,
             }}
             maw={{ base: "calc(100% - 48px)", md: 660 }}
@@ -820,7 +833,7 @@ export function TourPlayer({
             reduceMotion={!!reduceMotion}
             isPausedForInteraction={machine.phase === "pausedForInteraction"}
             bottomOffset={
-              isMobileGuide ? (guideExpanded ? "58dvh" : GUIDE_PEEK_HEIGHT) : 0
+              isMobileGuide ? (guideExpanded ? "58dvh" : guidePeekHeight) : 0
             }
             onSeek={onSeek}
             onTogglePlay={togglePlay}
@@ -832,7 +845,7 @@ export function TourPlayer({
 
   if (isMobileGuide) {
     return (
-      <Box className="er-tour-page" style={{ height: "100dvh", overflow: "hidden", position: "relative" }}>
+      <Box className={rootClassName} style={{ height: "100dvh", overflow: "hidden", position: "relative" }}>
         <VisuallyHidden component="p" role="status" aria-live="polite">
           {announce}
         </VisuallyHidden>
@@ -860,7 +873,7 @@ export function TourPlayer({
               style={{ fontSize: 14, color: "#fff", textShadow: "0 1px 10px rgba(14,31,64,0.6)" }}
               lineClamp={1}
             >
-              {hotelName}
+              {resolvedHotelName}
             </Text>
             <Text
               style={{ fontSize: 12, color: "rgba(255,255,255,0.85)" }}
@@ -890,7 +903,7 @@ export function TourPlayer({
           left={0}
           right={0}
           bottom={0}
-          h={guideExpanded ? "58dvh" : GUIDE_PEEK_HEIGHT}
+          h={guideExpanded ? "58dvh" : guidePeekHeight}
           style={{
             zIndex: 16,
             borderTop: "1px solid var(--er-line)",
@@ -914,21 +927,33 @@ export function TourPlayer({
           >
             {guideExpanded ? <IconChevronDown size={24} /> : <IconChevronUp size={24} />}
           </ActionIcon>
-          {guidePanel}
+          {isWinter && !guideExpanded ? (
+            <div className="er-winter-tour-mobile-actions">
+              <button type="button" onClick={() => setGuideExpanded(true)}>
+                <IconSparkles size={18} /> Rehbere Sor
+              </button>
+              <Link href={`${inquiryPath}?hotel=${manifest.hotelSlug}&tour=${manifest.tourId}&source=tour_player`}>
+                <IconMessageCircle size={18} /> Talep Gönder
+              </Link>
+            </div>
+          ) : (
+            guidePanel
+          )}
         </Box>
       </Box>
     );
   }
 
   return (
-    <Box className="er-tour-page" style={{ height: "100dvh", overflow: "hidden", position: "relative" }}>
+    <Box className={rootClassName} style={{ height: "100dvh", overflow: "hidden", position: "relative" }}>
       <VisuallyHidden component="p" role="status" aria-live="polite">
         {announce}
       </VisuallyHidden>
       <TourHeader
-        hotelName={hotelName}
+        hotelName={resolvedHotelName}
         hotelSlug={manifest.hotelSlug}
         backHref={backHref}
+        surface={surface}
       />
       {resumeBanner}
 

@@ -6,9 +6,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  Alert,
   Badge,
   Group,
-  Loader,
   Paper,
   Select,
   SimpleGrid,
@@ -17,10 +17,13 @@ import {
   Tabs,
   Text,
 } from "@mantine/core";
-import { IconCalendarEvent, IconReceipt2 } from "@tabler/icons-react";
+import { IconCalendarEvent, IconInfoCircle, IconReceipt2 } from "@tabler/icons-react";
 import { bookingStatusLabels, paymentStatusLabels } from "@/lib/labels";
 import { formatPrice } from "@/lib/price";
 import { ListPagination } from "@/components/dashboard/list-pagination";
+import { panelApi } from "@/lib/panel-api";
+import type { RuntimeCapabilities } from "@/lib/runtime-capabilities";
+import { PanelEmpty, PanelError, PanelLoading } from "@/components/panel-resource-state";
 
 interface HotelOption {
   id: string;
@@ -68,18 +71,26 @@ function BookingsTab() {
   const [sayfa, setSayfa] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     const params = new URLSearchParams({ sayfa: String(sayfa) });
     if (durum) params.set("durum", durum);
     if (hotelId) params.set("hotelId", hotelId);
-    const res = await fetch(`/api/admin/bookings?${params}`);
-    const json = await res.json();
-    if (json.ok) {
+    setError(null);
+    try {
+      const json = await panelApi<{
+        bookings: BookingRow[];
+        hotels?: HotelOption[];
+        totalCount?: number;
+        hasMore?: boolean;
+      }>(`/api/admin/bookings?${params}`);
       setBookings(json.bookings);
       setHotels(json.hotels ?? []);
       setTotalCount(json.totalCount ?? 0);
       setHasMore(json.hasMore ?? false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Rezervasyonlar yüklenemedi.");
     }
   }, [durum, hotelId, sayfa]);
 
@@ -91,7 +102,8 @@ function BookingsTab() {
     setSayfa(1);
   }, [durum, hotelId]);
 
-  if (!bookings) return <Loader />;
+  if (error) return <PanelError message={error} onRetry={() => void reload()} />;
+  if (!bookings) return <PanelLoading label="Rezervasyonlar yükleniyor…" />;
 
   return (
     <Stack gap="md">
@@ -129,9 +141,7 @@ function BookingsTab() {
             {bookings.length === 0 && (
               <Table.Tr>
                 <Table.Td colSpan={5}>
-                  <Text c="dimmed" size="sm" py="sm">
-                    Rezervasyon bulunamadı.
-                  </Text>
+                  <PanelEmpty title="Rezervasyon bulunamadı" description="Bu filtreyle eşleşen rezervasyon yok." />
                 </Table.Td>
               </Table.Tr>
             )}
@@ -184,19 +194,38 @@ function PaymentsTab() {
   const [sayfa, setSayfa] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [capabilities, setCapabilities] = useState<RuntimeCapabilities | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     const params = new URLSearchParams({ sayfa: String(sayfa) });
     if (durum) params.set("durum", durum);
     if (hotelId) params.set("hotelId", hotelId);
-    const res = await fetch(`/api/admin/payments?${params}`);
-    const json = await res.json();
-    if (json.ok) {
+    setError(null);
+    try {
+      const capabilityJson = await panelApi<{ capabilities: RuntimeCapabilities }>(
+        "/api/manager/capabilities",
+      );
+      setCapabilities(capabilityJson.capabilities);
+      if (!capabilityJson.capabilities.payments) {
+        setPayments([]);
+        setTotalsByCurrency({});
+        return;
+      }
+      const json = await panelApi<{
+        payments: PaymentRow[];
+        hotels?: HotelOption[];
+        totalsByCurrency?: Record<string, number>;
+        totalCount?: number;
+        hasMore?: boolean;
+      }>(`/api/admin/payments?${params}`);
       setPayments(json.payments);
       setHotels(json.hotels ?? []);
       setTotalsByCurrency(json.totalsByCurrency ?? {});
       setTotalCount(json.totalCount ?? 0);
       setHasMore(json.hasMore ?? false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ödeme kayıtları yüklenemedi.");
     }
   }, [durum, hotelId, sayfa]);
 
@@ -208,7 +237,17 @@ function PaymentsTab() {
     setSayfa(1);
   }, [durum, hotelId]);
 
-  if (!payments) return <Loader />;
+  if (error) return <PanelError message={error} onRetry={() => void reload()} />;
+  if (!payments || !capabilities) return <PanelLoading label="Ödeme durumu yükleniyor…" />;
+
+  if (!capabilities.payments) {
+    return (
+      <Alert color="blue" icon={<IconInfoCircle size={20} />} title="Ödeme altyapısı hazırlanıyor">
+        Sağlayıcı etkinleştirilene kadar platform tahsilat raporu üretmez. Rezervasyonlar
+        izlenmeye devam eder; bu alan hazır olduğunda gerçek ödeme kayıtlarını gösterecek.
+      </Alert>
+    );
+  }
 
   const currencyEntries = Object.entries(totalsByCurrency);
 
@@ -263,9 +302,7 @@ function PaymentsTab() {
             {payments.length === 0 && (
               <Table.Tr>
                 <Table.Td colSpan={6}>
-                  <Text c="dimmed" size="sm" py="sm">
-                    Ödeme kaydı bulunamadı.
-                  </Text>
+                  <PanelEmpty title="Ödeme kaydı bulunamadı" description="Bu filtreyle eşleşen gerçek tahsilat kaydı yok." />
                 </Table.Td>
               </Table.Tr>
             )}

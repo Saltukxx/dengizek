@@ -9,41 +9,53 @@ import {
   IconLayoutDashboard,
   IconMail,
   IconMenu2,
+  IconSnowflake,
+  IconSun,
   IconUserCircle,
   IconX,
 } from "@tabler/icons-react";
 import { ConsentBanner } from "./consent-banner";
 
-const NAV = [
-  { href: "/", label: "Anasayfa" },
-  { href: "/browse", label: "Oteller" },
-  { href: "/inquiry", label: "İletişim" },
-  { href: "/dashboard", label: "Otel Paneli" },
-] as const;
-
-const MOBILE_NAV = [
-  { href: "/", label: "Anasayfa", Icon: IconHome },
-  { href: "/browse", label: "Oteller", Icon: IconBuildingSkyscraper },
-  { href: "/inquiry", label: "İletişim", Icon: IconMail },
-  { href: "/dashboard", label: "Panel", Icon: IconLayoutDashboard },
-] as const;
-
-const FOOTER_LINKS = {
-  kesfet: [
-    { href: "/browse", label: "Otelleri Keşfet" },
-    { href: "/inquiry", label: "Talep Gönder" },
-  ],
-  kurumsal: [
-    { href: "/dashboard", label: "Otel Paneli" },
-    { href: "/giris", label: "Giriş Yap" },
-  ],
+/**
+ * Yaz ve kış yüzeyleri aynı kabuğu paylaşır; yalnızca rotalar, etiketler ve
+ * tema sınıfı değişir. Tasarım sistemi tek yerde kalır (globals.css
+ * .er-winter token override'ları).
+ */
+const SURFACES = {
+  yaz: {
+    themeClass: "",
+    home: "/",
+    browse: "/browse",
+    browseLabel: "Oteller",
+    otherHref: "/kis",
+    otherLabel: "Kış Otelleri",
+    otherIcon: IconSnowflake,
+  },
+  kis: {
+    themeClass: "er-winter",
+    home: "/kis",
+    browse: "/kis/oteller",
+    browseLabel: "Kayak Otelleri",
+    otherHref: "/",
+    otherLabel: "Yaz Otelleri",
+    otherIcon: IconSun,
+  },
 } as const;
+
+export type GuestSurface = keyof typeof SURFACES;
+
+/** Ana sayfa rotaları — nav aktifliği bunlarda tam eşleşme ister. */
+const HOME_HREFS = [SURFACES.yaz.home, SURFACES.kis.home];
 
 /** Sunucuda çözülen oturumun kabukta gösterilen kısmı. */
 export type GuestAccount = { name: string; role: "admin" | "manager" };
 
-function navActive(path: string | null, href: string) {
-  if (href === "/") return path === "/";
+/**
+ * Ana sayfa bağlantıları TAM eşleşme ister: "/kis" ile "/kis/oteller" aynı
+ * anda aktif görünmesin.
+ */
+function navActive(path: string | null, href: string, homeHrefs: string[]) {
+  if (homeHrefs.includes(href)) return path === href;
   return path?.startsWith(href) ?? false;
 }
 
@@ -56,6 +68,44 @@ export function GuestAppShell({
 }) {
   const path = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Hangi yüzeydeyiz? Rotadan türetilir — layout'tan prop geçirmeye gerek yok.
+  const surfaceKey: GuestSurface = path?.startsWith("/kis") ? "kis" : "yaz";
+  const surface = SURFACES[surfaceKey];
+
+  const NAV =
+    surfaceKey === "kis"
+      ? [
+          { href: surface.home, label: "Kış Otelleri" },
+          { href: surface.browse, label: "Oteller" },
+          { href: "/inquiry", label: "Nasıl Çalışır?" },
+          { href: "/dashboard", label: "Otelini Ekle" },
+        ]
+      : [
+          { href: surface.home, label: "Anasayfa" },
+          { href: surface.browse, label: surface.browseLabel },
+          { href: "/inquiry", label: "İletişim" },
+          { href: "/dashboard", label: "Otel Paneli" },
+        ];
+
+  const MOBILE_NAV = [
+    { href: surface.home, label: "Anasayfa", Icon: IconHome },
+    { href: surface.browse, label: "Oteller", Icon: IconBuildingSkyscraper },
+    { href: "/inquiry", label: "İletişim", Icon: IconMail },
+    { href: "/dashboard", label: "Panel", Icon: IconLayoutDashboard },
+  ];
+
+  const FOOTER_LINKS = {
+    kesfet: [
+      { href: surface.browse, label: "Otelleri Keşfet" },
+      { href: surface.otherHref, label: surface.otherLabel },
+      { href: "/inquiry", label: "Talep Gönder" },
+    ],
+    kurumsal: [
+      { href: "/dashboard", label: "Otel Paneli" },
+      { href: "/giris", label: "Giriş Yap" },
+    ],
+  };
 
   // Giriş yapmış kullanıcıya paneli, misafire giriş bağlantısını göster.
   const accountHref = account?.role === "admin" ? "/admin" : "/dashboard";
@@ -73,8 +123,10 @@ export function GuestAppShell({
       </>
     );
 
+  const SeasonSwitchIcon = surface.otherIcon;
+
   return (
-    <>
+    <div className={surface.themeClass}>
       <header className="er-header">
         <button
           type="button"
@@ -85,7 +137,7 @@ export function GuestAppShell({
           <IconMenu2 size={22} />
         </button>
 
-        <Link href="/" className="er-brand">
+        <Link href={surface.home} className="er-brand">
           Dengizek
         </Link>
 
@@ -95,7 +147,7 @@ export function GuestAppShell({
               key={n.href}
               href={n.href}
               className="er-nav-link"
-              data-active={navActive(path, n.href)}
+              data-active={navActive(path, n.href, HOME_HREFS)}
             >
               {n.label}
             </Link>
@@ -103,6 +155,15 @@ export function GuestAppShell({
         </nav>
 
         <div className="er-header-actions">
+          {/* Sezonlar arası geçiş — iki yüzey birbirine buradan bağlanır */}
+          <Link
+            href={surface.otherHref}
+            className="er-pill"
+            style={{ minHeight: 36, padding: "0 14px", fontSize: 13 }}
+          >
+            <SeasonSwitchIcon size={16} stroke={1.8} />
+            {surface.otherLabel}
+          </Link>
           {account ? (
             <Link
               href={accountHref}
@@ -118,8 +179,8 @@ export function GuestAppShell({
               Giriş Yap
             </Link>
           )}
-          <Link href="/inquiry" className="er-btn er-btn-primary">
-            Talep Gönder
+          <Link href="/inquiry" className={surfaceKey === "kis" ? "er-btn er-btn-cta" : "er-btn er-btn-primary"}>
+            {surfaceKey === "kis" ? "Kış Planı Oluştur" : "Talep Gönder"}
           </Link>
         </div>
       </header>
@@ -154,7 +215,7 @@ export function GuestAppShell({
                 key={n.href}
                 href={n.href}
                 onClick={closeDrawer}
-                data-active={navActive(path, n.href)}
+                data-active={navActive(path, n.href, HOME_HREFS)}
               >
                 {n.label}
               </Link>
@@ -217,7 +278,7 @@ export function GuestAppShell({
 
       <nav className="er-mobile-nav" aria-label="Mobil navigasyon">
         {MOBILE_NAV.map(({ href, label, Icon }) => (
-          <Link key={href} href={href} data-active={navActive(path, href)}>
+          <Link key={href} href={href} data-active={navActive(path, href, HOME_HREFS)}>
             <Icon size={22} stroke={1.7} />
             {label}
           </Link>
@@ -225,6 +286,6 @@ export function GuestAppShell({
       </nav>
 
       <ConsentBanner />
-    </>
+    </div>
   );
 }

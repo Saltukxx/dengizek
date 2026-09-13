@@ -13,6 +13,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { panelApi } from "@/lib/panel-api";
 
 export interface MyHotel {
   id: string;
@@ -49,14 +50,10 @@ export function HotelProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const loadHotels = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const res = await fetch("/api/manager/hotels");
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error ?? "Oteller yüklenemedi.");
-        setHotels([]);
-        return;
-      }
+      const json = await panelApi<{ hotels: MyHotel[] }>("/api/manager/hotels");
       if (json.hotels.length === 0) {
         setError(
           "Hesabınıza bağlı bir tesis bulunamadı. Lütfen platform yöneticisiyle iletişime geçin.",
@@ -70,8 +67,8 @@ export function HotelProvider({ children }: { children: ReactNode }) {
       const stored = localStorage.getItem(STORAGE_KEY);
       const match = json.hotels.find((h: MyHotel) => h.id === stored);
       setSelectedId(match?.id ?? json.hotels[0].id);
-    } catch {
-      setError("Sunucuya ulaşılamadı.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sunucuya ulaşılamadı.");
       setHotels([]);
     } finally {
       setLoading(false);
@@ -117,6 +114,6 @@ export function useHotelContext() {
 
 /** Geriye uyumluluk — mevcut bileşenler aynı imzayı korur. */
 export function useMyHotel() {
-  const { hotel, loading, error } = useHotelContext();
-  return { hotel, loading, error };
+  const { hotel, loading, error, reload } = useHotelContext();
+  return { hotel, loading, error, reload };
 }
