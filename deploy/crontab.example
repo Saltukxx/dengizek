@@ -1,0 +1,21 @@
+# Dengizek — VPS crontab (Vercel cron'larının yerini alır, bkz. apps/web/vercel.json).
+#
+# Kurulum: `crontab -e` ile bu satırları ekleyin, $CRON_SECRET ve $APP_URL'i
+# gerçek değerlerle değiştirin (.env.production'daki CRON_SECRET ile aynı olmalı).
+# nginx aynı sunucuda çalıştığı için http://localhost yeterli, dışarı çıkmaz.
+
+CRON_SECRET=__buraya_gercek_deger__
+APP_URL=http://localhost
+
+# E-posta kuyruğu — her 5 dakikada
+*/5 * * * * curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" $APP_URL/api/internal/email-outbox >> /var/log/dengizek-cron.log 2>&1
+
+# Medya temizliği — saatte bir (dakika 17)
+17 * * * * curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" $APP_URL/api/internal/media-cleanup >> /var/log/dengizek-cron.log 2>&1
+
+# iCal senkronu — her 30 dakikada
+*/30 * * * * curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" $APP_URL/api/internal/ical-sync >> /var/log/dengizek-cron.log 2>&1
+
+# Günlük Postgres yedeği → R2 — gece 03:00 (Europe/Istanbul; sunucu saat
+# dilimine göre ayarlayın)
+0 3 * * * /opt/dengizek/deploy/backup.sh >> /var/log/dengizek-backup.log 2>&1

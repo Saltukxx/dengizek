@@ -64,6 +64,14 @@ function mediaHostPatterns() {
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // VPS/Docker dağıtımı için: minimal server.js + gerekli node_modules alt
+  // kümesi üretir, imaja tam node_modules kopyalamayı gereksiz kılar.
+  output: "standalone",
+  // Kökte apps/web/pnpm-lock.yaml + kök package-lock.json birlikte bulununca
+  // Turbopack workspace root'u yanlış tahmin ediyordu — sabitle.
+  turbopack: {
+    root: __dirname,
+  },
   images: {
     remotePatterns: [
       {
