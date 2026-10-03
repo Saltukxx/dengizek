@@ -152,7 +152,7 @@ export async function HotelBrowse({
       />
       {season === "kis" && (
         <div className="er-winter-browse-intro">
-          <p className="er-eyebrow">Alpine Nocturne seçkisi</p>
+          <p className="er-eyebrow">Kış seçkisi</p>
           <h1 className="er-display">Kış tatiliniz burada başlıyor</h1>
           <p>Yalnızca kış sezonuna seçilmiş, video turla gezilebilen tesisleri keşfedin.</p>
         </div>
@@ -229,15 +229,8 @@ export async function HotelBrowse({
                 <Link
                   key={band.value || "all"}
                   href={buildHref(basePath, sp, { price: band.value || undefined })}
-                  style={{
-                    padding: "8px 12px",
-                    borderRadius: "var(--er-radius)",
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: (priceBand ?? "") === band.value ? "var(--er-primary)" : "var(--er-text-muted)",
-                    background:
-                      (priceBand ?? "") === band.value ? "var(--er-primary-tint)" : "transparent",
-                  }}
+                  className="er-filter-choice"
+                  data-active={(priceBand ?? "") === band.value}
                 >
                   {band.label}
                 </Link>
@@ -265,22 +258,7 @@ export async function HotelBrowse({
                       fontWeight: active ? 600 : 400,
                     }}
                   >
-                    <span
-                      aria-hidden
-                      style={{
-                        width: 18,
-                        height: 18,
-                        borderRadius: 4,
-                        border: `1px solid ${active ? "var(--er-primary)" : "var(--er-line-strong)"}`,
-                        background: active ? "var(--er-primary)" : "transparent",
-                        display: "grid",
-                        placeItems: "center",
-                        color: "#fff",
-                        fontSize: 12,
-                        lineHeight: 1,
-                        flexShrink: 0,
-                      }}
-                    >
+                    <span className="er-filter-mark" data-active={active} aria-hidden>
                       {active ? "✓" : ""}
                     </span>
                     {a.label}
@@ -298,22 +276,7 @@ export async function HotelBrowse({
                   fontWeight: petsOnly ? 600 : 400,
                 }}
               >
-                <span
-                  aria-hidden
-                  style={{
-                    width: 18,
-                    height: 18,
-                    borderRadius: 4,
-                    border: `1px solid ${petsOnly ? "var(--er-primary)" : "var(--er-line-strong)"}`,
-                    background: petsOnly ? "var(--er-primary)" : "transparent",
-                    display: "grid",
-                    placeItems: "center",
-                    color: "#fff",
-                    fontSize: 12,
-                    lineHeight: 1,
-                    flexShrink: 0,
-                  }}
-                >
+                <span className="er-filter-mark" data-active={petsOnly} aria-hidden>
                   {petsOnly ? "✓" : ""}
                 </span>
                 Evcil hayvan kabul
@@ -338,11 +301,7 @@ export async function HotelBrowse({
                     key={a.key}
                     href={buildHref(basePath, sp, { amenity: amenity === a.key ? undefined : a.key })}
                     className="er-chip"
-                    style={
-                      amenity === a.key
-                        ? { background: "var(--er-primary-tint)", color: "var(--er-primary)" }
-                        : undefined
-                    }
+                    data-active={amenity === a.key}
                   >
                     {a.label}
                   </Link>

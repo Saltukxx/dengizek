@@ -42,7 +42,7 @@ export function PanelNetworkGuard() {
             );
           });
           const response = await Promise.race([nativeFetch(input, init), timeout]);
-          if (!response.ok) {
+          if (!response.ok && (response.status === 401 || response.status >= 500)) {
             const payload = await response.clone().json().catch(() => null) as { error?: string } | null;
             setError(
               response.status === 401

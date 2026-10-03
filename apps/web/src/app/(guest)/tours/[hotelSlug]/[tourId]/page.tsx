@@ -16,7 +16,9 @@ export async function generateMetadata({ params }: Pick<PageProps, "params">): P
   const hotel = await getPublishedHotelBySlug(hotelSlug);
   return {
     title: hotel ? `${hotel.name} — Video turu` : "Video turu",
-    description: "Etkileşimli video turu (demo).",
+    description: hotel
+      ? `${hotel.name} tesisini etkileşimli video turuyla gezin.`
+      : "Etkileşimli video turu.",
   };
 }
 

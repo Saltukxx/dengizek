@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Badge, Box, Button, Group, Paper, ScrollArea, Stack, Text, Title } from "@mantine/core";
 import type { TourStep } from "@/lib/schemas/tour-manifest";
 
@@ -109,8 +110,44 @@ export function TourVideoInteractionInfo({
   onContinue,
   onSelectBranch,
 }: TourVideoInteractionInfoProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    const focusables = () =>
+      Array.from(
+        root.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+      ).filter((el) => !el.hasAttribute("disabled"));
+
+    focusables()[0]?.focus();
+
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Tab") return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    root.addEventListener("keydown", onKey);
+    return () => root.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <Box
+      ref={rootRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={step.title}
       pos="absolute"
       top={0}
       left={0}

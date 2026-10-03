@@ -42,8 +42,6 @@ const emptySpecs = {
   paymentMethods: [],
   seasons: [],
   address: null,
-  phone: null,
-  contactEmail: null,
   airportDistanceKm: null,
   blackoutText: null,
 };
@@ -89,8 +87,6 @@ describe("buildFactCatalog", () => {
         paymentMethods: [],
         seasons: [],
         address: null,
-        phone: null,
-        contactEmail: null,
         airportDistanceKm: null,
         blackoutText: null,
       },

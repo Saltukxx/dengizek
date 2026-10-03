@@ -426,11 +426,11 @@ export function TourPlayer({
         }
         continueFromPause();
       }
-      if (e.key === "ArrowLeft" && canStepBack) {
+      if (e.key === "ArrowLeft" && canStepBack && machine.phase !== "pausedForInteraction") {
         e.preventDefault();
         goPreviousStep();
       }
-      if (e.key === "ArrowRight" && canStepForward) {
+      if (e.key === "ArrowRight" && canStepForward && machine.phase !== "pausedForInteraction") {
         e.preventDefault();
         goNextStep();
       }

@@ -192,6 +192,8 @@ describe("public inquiry API", () => {
       checkOut: "2026-12-13",
       accessTokenHash: "hash:portal-secret",
       accessTokenExpiresAt: new Date("2027-03-10T00:00:00.000Z"),
+      // Telefon gönderilse de saklanmaz: yazışma yalnız portaldan yürür.
+      phone: null,
     });
     expect(JSON.stringify(insertedValues[0])).not.toContain('"accessToken":"portal-secret"');
     expect(mocks.trackEvent).toHaveBeenCalledWith(
@@ -256,4 +258,29 @@ describe("public inquiry API", () => {
     expect(insertedValues[0]).toMatchObject({ hotelId: null, roomId: null, roomSlug: null });
     expect(mocks.notifyHotelMembers).not.toHaveBeenCalled();
   });
+
+  it("ad ve mesajdaki iletişim bilgisini tesise gitmeden maskeler", async () => {
+    const { insertedValues } = makeDb([[{ id: "hotel-db" }]], [{ id: "inquiry-2" }]);
+
+    const res = await POST(
+      request({
+        ...baseBody,
+        roomSlug: undefined,
+        name: "Ada 0532 123 45 67",
+        message: "Beni arayın: 0532 123 45 67 ya da ada.ozel@example.org. 10.12.2026 girişi için.",
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const stored = insertedValues[0] as { name: string; message: string; email: string };
+    expect(stored.name).not.toContain("0532");
+    expect(stored.message).not.toContain("0532");
+    expect(stored.message).not.toContain("example.org");
+    expect(stored.message).toContain("10.12.2026");
+    // Bildirim gövdesi de maskelenmiş metinden üretilir.
+    expect(JSON.stringify(mocks.notifyHotelMembers.mock.calls)).not.toContain("0532");
+    // Misafirin e-postası platformda kalır (portal bağlantısı oraya gider).
+    expect(stored.email).toBe("ada@example.com");
+  });
 });
+

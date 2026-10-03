@@ -9,6 +9,7 @@ import { z } from "zod";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { inquiriesTable } from "@/lib/db/schema";
+import { inquiryForManager } from "@/lib/manager-privacy";
 
 const statusUpdateSchema = z.object({
   durum: z.enum(["yeni", "ilgileniliyor", "kapatildi"], {
@@ -62,5 +63,5 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     .where(eq(inquiriesTable.id, inquiry.id))
     .returning();
 
-  return NextResponse.json({ ok: true, inquiry: updated });
+  return NextResponse.json({ ok: true, inquiry: updated ? inquiryForManager(updated) : null });
 }

@@ -14,6 +14,7 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
+import { usePanelConfirm } from "./panel-confirm";
 
 interface GalleryImage {
   id: string;
@@ -27,6 +28,7 @@ export function PropertyGallerySection({ hotelId }: { hotelId: string }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const lock = usePanelRevision();
   const setLockRevision = lock.setRevision;
+  const { confirm, modal: confirmModal } = usePanelConfirm();
 
   const reload = useCallback(async () => {
     const res = await fetch(`/api/manager/hotels/${hotelId}/gallery`);
@@ -67,7 +69,12 @@ export function PropertyGallerySection({ hotelId }: { hotelId: string }) {
   }
 
   async function removeImage(id: string) {
-    if (!window.confirm("Bu görsel galeriden silinsin mi?")) return;
+    const ok = await confirm({
+      title: "Görseli sil",
+      message: "Bu görsel galeriden silinsin mi?",
+      confirmLabel: "Sil",
+    });
+    if (!ok) return;
     const response = await fetch(`/api/manager/hotels/${hotelId}/gallery`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -146,6 +153,7 @@ export function PropertyGallerySection({ hotelId }: { hotelId: string }) {
       onKeepLocal={lock.keepLocalDraft}
       onLoadLatest={async () => { await reload(); lock.clearConflict(); }}
     />
+    {confirmModal}
     </>
   );
 }

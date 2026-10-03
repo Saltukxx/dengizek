@@ -6,9 +6,9 @@ import {
   Badge,
   Button,
   Group,
-  Loader,
   Modal,
   Paper,
+  ScrollArea,
   Select,
   Stack,
   Table,
@@ -17,7 +17,9 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconPlus, IconTrash } from "@tabler/icons-react";
 import { memberRoleLabels } from "@/lib/labels";
+import { PanelEmpty, PanelError, PanelLoading } from "@/components/panel-resource-state";
 import { useMyHotel } from "./use-my-hotel";
+import { usePanelConfirm } from "./panel-confirm";
 
 interface MemberRow {
   id: string;
@@ -29,7 +31,9 @@ interface MemberRow {
 
 export function TeamManager() {
   const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
+  const { confirm, modal: confirmModal } = usePanelConfirm();
   const [members, setMembers] = useState<MemberRow[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<string>("editor");
@@ -38,22 +42,27 @@ export function TeamManager() {
     if (!hotel) return;
     const res = await fetch(`/api/manager/hotels/${hotel.id}/members`);
     const json = await res.json();
-    if (json.ok) setMembers(json.members);
+    if (json.ok) {
+      setLoadError(null);
+      setMembers(json.members);
+    } else {
+      setLoadError(json.error ?? "Ekip alınamadı.");
+      setMembers([]);
+    }
   }, [hotel]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
-  if (hotelLoading) return <Loader />;
+  if (hotelLoading) return <PanelLoading />;
   if (hotelError) {
-    return (
-      <Alert color="red" icon={<IconAlertCircle size={16} />}>
-        {hotelError}
-      </Alert>
-    );
+    return <PanelError message={hotelError} />;
   }
-  if (!hotel || !members) return <Loader />;
+  if (loadError) {
+    return <PanelError message={loadError} onRetry={() => void reload()} />;
+  }
+  if (!hotel || !members) return <PanelLoading />;
 
   if (hotel.memberRole !== "owner") {
     return (
@@ -81,7 +90,12 @@ export function TeamManager() {
   }
 
   async function removeMember(userId: string) {
-    if (!confirm("Bu üyeyi çıkarmak istediğinize emin misiniz?")) return;
+    const ok = await confirm({
+      title: "Üyeyi çıkar",
+      message: "Bu üyeyi çıkarmak istediğinize emin misiniz?",
+      confirmLabel: "Çıkar",
+    });
+    if (!ok) return;
     const res = await fetch(`/api/manager/hotels/${hotel!.id}/members`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -104,7 +118,8 @@ export function TeamManager() {
         </Button>
       </Group>
       <Paper withBorder radius="md">
-        <Table highlightOnHover>
+        <ScrollArea type="auto">
+        <Table highlightOnHover miw={560}>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Ad</Table.Th>
@@ -114,6 +129,13 @@ export function TeamManager() {
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
+            {members.length === 0 && (
+              <Table.Tr>
+                <Table.Td colSpan={4}>
+                  <PanelEmpty title="Ekipte üye yok" description="E-posta ile yeni üye ekleyin." />
+                </Table.Td>
+              </Table.Tr>
+            )}
             {members.map((m) => (
               <Table.Tr key={m.id}>
                 <Table.Td>{m.name}</Table.Td>
@@ -136,6 +158,7 @@ export function TeamManager() {
             ))}
           </Table.Tbody>
         </Table>
+        </ScrollArea>
       </Paper>
       <Modal opened={open} onClose={() => setOpen(false)} title="Üye ekle">
         <Stack gap="sm">
@@ -157,6 +180,7 @@ export function TeamManager() {
           <Button onClick={addMember}>Ekle</Button>
         </Stack>
       </Modal>
+      {confirmModal}
     </Stack>
   );
 }

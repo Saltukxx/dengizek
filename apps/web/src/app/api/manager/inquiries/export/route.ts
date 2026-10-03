@@ -3,10 +3,11 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { and, desc, eq, type SQL } from "drizzle-orm";
+import { and, desc, eq, ilike, or, type SQL } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { inquiriesTable, inquirySourceEnum, inquiryStatusEnum } from "@/lib/db/schema";
+import { inquiryForManager } from "@/lib/manager-privacy";
 
 function csvEscape(value: string | number | boolean | null | undefined) {
   const s = value == null ? "" : String(value);
@@ -35,6 +36,16 @@ export async function GET(req: Request) {
   const filters: SQL[] = [eq(inquiriesTable.hotelId, guard.hotel.id)];
   if (durum && isValidStatus(durum)) filters.push(eq(inquiriesTable.status, durum));
   if (kaynak && isValidSource(kaynak)) filters.push(eq(inquiriesTable.source, kaynak));
+  // Misafir adı veya mesaj içinde arama — iletişim bilgisi aranmaz.
+  const q = url.searchParams.get("q")?.trim().slice(0, 120);
+  if (q) {
+    const pattern = `%${q.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+    const match = or(
+      ilike(inquiriesTable.name, pattern),
+      ilike(inquiriesTable.message, pattern),
+    );
+    if (match) filters.push(match);
+  }
 
   const db = getDb();
   const rows = await db
@@ -44,13 +55,13 @@ export async function GET(req: Request) {
     .orderBy(desc(inquiriesTable.createdAt));
 
   const header = [
-    "id", "name", "email", "phone", "message", "status", "source", "marketingConsent",
+    "id", "name", "message", "status", "source",
     "checkIn", "checkOut", "adults", "children", "roomSlug", "tourId", "createdAt",
   ].join(",");
 
-  const lines = rows.map((r) =>
+  const lines = rows.map(inquiryForManager).map((r) =>
     [
-      r.id, r.name, r.email, r.phone, r.message, r.status, r.source, r.marketingConsent,
+      r.id, r.name, r.message, r.status, r.source,
       r.checkIn, r.checkOut, r.adults, r.children, r.roomSlug, r.tourId,
       r.createdAt?.toISOString(),
     ].map(csvEscape).join(","),

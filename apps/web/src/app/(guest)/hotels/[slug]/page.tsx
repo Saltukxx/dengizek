@@ -37,12 +37,14 @@ import { HotelMapSection } from "@/components/guest/hotel-map-section";
 import { PoliciesSection } from "@/components/guest/policies-section";
 import { RestaurantsSection } from "@/components/guest/restaurants-section";
 import { RoomsSection } from "@/components/guest/rooms-section";
+import { guestShareMeta } from "@/lib/guest-seo";
+import { guestPaths, type GuestSurface } from "@/lib/guest-surface";
 import { ReviewsSection } from "@/components/guest/reviews-section";
 import { amenityLabel } from "@/lib/amenities-catalog";
 import { resolveGuestRoomPrice } from "@/lib/guest-pricing";
 import { formatPrice } from "@/lib/price";
 
-export type HotelDetailSurface = "yaz" | "kis";
+export type HotelDetailSurface = GuestSurface;
 export type HotelDetailPageProps = {
   params: Promise<{ slug: string }>;
   surface?: HotelDetailSurface;
@@ -85,10 +87,11 @@ export async function generateHotelMetadata(
     const content = await getPublishedHotelContent(slug);
     if (!matchesSeason(content.specs.seasons, "kis")) return { title: "Otel" };
   }
-  return {
+  return guestShareMeta({
     title: hotel.name,
-    description: hotel.shortDescription,
-  };
+    description: hotel.shortDescription ?? undefined,
+    imageUrl: hotel.imageUrl,
+  });
 }
 
 export async function generateMetadata(props: HotelDetailPageProps): Promise<Metadata> {
@@ -111,9 +114,9 @@ export async function HotelDetailPage({ params, surface = "yaz" }: HotelDetailPa
   // eski tesisler yaz detayında çalışmaya devam eder, kış rotasında 404 olur.
   if (isWinter && !matchesSeason(content.specs.seasons, "kis")) notFound();
 
-  const browseHref = isWinter ? "/kis/oteller" : "/browse";
-  const tourHref = (tourId: string) =>
-    `/tours/${slug}/${tourId}${isWinter ? "?surface=kis" : ""}`;
+  const paths = guestPaths(surface);
+  const browseHref = paths.browse;
+  const tourHref = (tourId: string) => paths.tour(slug, tourId);
 
   // Otelin genel turu (oda turu olmayan ilk tur); yoksa ilk tur.
   const featuredTour = tours.find((t) => t.roomSlug == null) ?? tours[0];
@@ -298,6 +301,7 @@ export async function HotelDetailPage({ params, surface = "yaz" }: HotelDetailPa
             rooms={content.rooms}
             promotions={content.promotions}
             ratePlanPrices={content.ratePlanPrices}
+            surface={surface}
           />
           <AvailabilitySection
             hotelSlug={slug}
@@ -329,10 +333,16 @@ export async function HotelDetailPage({ params, surface = "yaz" }: HotelDetailPa
                 {formatPrice(fromOriginalPrice, currency)}
               </span>
             )}
-            <span className="er-price" style={{ fontSize: 30 }}>
-              {fromPrice != null ? formatPrice(fromPrice, currency) : "Talep üzerine"}
-            </span>
-            {fromPrice != null && <span className="er-price-note">/ gece</span>}
+            {fromPrice != null ? (
+              <>
+                <span className="er-price" style={{ fontSize: 30 }}>
+                  {formatPrice(fromPrice, currency)}
+                </span>
+                <span className="er-price-note">/ gece</span>
+              </>
+            ) : (
+              <span className="er-price-note">Fiyat için talep gönderin</span>
+            )}
             {cheapest?.discountLabel && (
               <span
                 className="er-chip"
@@ -372,7 +382,7 @@ export async function HotelDetailPage({ params, surface = "yaz" }: HotelDetailPa
             </div>
           )}
 
-          <Link href={`${isWinter ? "/kis/talep" : "/inquiry"}?hotel=${slug}`} className="er-btn er-btn-cta er-btn-block">
+          <Link href={`${paths.inquiry}?hotel=${slug}`} className="er-btn er-btn-cta er-btn-block">
             Rezervasyon Talebi Gönder
           </Link>
 

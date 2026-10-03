@@ -746,10 +746,15 @@ export const bookingsTable = pgTable("bookings", {
   totalMinor:  integer("total_minor"),
   currency:    text("currency").default("TRY").notNull(),
   notes:       text("notes"),
+  // Konaklama takibi: durum "onaylandi" kalır; giriş/çıkış anı ayrıca tutulur.
+  // Böylece çakışma, iCal ve ödeme kuralları onaylı kaydı aynı görmeye devam eder.
+  checkedInAt:  timestamp("checked_in_at"),
+  checkedOutAt: timestamp("checked_out_at"),
   createdAt:   timestamp("created_at").defaultNow().notNull(),
   updatedAt:   timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
   hotelIdx: index("bookings_hotel_idx").on(table.hotelId),
+  hotelStayIdx: index("bookings_hotel_stay_idx").on(table.hotelId, table.checkIn, table.checkOut),
   statusIdx: index("bookings_status_idx").on(table.status),
   hotelCreatedIdx: index("bookings_hotel_created_idx").on(table.hotelId, table.createdAt),
 }));

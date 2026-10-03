@@ -1,5 +1,12 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import { InquiryForm } from "./inquiry-form";
+import { guestShareMeta } from "@/lib/guest-seo";
+
+export const metadata: Metadata = guestShareMeta({
+  title: "Rezervasyon talebi",
+  description: "Seçtiğiniz otele rezervasyon talebinizi iletin.",
+});
 
 export function InquiryPage() {
   return (

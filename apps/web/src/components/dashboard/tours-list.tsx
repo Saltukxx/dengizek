@@ -7,22 +7,23 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  Alert,
   Badge,
   Button,
   Group,
-  Loader,
   Modal,
   Paper,
+  ScrollArea,
   Stack,
   Table,
   Text,
   TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconExternalLink, IconPencil, IconPlus, IconSend, IconTrash } from "@tabler/icons-react";
+import { IconExternalLink, IconPencil, IconPlus, IconSend, IconTrash } from "@tabler/icons-react";
 import { moderationStatusColors, moderationStatusLabels } from "@/lib/labels";
+import { PanelEmpty, PanelError, PanelLoading } from "@/components/panel-resource-state";
 import { useMyHotel } from "./use-my-hotel";
+import { usePanelConfirm } from "./panel-confirm";
 
 interface TourRow {
   id: string;
@@ -37,7 +38,9 @@ interface TourRow {
 
 export function ToursList() {
   const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
+  const { confirm, modal: confirmModal } = usePanelConfirm();
   const [tours, setTours] = useState<TourRow[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [newTourId, setNewTourId] = useState("");
   const [newTitle, setNewTitle] = useState("");
@@ -47,22 +50,27 @@ export function ToursList() {
     if (!hotel) return;
     const res = await fetch(`/api/manager/hotels/${hotel.id}/tours`);
     const json = await res.json();
-    if (json.ok) setTours(json.tours);
+    if (json.ok) {
+      setLoadError(null);
+      setTours(json.tours);
+    } else {
+      setLoadError(json.error ?? "Turlar alınamadı.");
+      setTours([]);
+    }
   }, [hotel]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
-  if (hotelLoading) return <Loader />;
+  if (hotelLoading) return <PanelLoading />;
   if (hotelError) {
-    return (
-      <Alert color="red" icon={<IconAlertCircle size={16} />}>
-        {hotelError}
-      </Alert>
-    );
+    return <PanelError message={hotelError} />;
   }
-  if (!hotel || !tours) return <Loader />;
+  if (loadError) {
+    return <PanelError message={loadError} onRetry={() => void reload()} />;
+  }
+  if (!hotel || !tours) return <PanelLoading />;
 
   async function createTour() {
     if (!hotel) return;
@@ -101,9 +109,12 @@ export function ToursList() {
 
   async function deleteTour(tourId: string, title: string) {
     if (!hotel) return;
-    if (!confirm(`"${title}" turunu silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Turu sil",
+      message: `"${title}" turunu silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`,
+      confirmLabel: "Sil",
+    });
+    if (!ok) return;
     const res = await fetch(`/api/manager/hotels/${hotel.id}/tours/${tourId}`, {
       method: "DELETE",
     });
@@ -128,7 +139,8 @@ export function ToursList() {
       </Group>
 
       <Paper withBorder radius="md">
-        <Table highlightOnHover>
+        <ScrollArea type="auto">
+        <Table highlightOnHover miw={760}>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Tur</Table.Th>
@@ -141,9 +153,7 @@ export function ToursList() {
             {tours.length === 0 && (
               <Table.Tr>
                 <Table.Td colSpan={4}>
-                  <Text c="dimmed" size="sm" py="sm">
-                    Henüz tur yok. &quot;Yeni tur&quot; ile başlayın.
-                  </Text>
+                  <PanelEmpty title="Henüz tur yok" description="Yeni tur oluşturarak başlayın." />
                 </Table.Td>
               </Table.Tr>
             )}
@@ -234,6 +244,7 @@ export function ToursList() {
             ))}
           </Table.Tbody>
         </Table>
+        </ScrollArea>
       </Paper>
 
       <Modal opened={createOpen} onClose={() => setCreateOpen(false)} title="Yeni tur oluştur">
@@ -256,6 +267,7 @@ export function ToursList() {
           </Button>
         </Stack>
       </Modal>
+      {confirmModal}
     </Stack>
   );
 }

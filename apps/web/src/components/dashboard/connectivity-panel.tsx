@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  Alert,
   Badge,
   Button,
   CopyButton,
   Group,
-  Loader,
   Modal,
   Paper,
+  ScrollArea,
   Select,
   Stack,
   Table,
@@ -18,7 +17,8 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconCopy, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconCopy, IconPlus, IconTrash } from "@tabler/icons-react";
+import { PanelEmpty, PanelError, PanelLoading } from "@/components/panel-resource-state";
 import { useMyHotel } from "./use-my-hotel";
 import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 
@@ -40,6 +40,7 @@ interface RoomOption {
 export function ConnectivityPanel() {
   const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
   const [feeds, setFeeds] = useState<FeedRow[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [rooms, setRooms] = useState<RoomOption[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<{ name: string; importUrl: string; roomId: string | null }>({
@@ -58,7 +59,14 @@ export function ConnectivityPanel() {
     ]);
     const feedJson = await feedRes.json();
     const roomJson = await roomRes.json();
-    if (feedJson.ok) { setFeeds(feedJson.feeds); setLockRevision(feedJson.revision); }
+    if (feedJson.ok) {
+      setLoadError(null);
+      setFeeds(feedJson.feeds);
+      setLockRevision(feedJson.revision);
+    } else {
+      setLoadError(feedJson.error ?? "iCal feed'ler alınamadı.");
+      setFeeds([]);
+    }
     if (roomJson.ok) setRooms(roomJson.rooms.map((r: RoomOption) => ({ id: r.id, name: r.name })));
   }, [hotel, setLockRevision]);
 
@@ -66,15 +74,14 @@ export function ConnectivityPanel() {
     void reload();
   }, [reload]);
 
-  if (hotelLoading) return <Loader />;
+  if (hotelLoading) return <PanelLoading />;
   if (hotelError) {
-    return (
-      <Alert color="red" icon={<IconAlertCircle size={16} />}>
-        {hotelError}
-      </Alert>
-    );
+    return <PanelError message={hotelError} />;
   }
-  if (!hotel || !feeds) return <Loader />;
+  if (loadError) {
+    return <PanelError message={loadError} onRetry={() => void reload()} />;
+  }
+  if (!hotel || !feeds) return <PanelLoading />;
 
   async function createFeed() {
     if (!hotel) return;
@@ -126,7 +133,8 @@ export function ConnectivityPanel() {
         </Button>
       </Group>
       <Paper withBorder radius="md">
-        <Table highlightOnHover>
+        <ScrollArea type="auto">
+        <Table highlightOnHover miw={820}>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Ad</Table.Th>
@@ -138,6 +146,13 @@ export function ConnectivityPanel() {
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
+            {feeds.length === 0 && (
+              <Table.Tr>
+                <Table.Td colSpan={6}>
+                  <PanelEmpty title="iCal feed yok" description="Kanal yöneticisi için yeni bir feed ekleyin." />
+                </Table.Td>
+              </Table.Tr>
+            )}
             {feeds.map((f) => (
               <Table.Tr key={f.id}>
                 <Table.Td>{f.name}</Table.Td>
@@ -196,6 +211,7 @@ export function ConnectivityPanel() {
             ))}
           </Table.Tbody>
         </Table>
+        </ScrollArea>
       </Paper>
       <Modal opened={open} onClose={() => setOpen(false)} title="iCal feed">
         <Stack gap="sm">

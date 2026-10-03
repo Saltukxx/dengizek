@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { HotelBrowse } from "@/components/guest/hotel-browse";
+import { guestShareMeta } from "@/lib/guest-seo";
 
 /** Yaz yüzeyinde öne çıkan olanaklar — sahil ve havuz odaklı. */
 const SUMMER_AMENITIES = [
@@ -9,10 +10,10 @@ const SUMMER_AMENITIES = [
   { key: "her-sey-dahil", label: "Her şey dahil" },
 ] as const;
 
-export const metadata: Metadata = {
+export const metadata: Metadata = guestShareMeta({
   title: "Otelleri keşfet",
   description: "Etkileşimli video turlu otelleri filtreleyin ve bulun.",
-};
+});
 
 export default async function BrowsePage({
   searchParams,
@@ -25,6 +26,7 @@ export default async function BrowsePage({
       searchParams={await searchParams}
       heading="Video turlu oteller"
       featuredAmenities={SUMMER_AMENITIES}
+      season="yaz"
       analyticsPage="browse"
     />
   );

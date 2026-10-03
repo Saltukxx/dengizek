@@ -15,6 +15,7 @@ import { hotelsTable } from "@/lib/db/schema";
 import { logAudit } from "@/lib/audit";
 import { withTransaction } from "@/lib/db/transaction";
 import { buildHotelContentSnapshot } from "@/lib/hotel-content-snapshot";
+import { contactLeakMessage, findContactLeaks } from "@/lib/content-contact-check";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -35,6 +36,16 @@ export async function POST(_req: Request, { params }: RouteParams) {
     return NextResponse.json(
       { ok: false, error: "Bu sürüm zaten incelemede." },
       { status: 409 },
+    );
+  }
+
+  // Yayına gidecek metinlerde telefon/e-posta/web adresi olamaz: misafir
+  // tesise yalnız Dengizek üzerinden ulaşır.
+  const leaks = findContactLeaks(await buildHotelContentSnapshot(db, guard.hotel.id));
+  if (leaks.length > 0) {
+    return NextResponse.json(
+      { ok: false, error: contactLeakMessage(leaks), code: "CONTACT_INFO", fields: leaks },
+      { status: 400 },
     );
   }
 

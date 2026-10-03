@@ -5,14 +5,19 @@
 // Gereksinimler: DATABASE_URL ortam değişkeni tanımlı olmalı (.env.local)
 // ---------------------------------------------------------------------------
 
-import { eq, and } from "drizzle-orm";
+import { eq, and, like, sql } from "drizzle-orm";
 import { hashPassword } from "@/lib/auth/password";
 import { getDb } from "./index";
 import {
+  bookingsTable,
   extrasTable,
+  hotelGalleryImagesTable,
   hotelMembersTable,
   hotelsTable,
+  inquiriesTable,
+  inquiryMessagesTable,
   restaurantsTable,
+  roomInventoryTable,
   roomRatesTable,
   roomsTable,
   tourStepsTable,
@@ -21,6 +26,8 @@ import {
 } from "./schema";
 import { getManifestFromDB } from "./manifest";
 import { buildHotelContentSnapshot } from "../hotel-content-snapshot";
+import { addDays, dayRange } from "../booking-stay";
+import { todayIso } from "../price";
 
 async function seed() {
   const url = process.env.DATABASE_URL;
@@ -42,10 +49,10 @@ async function seed() {
       shortDescription: "Teras havuzu ve Adriyatik manzarasi.",
       longDescription:  "Sakin bir lobi, spa erisimi ve suitlerde gun isigini iceri alan genis camlar.",
       imageUrl:         "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80",
-      priceLabel:       "Talep uzerine",
+      priceLabel:       "Talep üzerine",
       aiPersona:        "Yapay Zeka Rehberi",
       aiLanguage:       "tr",
-      seasons:          ["yaz", "kis"],
+      seasons:          ["yaz"],
       aiFacts: [
         "5 yildiz otel",
         "200 oda kapasitesi",
@@ -70,7 +77,10 @@ async function seed() {
       set: {
         aiPersona:   "Yapay Zeka Rehberi",
         aiLanguage:  "tr",
-        seasons:     ["yaz", "kis"],
+        seasons:     ["yaz"],
+        priceLabel:  "Talep üzerine",
+        longDescription:
+          "Sakin bir lobi, spa erisimi ve suitlerde gun isigini iceri alan genis camlar.",
         status:      "yayinda",
         updatedAt:   new Date(),
       },
@@ -243,14 +253,14 @@ async function seed() {
   if (existingTour) {
     await db
       .update(toursTable)
-      .set({ publishedManifest: manifest, status: "yayinda", publishedAt: now, updatedAt: now })
+      .set({ title: "Lobi turu", publishedManifest: manifest, status: "yayinda", publishedAt: now, updatedAt: now })
       .where(eq(toursTable.id, existingTour.id));
   } else {
     await db.insert(toursTable).values({
       hotelId:           hotel.id,
       hotelSlug:         "aurelia-bay",
       tourId:            "demo-lobby",
-      title:             "Lobi turu (demo)",
+      title:             "Lobi turu",
       status:            "yayinda",
       version:           1,
       publishedManifest: manifest,
@@ -527,12 +537,612 @@ async function seed() {
       updatedAt: new Date(),
     })
     .where(eq(hotelsTable.id, hotel.id));
-  console.log("  ✓ yayin snapshot'i (yaz + kis)");
+  console.log("  ✓ yayin snapshot'i (yaz)");
+
+  await seedWinterHotels(db);
+  await seedOperationsDemo(db, hotel.id);
 
   console.log("\nSeed tamamlandi!");
 }
 
-seed().catch((err) => {
+// ---------------------------------------------------------------------------
+// Kış tesisleri — /kis vitrini yalnız sezonu açıkça "kis" olan tesisi listeler.
+// Yazlık demo otel kışa da işaretlenince vitrin tropik fotoğrafla açılıyordu;
+// kış hunisi (liste → detay → oda → tur → talep) bu kayıtlar üzerinden yürünür.
+// Görseller tek tek kontrol edilmiş kar/dağ/kayak fotoğraflarıdır.
+// ---------------------------------------------------------------------------
+const WINTER_TOUR_ID = "kis-turu";
+const winterPhoto = (id: string) =>
+  `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=1600&q=80`;
+
+type WinterRoom = {
+  slug: string;
+  name: string;
+  tagline: string;
+  description: string;
+  sizeSqm: number;
+  capacityChildren: number;
+  bedConfig: string;
+  viewType: string;
+  photo: string;
+  amenities: string[];
+  unitCount: number;
+  priceMinor: number;
+  minStayNights?: number;
+};
+
+type WinterHotel = {
+  slug: string;
+  name: string;
+  city: string;
+  address: string;
+  shortDescription: string;
+  longDescription: string;
+  cover: string;
+  starRating: number;
+  totalRooms: number;
+  amenities: string[];
+  facts: string[];
+  gallery: { photo: string; caption: string }[];
+  rooms: [WinterRoom, WinterRoom];
+  /** Turun orta durağı — tesisin öne çıkan alanı. */
+  highlight: { title: string; body: string; tags: string[]; description: string; promo: string[] };
+};
+
+const WINTER_HOTELS: WinterHotel[] = [
+  {
+    slug: "kar-zirvesi",
+    name: "Kar Zirvesi",
+    city: "Uludağ",
+    address: "Oteller Bölgesi, Uludağ, Bursa",
+    shortDescription: "Pist yanında şömineli dağ oteli.",
+    longDescription:
+      "Kayak odasından piste yürüyüş mesafesi. Şömineli lobi, kapalı havuz ve spa; gün sonunda hamam ve sauna.",
+    cover: "1510798831971-661eb04b3739",
+    starRating: 4,
+    totalRooms: 48,
+    amenities: ["kapali-havuz", "spa-merkezi", "hamam", "sauna", "ucretsiz-wifi", "resepsiyon-7-24", "restoran", "bar", "kahvalti-dahil", "otopark"],
+    facts: ["4 yıldızlı dağ oteli", "48 oda", "Kayak odasından piste yürüyerek çıkılır", "Kapalı havuz, spa, hamam ve sauna mevcut"],
+    gallery: [
+      { photo: "1551524559-8af4e6624178", caption: "Pistte kayak" },
+      { photo: "1418985991508-e47386d96a71", caption: "Zirve manzarası" },
+      { photo: "1548777123-e216912df7d8", caption: "Karlı orman" },
+      { photo: "1422207134147-65fb81f59e38", caption: "Şömine başında sıcak içecek" },
+    ],
+    rooms: [
+      {
+        slug: "somineli-suit", name: "Şömineli Suit", tagline: "38 m² — dağ manzarası",
+        description: "Şömine, oturma alanı ve piste bakan balkon.", sizeSqm: 38, capacityChildren: 1,
+        bedConfig: "1 king yatak", viewType: "Dağ manzarası", photo: "1566665797739-1674de7a421a",
+        amenities: ["Şömine", "Balkon", "Minibar", "Yerden ısıtma"], unitCount: 12, priceMinor: 1250000, minStayNights: 2,
+      },
+      {
+        slug: "orman-odasi", name: "Orman Odası", tagline: "28 m² — orman tarafı",
+        description: "Sessiz oda; kayak odasına yakın kat.", sizeSqm: 28, capacityChildren: 0,
+        bedConfig: "1 çift kişilik yatak", viewType: "Orman manzarası", photo: "1522771739844-6a9f6d5f14af",
+        amenities: ["Çalışma masası", "Yerden ısıtma", "Ses yalıtımı"], unitCount: 20, priceMinor: 890000,
+      },
+    ],
+    highlight: {
+      title: "Kayak odası ve pist çıkışı", body: "Ekipman dolapları ve piste açılan kapı.",
+      tags: ["kayak", "pist", "ekipman", "kayak odası"], description: "Isıtmalı kayak odası; piste yürüyerek çıkılır.",
+      promo: ["Isıtmalı ekipman dolapları", "Piste yürüme mesafesi"],
+    },
+  },
+  {
+    slug: "palandoken-zirve",
+    name: "Palandöken Zirve Otel",
+    city: "Palandöken",
+    address: "Kayak Merkezi Yolu, Palandöken, Erzurum",
+    shortDescription: "2.200 metrede, telesiyej istasyonunun yanında.",
+    longDescription:
+      "Uzun sezonu ve toz karıyla bilinen Palandöken'in yamacında. Gece kayağına açık pistlere komşu; spa katında kapalı havuz, sauna ve masaj odaları.",
+    cover: "1512273222628-4daea6e55abb",
+    starRating: 5,
+    totalRooms: 120,
+    amenities: ["kapali-havuz", "spa-merkezi", "sauna", "masaj", "fitness", "ucretsiz-wifi", "resepsiyon-7-24", "restoran", "bar", "kahvalti-dahil", "otopark", "havalimani-transferi"],
+    facts: ["5 yıldızlı kayak oteli", "120 oda", "Telesiyej istasyonu otelin yanında", "Gece kayağı yapılan pistlere komşu"],
+    gallery: [
+      { photo: "1551698618-1dfe5d97d256", caption: "Sabah ilk iniş" },
+      { photo: "1486911278844-a81c5267e227", caption: "Zirve" },
+      { photo: "1600334129128-685c5582fd35", caption: "Spa katında sıcak taş masajı" },
+      { photo: "1565992441121-4367c2967103", caption: "Snowpark" },
+    ],
+    rooms: [
+      {
+        slug: "zirve-suit", name: "Zirve Suit", tagline: "46 m² — pist manzarası",
+        description: "Ayrı oturma odası, geniş pencereler ve pist manzarası.", sizeSqm: 46, capacityChildren: 2,
+        bedConfig: "1 king yatak + çekyat", viewType: "Pist manzarası", photo: "1505693416388-ac5ce068fe85",
+        amenities: ["Oturma odası", "Minibar", "Yerden ısıtma", "Küvet"], unitCount: 18, priceMinor: 1680000, minStayNights: 2,
+      },
+      {
+        slug: "standart-dag", name: "Dağ Odası", tagline: "26 m² — dağ tarafı",
+        description: "İki kişilik sıcak oda; kayak dolabı kat koridorunda.", sizeSqm: 26, capacityChildren: 1,
+        bedConfig: "1 çift kişilik yatak", viewType: "Dağ manzarası", photo: "1618773928121-c32242e63f39",
+        amenities: ["Minibar", "Yerden ısıtma", "Çalışma masası"], unitCount: 60, priceMinor: 960000,
+      },
+    ],
+    highlight: {
+      title: "Telesiyej çıkışı", body: "Otelin kapısından telesiyeje otuz adım.",
+      tags: ["telesiyej", "pist", "kayak"], description: "Telesiyej istasyonu otelin yanındadır; kayaklarla kapıdan çıkılır.",
+      promo: ["Kapıdan piste", "Gece kayağı"],
+    },
+  },
+  {
+    slug: "kartalkaya-cam-konagi",
+    name: "Kartalkaya Çam Konağı",
+    city: "Kartalkaya",
+    address: "Köroğlu Dağları, Kartalkaya, Bolu",
+    shortDescription: "Çam ormanının içinde, aile işletmesi konak.",
+    longDescription:
+      "İstanbul ve Ankara'ya en yakın kayak merkezinde, çam ormanı içinde 36 odalı bir konak. Çocuk kayak okulu ve akşamları şömine başında çay servisi.",
+    cover: "1445543949571-ffc3e0e2f55e",
+    starRating: 4,
+    totalRooms: 36,
+    amenities: ["sauna", "hamam", "ucretsiz-wifi", "resepsiyon-7-24", "restoran", "kahvalti-dahil", "cocuk-kulubu", "aile-odalari", "otopark"],
+    facts: ["4 yıldızlı konak otel", "36 oda", "Çocuk kayak okulu var", "Çam ormanının içinde"],
+    gallery: [
+      { photo: "1605540436563-5bca919ae766", caption: "Aile pisti" },
+      { photo: "1542601098-8fc114e148e2", caption: "Akşam kar yağışı" },
+      { photo: "1540555700478-4be289fbecef", caption: "Hamam ve sauna" },
+    ],
+    rooms: [
+      {
+        slug: "aile-odasi", name: "Aile Odası", tagline: "40 m² — iki bölmeli",
+        description: "Ebeveyn ve çocuk bölmesi ayrı; ormana bakan pencere.", sizeSqm: 40, capacityChildren: 2,
+        bedConfig: "1 çift kişilik + 2 tek kişilik yatak", viewType: "Orman manzarası", photo: "1540518614846-7eded433c457",
+        amenities: ["İki bölme", "Yerden ısıtma", "Su ısıtıcı"], unitCount: 10, priceMinor: 1120000, minStayNights: 2,
+      },
+      {
+        slug: "cam-odasi", name: "Çam Odası", tagline: "24 m² — ahşap döşeme",
+        description: "Ahşap döşemeli, sıcak ve sade iki kişilik oda.", sizeSqm: 24, capacityChildren: 0,
+        bedConfig: "1 çift kişilik yatak", viewType: "Orman manzarası", photo: "1522771739844-6a9f6d5f14af",
+        amenities: ["Yerden ısıtma", "Su ısıtıcı"], unitCount: 22, priceMinor: 740000,
+      },
+    ],
+    highlight: {
+      title: "Çocuk kayak okulu", body: "Otelin önündeki başlangıç pisti ve kayak okulu buluşma noktası.",
+      tags: ["çocuk", "kayak okulu", "başlangıç pisti"], description: "Başlangıç pisti otelin önündedir; çocuk kayak okulu her sabah buradan başlar.",
+      promo: ["Çocuklar için kayak dersi", "Başlangıç pisti kapıda"],
+    },
+  },
+  {
+    slug: "erciyes-kar-evi",
+    name: "Erciyes Kar Evi",
+    city: "Erciyes",
+    address: "Tekir Kapı, Erciyes Kayak Merkezi, Kayseri",
+    shortDescription: "Tekir Kapı'da, gondolun dibinde butik otel.",
+    longDescription:
+      "Erciyes'in Tekir Kapı girişinde 24 odalı butik otel. Gondola yürüyerek çıkılır; teras, zirveye bakar. Havalimanı kırk dakika.",
+    cover: "1453306458620-5bbef13a5bca",
+    starRating: 4,
+    totalRooms: 24,
+    amenities: ["sauna", "ucretsiz-wifi", "resepsiyon-7-24", "restoran", "bar", "kahvalti-dahil", "otopark", "havalimani-transferi"],
+    facts: ["4 yıldızlı butik otel", "24 oda", "Gondol istasyonuna yürüme mesafesi", "Kayseri havalimanına yaklaşık 40 dakika"],
+    gallery: [
+      { photo: "1483921020237-2ff51e8e4b22", caption: "Zirveden görünüm" },
+      { photo: "1520208422220-d12a3c588e6c", caption: "Rehberli dağ yürüyüşü" },
+      { photo: "1551698618-1dfe5d97d256", caption: "Geniş pistler" },
+    ],
+    rooms: [
+      {
+        slug: "teras-odasi", name: "Teras Odası", tagline: "32 m² — özel teras",
+        description: "Zirveye bakan özel teras ve geniş yatak.", sizeSqm: 32, capacityChildren: 1,
+        bedConfig: "1 king yatak", viewType: "Dağ manzarası", photo: "1512918728675-ed5a9ecdebfd",
+        amenities: ["Teras", "Minibar", "Yerden ısıtma"], unitCount: 8, priceMinor: 1340000,
+      },
+      {
+        slug: "klasik-oda", name: "Klasik Oda", tagline: "22 m² — avlu tarafı",
+        description: "Sessiz avlu tarafında iki kişilik oda.", sizeSqm: 22, capacityChildren: 0,
+        bedConfig: "1 çift kişilik yatak", viewType: "Avlu manzarası", photo: "1618773928121-c32242e63f39",
+        amenities: ["Yerden ısıtma", "Çalışma masası"], unitCount: 16, priceMinor: 820000,
+      },
+    ],
+    highlight: {
+      title: "Teras ve gondol yolu", body: "Zirveye bakan teras; gondol istasyonu yolun karşısında.",
+      tags: ["teras", "gondol", "zirve"], description: "Terastan Erciyes zirvesi görünür; gondol istasyonu yürüme mesafesindedir.",
+      promo: ["Zirve manzaralı teras", "Gondola yürüyerek"],
+    },
+  },
+  {
+    slug: "sarikamis-kristal",
+    name: "Sarıkamış Kristal Otel",
+    city: "Sarıkamış",
+    address: "Cıbıltepe Kayak Merkezi, Sarıkamış, Kars",
+    shortDescription: "Sarıçam ormanında, kristal karın ortasında.",
+    longDescription:
+      "Cıbıltepe'de sarıçam ormanının içinden geçen pistlerin başında. Sade odalar, bol kahvaltı ve akşamları Kars mutfağı.",
+    cover: "1517299321609-52687d1bc55a",
+    starRating: 3,
+    totalRooms: 40,
+    amenities: ["ucretsiz-wifi", "resepsiyon-7-24", "restoran", "kahvalti-dahil", "otopark", "havalimani-transferi"],
+    facts: ["3 yıldızlı otel", "40 oda", "Pistler sarıçam ormanının içinden geçer", "Akşam yemeğinde Kars mutfağı"],
+    gallery: [
+      { photo: "1548777123-e216912df7d8", caption: "Sarıçam ormanı" },
+      { photo: "1491555103944-7c647fd857e6", caption: "Zirvede mola" },
+      { photo: "1422207134147-65fb81f59e38", caption: "Sıcak içecek" },
+    ],
+    rooms: [
+      {
+        slug: "orman-manzarali", name: "Orman Manzaralı Oda", tagline: "26 m² — orman tarafı",
+        description: "Ormana bakan pencere, iki kişilik yatak.", sizeSqm: 26, capacityChildren: 1,
+        bedConfig: "1 çift kişilik yatak", viewType: "Orman manzarası", photo: "1505693416388-ac5ce068fe85",
+        amenities: ["Yerden ısıtma", "Su ısıtıcı"], unitCount: 14, priceMinor: 620000,
+      },
+      {
+        slug: "ekonomik-oda", name: "Ekonomik Oda", tagline: "20 m² — iki tek yatak",
+        description: "Kayak için gelenlere uygun, sade oda.", sizeSqm: 20, capacityChildren: 0,
+        bedConfig: "2 tek kişilik yatak", viewType: "Avlu manzarası", photo: "1566665797739-1674de7a421a",
+        amenities: ["Yerden ısıtma"], unitCount: 26, priceMinor: 440000,
+      },
+    ],
+    highlight: {
+      title: "Orman pisti başlangıcı", body: "Sarıçamların arasından inen pistin başlangıç noktası.",
+      tags: ["pist", "orman", "sarıçam"], description: "Pistler sarıçam ormanının içinden geçer; başlangıç noktası otelin arkasındadır.",
+      promo: ["Orman içi pistler", "Kristal kar"],
+    },
+  },
+];
+
+async function seedWinterHotels(db: ReturnType<typeof getDb>) {
+  console.log("Kış tesisleri ekleniyor...");
+  for (const def of WINTER_HOTELS) await seedWinterHotel(db, def);
+}
+
+async function seedWinterHotel(db: ReturnType<typeof getDb>, def: WinterHotel) {
+  const hotelValues = {
+    name: def.name,
+    city: def.city,
+    country: "Türkiye",
+    shortDescription: def.shortDescription,
+    longDescription: def.longDescription,
+    imageUrl: winterPhoto(def.cover),
+    priceLabel: null,
+    aiPersona: "Yapay Zeka Rehberi",
+    aiLanguage: "tr",
+    seasons: ["kis"],
+    starRating: def.starRating,
+    totalRooms: def.totalRooms,
+    checkInTime: "14:00",
+    checkOutTime: "11:00",
+    amenities: def.amenities,
+    aiFacts: def.facts,
+    aiPolicies: [
+      "Giriş saati: 14:00",
+      "Çıkış saati: 11:00",
+      "Ücretsiz iptal: girişten 72 saat öncesine kadar",
+    ],
+    cancellationPolicy:
+      "Girişten 72 saat öncesine kadar ücretsiz iptal. Sonrasında ilk gece ücreti tahsil edilir.",
+    childPolicy: "0-6 yaş ücretsiz konaklar.",
+    petsAllowed: false,
+    paymentMethods: ["nakit", "kredi-karti", "havale"],
+    address: def.address,
+    status: "yayinda" as const,
+  };
+  await db
+    .insert(hotelsTable)
+    .values({ slug: def.slug, ...hotelValues })
+    .onConflictDoUpdate({
+      target: hotelsTable.slug,
+      set: { ...hotelValues, updatedAt: new Date() },
+    });
+
+  const [winterHotel] = await db
+    .select()
+    .from(hotelsTable)
+    .where(eq(hotelsTable.slug, def.slug))
+    .limit(1);
+  if (!winterHotel) throw new Error(`${def.slug} kaydı oluşmadı`);
+
+  for (const [orderIndex, room] of def.rooms.entries()) {
+    const { photo, ...rest } = room;
+    const values = {
+      ...rest,
+      imageUrl: winterPhoto(photo),
+      capacityAdults: 2,
+      boardType: "kahvalti-dahil",
+      currency: "TRY",
+      priceOnRequest: false,
+      orderIndex,
+    };
+    await db
+      .insert(roomsTable)
+      .values({ ...values, hotelId: winterHotel.id })
+      .onConflictDoUpdate({
+        target: [roomsTable.hotelId, roomsTable.slug],
+        set: { ...values, updatedAt: new Date() },
+      });
+  }
+
+  // Galeri — tablo benzersiz anahtar taşımaz; idempotent kalsın diye yeniden yazılır.
+  await db.delete(hotelGalleryImagesTable).where(eq(hotelGalleryImagesTable.hotelId, winterHotel.id));
+  await db.insert(hotelGalleryImagesTable).values(
+    def.gallery.map((item, sortOrder) => ({
+      hotelId: winterHotel.id,
+      url: winterPhoto(item.photo),
+      caption: item.caption,
+      sortOrder,
+    })),
+  );
+
+  // Tur — video yerel örnek kliptir; durak metinleri tesisi anlatır.
+  const suite = def.rooms[0];
+  const winterSteps = [
+    {
+      stepId: "s1",
+      title: "Lobi",
+      kind: "lobby",
+      body: `${def.name} resepsiyonu ve oturma alanı. Devam ettiğinizde tesisin öne çıkan noktasına geçersiniz.`,
+      requiresUserContinue: true,
+      media: { mode: "clip" as const, endSec: 4 },
+      aiTags: ["lobi", "resepsiyon", "giriş"],
+      aiDescription: "Ana lobi; resepsiyon 24 saat açık.",
+      aiPromo: ["Sıcak içecek servisi"],
+      branches: [
+        { id: "b1", label: def.highlight.title, nextStepId: "s2" },
+        { id: "b2", label: `${suite.name} — odaya git`, nextStepId: "s3" },
+      ],
+    },
+    {
+      stepId: "s2",
+      title: def.highlight.title,
+      kind: "amenity_spot",
+      body: def.highlight.body,
+      requiresUserContinue: false,
+      media: { mode: "clip" as const },
+      aiTags: def.highlight.tags,
+      aiDescription: def.highlight.description,
+      aiPromo: def.highlight.promo,
+      branches: [],
+    },
+    {
+      stepId: "s3",
+      title: suite.name,
+      kind: "room",
+      body: `${suite.sizeSqm} m²: ${suite.description}`,
+      requiresUserContinue: true,
+      media: { mode: "clip" as const },
+      aiTags: ["oda", suite.name.toLocaleLowerCase("tr-TR"), suite.viewType.toLocaleLowerCase("tr-TR")],
+      aiDescription: `${suite.sizeSqm} m² ${suite.name}; ${suite.bedConfig}, ${suite.viewType.toLocaleLowerCase("tr-TR")}.`,
+      aiPromo: suite.amenities.slice(0, 2),
+      branches: [],
+    },
+  ];
+  for (const [orderIndex, step] of winterSteps.entries()) {
+    const row = {
+      ...step,
+      hotelSlug: def.slug,
+      tourId: WINTER_TOUR_ID,
+      orderIndex,
+      mediaUrl: "/demo/local-sample.mp4",
+      aiVisible: true,
+      callouts: [],
+      hotspots: [],
+    };
+    await db
+      .insert(tourStepsTable)
+      .values(row)
+      .onConflictDoUpdate({
+        target: [tourStepsTable.hotelSlug, tourStepsTable.tourId, tourStepsTable.stepId],
+        set: row,
+      });
+  }
+
+  const winterManifest = await getManifestFromDB(def.slug, WINTER_TOUR_ID);
+  if (!winterManifest) throw new Error(`${def.slug} kış turu manifesti üretilemedi`);
+  const now = new Date();
+  const [existingTour] = await db
+    .select({ id: toursTable.id })
+    .from(toursTable)
+    .where(and(eq(toursTable.hotelSlug, def.slug), eq(toursTable.tourId, WINTER_TOUR_ID)))
+    .limit(1);
+  if (existingTour) {
+    await db
+      .update(toursTable)
+      .set({ publishedManifest: winterManifest, status: "yayinda", publishedAt: now, updatedAt: now })
+      .where(eq(toursTable.id, existingTour.id));
+  } else {
+    await db.insert(toursTable).values({
+      hotelId: winterHotel.id,
+      hotelSlug: def.slug,
+      tourId: WINTER_TOUR_ID,
+      title: "Lobiden odaya",
+      status: "yayinda",
+      version: 1,
+      publishedManifest: winterManifest,
+      publishedAt: now,
+    });
+  }
+
+  const winterSnapshot = await buildHotelContentSnapshot(db, winterHotel.id);
+  await db
+    .update(hotelsTable)
+    .set({
+      publishedSnapshot: winterSnapshot,
+      publishedRevision: 1,
+      status: "yayinda",
+      updatedAt: new Date(),
+    })
+    .where(eq(hotelsTable.id, winterHotel.id));
+  console.log(`  ✓ ${def.slug} (${def.rooms.length} oda, ${def.gallery.length} görsel, tur yayında)`);
+}
+
+// ---------------------------------------------------------------------------
+// Operasyon demosu — Aurelia Bay için bugüne göre tarihlenen talepler ve
+// rezervasyonlar. "Bugün" panosu, takvim ve liste her seed'de dolu açılır.
+//
+// Kurala uygun: her rezervasyon bir Dengizek talebine bağlıdır. Kayıtlar
+// @seed.dengizek.dev e-postasıyla işaretlenir ve her çalıştırmada yeniden
+// yazılır; elle girilmiş kayıtlara ve elle düzenlenmiş envantere dokunulmaz.
+// ---------------------------------------------------------------------------
+const SEED_EMAIL_DOMAIN = "@seed.dengizek.dev";
+
+async function seedOperationsDemo(db: ReturnType<typeof getDb>, hotelId: string) {
+  console.log("Operasyon demosu (talepler + rezervasyonlar) ekleniyor...");
+  const today = todayIso();
+  const day = (offset: number) => addDays(today, offset);
+  const stamp = (offset: number, hour: number) => new Date(`${day(offset)}T${String(hour).padStart(2, "0")}:00:00+03:00`);
+
+  const rooms = await db
+    .select({ id: roomsTable.id, slug: roomsTable.slug, unitCount: roomsTable.unitCount, priceMinor: roomsTable.priceMinor })
+    .from(roomsTable)
+    .where(eq(roomsTable.hotelId, hotelId));
+  const room = (slug: string) => {
+    const found = rooms.find((r) => r.slug === slug);
+    if (!found) throw new Error(`Seed odası bulunamadı: ${slug}`);
+    return found;
+  };
+
+  await db.delete(bookingsTable).where(like(bookingsTable.guestEmail, `%${SEED_EMAIL_DOMAIN}`));
+  await db.delete(inquiriesTable).where(like(inquiriesTable.email, `%${SEED_EMAIL_DOMAIN}`));
+
+  type Stay = {
+    name: string;
+    room: "seaview-deluxe" | "courtyard-quiet";
+    from: number;
+    to: number;
+    status: "beklemede" | "onaylandi" | "iptal" | "no_show";
+    checkedIn?: boolean;
+    checkedOut?: boolean;
+    adults?: number;
+    children?: number;
+    message: string;
+  };
+  const stays: Stay[] = [
+    { name: "Zeynep Arslan", room: "seaview-deluxe", from: 0, to: 3, status: "onaylandi", message: "Balayı için deniz manzaralı oda rica ediyoruz." },
+    { name: "Mehmet Kaya", room: "courtyard-quiet", from: 0, to: 2, status: "onaylandi", message: "Geç giriş yapacağız, saat 22 gibi." },
+    { name: "Elif Demir", room: "seaview-deluxe", from: -3, to: 0, status: "onaylandi", checkedIn: true, children: 1, message: "Bebek yatağı mümkün mü?" },
+    { name: "Can Yıldız", room: "courtyard-quiet", from: -1, to: 4, status: "onaylandi", checkedIn: true, message: "Sessiz bir oda tercih ederiz." },
+    { name: "Ayşe Şahin", room: "seaview-deluxe", from: -2, to: 1, status: "onaylandi", checkedIn: true, message: "Kahvaltı saatleri nedir?" },
+    { name: "Burak Çelik", room: "courtyard-quiet", from: -1, to: 2, status: "onaylandi", message: "Otopark var mı?" },
+    { name: "Selin Aydın", room: "seaview-deluxe", from: 0, to: 2, status: "beklemede", message: "Bu akşam için yer var mı?" },
+    { name: "Emre Koç", room: "seaview-deluxe", from: 6, to: 9, status: "beklemede", adults: 2, children: 1, message: "Çocuklu aileyiz, havuz ısıtmalı mı?" },
+    { name: "Deniz Öztürk", room: "seaview-deluxe", from: 5, to: 8, status: "onaylandi", message: "Havalimanı transferi istiyoruz." },
+    { name: "Gizem Polat", room: "courtyard-quiet", from: 9, to: 12, status: "onaylandi", message: "Uzun konaklama indirimi var mı?" },
+    { name: "Okan Erdem", room: "courtyard-quiet", from: 3, to: 6, status: "onaylandi", message: "Spa paketi hakkında bilgi alabilir miyim?" },
+    { name: "Merve Güneş", room: "seaview-deluxe", from: -6, to: -2, status: "onaylandi", checkedIn: true, checkedOut: true, message: "Yıl dönümü için sürpriz hazırlanabilir mi?" },
+    { name: "Tolga Aksoy", room: "courtyard-quiet", from: 3, to: 5, status: "iptal", message: "Tarihlerimiz değişebilir." },
+    { name: "Pınar Doğan", room: "seaview-deluxe", from: -4, to: -2, status: "no_show", message: "Hafta sonu için iki gece." },
+  ];
+
+  for (const [index, stay] of stays.entries()) {
+    const email = `misafir${index + 1}${SEED_EMAIL_DOMAIN}`;
+    const target = room(stay.room);
+    const adults = stay.adults ?? 2;
+    const children = stay.children ?? 0;
+    const [inquiry] = await db
+      .insert(inquiriesTable)
+      .values({
+        hotelId,
+        hotelSlug: "aurelia-bay",
+        name: stay.name,
+        email,
+        message: stay.message,
+        checkIn: day(stay.from),
+        checkOut: day(stay.to),
+        adults,
+        children,
+        roomSlug: target.slug,
+        roomId: target.id,
+        source: index % 4 === 0 ? "tour_ai" : "web",
+        status: "ilgileniliyor",
+        createdAt: stamp(stay.from - 9, 10 + (index % 6)),
+      })
+      .returning();
+    await db.insert(inquiryMessagesTable).values({
+      inquiryId: inquiry.id,
+      senderRole: "hotel",
+      senderName: "Aurelia Yoneticisi",
+      body: "Merhaba, talebinizi aldık. Rezervasyonunuzu oluşturduk; sorularınızı buradan yazabilirsiniz.",
+      createdAt: stamp(stay.from - 8, 11),
+    });
+    await db.insert(bookingsTable).values({
+      hotelId,
+      roomId: target.id,
+      inquiryId: inquiry.id,
+      guestName: stay.name,
+      guestEmail: email,
+      checkIn: day(stay.from),
+      checkOut: day(stay.to),
+      adults,
+      children,
+      status: stay.status,
+      totalMinor: (target.priceMinor ?? 0) * (stay.to - stay.from) || null,
+      notes: stay.message,
+      checkedInAt: stay.checkedIn ? stamp(stay.from, 15) : null,
+      checkedOutAt: stay.checkedOut ? stamp(stay.to, 10) : null,
+      createdAt: stamp(stay.from - 8, 12),
+    });
+  }
+  console.log(`  ✓ ${stays.length} rezervasyon (talebe bağlı)`);
+
+  // Henüz yanıtlanmamış / rezervasyona dönmemiş talepler
+  const openInquiries = [
+    { name: "Hakan Yılmaz", from: 14, to: 17, message: "Üç gece için fiyat alabilir miyim? Erken rezervasyon indirimi geçerli mi?", status: "yeni" as const },
+    { name: "Seda Kurt", from: 20, to: 27, message: "Bir haftalık konaklama düşünüyoruz, her şey dahil seçeneği var mı?", status: "yeni" as const },
+    { name: "Onur Şen", from: 11, to: 13, message: "Evcil hayvan kabul ediyor musunuz?", status: "kapatildi" as const },
+  ];
+  for (const [index, q] of openInquiries.entries()) {
+    const [inquiry] = await db
+      .insert(inquiriesTable)
+      .values({
+        hotelId,
+        hotelSlug: "aurelia-bay",
+        name: q.name,
+        email: `talep${index + 1}${SEED_EMAIL_DOMAIN}`,
+        message: q.message,
+        checkIn: day(q.from),
+        checkOut: day(q.to),
+        adults: 2,
+        children: 0,
+        source: "web",
+        status: q.status,
+        createdAt: stamp(-index, 9),
+      })
+      .returning();
+    if (q.status === "kapatildi") {
+      await db.insert(inquiryMessagesTable).values({
+        inquiryId: inquiry.id,
+        senderRole: "hotel",
+        senderName: "Aurelia Yoneticisi",
+        body: "Merhaba, maalesef evcil hayvan kabul edemiyoruz. İlginiz için teşekkürler.",
+      });
+    }
+  }
+  console.log(`  ✓ ${openInquiries.length} açık/kapalı talep`);
+
+  // Envanter: son 7 gün + önümüzdeki 45 gün. Kalan kontenjan = birim − o gece
+  // odayı tutan seed rezervasyonu (onaylı ve gelmedi). Elle düzenlenmiş günler korunur.
+  const nights = dayRange(day(-7), 52);
+  for (const target of rooms) {
+    const holding = stays.filter(
+      (stay) => room(stay.room).id === target.id && (stay.status === "onaylandi" || stay.status === "no_show"),
+    );
+    await db
+      .insert(roomInventoryTable)
+      .values(
+        nights.map((date) => ({
+          hotelId,
+          roomId: target.id,
+          date,
+          allotment:
+            (target.unitCount ?? 1) -
+            holding.filter((stay) => day(stay.from) <= date && date < day(stay.to)).length,
+          source: "seed",
+          manualOverride: false,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [roomInventoryTable.roomId, roomInventoryTable.date],
+        set: { allotment: sql`excluded.allotment` },
+        setWhere: eq(roomInventoryTable.source, "seed"),
+      });
+  }
+  console.log(`  ✓ envanter (${nights[0]} → ${nights[nights.length - 1]})`);
+}
+
+seed().then(() => process.exit(0)).catch((err) => {
   console.error("Seed hatasi:", err);
   process.exit(1);
 });

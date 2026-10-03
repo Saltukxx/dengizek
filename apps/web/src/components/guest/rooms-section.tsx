@@ -5,6 +5,8 @@
 
 import Link from "next/link";
 import { IconBed, IconRulerMeasure, IconUsers } from "@tabler/icons-react";
+import type { GuestSurface } from "@/lib/guest-surface";
+import { guestPaths } from "@/lib/guest-surface";
 import type { RoomWithRates } from "@/lib/hotels-repo";
 import { resolveGuestRoomPrice, type GuestPromotion, type GuestRatePlanPrice } from "@/lib/guest-pricing";
 import { formatPrice } from "@/lib/price";
@@ -15,11 +17,13 @@ export function RoomsSection({
   rooms,
   promotions = [],
   ratePlanPrices = [],
+  surface = "yaz",
 }: {
   hotelSlug: string;
   rooms: RoomWithRates[];
   promotions?: GuestPromotion[];
   ratePlanPrices?: GuestRatePlanPrice[];
+  surface?: GuestSurface;
 }) {
   if (rooms.length === 0) return null;
 
@@ -64,7 +68,7 @@ export function RoomsSection({
           return (
           <Link
             key={room.id}
-            href={`/hotels/${hotelSlug}/rooms/${room.slug}`}
+            href={guestPaths(surface).room(hotelSlug, room.slug)}
             className="er-card"
             style={{
               display: "flex",
@@ -147,7 +151,7 @@ export function RoomsSection({
                       style={{
                         fontSize: 11,
                         padding: "3px 10px",
-                        borderRadius: 999,
+                        borderRadius: "var(--er-radius-pill)",
                         border: "1px solid var(--er-line)",
                         color: "var(--er-text-muted)",
                       }}
@@ -161,7 +165,7 @@ export function RoomsSection({
                       style={{
                         fontSize: 11,
                         padding: "3px 10px",
-                        borderRadius: 999,
+                        borderRadius: "var(--er-radius-pill)",
                         border: "1px solid var(--er-line)",
                         color: "var(--er-primary)",
                       }}

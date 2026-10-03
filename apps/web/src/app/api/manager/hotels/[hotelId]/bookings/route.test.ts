@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   approveBooking: vi.fn(),
   releaseApprovedBooking: vi.fn(),
   reopenBooking: vi.fn(),
+  recordStayStep: vi.fn(),
   logAudit: vi.fn(),
   paginatedQuery: vi.fn(),
   assertRoomsBelongToHotel: vi.fn(),
@@ -36,6 +37,7 @@ vi.mock("@/lib/bookings", async () => {
     approveBooking: mocks.approveBooking,
     releaseApprovedBooking: mocks.releaseApprovedBooking,
     reopenBooking: mocks.reopenBooking,
+    recordStayStep: mocks.recordStayStep,
   };
 });
 
@@ -63,12 +65,12 @@ function jsonRequest(method: "POST" | "PATCH", body: unknown) {
   });
 }
 
+const inquiryRow = { id: inquiryId, name: "Ada Yılmaz", email: "ada@example.com" };
+
 const validBooking = {
   roomId,
   ratePlanId,
   inquiryId,
-  guestName: "Ada Yılmaz",
-  guestEmail: "ada@example.com",
   checkIn: "2026-12-10",
   checkOut: "2026-12-13",
   adults: 2,
@@ -158,19 +160,63 @@ describe("manager bookings API", () => {
     expect(mocks.createPendingBooking).not.toHaveBeenCalled();
   });
 
-  it("POST oda, fiyat planı ve talep referanslarını aynı tenant içinde doğrular", async () => {
-    mocks.createPendingBooking.mockResolvedValue({ id: bookingId, status: "beklemede" });
+  it("POST misafiri istemciden değil talep kaydından alır ve yanıtta iletişim bilgisi dönmez", async () => {
+    const { whereConditions } = makeDb([[inquiryRow]]);
+    mocks.createPendingBooking.mockResolvedValue({
+      id: bookingId,
+      status: "beklemede",
+      guestName: "Ada Yılmaz",
+      guestEmail: "ada@example.com",
+      guestPhone: null,
+    });
 
-    const res = await POST(jsonRequest("POST", validBooking), routeParams);
+    const res = await POST(
+      // İstemci başka bir misafir uydurmaya çalışsa da yok sayılır.
+      jsonRequest("POST", { ...validBooking, guestName: "Dış Misafir", guestEmail: "dis@example.org" }),
+      routeParams,
+    );
 
     expect(res.status).toBe(201);
     expect(mocks.assertRoomsBelongToHotel).toHaveBeenCalledWith(hotelId, [roomId]);
     expect(mocks.assertRatePlanBelongsToHotel).toHaveBeenCalledWith(hotelId, ratePlanId);
-    expect(mocks.assertInquiryBelongsToHotel).toHaveBeenCalledWith(hotelId, inquiryId);
     expect(mocks.createPendingBooking).toHaveBeenCalledWith(
       hotelId,
-      expect.objectContaining({ roomId, guestEmail: "ada@example.com", currency: "TRY" }),
+      expect.objectContaining({
+        roomId,
+        inquiryId,
+        guestName: "Ada Yılmaz",
+        guestEmail: "ada@example.com",
+        guestPhone: null,
+        currency: "TRY",
+      }),
     );
+    // Talep, tesis kimliğiyle birlikte aranır.
+    const query = drizzle({} as never).select().from(bookingsTable).where(whereConditions[0] as never).toSQL();
+    expect(query.params).toEqual(expect.arrayContaining([inquiryId, hotelId]));
+    const json = await res.json();
+    expect(json.booking).toMatchObject({ id: bookingId, guestName: "Ada Yılmaz" });
+    expect(JSON.stringify(json)).not.toContain("ada@example.com");
+  });
+
+  it("POST talep olmadan (dışarıdan misafir) rezervasyon açmaz", async () => {
+    makeDb();
+    const { inquiryId: _omit, ...withoutInquiry } = validBooking;
+    void _omit;
+    const res = await POST(
+      jsonRequest("POST", { ...withoutInquiry, guestName: "Kapıdan Gelen", guestEmail: "x@example.org" }),
+      routeParams,
+    );
+
+    expect(res.status).toBe(400);
+    expect(mocks.createPendingBooking).not.toHaveBeenCalled();
+  });
+
+  it("POST başka tesisin talebiyle rezervasyon açmaz", async () => {
+    makeDb([[]]);
+    const res = await POST(jsonRequest("POST", validBooking), routeParams);
+
+    expect(res.status).toBe(404);
+    expect(mocks.createPendingBooking).not.toHaveBeenCalled();
   });
 
   it("POST ilişkili kayıtlardan biri yabancı tenant'a aitse rezervasyon oluşturmaz", async () => {
@@ -188,6 +234,7 @@ describe("manager bookings API", () => {
     ["overlap", 409],
     ["inventory", 409],
   ] as const)("POST servis %s hatasını %i sözleşmesine çevirir", async (code, status) => {
+    makeDb([[inquiryRow]]);
     mocks.createPendingBooking.mockRejectedValue(new BookingServiceError("service failure", code));
 
     const res = await POST(jsonRequest("POST", validBooking), routeParams);
@@ -276,5 +323,99 @@ describe("manager bookings API", () => {
       .where(updateWhere as never)
       .toSQL();
     expect(query.params).toEqual(expect.arrayContaining([bookingId, hotelId]));
+  });
+
+  it("GET konaklama durumu, arama ve tarih aralığını aynı tenant koşuluna ekler", async () => {
+    makeDb();
+    await GET(
+      new Request(
+        "http://localhost/api/bookings?durum=konakliyor&q=ada%25&baslangic=2026-12-01&bitis=2026-12-31",
+      ),
+      routeParams,
+    );
+
+    const where = mocks.paginatedQuery.mock.calls[0][0].where;
+    const query = drizzle({} as never).select().from(bookingsTable).where(where).toSQL();
+    expect(query.sql).toContain('"checked_in_at" is not null');
+    expect(query.sql).toContain('"checked_out_at" is null');
+    expect(query.sql).toContain('"check_out" >=');
+    expect(query.sql).toContain('"check_in" <=');
+    // Joker karakter düz metne çevrilir: "%" tüm kayıtları eşleştirmemeli.
+    expect(query.params).toEqual(
+      expect.arrayContaining([hotelId, "onaylandi", "%ada\\%%", "2026-12-01", "2026-12-31"]),
+    );
+  });
+
+  it("GET misafir e-postasını ve telefonunu panele göndermez; aramayı yalnız adda yapar", async () => {
+    makeDb();
+    mocks.paginatedQuery.mockResolvedValue({
+      items: [{ id: bookingId, guestName: "Ada", guestEmail: "ada@example.com", guestPhone: "+90 532 000 00 00" }],
+      sayfa: 1,
+      limit: 50,
+      totalCount: 1,
+      hasMore: false,
+    });
+
+    const res = await GET(new Request("http://localhost/api/bookings?q=ada"), routeParams);
+    const text = JSON.stringify(await res.json());
+
+    expect(text).toContain("Ada");
+    expect(text).not.toContain("ada@example.com");
+    expect(text).not.toContain("532");
+    const where = mocks.paginatedQuery.mock.calls[0][0].where;
+    const query = drizzle({} as never).select().from(bookingsTable).where(where).toSQL();
+    const condition = query.sql.slice(query.sql.indexOf(" where "));
+    expect(condition).toContain('"guest_name" ilike');
+    expect(condition).not.toContain("guest_email");
+    expect(condition).not.toContain("guest_phone");
+  });
+
+  it("GET tanınmayan durumu ve bozuk tarihi süzgeç saymaz", async () => {
+    makeDb();
+    await GET(new Request("http://localhost/api/bookings?durum=hepsi&baslangic=dun"), routeParams);
+
+    const where = mocks.paginatedQuery.mock.calls[0][0].where;
+    const query = drizzle({} as never).select().from(bookingsTable).where(where).toSQL();
+    expect(query.params).toEqual([hotelId]);
+  });
+
+  it("PATCH giriş ve çıkışı servise iletir ve audit kaydı düşer", async () => {
+    makeDb([
+      [{ id: bookingId, totalMinor: null }],
+      [{ id: bookingId, totalMinor: null }],
+    ]);
+    mocks.recordStayStep.mockResolvedValue({ id: bookingId, status: "onaylandi" });
+
+    const checkIn = await PATCH(
+      jsonRequest("PATCH", { id: bookingId, action: "check_in", idempotencyKey: "in-once-1" }),
+      routeParams,
+    );
+    const checkOut = await PATCH(
+      jsonRequest("PATCH", { id: bookingId, action: "check_out", idempotencyKey: "out-once-1" }),
+      routeParams,
+    );
+
+    expect(checkIn.status).toBe(200);
+    expect(checkOut.status).toBe(200);
+    expect(mocks.recordStayStep).toHaveBeenNthCalledWith(1, hotelId, bookingId, "check_in", "in-once-1");
+    expect(mocks.recordStayStep).toHaveBeenNthCalledWith(2, hotelId, bookingId, "check_out", "out-once-1");
+    expect(mocks.logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "rezervasyon.check-in", entityId: bookingId }),
+    );
+  });
+
+  it("PATCH erken girişte servisin hatasını 400 olarak döner, audit yazmaz", async () => {
+    makeDb([[{ id: bookingId, totalMinor: null }]]);
+    mocks.recordStayStep.mockRejectedValue(
+      new BookingServiceError("Giriş tarihi 2026-12-10 — daha erken giriş kaydedilemez.", "invalid_state"),
+    );
+
+    const res = await PATCH(
+      jsonRequest("PATCH", { id: bookingId, action: "check_in", idempotencyKey: "in-early-1" }),
+      routeParams,
+    );
+
+    expect(res.status).toBe(400);
+    expect(mocks.logAudit).not.toHaveBeenCalled();
   });
 });

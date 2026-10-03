@@ -61,6 +61,7 @@ function makeTx() {
 import {
   approveBooking,
   BookingServiceError,
+  recordStayStep,
   releaseApprovedBooking,
   reopenBooking,
 } from "@/lib/bookings";
@@ -233,5 +234,94 @@ describe("rezervasyon yaşam döngüsü", () => {
       BookingServiceError,
     );
     expect(state.updates).toEqual([]);
+  });
+
+  describe("giriş / çıkış kaydı", () => {
+    const approved = { ...booking, status: "onaylandi", checkedInAt: null, checkedOutAt: null };
+    // Europe/Istanbul'da 10 Aralık öğlen — giriş günü.
+    const onArrivalDay = new Date("2026-12-10T09:00:00Z");
+
+    it("giriş gününde girişi damgalar, durumu ve envanteri değiştirmez", async () => {
+      queue("bookings", [approved]);
+
+      const result = await recordStayStep("hotel-1", "booking-1", "check_in", "in-key", onArrivalDay);
+
+      expect(result).toMatchObject({ checkedInAt: onArrivalDay });
+      expect(state.updates).toEqual([
+        { table: "bookings", values: { checkedInAt: onArrivalDay, updatedAt: onArrivalDay } },
+      ]);
+      expect(state.inserts).toContainEqual({
+        table: "booking_transitions",
+        values: expect.objectContaining({
+          action: "check_in",
+          idempotencyKey: "in-key",
+          fromStatus: "onaylandi",
+          toStatus: "onaylandi",
+        }),
+      });
+    });
+
+    it("giriş tarihi gelmeden girişi reddeder", async () => {
+      queue("bookings", [approved]);
+      await expect(
+        recordStayStep("hotel-1", "booking-1", "check_in", "early", new Date("2026-12-09T09:00:00Z")),
+      ).rejects.toMatchObject({ code: "invalid_state" });
+      expect(state.updates).toEqual([]);
+    });
+
+    it("onaylanmamış rezervasyonda giriş kaydetmez", async () => {
+      queue("bookings", [booking]);
+      await expect(
+        recordStayStep("hotel-1", "booking-1", "check_in", "pending", onArrivalDay),
+      ).rejects.toMatchObject({ code: "invalid_state" });
+    });
+
+    it("tekrarlanan girişte ilk damgayı korur", async () => {
+      const already = { ...approved, checkedInAt: new Date("2026-12-10T08:00:00Z") };
+      queue("bookings", [already]);
+      await expect(
+        recordStayStep("hotel-1", "booking-1", "check_in", "again", onArrivalDay),
+      ).resolves.toEqual(already);
+      expect(state.updates).toEqual([]);
+      expect(state.inserts).toEqual([]);
+    });
+
+    it("giriş olmadan çıkışı reddeder; girişten sonra çıkışı damgalar", async () => {
+      queue("bookings", [approved]);
+      await expect(
+        recordStayStep("hotel-1", "booking-1", "check_out", "out-1", onArrivalDay),
+      ).rejects.toMatchObject({ code: "invalid_state" });
+
+      queue("bookings", [{ ...approved, checkedInAt: onArrivalDay }]);
+      const out = new Date("2026-12-12T07:00:00Z");
+      await expect(
+        recordStayStep("hotel-1", "booking-1", "check_out", "out-2", out),
+      ).resolves.toMatchObject({ checkedOutAt: out });
+    });
+
+    it("çıkış kaydı dururken girişi geri almayı reddeder", async () => {
+      queue("bookings", [{ ...approved, checkedInAt: onArrivalDay, checkedOutAt: onArrivalDay }]);
+      await expect(
+        recordStayStep("hotel-1", "booking-1", "undo_check_in", "undo", onArrivalDay),
+      ).rejects.toMatchObject({ code: "invalid_state" });
+    });
+
+    it("girişi geri alınca damgayı siler", async () => {
+      queue("bookings", [{ ...approved, checkedInAt: onArrivalDay }]);
+      await recordStayStep("hotel-1", "booking-1", "undo_check_in", "undo", onArrivalDay);
+      expect(state.updates).toEqual([
+        { table: "bookings", values: { checkedInAt: null, updatedAt: onArrivalDay } },
+      ]);
+    });
+
+    it("giriş yapmış rezervasyonu iptal etmez ve gelmedi işaretlemez", async () => {
+      for (const target of ["iptal", "no_show"] as const) {
+        queue("bookings", [{ ...approved, checkedInAt: onArrivalDay }]);
+        await expect(
+          releaseApprovedBooking("hotel-1", "booking-1", target, `${target}-key`),
+        ).rejects.toMatchObject({ code: "invalid_state" });
+      }
+      expect(state.updates).toEqual([]);
+    });
   });
 });

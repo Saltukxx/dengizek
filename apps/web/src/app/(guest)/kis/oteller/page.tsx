@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { HotelBrowse } from "@/components/guest/hotel-browse";
+import { guestShareMeta } from "@/lib/guest-seo";
 
 /**
  * Kış yüzeyinde öne çıkan olanaklar — kayak sonrası ısınma ve kapalı
@@ -13,10 +14,10 @@ const WINTER_AMENITIES = [
   { key: "sauna", label: "Sauna" },
 ] as const;
 
-export const metadata: Metadata = {
+export const metadata: Metadata = guestShareMeta({
   title: "Kış otelleri",
   description: "Kayak ve kış tatili otellerini video turlarıyla keşfedin.",
-};
+});
 
 export default async function WinterBrowsePage({
   searchParams,

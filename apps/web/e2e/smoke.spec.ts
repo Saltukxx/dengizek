@@ -78,3 +78,30 @@ test("video turu oynatıcı ve adım metni görünür", async ({ page }) => {
   await expect(page.getByText(expectedSecondStep).first()).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId("tour-seek-bar")).toBeVisible({ timeout: 10_000 });
 });
+
+test("klavye ile kapılı adım atlanamaz, Enter dal seçer", async ({ page }) => {
+  await page.goto("/tours/aurelia-bay/demo-lobby", { waitUntil: "networkidle" });
+  const video = page.locator("video");
+  await expect(video).toBeVisible({ timeout: 20_000 });
+  await video.evaluate((el: HTMLVideoElement) => {
+    el.muted = true;
+    const d = el.duration;
+    const end = 4.2;
+    const t = d > 0 && Number.isFinite(d) ? Math.min(end, d - 0.05) : end;
+    el.currentTime = t;
+    el.dispatchEvent(new Event("timeupdate", { bubbles: true }));
+  });
+  const branch = page.getByTestId("tour-branch-b1");
+  await expect(branch).toBeVisible({ timeout: 15_000 });
+  const firstStepCopy = page.getByText(/Lobide hos geldiniz|Lobiye hoş geldiniz/i).first();
+  await expect(firstStepCopy).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+  await expect(branch).toBeVisible();
+  await expect(firstStepCopy).toBeVisible();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Enter");
+  const expectedSecondStep = process.env.CI
+    ? /Sahil ve Plaj Alani/
+    : /Sahil ve Plaj Alani|İkinci sahne/;
+  await expect(page.getByText(expectedSecondStep).first()).toBeVisible({ timeout: 15_000 });
+});

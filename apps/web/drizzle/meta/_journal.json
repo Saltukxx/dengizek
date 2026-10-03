@@ -120,6 +120,13 @@
       "when": 1786900000000,
       "tag": "0016_hotel_seasons",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791000000000,
+      "tag": "0017_booking_stay_tracking",
+      "breakpoints": true
     }
   ]
 }

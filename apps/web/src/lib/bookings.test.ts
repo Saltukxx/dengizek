@@ -147,4 +147,27 @@ describe("createPendingBooking", () => {
       createPendingBooking("hotel-1", { ...baseInput, roomId: null, adults: 9 }),
     ).resolves.toBeTruthy();
   });
+
+  it("birden çok birimli oda tipinde birimler dolana kadar çakışan rezervasyon alır", async () => {
+    txRows.rooms = [{ ...room, unitCount: 2 }];
+    const taken = { roomId: "room-1", status: "onaylandi", checkIn: "2026-08-03", checkOut: "2026-08-08" };
+    txRows.bookings = [{ id: "b0", ...taken }];
+    await expect(createPendingBooking("hotel-1", baseInput)).resolves.toBeTruthy();
+
+    txRows.bookings = [{ id: "b0", ...taken }, { id: "b1", ...taken }];
+    await expect(createPendingBooking("hotel-1", baseInput)).rejects.toMatchObject({
+      code: "overlap",
+      message: expect.stringContaining("2026-08-03"),
+    });
+  });
+
+  it("aynı gecede çakışmayan iki ayrı rezervasyonu doluluk saymaz", async () => {
+    txRows.rooms = [{ ...room, unitCount: 2 }];
+    // Biri 1–3, diğeri 3–5: hiçbir gecede aynı anda iki birim dolmaz.
+    txRows.bookings = [
+      { id: "b0", roomId: "room-1", status: "onaylandi", checkIn: "2026-08-01", checkOut: "2026-08-03" },
+      { id: "b1", roomId: "room-1", status: "onaylandi", checkIn: "2026-08-03", checkOut: "2026-08-05" },
+    ];
+    await expect(createPendingBooking("hotel-1", baseInput)).resolves.toBeTruthy();
+  });
 });

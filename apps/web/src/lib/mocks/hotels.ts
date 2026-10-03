@@ -37,7 +37,7 @@ const hotels: HotelMock[] = [
     country: "Hırvatistan",
     shortDescription: "Teras havuzu ve Adriyatik manzarası.",
     longDescription:
-      "Sakin bir lobi, spa erişimi ve süitlerde gün ışığını içeri alan geniş camlar. Bu demo mülk, etkileşimli video tur deneyimimizi sergiliyor.",
+      "Sakin bir lobi, spa erişimi ve süitlerde gün ışığını içeri alan geniş camlar.",
     imageUrl:
       "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80",
     priceLabel: "Talep üzerine",

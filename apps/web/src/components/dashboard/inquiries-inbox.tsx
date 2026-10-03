@@ -6,30 +6,30 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  Alert,
   Badge,
   Button,
   Drawer,
   Group,
-  Loader,
   Paper,
+  ScrollArea,
   Select,
   Stack,
   Table,
   Text,
   Textarea,
+  TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconCalendarPlus, IconDownload, IconLinkOff, IconMessage } from "@tabler/icons-react";
+import { IconCalendarPlus, IconDownload, IconLinkOff, IconMessage, IconSearch } from "@tabler/icons-react";
 import { inquirySourceLabels, inquiryStatusColors, inquiryStatusLabels } from "@/lib/labels";
+import { PanelEmpty, PanelError, PanelLoading } from "@/components/panel-resource-state";
 import { useMyHotel } from "./use-my-hotel";
 import { ListPagination } from "./list-pagination";
+import { usePanelConfirm } from "./panel-confirm";
 
 interface InquiryRow {
   id: string;
   name: string;
-  email: string;
-  phone: string | null;
   message: string;
   status: "yeni" | "ilgileniliyor" | "kapatildi";
   source: "web" | "tour_ai" | "tour_player";
@@ -54,13 +54,17 @@ interface MessageRow {
 
 export function InquiriesInbox() {
   const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
+  const { confirm, modal: confirmModal } = usePanelConfirm();
   const [inquiries, setInquiries] = useState<InquiryRow[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [sayfa, setSayfa] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const limit = 50;
   const [durum, setDurum] = useState<string | null>(null);
   const [kaynak, setKaynak] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [q, setQ] = useState("");
   const [threadId, setThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [reply, setReply] = useState("");
@@ -71,6 +75,7 @@ export function InquiriesInbox() {
     const params = new URLSearchParams({ hotelId: hotel.id, sayfa: String(sayfa) });
     if (durum) params.set("durum", durum);
     if (kaynak) params.set("kaynak", kaynak);
+    if (q) params.set("q", q);
     const [inquiriesRes, roomsRes] = await Promise.all([
       fetch(`/api/manager/inquiries?${params}`),
       fetch(`/api/manager/hotels/${hotel.id}/rooms`),
@@ -78,9 +83,13 @@ export function InquiriesInbox() {
     const json = await inquiriesRes.json();
     const roomsJson = await roomsRes.json();
     if (json.ok) {
+      setLoadError(null);
       setInquiries(json.inquiries);
       setTotalCount(json.totalCount ?? json.inquiries.length);
       setHasMore(json.hasMore ?? false);
+    } else {
+      setLoadError(json.error ?? "Talepler alınamadı.");
+      setInquiries([]);
     }
     if (roomsJson.ok) {
       const map: Record<string, string> = {};
@@ -89,11 +98,17 @@ export function InquiriesInbox() {
       }
       setRoomSlugToId(map);
     }
-  }, [hotel, durum, kaynak, sayfa]);
+  }, [hotel, durum, kaynak, q, sayfa]);
 
   useEffect(() => {
     setSayfa(1);
-  }, [durum, kaynak]);
+  }, [durum, kaynak, q]);
+
+  // Arama her tuşta değil, yazma durunca gider.
+  useEffect(() => {
+    const timer = setTimeout(() => setQ(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
     void reload();
@@ -108,9 +123,12 @@ export function InquiriesInbox() {
 
   async function revokePortalLink() {
     if (!threadId) return;
-    if (!confirm("Misafirin portal bağlantısını hemen iptal etmek istediğinize emin misiniz? Misafir eski linke tekrar erişemez.")) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Portal bağlantısını iptal et",
+      message: "Misafirin portal bağlantısını hemen iptal etmek istediğinize emin misiniz? Misafir eski linke tekrar erişemez.",
+      confirmLabel: "İptal et",
+    });
+    if (!ok) return;
     const res = await fetch(`/api/manager/inquiries/${threadId}/portal-token`, { method: "DELETE" });
     const json = await res.json();
     if (json.ok) {
@@ -136,15 +154,14 @@ export function InquiriesInbox() {
     }
   }
 
-  if (hotelLoading) return <Loader />;
+  if (hotelLoading) return <PanelLoading />;
   if (hotelError) {
-    return (
-      <Alert color="red" icon={<IconAlertCircle size={16} />}>
-        {hotelError}
-      </Alert>
-    );
+    return <PanelError message={hotelError} />;
   }
-  if (!inquiries) return <Loader />;
+  if (loadError) {
+    return <PanelError message={loadError} onRetry={() => void reload()} />;
+  }
+  if (!inquiries) return <PanelLoading />;
 
   async function setStatus(id: string, yeniDurum: InquiryRow["status"]) {
     const res = await fetch(`/api/manager/inquiries/${id}`, {
@@ -171,9 +188,6 @@ export function InquiriesInbox() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         inquiryId: q.id,
-        guestName: q.name,
-        guestEmail: q.email,
-        guestPhone: q.phone ?? undefined,
         checkIn: q.checkIn,
         checkOut: q.checkOut,
         adults: q.adults ?? 2,
@@ -192,13 +206,21 @@ export function InquiriesInbox() {
   }
 
   const exportUrl = hotel
-    ? `/api/manager/inquiries/export?hotelId=${hotel.id}${durum ? `&durum=${durum}` : ""}${kaynak ? `&kaynak=${kaynak}` : ""}`
+    ? `/api/manager/inquiries/export?hotelId=${hotel.id}${durum ? `&durum=${durum}` : ""}${kaynak ? `&kaynak=${kaynak}` : ""}${q ? `&q=${encodeURIComponent(q)}` : ""}`
     : "#";
 
   return (
     <Stack gap="md">
       <Group justify="space-between">
         <Group gap="sm">
+          <TextInput
+            aria-label="Taleplerde ara"
+            placeholder="Misafir adı veya mesajda ara"
+            leftSection={<IconSearch size={16} />}
+            value={search}
+            onChange={(e) => setSearch(e.currentTarget.value)}
+            w={280}
+          />
           <Select
             placeholder="Durum"
             clearable
@@ -231,7 +253,8 @@ export function InquiriesInbox() {
       </Group>
 
       <Paper withBorder radius="md">
-        <Table highlightOnHover>
+        <ScrollArea type="auto">
+        <Table highlightOnHover miw={920}>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Misafir</Table.Th>
@@ -247,9 +270,7 @@ export function InquiriesInbox() {
             {inquiries.length === 0 && (
               <Table.Tr>
                 <Table.Td colSpan={7}>
-                  <Text c="dimmed" size="sm" py="sm">
-                    Talep bulunamadı.
-                  </Text>
+                  <PanelEmpty title="Talep bulunamadı" description="Bu filtreyle eşleşen talep yok." />
                 </Table.Td>
               </Table.Tr>
             )}
@@ -257,10 +278,6 @@ export function InquiriesInbox() {
               <Table.Tr key={q.id}>
                 <Table.Td>
                   <Text fw={500}>{q.name}</Text>
-                  <Text size="xs" c="dimmed">
-                    {q.email}
-                    {q.phone ? ` — ${q.phone}` : ""}
-                  </Text>
                 </Table.Td>
                 <Table.Td>
                   {q.checkIn || q.checkOut ? (
@@ -335,6 +352,7 @@ export function InquiriesInbox() {
             ))}
           </Table.Tbody>
         </Table>
+        </ScrollArea>
         <ListPagination
           sayfa={sayfa}
           hasMore={hasMore}
@@ -376,6 +394,7 @@ export function InquiriesInbox() {
           <Button onClick={sendReply}>Gönder</Button>
         </Stack>
       </Drawer>
+      {confirmModal}
     </Stack>
   );
 }

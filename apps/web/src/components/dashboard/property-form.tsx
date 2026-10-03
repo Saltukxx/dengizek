@@ -92,6 +92,7 @@ export function PropertyForm() {
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const lock = usePanelRevision();
+  const setLockRevision = lock.setRevision;
 
   const reload = useCallback(async () => {
     if (!myHotel) return;
@@ -101,9 +102,12 @@ export function PropertyForm() {
     ]);
     const json = await hotelRes.json();
     const rulesJson = await rulesRes.json();
-    if (json.ok) setDetail(json.hotel);
+    if (json.ok) {
+      setDetail(json.hotel);
+      if (typeof json.hotel?.draftRevision === "number") setLockRevision(json.hotel.draftRevision);
+    }
     if (rulesJson.ok) setCancellationRules(rulesJson.rules);
-  }, [myHotel]);
+  }, [myHotel, setLockRevision]);
 
   useEffect(() => { void reload(); }, [reload]);
 
@@ -128,7 +132,7 @@ export function PropertyForm() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        expectedRevision: detail.draftRevision,
+        expectedRevision: lock.revision,
         name: detail.name,
         city: detail.city ?? undefined,
         country: detail.country ?? undefined,
@@ -478,12 +482,14 @@ export function PropertyForm() {
           <Group grow>
             <TextInput
               label="Telefon"
+              description="Yalnız Dengizek ekibi görür; misafire gösterilmez."
               placeholder="+90 ..."
               value={detail.phone ?? ""}
               onChange={(e) => set("phone", e.currentTarget.value)}
             />
             <TextInput
               label="İletişim e-postası"
+              description="Yalnız Dengizek ekibi görür; misafire gösterilmez."
               placeholder="rezervasyon@otel.com"
               value={detail.contactEmail ?? ""}
               onChange={(e) => set("contactEmail", e.currentTarget.value)}

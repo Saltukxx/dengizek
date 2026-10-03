@@ -42,6 +42,7 @@ import {
 } from "@/lib/db/schema";
 import { moderationStatusColors, moderationStatusLabels } from "@/lib/labels";
 import { todayIso } from "@/lib/price";
+import { TodayBoard } from "@/components/dashboard/today-board";
 
 export const dynamic = "force-dynamic";
 
@@ -226,6 +227,9 @@ export default async function DashboardHomePage() {
           {data.hotel.moderationNote}
         </Alert>
       )}
+
+      {/* Önce günün işi; içerik sayaçları onun altında. */}
+      {data?.hotel && <TodayBoard />}
 
       {data?.counts && (
         <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }} spacing="md">

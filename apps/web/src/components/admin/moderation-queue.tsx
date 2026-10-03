@@ -14,6 +14,7 @@ import {
   Loader,
   Modal,
   Paper,
+  ScrollArea,
   Stack,
   Table,
   Text,
@@ -22,6 +23,8 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconCheck, IconExternalLink, IconEye, IconTrash, IconX } from "@tabler/icons-react";
 import { moderationStatusColors, moderationStatusLabels } from "@/lib/labels";
+import { PanelEmpty, PanelError, PanelLoading } from "@/components/panel-resource-state";
+import { usePanelConfirm } from "@/components/dashboard/panel-confirm";
 
 interface AdminTour {
   id: string;
@@ -51,7 +54,9 @@ interface SubmittedStep {
 }
 
 export function ModerationQueue() {
+  const { confirm, modal: confirmModal } = usePanelConfirm();
   const [tours, setTours] = useState<AdminTour[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<AdminTour | null>(null);
   const [rejectNote, setRejectNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -62,23 +67,29 @@ export function ModerationQueue() {
   const reload = useCallback(async () => {
     const res = await fetch("/api/admin/tours");
     const json = await res.json();
-    if (json.ok) setTours(json.tours);
+    if (json.ok) {
+      setLoadError(null);
+      setTours(json.tours);
+    } else {
+      setLoadError(json.error ?? "Turlar alınamadı.");
+      setTours([]);
+    }
   }, []);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
-  if (!tours) return <Loader />;
+  if (loadError) return <PanelError message={loadError} onRetry={() => void reload()} />;
+  if (!tours) return <PanelLoading />;
 
   async function deleteTour(t: AdminTour) {
-    if (
-      !confirm(
-        `"${t.title}" turunu kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`,
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Turu sil",
+      message: `"${t.title}" turunu kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`,
+      confirmLabel: "Sil",
+    });
+    if (!ok) return;
     setBusy(true);
     const res = await fetch(`/api/admin/tours/${t.id}`, { method: "DELETE" });
     const json = await res.json();
@@ -218,7 +229,8 @@ export function ModerationQueue() {
   return (
     <Stack gap="md">
       <Paper withBorder radius="md">
-        <Table highlightOnHover>
+        <ScrollArea type="auto">
+        <Table highlightOnHover miw={760}>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Tur</Table.Th>
@@ -231,9 +243,7 @@ export function ModerationQueue() {
             {tours.length === 0 && (
               <Table.Tr>
                 <Table.Td colSpan={4}>
-                  <Text c="dimmed" size="sm" py="sm">
-                    Henüz tur yok.
-                  </Text>
+                  <PanelEmpty title="Henüz tur yok" description="İnceleme kuyruğu boş." />
                 </Table.Td>
               </Table.Tr>
             )}
@@ -241,6 +251,7 @@ export function ModerationQueue() {
             {renderRows(others)}
           </Table.Tbody>
         </Table>
+        </ScrollArea>
       </Paper>
 
       <Modal
@@ -324,6 +335,7 @@ export function ModerationQueue() {
           </Button>
         </Stack>
       </Modal>
+      {confirmModal}
     </Stack>
   );
 }

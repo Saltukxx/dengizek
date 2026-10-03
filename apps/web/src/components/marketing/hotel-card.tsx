@@ -37,8 +37,12 @@ export function HotelCard({
   actionLabel = "Detayları Gör",
 }: HotelCardProps) {
   const hasReviews = reviewAverage != null && reviewCount > 0;
-  const priceText =
-    minPriceMinor != null ? formatPrice(minPriceMinor, currency) : hotel.priceLabel ?? null;
+  const priceAmount =
+    minPriceMinor != null
+      ? formatPrice(minPriceMinor, currency)
+      : hotel.priceLabel && /\d/.test(hotel.priceLabel)
+        ? hotel.priceLabel
+        : null;
   const location = [hotel.city, hotel.country].filter(Boolean).join(", ");
 
   return (
@@ -123,9 +127,9 @@ export function HotelCard({
 
       <div className="er-hotel-foot">
         <div>
-          {priceText ? (
+          {priceAmount ? (
             <>
-              <div className="er-price">{priceText}</div>
+              <div className="er-price">{priceAmount}</div>
               <div className="er-price-note">gecelik başlayan</div>
             </>
           ) : (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Badge, Paper, Stack, Table, Text, Title } from "@mantine/core";
+import { Alert, Badge, Paper, ScrollArea, Stack, Table, Text, Title } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import { paymentStatusLabels } from "@/lib/labels";
 import { formatPrice } from "@/lib/price";
@@ -93,7 +93,8 @@ export function FinancePanel() {
         </Text>
       </Paper>
       <Paper withBorder radius="md">
-        <Table highlightOnHover>
+        <ScrollArea type="auto">
+        <Table highlightOnHover miw={680}>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Rezervasyon</Table.Th>
@@ -136,6 +137,7 @@ export function FinancePanel() {
             ))}
           </Table.Tbody>
         </Table>
+        </ScrollArea>
         <ListPagination
           sayfa={sayfa}
           hasMore={hasMore}

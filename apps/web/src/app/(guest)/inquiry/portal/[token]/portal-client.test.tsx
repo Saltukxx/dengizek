@@ -1,14 +1,9 @@
-import { MantineProvider } from "@mantine/core";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { InquiryPortalClient } from "./portal-client";
 
 function renderPortal() {
-  return render(
-    <MantineProvider>
-      <InquiryPortalClient token="test-token" />
-    </MantineProvider>,
-  );
+  return render(<InquiryPortalClient token="test-token" />);
 }
 
 /** Gövdesi olmayan hata yanıtı — uçlar DB'ye ulaşamadığında böyle dönüyor. */
@@ -96,5 +91,38 @@ describe("InquiryPortalClient", () => {
       expect(screen.getByText("Talebiniz alındı.")).toBeInTheDocument();
     });
     expect(screen.getByText(/Merhaba Deniz/)).toBeInTheDocument();
+  });
+
+  it("veri silmeyi onaydan önce göndermez; vazgeçince istek atılmaz", async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith("/review")) {
+        return jsonResponse({ ok: true, review: null, canReview: false });
+      }
+      if (String(url).endsWith("/data") && init?.method === "POST") {
+        return jsonResponse({ ok: true });
+      }
+      return jsonResponse({
+        ok: true,
+        inquiry: { name: "Deniz", status: "acik", hotelSlug: "aurelia-bay" },
+        messages: [],
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const erasePosts = () =>
+      fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith("/data") && init?.method === "POST");
+
+    renderPortal();
+    fireEvent.click(await screen.findByRole("button", { name: "Verilerimi sil" }));
+    expect(erasePosts()).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Vazgeç" }));
+    expect(erasePosts()).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Verilerimi sil" }));
+    fireEvent.click(screen.getByRole("button", { name: "Evet, sil" }));
+    await waitFor(() => {
+      expect(screen.getByText(/Kişisel verileriniz silindi/)).toBeInTheDocument();
+    });
+    expect(erasePosts()).toHaveLength(1);
   });
 });

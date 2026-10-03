@@ -3,6 +3,7 @@
 import { showNotification } from "@mantine/notifications";
 import { TourPlayer } from "@/components/tour-player/TourPlayer";
 import type { TourManifest } from "@/lib/schemas/tour-manifest";
+import { guestPaths } from "@/lib/guest-surface";
 
 type Props = {
   manifest: TourManifest;
@@ -20,12 +21,10 @@ export function TourRouteClient({
   contextRoomSlug,
   surface = "yaz",
 }: Props) {
-  const backHref =
-    surface === "kis"
-      ? `/kis/oteller/${hotelSlug}`
-      : contextRoomSlug
-        ? `/hotels/${hotelSlug}/rooms/${contextRoomSlug}`
-        : `/hotels/${hotelSlug}`;
+  const paths = guestPaths(surface);
+  const backHref = contextRoomSlug
+    ? paths.room(hotelSlug, contextRoomSlug)
+    : paths.hotel(hotelSlug);
 
   return (
     <TourPlayer
@@ -34,7 +33,13 @@ export function TourRouteClient({
       surface={surface}
       contextRoomSlug={contextRoomSlug}
       backHref={backHref}
-      backLabel={surface === "kis" ? "Kış oteline dön" : contextRoomSlug ? "Oda sayfasına dön" : `${hotelName} sayfasına dön`}
+      backLabel={
+        contextRoomSlug
+          ? "Oda sayfasına dön"
+          : surface === "kis"
+            ? "Kış oteline dön"
+            : `${hotelName} sayfasına dön`
+      }
       onComplete={() => {
         showNotification({
           title: "Tur bitti",
