@@ -1,22 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  Alert,
-  Badge,
-  Button,
-  Group,
-  Loader,
-  Paper,
-  Rating,
-  Stack,
-  Text,
-  Textarea,
-  TextInput,
-  Title,
-} from "@mantine/core";
-import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconShieldLock, IconStar } from "@tabler/icons-react";
+import { IconAlertCircle, IconShieldLock, IconStar, IconStarFilled } from "@tabler/icons-react";
 
 interface MessageRow {
   id: string;
@@ -69,6 +54,8 @@ export function InquiryPortalClient({ token }: { token: string }) {
   const [sendingReview, setSendingReview] = useState(false);
   const [erasing, setErasing] = useState(false);
   const [erased, setErased] = useState(false);
+  const [confirmingErase, setConfirmingErase] = useState(false);
+  const [notice, setNotice] = useState<{ tone: "ok" | "error"; message: string } | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -114,7 +101,7 @@ export function InquiryPortalClient({ token }: { token: string }) {
       setBody("");
       void reload();
     } else {
-      notifications.show({ color: "red", message: json?.error ?? "Gönderilemedi." });
+      setNotice({ tone: "error", message: json?.error ?? "Gönderilemedi." });
     }
   }
 
@@ -133,11 +120,11 @@ export function InquiryPortalClient({ token }: { token: string }) {
     const json = await readJson(res);
     setSendingReview(false);
     if (json?.ok) {
-      notifications.show({ color: "green", message: "Yorumunuz alındı — inceleme sonrası yayınlanacak." });
+      setNotice({ tone: "ok", message: "Yorumunuz alındı — inceleme sonrası yayınlanacak." });
       setReviewForm({ rating: 0, title: "", body: "" });
       void reload();
     } else {
-      notifications.show({ color: "red", message: json?.error ?? "Yorum gönderilemedi." });
+      setNotice({ tone: "error", message: json?.error ?? "Yorum gönderilemedi." });
     }
   }
 
@@ -145,7 +132,7 @@ export function InquiryPortalClient({ token }: { token: string }) {
     const res = await fetch(`/api/inquiry/portal/${token}/data`);
     const json = await readJson(res);
     if (!json?.ok) {
-      notifications.show({ color: "red", message: json?.error ?? "Veriler alınamadı." });
+      setNotice({ tone: "error", message: json?.error ?? "Veriler alınamadı." });
       return;
     }
     // Tarayıcıda dosya olarak indir — sunucuda kopya bırakmaya gerek yok.
@@ -159,17 +146,15 @@ export function InquiryPortalClient({ token }: { token: string }) {
   }
 
   async function eraseData() {
-    if (!confirm("Kişisel verileriniz silinsin mi? Bu işlem geri alınamaz ve bu bağlantı geçersiz olur.")) {
-      return;
-    }
     setErasing(true);
     const res = await fetch(`/api/inquiry/portal/${token}/data`, { method: "POST" });
     const json = await readJson(res);
     setErasing(false);
+    setConfirmingErase(false);
     if (json?.ok) {
       setErased(true);
     } else {
-      notifications.show({ color: "red", message: json?.error ?? "Silinemedi." });
+      setNotice({ tone: "error", message: json?.error ?? "Silinemedi." });
     }
   }
 
@@ -177,159 +162,221 @@ export function InquiryPortalClient({ token }: { token: string }) {
   // kalabiliyor ve ekran sonsuz spinner'da takılıyordu.
   if (error) {
     return (
-      <Stack maw={640} mx="auto" py="xl" px="md">
-        <Alert color="red" icon={<IconAlertCircle size={16} />}>
+      <div className="er-portal">
+        <p className="er-portal-alert" role="alert">
+          <IconAlertCircle size={18} />
           {error}
-        </Alert>
-        <Button variant="light" onClick={() => void reload()} style={{ alignSelf: "flex-start" }}>
+        </p>
+        <button type="button" className="er-btn er-btn-ghost" onClick={() => void reload()}>
           Tekrar dene
-        </Button>
-      </Stack>
+        </button>
+      </div>
     );
   }
 
   if (!messages) {
     return (
-      <Stack maw={640} mx="auto" py="xl" px="md" align="center">
-        <Loader />
-      </Stack>
+      <div className="er-portal">
+        <p className="er-muted" style={{ margin: 0, textAlign: "center" }}>
+          Mesajlar yükleniyor…
+        </p>
+      </div>
     );
   }
 
   return (
-    <Stack maw={640} mx="auto" py="xl" px="md" gap="md">
-      <div>
-        <Title order={2}>Talep mesajları</Title>
-        <Text c="dimmed" size="sm">
+    <div className="er-portal">
+      <header>
+        <p className="er-eyebrow" style={{ marginBottom: 10, color: "var(--er-primary)" }}>
+          Talep portalı
+        </p>
+        <h1 className="er-display er-h1">Talep mesajları</h1>
+        <p className="er-muted" style={{ margin: "8px 0 0", fontSize: 15 }}>
           Merhaba {inquiry?.name} — tesisinizle yazışmalarınız
-        </Text>
-      </div>
-      <Paper withBorder p="md" radius="md">
-        <Stack gap="sm">
-          {messages.length === 0 && (
-            <Text c="dimmed" size="sm">
-              Henüz mesaj yok. Aşağıdan yazabilirsiniz.
-            </Text>
-          )}
-          {messages.map((m) => (
-            <Paper
-              key={m.id}
-              p="sm"
-              radius="md"
-              bg={m.senderRole === "guest" ? "indigo.0" : "gray.0"}
-            >
-              <Text size="xs" c="dimmed" mb={4}>
-                {m.senderRole === "guest" ? "Siz" : m.senderName ?? "Tesis"} —{" "}
-                {new Date(m.createdAt).toLocaleString("tr-TR")}
-              </Text>
-              <Text size="sm">{m.body}</Text>
-            </Paper>
-          ))}
-        </Stack>
-      </Paper>
-      <Textarea
-        label="Mesajınız"
-        minRows={3}
-        value={body}
-        onChange={(e) => setBody(e.currentTarget.value)}
-      />
-      <Button onClick={sendMessage}>Gönder</Button>
+        </p>
+      </header>
 
-      {canReview && (
-        <Paper withBorder p="md" radius="md">
-          <Group gap="xs" mb="sm">
-            <IconStar size={18} />
-            <Title order={4}>Konaklamanızı değerlendirin</Title>
-          </Group>
-
-          {review ? (
-            <Stack gap="xs">
-              <Group gap="sm">
-                <Rating value={review.rating} readOnly />
-                <Badge
-                  color={
-                    review.status === "yayinda"
-                      ? "green"
-                      : review.status === "reddedildi"
-                        ? "red"
-                        : "yellow"
-                  }
-                >
-                  {reviewStatusText[review.status]}
-                </Badge>
-              </Group>
-              {review.title && <Text fw={500}>{review.title}</Text>}
-              <Text size="sm">{review.body}</Text>
-              {review.reply && (
-                <Paper p="sm" radius="md" bg="gray.0">
-                  <Text size="xs" c="dimmed" mb={4}>
-                    Tesisin yanıtı
-                  </Text>
-                  <Text size="sm">{review.reply}</Text>
-                </Paper>
-              )}
-            </Stack>
-          ) : (
-            <Stack gap="sm">
-              <Text size="sm" c="dimmed">
-                Yorumunuz tesis sayfasında &quot;doğrulanmış misafir&quot; olarak gösterilir.
-                Yayınlanmadan önce incelenir.
-              </Text>
-              <Rating
-                value={reviewForm.rating}
-                onChange={(rating) => setReviewForm({ ...reviewForm, rating })}
-                size="lg"
-              />
-              <TextInput
-                label="Başlık (opsiyonel)"
-                value={reviewForm.title}
-                onChange={(e) => setReviewForm({ ...reviewForm, title: e.currentTarget.value })}
-              />
-              <Textarea
-                label="Yorumunuz"
-                minRows={3}
-                value={reviewForm.body}
-                onChange={(e) => setReviewForm({ ...reviewForm, body: e.currentTarget.value })}
-              />
-              <Button
-                onClick={sendReview}
-                loading={sendingReview}
-                disabled={reviewForm.rating < 1 || reviewForm.body.trim().length === 0}
-              >
-                Yorumu gönder
-              </Button>
-            </Stack>
-          )}
-        </Paper>
+      {notice && (
+        <p
+          className="er-portal-alert"
+          data-tone={notice.tone}
+          role={notice.tone === "error" ? "alert" : "status"}
+        >
+          {notice.message}
+        </p>
       )}
 
-      <Paper withBorder p="md" radius="md">
-        <Group gap="xs" mb="sm">
+      <section className="er-card er-portal-card" aria-label="Mesajlar">
+        {messages.length === 0 && (
+          <p className="er-muted" style={{ margin: 0, fontSize: 14 }}>
+            Henüz mesaj yok. Aşağıdan yazabilirsiniz.
+          </p>
+        )}
+        {messages.map((m) => (
+          <div key={m.id} className="er-portal-message" data-own={m.senderRole === "guest"}>
+            <p className="er-portal-meta">
+              {m.senderRole === "guest" ? "Siz" : m.senderName ?? "Tesis"} —{" "}
+              {new Date(m.createdAt).toLocaleString("tr-TR")}
+            </p>
+            <p>{m.body}</p>
+          </div>
+        ))}
+      </section>
+
+      <div>
+        <label className="er-field-label" htmlFor="portal-message">
+          Mesajınız
+        </label>
+        <textarea
+          id="portal-message"
+          className="er-textarea"
+          rows={3}
+          value={body}
+          onChange={(e) => setBody(e.currentTarget.value)}
+        />
+        <button
+          type="button"
+          className="er-btn er-btn-cta"
+          style={{ marginTop: 12 }}
+          disabled={!body.trim()}
+          onClick={sendMessage}
+        >
+          Gönder
+        </button>
+      </div>
+
+      {canReview && (
+        <section className="er-card er-portal-card">
+          <h2 className="er-display er-portal-title">
+            <IconStar size={18} />
+            Konaklamanızı değerlendirin
+          </h2>
+
+          {review ? (
+            <>
+              <div className="er-portal-stars" aria-label={`${review.rating} / 5`}>
+                {[1, 2, 3, 4, 5].map((n) =>
+                  n <= review.rating ? <IconStarFilled key={n} size={20} /> : <IconStar key={n} size={20} />,
+                )}
+              </div>
+              <p className="er-chip" style={{ margin: 0, alignSelf: "flex-start", textTransform: "none", letterSpacing: 0 }}>
+                {reviewStatusText[review.status]}
+              </p>
+              {review.title && <p style={{ margin: 0, fontWeight: 600 }}>{review.title}</p>}
+              <p style={{ margin: 0, fontSize: 14 }}>{review.body}</p>
+              {review.reply && (
+                <div className="er-portal-message">
+                  <p className="er-portal-meta">Tesisin yanıtı</p>
+                  <p>{review.reply}</p>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="er-muted" style={{ margin: 0, fontSize: 14 }}>
+                Yorumunuz tesis sayfasında &quot;doğrulanmış misafir&quot; olarak gösterilir.
+                Yayınlanmadan önce incelenir.
+              </p>
+              <div className="er-portal-stars" role="radiogroup" aria-label="Puan">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    role="radio"
+                    aria-checked={reviewForm.rating === n}
+                    aria-label={`${n} yıldız`}
+                    onClick={() => setReviewForm({ ...reviewForm, rating: n })}
+                  >
+                    {n <= reviewForm.rating ? <IconStarFilled size={28} /> : <IconStar size={28} />}
+                  </button>
+                ))}
+              </div>
+              <div>
+                <label className="er-field-label" htmlFor="portal-review-title">
+                  Başlık (opsiyonel)
+                </label>
+                <input
+                  id="portal-review-title"
+                  className="er-input"
+                  value={reviewForm.title}
+                  onChange={(e) => setReviewForm({ ...reviewForm, title: e.currentTarget.value })}
+                />
+              </div>
+              <div>
+                <label className="er-field-label" htmlFor="portal-review-body">
+                  Yorumunuz
+                </label>
+                <textarea
+                  id="portal-review-body"
+                  className="er-textarea"
+                  rows={3}
+                  value={reviewForm.body}
+                  onChange={(e) => setReviewForm({ ...reviewForm, body: e.currentTarget.value })}
+                />
+              </div>
+              <button
+                type="button"
+                className="er-btn er-btn-primary"
+                style={{ alignSelf: "flex-start" }}
+                onClick={sendReview}
+                disabled={sendingReview || reviewForm.rating < 1 || reviewForm.body.trim().length === 0}
+              >
+                {sendingReview ? "Gönderiliyor…" : "Yorumu gönder"}
+              </button>
+            </>
+          )}
+        </section>
+      )}
+
+      <section className="er-card er-portal-card">
+        <h2 className="er-display er-portal-title">
           <IconShieldLock size={18} />
-          <Title order={4}>Verileriniz</Title>
-        </Group>
+          Verileriniz
+        </h2>
         {erased ? (
-          <Alert color="green">
+          <p className="er-portal-alert" data-tone="ok" role="status">
             Kişisel verileriniz silindi. Bu bağlantı artık geçersiz.
-          </Alert>
+          </p>
         ) : (
-          <Stack gap="sm">
-            <Text size="sm" c="dimmed">
+          <>
+            <p className="er-muted" style={{ margin: 0, fontSize: 14 }}>
               Bu talep kapsamında sakladığımız kişisel verileri indirebilir veya
               silinmesini isteyebilirsiniz. Silme sonrası bu portal bağlantısı geçersiz olur;
               tesisin ticari kaydı adınız olmadan saklanmaya devam eder.
-            </Text>
-            <Group>
-              <Button variant="light" onClick={downloadData}>
-                Verilerimi indir
-              </Button>
-              <Button color="red" variant="light" loading={erasing} onClick={eraseData}>
-                Verilerimi sil
-              </Button>
-            </Group>
-          </Stack>
+            </p>
+            {confirmingErase ? (
+              <div className="er-portal-confirm" role="alertdialog" aria-label="Veri silme onayı">
+                <p>
+                  Kişisel verileriniz silinsin mi? Bu işlem geri alınamaz ve bu bağlantı geçersiz
+                  olur.
+                </p>
+                <div className="er-portal-actions">
+                  <button type="button" className="er-btn er-btn-danger" disabled={erasing} onClick={eraseData}>
+                    {erasing ? "Siliniyor…" : "Evet, sil"}
+                  </button>
+                  <button
+                    type="button"
+                    className="er-btn er-btn-ghost"
+                    disabled={erasing}
+                    onClick={() => setConfirmingErase(false)}
+                  >
+                    Vazgeç
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="er-portal-actions">
+                <button type="button" className="er-btn er-btn-ghost" onClick={downloadData}>
+                  Verilerimi indir
+                </button>
+                <button type="button" className="er-btn er-btn-ghost er-btn-danger-ghost" onClick={() => setConfirmingErase(true)}>
+                  Verilerimi sil
+                </button>
+              </div>
+            )}
+          </>
         )}
-      </Paper>
-    </Stack>
+      </section>
+    </div>
   );
 }

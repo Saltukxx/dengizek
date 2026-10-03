@@ -3,11 +3,12 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { and, desc, eq, count, type SQL } from "drizzle-orm";
+import { and, desc, eq, count, ilike, or, type SQL } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { inquiriesTable, inquirySourceEnum, inquiryStatusEnum } from "@/lib/db/schema";
 import { parsePagination, paginatedMeta } from "@/lib/pagination";
+import { inquiryForManager } from "@/lib/manager-privacy";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -34,6 +35,16 @@ export async function GET(req: Request) {
   const filters: SQL[] = [eq(inquiriesTable.hotelId, guard.hotel.id)];
   if (durum && isValidStatus(durum)) filters.push(eq(inquiriesTable.status, durum));
   if (kaynak && isValidSource(kaynak)) filters.push(eq(inquiriesTable.source, kaynak));
+  // Misafir adı veya mesaj içinde arama — iletişim bilgisi aranmaz.
+  const q = url.searchParams.get("q")?.trim().slice(0, 120);
+  if (q) {
+    const pattern = `%${q.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+    const match = or(
+      ilike(inquiriesTable.name, pattern),
+      ilike(inquiriesTable.message, pattern),
+    );
+    if (match) filters.push(match);
+  }
 
   const db = getDb();
   const where = and(...filters);
@@ -54,7 +65,7 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     ok: true,
-    inquiries: result.items,
+    inquiries: result.items.map(inquiryForManager),
     sayfa: result.sayfa,
     limit: result.limit,
     totalCount: result.totalCount,

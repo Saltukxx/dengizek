@@ -83,6 +83,7 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const lock = usePanelRevision();
+  const setLockRevision = lock.setRevision;
 
   const reloadTour = useCallback(async () => {
     if (!hotel) return;
@@ -130,8 +131,9 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
           }) as TourStep,
       );
       setSteps(loaded);
+      if (typeof json.tour?.draftRevision === "number") setLockRevision(json.tour.draftRevision);
     }
-  }, [hotel, tourId]);
+  }, [hotel, tourId, setLockRevision]);
 
   useEffect(() => {
     if (!hotel) return;
@@ -205,7 +207,7 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
     const res = await fetch(`/api/manager/hotels/${hotel.id}/tours/${tourId}/steps`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ steps: payload, expectedRevision: meta.draftRevision }),
+      body: JSON.stringify({ steps: payload, expectedRevision: lock.revision }),
     });
     const json = await res.json();
     setSaving(false);

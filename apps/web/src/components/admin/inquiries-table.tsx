@@ -10,8 +10,8 @@ import {
   Button,
   Drawer,
   Group,
-  Loader,
   Paper,
+  ScrollArea,
   Select,
   Stack,
   Table,
@@ -21,6 +21,8 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconDownload, IconLinkOff, IconMessage } from "@tabler/icons-react";
 import { inquirySourceLabels, inquiryStatusColors, inquiryStatusLabels } from "@/lib/labels";
+import { PanelEmpty, PanelError, PanelLoading } from "@/components/panel-resource-state";
+import { usePanelConfirm } from "@/components/dashboard/panel-confirm";
 
 interface AdminInquiry {
   id: string;
@@ -60,7 +62,9 @@ interface HotelOption {
 }
 
 export function InquiriesTable() {
+  const { confirm, modal: confirmModal } = usePanelConfirm();
   const [inquiries, setInquiries] = useState<AdminInquiry[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [hotels, setHotels] = useState<HotelOption[]>([]);
   const [durum, setDurum] = useState<string | null>(null);
   const [hotelId, setHotelId] = useState<string | null>(null);
@@ -80,9 +84,13 @@ export function InquiriesTable() {
     const res = await fetch(`/api/admin/inquiries?${params}`);
     const json = await res.json();
     if (json.ok) {
+      setLoadError(null);
       setInquiries(json.inquiries);
       setHotels(json.hotels ?? []);
       setHasMore(json.hasMore ?? false);
+    } else {
+      setLoadError(json.error ?? "Talepler alınamadı.");
+      setInquiries([]);
     }
   }, [durum, hotelId, kaynak, sayfa]);
 
@@ -104,9 +112,12 @@ export function InquiriesTable() {
 
   async function revokePortalLink() {
     if (!threadId) return;
-    if (!confirm("Misafirin portal bağlantısını hemen iptal etmek istediğinize emin misiniz? Misafir eski linke tekrar erişemez.")) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Portal bağlantısını iptal et",
+      message: "Misafirin portal bağlantısını hemen iptal etmek istediğinize emin misiniz? Misafir eski linke tekrar erişemez.",
+      confirmLabel: "İptal et",
+    });
+    if (!ok) return;
     const res = await fetch(`/api/admin/inquiries/${threadId}/portal-token`, { method: "DELETE" });
     const json = await res.json();
     if (json.ok) {
@@ -129,7 +140,8 @@ export function InquiriesTable() {
     }
   }
 
-  if (!inquiries) return <Loader />;
+  if (loadError) return <PanelError message={loadError} onRetry={() => void reload()} />;
+  if (!inquiries) return <PanelLoading />;
 
   async function setStatus(id: string, yeniDurum: AdminInquiry["status"]) {
     const res = await fetch(`/api/admin/inquiries/${id}`, {
@@ -195,7 +207,8 @@ export function InquiriesTable() {
         </Button>
       </Group>
       <Paper withBorder radius="md">
-        <Table highlightOnHover>
+        <ScrollArea type="auto">
+        <Table highlightOnHover miw={980}>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Misafir</Table.Th>
@@ -212,9 +225,7 @@ export function InquiriesTable() {
             {inquiries.length === 0 && (
               <Table.Tr>
                 <Table.Td colSpan={8}>
-                  <Text c="dimmed" size="sm" py="sm">
-                    Talep bulunamadı.
-                  </Text>
+                  <PanelEmpty title="Talep bulunamadı" description="Bu filtreyle eşleşen talep yok." />
                 </Table.Td>
               </Table.Tr>
             )}
@@ -273,6 +284,7 @@ export function InquiriesTable() {
             ))}
           </Table.Tbody>
         </Table>
+        </ScrollArea>
       </Paper>
       <Group justify="center">
         <Button variant="default" disabled={sayfa <= 1} onClick={() => setSayfa((p) => p - 1)}>
@@ -322,6 +334,7 @@ export function InquiriesTable() {
           </Stack>
         )}
       </Drawer>
+      {confirmModal}
     </Stack>
   );
 }

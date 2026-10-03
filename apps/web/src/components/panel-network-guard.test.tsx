@@ -54,4 +54,20 @@ describe("PanelNetworkGuard", () => {
     await Promise.all([first, second]);
     await waitFor(() => expect(native).toHaveBeenCalledTimes(1));
   });
+
+  it("4xx doğrulama hatalarında global modal açmaz", async () => {
+    window.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: false, error: "Doğrulama başarısız" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    renderGuard();
+
+    await act(async () => {
+      await window.fetch("/api/manager/hotels/h1/bookings", { method: "POST", body: "{}" });
+    });
+
+    expect(screen.queryByRole("dialog", { name: "İşlem tamamlanamadı" })).toBeNull();
+  });
 });

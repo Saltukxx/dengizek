@@ -6,38 +6,61 @@ import { login } from "./helpers";
 config({ path: ".env.local" });
 
 test.describe("Panel yaşam döngüleri", () => {
-  test("rezervasyonu oluşturur, onaylar, yenilemede kalıcılığı ve ödeme Yakında durumunu gösterir", async ({ page }) => {
+  test("talepten rezervasyon açar, onaylar; panelde misafir iletişim bilgisi görünmez", async ({ page }) => {
     const stamp = Date.now().toString(36);
     const email = `booking-${stamp}@example.com`;
     const guestName = `E2E Rezervasyon ${stamp}`;
     const sql = process.env.DATABASE_URL ? postgres(process.env.DATABASE_URL, { max: 1 }) : null;
     await login(page, "manager");
     try {
-      await page.goto("/dashboard/bookings");
-      await page.getByRole("button", { name: "Rezervasyon ekle" }).click();
-      const dialog = page.getByRole("dialog", { name: "Yeni rezervasyon" });
-      await dialog.getByLabel("Misafir adı").fill(guestName);
-      await dialog.getByLabel("E-posta").fill(email);
-      await dialog.getByLabel("Giriş").fill("2027-01-10");
-      await dialog.getByLabel("Çıkış").fill("2027-01-13");
-      await dialog.getByLabel("Toplam tutar").fill("12500");
-      await dialog.getByRole("button", { name: "Oluştur" }).click();
+      // Rezervasyonun tek kaynağı Dengizek talebidir.
+      const created = await page.request.post("/api/inquiry", {
+        data: {
+          name: guestName,
+          email,
+          message: "Kış tatili için yer var mı? Beni 0532 123 45 67 numarasından arayın.",
+          hotelSlug: "aurelia-bay",
+          checkIn: "2027-01-10",
+          checkOut: "2027-01-13",
+          adults: 2,
+          children: 0,
+          marketingConsent: false,
+        },
+      });
+      expect(created.ok()).toBe(true);
 
-      let row = page.locator("tbody tr").filter({ hasText: email });
+      await page.goto("/dashboard/inquiries");
+      const inquiryRow = page.locator("tbody tr").filter({ hasText: guestName });
+      await expect(inquiryRow).toBeVisible({ timeout: 20_000 });
+      // Tesis misafirin e-postasını da mesaja yazdığı telefonu da göremez.
+      await expect(inquiryRow).not.toContainText(email);
+      await expect(inquiryRow).not.toContainText("0532");
+      await expect(inquiryRow).toContainText("iletişim bilgisi gizlendi");
+      await inquiryRow.getByRole("button", { name: "Rezervasyona dönüştür" }).click();
+      await expect(page.getByText("Rezervasyon oluşturuldu.")).toBeVisible();
+
+      await page.goto("/dashboard/bookings");
+      // Dışarıdan misafir girişi yok.
+      await expect(page.getByRole("button", { name: "Rezervasyon ekle" })).toHaveCount(0);
+      let row = page.locator("tbody tr").filter({ hasText: guestName });
       await expect(row).toBeVisible({ timeout: 20_000 });
+      await expect(row).not.toContainText(email);
       await row.getByRole("button", { name: "Onayla" }).click();
-      await expect(page.getByText(/Rezervasyon onaylandı olarak güncellendi/i)).toBeVisible();
+      await expect(page.getByText("Rezervasyon onaylandı.")).toBeVisible();
       await expect(row.getByText("Onaylandı")).toBeVisible();
-      await expect(row.getByRole("button", { name: "Tahsilat yakında" })).toBeDisabled();
 
       await page.reload();
-      row = page.locator("tbody tr").filter({ hasText: email });
+      row = page.locator("tbody tr").filter({ hasText: guestName });
       await expect(row.getByText("Onaylandı")).toBeVisible({ timeout: 20_000 });
     } finally {
       if (sql) {
         const rows = await sql<{ id: string }[]>`select id from bookings where guest_email = ${email}`;
         for (const row of rows) await sql`delete from audit_log where entity_id = ${row.id}`;
         await sql`delete from bookings where guest_email = ${email}`;
+        await sql`delete from analytics_events where payload->>'inquiryId' in (select id::text from inquiries where email = ${email})`;
+        await sql`delete from email_outbox where to_address = ${email}`;
+        await sql`delete from user_notifications where body like ${`${guestName} — %`}`;
+        await sql`delete from inquiries where email = ${email}`;
         await sql.end();
       }
     }

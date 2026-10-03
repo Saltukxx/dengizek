@@ -17,15 +17,15 @@ test.describe("Kış misafir yolculuğu", () => {
       await expect(page).toHaveURL(/\/kis\/oteller/);
       await expect(page.getByRole("heading", { name: "Kış tatili otelleri" })).toBeVisible();
 
-      await page.getByRole("link", { name: /Aurelia Bay/i }).first().click();
-      await expect(page).toHaveURL(/\/kis\/oteller\/aurelia-bay/);
-      await expect(page.getByRole("heading", { name: /Aurelia Bay/i }).first()).toBeVisible();
+      await page.getByRole("link", { name: /Kar Zirvesi/i }).first().click();
+      await expect(page).toHaveURL(/\/kis\/oteller\/kar-zirvesi/);
+      await expect(page.getByRole("heading", { name: /Kar Zirvesi/i }).first()).toBeVisible();
       await page.getByRole("link", { name: "Sanal Turu Başlat" }).click();
-      await expect(page).toHaveURL(/\/tours\/aurelia-bay\/demo-lobby\?surface=kis/);
+      await expect(page).toHaveURL(/\/tours\/kar-zirvesi\/kis-turu\?surface=kis/);
       await expect(page.locator(".er-tour-winter")).toBeVisible();
 
       await page.getByRole("link", { name: "Talep Gönder" }).first().click();
-      await expect(page).toHaveURL(/\/kis\/talep\?hotel=aurelia-bay/);
+      await expect(page).toHaveURL(/\/kis\/talep\?hotel=kar-zirvesi/);
       await page.getByPlaceholder("Adınız ve soyadınız").fill("Kış E2E Misafiri");
       await page.getByPlaceholder("ornek@email.com").fill(email);
       await page.getByPlaceholder("Özel talepler…").fill("Kış tatili için bilgi rica ediyorum.");
@@ -48,6 +48,31 @@ test.describe("Kış misafir yolculuğu", () => {
         await sql.end();
       }
     }
+  });
+
+  test("kış otelinden oda ve talep kış kabuğunda kalır", async ({ page }) => {
+    await page.goto("/kis/oteller/kar-zirvesi");
+    await expect(page.locator(".er-winter")).toBeVisible();
+    const roomLink = page.locator("#odalar a[href*='/kis/oteller/kar-zirvesi/rooms/']").first();
+    await expect(roomLink).toBeVisible();
+    await roomLink.click();
+    await expect(page).toHaveURL(/\/kis\/oteller\/kar-zirvesi\/rooms\//);
+    await expect(page.locator(".er-winter")).toBeVisible();
+    await page.getByRole("main").getByRole("link", { name: "Talep Gönder" }).click();
+    await expect(page).toHaveURL(/\/kis\/talep\?hotel=kar-zirvesi/);
+    await expect(page.locator(".er-winter")).toBeVisible();
+  });
+
+  test("yazlık tesis kış vitrininde ve kış detayında görünmez", async ({ page }) => {
+    // Ham HTML değil görünen bağlantılar: dev derlemesi sorgu satırlarını hata
+    // ayıklama verisi olarak akışa koyar.
+    await page.goto("/kis/oteller");
+    await expect(page.getByRole("link", { name: /Kar Zirvesi/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /Aurelia Bay/i })).toHaveCount(0);
+    expect((await page.request.get("/kis/oteller/aurelia-bay")).status()).toBe(404);
+    await page.goto("/browse");
+    await expect(page.getByRole("link", { name: /Aurelia Bay/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /Kar Zirvesi/i })).toHaveCount(0);
   });
 
   test("sezonsuz yayımlanmış eski tesisi yazda tutar, kıştan ayırır", async ({ page }) => {

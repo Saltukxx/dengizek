@@ -82,7 +82,7 @@ export function AmenitiesSection({
                   key={item.key}
                   style={{
                     padding: "7px 16px",
-                    borderRadius: 999,
+                    borderRadius: "var(--er-radius-pill)",
                     border: "1px solid var(--er-line)",
                     background: "var(--er-surface-2)",
                     color: "var(--er-text-muted)",

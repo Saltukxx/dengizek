@@ -21,6 +21,7 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconChevronLeft, IconChevronRight, IconWand } from "@tabler/icons-react";
 import { useMyHotel } from "./use-my-hotel";
+import { usePanelConfirm } from "./panel-confirm";
 import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 
 interface RoomOption {
@@ -72,6 +73,7 @@ function daysInMonth(year: number, month: number): string[] {
 
 export function InventoryManager() {
   const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
+  const { confirm, modal: confirmModal } = usePanelConfirm();
   const [rooms, setRooms] = useState<RoomOption[]>([]);
   const [roomId, setRoomId] = useState<string | null>(null);
   const now = new Date();
@@ -266,9 +268,30 @@ export function InventoryManager() {
   }
   if (!hotel) return <Loader />;
 
-  function navigateMonth(direction: -1 | 1) {
-    if (dirty && !window.confirm("Kaydedilmemiş envanter değişiklikleri silinecek. Devam edilsin mi?")) return;
+  async function navigateMonth(direction: -1 | 1) {
+    if (dirty) {
+      const ok = await confirm({
+        title: "Kaydedilmemiş değişiklikler",
+        message: "Kaydedilmemiş envanter değişiklikleri silinecek. Devam edilsin mi?",
+        confirmLabel: "Devam et",
+        confirmColor: "orange",
+      });
+      if (!ok) return;
+    }
     if (direction < 0) prevMonth(); else nextMonth();
+  }
+
+  async function changeRoom(next: string | null) {
+    if (dirty) {
+      const ok = await confirm({
+        title: "Kaydedilmemiş değişiklikler",
+        message: "Kaydedilmemiş envanter değişiklikleri silinecek. Devam edilsin mi?",
+        confirmLabel: "Devam et",
+        confirmColor: "orange",
+      });
+      if (!ok) return;
+    }
+    setRoomId(next);
   }
 
   return (
@@ -280,8 +303,7 @@ export function InventoryManager() {
           data={rooms.map((r) => ({ value: r.id, label: r.name }))}
           value={roomId}
           onChange={(next) => {
-            if (dirty && !window.confirm("Kaydedilmemiş envanter değişiklikleri silinecek. Devam edilsin mi?")) return;
-            setRoomId(next);
+            void changeRoom(next);
           }}
           w={260}
         />
@@ -530,6 +552,7 @@ export function InventoryManager() {
         onKeepLocal={lock.keepLocalDraft}
         onLoadLatest={async () => { await loadInventory(); lock.clearConflict(); }}
       />
+      {confirmModal}
     </Stack>
   );
 }

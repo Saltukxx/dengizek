@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   IconBeach,
+  IconBed,
   IconChevronRight,
+  IconMessageCircle,
+  IconPlayerPlay,
+  IconRoute,
   IconSearch,
   IconSparkles,
   IconToolsKitchen2,
@@ -10,12 +14,13 @@ import {
 } from "@tabler/icons-react";
 import { Hero, HotelCard } from "@/components/marketing";
 import { getPublishedHotelsForBrowse } from "@/lib/hotels-repo";
+import { guestShareMeta } from "@/lib/guest-seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = guestShareMeta({
   title: "Etkileşimli video turlarla otelleri keşfedin",
   description:
     "Seçili otellere göz atın, lobiden odalara adım adım, durdurulabilir video turlarla ilerleyin.",
-};
+});
 
 /**
  * Kategori çipleri — her biri keşfet sayfasında gerçek bir olanak filtresine
@@ -31,12 +36,34 @@ const CATEGORY_CANDIDATES = [
   { key: "fitness", label: "Spor & Wellness", Icon: IconSparkles },
 ] as const;
 
+/** Tur hikâyesi adımları — kış sayfasındaki sahnenin yaz karşılığı. */
+const TOUR_STEPS = [
+  {
+    Icon: IconBed,
+    number: "01",
+    title: "Odaları gezin",
+    body: "Odanın ölçüsünü, manzarasını ve ayrıntılarını videoda görün.",
+  },
+  {
+    Icon: IconRoute,
+    number: "02",
+    title: "Tesisi dolaşın",
+    body: "Lobiden havuza ve sahile; her durakta yolu siz seçin.",
+  },
+  {
+    Icon: IconMessageCircle,
+    number: "03",
+    title: "Rehbere sorun",
+    body: "Tur sırasında tesisin doğrulanmış bilgileri üzerinden yanıt alın.",
+  },
+] as const;
+
 /** Yayında hiç otel yoksa hero boş kalmasın diye kullanılan yedek görsel. */
 const FALLBACK_HERO_IMAGE =
   "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1600&q=80";
 
 export default async function HomePage() {
-  const published = await getPublishedHotelsForBrowse();
+  const published = await getPublishedHotelsForBrowse({ season: "yaz" });
   const hotels = published.slice(0, 3);
 
   // Hero görseli yayındaki ilk görselli otelden gelir — sabit stok görsel değil.
@@ -152,8 +179,10 @@ export default async function HomePage() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 340px), 1fr))",
+              // auto-fit: iki kart satırı paylaşır, boş kolon kalmaz.
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))",
               gap: 20,
+              maxWidth: hotels.length === 1 ? 560 : undefined,
             }}
           >
             {hotels.map((h) => (
@@ -179,6 +208,55 @@ export default async function HomePage() {
             ))}
           </div>
         )}
+      </section>
+
+      {/* ── Tur hikâyesi ─────────────────────────────────────────────────── */}
+      <section className="er-tour-story">
+        <div className="er-container">
+          <div className="er-tour-story-stage">
+            <div>
+              <p className="er-eyebrow" style={{ color: "var(--er-primary)" }}>
+                Dengizek video turları
+              </p>
+              <h2 className="er-display er-h2" style={{ marginTop: 8 }}>
+                Otel odasını değil, deneyimi görün
+              </h2>
+              <p className="er-lede" style={{ marginTop: 10, maxWidth: 440 }}>
+                Rezervasyon talebinden önce tesisin akışını kendi hızınızda keşfedin.
+              </p>
+              <Link href="/browse" className="er-btn er-btn-primary" style={{ marginTop: 20 }}>
+                <IconPlayerPlay size={18} />
+                Turlu Otelleri Gör
+              </Link>
+            </div>
+
+            <Link href="/browse" className="er-tour-story-preview" aria-label="Video turlu otelleri incele">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={heroImage} alt="" />
+              <ol aria-hidden>
+                <li data-active="true">Lobi</li>
+                <li>Oda</li>
+                <li>Havuz</li>
+              </ol>
+              <span className="er-tour-story-play" aria-hidden>
+                <IconPlayerPlay size={22} />
+              </span>
+            </Link>
+          </div>
+
+          <div className="er-tour-story-steps">
+            {TOUR_STEPS.map(({ Icon, number, title, body }) => (
+              <article key={number} className="er-card">
+                <div>
+                  <Icon size={20} stroke={1.7} />
+                  <span>{number}</span>
+                </div>
+                <h3 className="er-display">{title}</h3>
+                <p>{body}</p>
+              </article>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* ── Otel sahiplerine CTA bandı ───────────────────────────────────── */}

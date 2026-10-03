@@ -19,7 +19,7 @@ export async function InquirySuccessPage({
       ? "Talebiniz otele iletildi ve takip bağlantınız e-posta adresinize gönderildi."
       : emailStatus === "queued"
         ? "Talebiniz otele iletildi. Takip e-postanız gönderim kuyruğuna alındı."
-        : "Talebiniz otele iletildi. E-posta bildirimi şu anda kullanılamıyor; otel verdiğiniz iletişim bilgilerinden dönüş yapabilir.";
+        : "Talebiniz otele iletildi. E-posta bildirimi şu anda gönderilemiyor; takip bağlantınız hazır olduğunda e-postanıza ulaşacak.";
   return (
     <div
       style={{

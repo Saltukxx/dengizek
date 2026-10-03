@@ -36,6 +36,14 @@ describe("HotelCard", () => {
     expect(screen.getByRole("link", { name: "Tesisi İncele" })).toBeInTheDocument();
   });
 
+  it("sayısal olmayan fiyat etiketini gece ücreti gibi göstermez", () => {
+    render(<HotelCard hotel={hotel} />);
+
+    expect(screen.getByText("Fiyat için talep gönderin")).toBeInTheDocument();
+    expect(screen.queryByText("Talep üzerine")).not.toBeInTheDocument();
+    expect(screen.queryByText("gecelik başlayan")).not.toBeInTheDocument();
+  });
+
   it("sayısal fiyatı eski metin etiketine tercih eder ve gecelik bağlamını gösterir", () => {
     render(<HotelCard hotel={hotel} minPriceMinor={1_250_000} currency="TRY" />);
 

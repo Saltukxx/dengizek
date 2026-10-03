@@ -182,7 +182,12 @@ export function TourGuidePanel({
             </Text>
           )}
           {messages.map((msg) => (
-            <TourGuideMessage key={msg.id} message={msg} detectedLanguage={detectedLanguage} />
+            <TourGuideMessage
+              key={msg.id}
+              message={msg}
+              detectedLanguage={detectedLanguage}
+              personaInitials={personaInitials(displayPersona)}
+            />
           ))}
         </Stack>
       </ScrollArea>

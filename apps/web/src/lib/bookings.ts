@@ -9,6 +9,7 @@ import {
   roomsTable,
 } from "@/lib/db/schema";
 import { eachStayNight, stayRangesOverlap } from "@/lib/stay-dates";
+import { todayIso } from "@/lib/price";
 
 const ACTIVE_STATUSES = ["beklemede", "onaylandi"] as const;
 
@@ -59,6 +60,44 @@ export async function findOverlappingBooking(
   return existing.find((b) =>
     stayRangesOverlap(checkIn, checkOut, String(b.checkIn), String(b.checkOut)),
   );
+}
+
+/**
+ * Oda TİPİ birden çok birimden oluşur (rooms.unitCount). İstenen aralığın
+ * herhangi bir gecesinde aktif rezervasyon sayısı birim sayısına ulaşmışsa o
+ * geceyi döner; yer varsa null. Tek çakışmayı ret saymak 40 odalı bir tipe
+ * aynı anda yalnız bir rezervasyon alınmasına yol açıyordu.
+ */
+export async function findFullNight(
+  db: DbLike,
+  hotelId: string,
+  roomId: string,
+  unitCount: number,
+  checkIn: string,
+  checkOut: string,
+) {
+  const active = await db
+    .select({
+      id: bookingsTable.id,
+      checkIn: bookingsTable.checkIn,
+      checkOut: bookingsTable.checkOut,
+    })
+    .from(bookingsTable)
+    .where(
+      and(
+        eq(bookingsTable.hotelId, hotelId),
+        eq(bookingsTable.roomId, roomId),
+        inArray(bookingsTable.status, [...ACTIVE_STATUSES]),
+      ),
+    );
+  const units = Math.max(1, unitCount);
+  for (const night of eachStayNight(checkIn, checkOut)) {
+    const taken = active.filter(
+      (b) => String(b.checkIn) <= night && night < String(b.checkOut),
+    ).length;
+    if (taken >= units) return night;
+  }
+  return null;
 }
 
 async function assertInventoryAvailableTx(
@@ -184,6 +223,7 @@ export async function createPendingBooking(
           id: roomsTable.id,
           capacityAdults: roomsTable.capacityAdults,
           capacityChildren: roomsTable.capacityChildren,
+          unitCount: roomsTable.unitCount,
         })
         .from(roomsTable)
         .where(and(eq(roomsTable.id, input.roomId), eq(roomsTable.hotelId, hotelId)))
@@ -206,19 +246,20 @@ export async function createPendingBooking(
         );
       }
 
-      // Çift rezervasyon koruması: aynı oda için çakışan aktif (beklemede |
-      // onaylandi) rezervasyon varsa yenisi açılmaz. Onay anına bırakılırsa
-      // otel aynı odayı iki misafire söz vermiş olur.
-      const overlapping = await findOverlappingBooking(
+      // Çift rezervasyon koruması: bu oda tipinin tüm birimleri herhangi bir
+      // gecede doluysa yenisi açılmaz. Onay anına bırakılırsa otel aynı odayı
+      // iki misafire söz vermiş olur.
+      const fullNight = await findFullNight(
         tx,
         hotelId,
         input.roomId,
+        room.unitCount ?? 1,
         String(input.checkIn),
         String(input.checkOut),
       );
-      if (overlapping) {
+      if (fullNight) {
         throw new BookingServiceError(
-          `Bu oda ${String(overlapping.checkIn)} – ${String(overlapping.checkOut)} tarihleri için zaten dolu.`,
+          `Bu oda tipi ${fullNight} gecesi için dolu.`,
           "overlap",
         );
       }
@@ -322,6 +363,13 @@ export async function releaseApprovedBooking(
     if (existing.status !== "onaylandi") {
       throw new BookingServiceError("Yalnızca onaylı rezervasyon iptal edilebilir.", "invalid_state");
     }
+    // Misafir içerideyken kayıt iptal/gelmedi yapılamaz — önce giriş geri alınır.
+    if (existing.checkedInAt) {
+      throw new BookingServiceError(
+        "Giriş yapılmış rezervasyon iptal edilemez veya gelmedi işaretlenemez.",
+        "invalid_state",
+      );
+    }
 
     // Tahsilatı yapılmış rezervasyon önce iade edilmeden kapatılamaz —
     // aksi halde ödenmiş para finansal olarak görünmez hale gelir.
@@ -390,6 +438,75 @@ export async function reopenBooking(hotelId: string, bookingId: string, idempote
     const [updated] = await tx.update(bookingsTable).set({ status: "beklemede", updatedAt: new Date() })
       .where(eq(bookingsTable.id, bookingId)).returning();
     await tx.insert(bookingTransitionsTable).values({ bookingId, hotelId, action: "reopen", idempotencyKey, fromStatus: existing.status, toStatus: "beklemede" }).onConflictDoNothing();
+    return updated;
+  });
+}
+
+export type StayAction = "check_in" | "check_out" | "undo_check_in" | "undo_check_out";
+
+/**
+ * Giriş / çıkış kaydı. Durum "onaylandi" kalır; yalnız checkedInAt /
+ * checkedOutAt değişir. Envantere dokunmaz — gece tahsisi onayda düşülmüştü.
+ * Aynı adım tekrar gelirse kayıt olduğu gibi döner (çift tıklama güvenli).
+ */
+export async function recordStayStep(
+  hotelId: string,
+  bookingId: string,
+  action: StayAction,
+  idempotencyKey = `${action}:${bookingId}`,
+  now: Date = new Date(),
+) {
+  return withTransaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(bookingsTable)
+      .where(and(eq(bookingsTable.id, bookingId), eq(bookingsTable.hotelId, hotelId)))
+      .for("update");
+    if (!existing) throw new BookingServiceError("Rezervasyon bulunamadı.", "not_found");
+    if (existing.status !== "onaylandi") {
+      throw new BookingServiceError(
+        "Giriş ve çıkış yalnızca onaylı rezervasyonda kaydedilir.",
+        "invalid_state",
+      );
+    }
+
+    let patch: { checkedInAt?: Date | null; checkedOutAt?: Date | null };
+    if (action === "check_in") {
+      if (existing.checkedInAt) return existing;
+      // Otelin gününe göre: giriş tarihi gelmeden misafir içeri alınmış sayılmaz.
+      if (todayIso(now) < String(existing.checkIn)) {
+        throw new BookingServiceError(
+          `Giriş tarihi ${String(existing.checkIn)} — daha erken giriş kaydedilemez.`,
+          "invalid_state",
+        );
+      }
+      patch = { checkedInAt: now };
+    } else if (action === "check_out") {
+      if (existing.checkedOutAt) return existing;
+      if (!existing.checkedInAt) {
+        throw new BookingServiceError("Önce giriş kaydedilmelidir.", "invalid_state");
+      }
+      patch = { checkedOutAt: now };
+    } else if (action === "undo_check_out") {
+      if (!existing.checkedOutAt) return existing;
+      patch = { checkedOutAt: null };
+    } else {
+      if (!existing.checkedInAt) return existing;
+      if (existing.checkedOutAt) {
+        throw new BookingServiceError("Önce çıkış kaydı geri alınmalıdır.", "invalid_state");
+      }
+      patch = { checkedInAt: null };
+    }
+
+    const [updated] = await tx
+      .update(bookingsTable)
+      .set({ ...patch, updatedAt: now })
+      .where(eq(bookingsTable.id, bookingId))
+      .returning();
+    await tx
+      .insert(bookingTransitionsTable)
+      .values({ bookingId, hotelId, action, idempotencyKey, fromStatus: "onaylandi", toStatus: "onaylandi" })
+      .onConflictDoNothing();
     return updated;
   });
 }

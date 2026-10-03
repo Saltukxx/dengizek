@@ -19,9 +19,17 @@ describe("TourGuideMessage", () => {
     expect(screen.queryByText("Merhaba")).not.toBeInTheDocument();
   });
 
-  it("asistan mesajını gösterir", () => {
-    renderMessage({ id: "m1", role: "assistant", content: "Sahil harika bir yer." });
-    expect(screen.getByText("Sahil harika bir yer.")).toBeInTheDocument();
+  it("asistan mesajında persona baş harflerini gösterir", () => {
+    render(
+      <MantineProvider>
+        <TourGuideMessage
+          message={{ id: "m1", role: "assistant", content: "Hoş geldiniz." }}
+          personaInitials="KB"
+        />
+      </MantineProvider>,
+    );
+    expect(screen.getByText("KB")).toBeInTheDocument();
+    expect(screen.queryByText("AE")).not.toBeInTheDocument();
   });
 
   it("fiyat kartlarını satırlarıyla birlikte gösterir", () => {

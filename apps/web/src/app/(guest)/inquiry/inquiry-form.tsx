@@ -35,7 +35,6 @@ export function InquiryForm() {
     defaultValues: {
       name: "",
       email: "",
-      phone: "",
       message: "",
       marketingConsent: false,
       hotelSlug: hotelFromQuery,
@@ -113,7 +112,7 @@ export function InquiryForm() {
           Talep Gönder
         </h1>
         <p style={{ margin: 0, color: "var(--er-text-muted)", fontSize: 15, lineHeight: 1.6 }}>
-          Talebiniz otele iletilecek. Müsaitlik bilgilendiricidir; kesin onay otelden gelir.
+          Talebiniz otele iletilecek; yanıtı e-postanıza gelen bağlantıdaki Dengizek portalından alırsınız. Müsaitlik bilgilendiricidir; kesin onay otelden gelir.
         </p>
       </div>
 
@@ -232,11 +231,6 @@ export function InquiryForm() {
             </label>
             <input id="inquiry-email" {...register("email")} type="email" className="er-input" placeholder="ornek@email.com" />
             {errors.email && <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--er-error)" }}>{errors.email.message}</p>}
-          </div>
-
-          <div>
-            <label className="er-field-label" htmlFor="inquiry-phone">Telefon</label>
-            <input id="inquiry-phone" {...register("phone")} type="tel" className="er-input" placeholder="+90 5xx xxx xx xx" />
           </div>
 
           <div>

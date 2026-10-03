@@ -389,9 +389,8 @@ export interface HotelSpecs {
   /** Tatil sezonu kategorileri ("yaz"|"kis"); boş = belirtilmedi. */
   seasons: string[];
   paymentMethods: string[];
+  // Tesisin telefonu ve e-postası bilerek yok: misafir yüzüne hiç taşınmaz.
   address: string | null;
-  phone: string | null;
-  contactEmail: string | null;
   airportDistanceKm: number | null;
   blackoutText: string | null;
 }
@@ -432,8 +431,6 @@ const emptySpecs: HotelSpecs = {
   seasons: [],
   paymentMethods: [],
   address: null,
-  phone: null,
-  contactEmail: null,
   airportDistanceKm: null,
   blackoutText: null,
 };
@@ -537,8 +534,6 @@ export async function getPublishedHotelContent(
           seasons: (hotel.seasons as string[] | undefined) ?? [],
           paymentMethods: (hotel.paymentMethods as string[] | undefined) ?? [],
           address: (hotel.address as string | null) ?? null,
-          phone: (hotel.phone as string | null) ?? null,
-          contactEmail: (hotel.contactEmail as string | null) ?? null,
           airportDistanceKm: (hotel.airportDistanceKm as number | null) ?? null,
           blackoutText: (hotel.blackoutText as string | null) ?? null,
         },
@@ -568,8 +563,6 @@ export async function getPublishedHotelContent(
         seasons: hotelsTable.seasons,
         paymentMethods: hotelsTable.paymentMethods,
         address: hotelsTable.address,
-        phone: hotelsTable.phone,
-        contactEmail: hotelsTable.contactEmail,
         airportDistanceKm: hotelsTable.airportDistanceKm,
         blackoutText: hotelsTable.blackoutText,
         latitude: hotelsTable.latitude,
@@ -682,8 +675,6 @@ export async function getPublishedHotelContent(
         seasons: hotel.seasons ?? [],
         paymentMethods: hotel.paymentMethods,
         address: hotel.address,
-        phone: hotel.phone,
-        contactEmail: hotel.contactEmail,
         airportDistanceKm: hotel.airportDistanceKm,
         blackoutText: hotel.blackoutText,
       },

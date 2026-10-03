@@ -14,6 +14,7 @@ import {
   IconUserCircle,
   IconX,
 } from "@tabler/icons-react";
+import { guestPaths, guestSurfaceFromPath } from "@/lib/guest-surface";
 import { ConsentBanner } from "./consent-banner";
 
 /**
@@ -70,28 +71,29 @@ export function GuestAppShell({
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Hangi yüzeydeyiz? Rotadan türetilir — layout'tan prop geçirmeye gerek yok.
-  const surfaceKey: GuestSurface = path?.startsWith("/kis") ? "kis" : "yaz";
+  const surfaceKey: GuestSurface = guestSurfaceFromPath(path);
   const surface = SURFACES[surfaceKey];
+  const paths = guestPaths(surfaceKey);
 
   const NAV =
     surfaceKey === "kis"
       ? [
           { href: surface.home, label: "Kış Otelleri" },
           { href: surface.browse, label: "Oteller" },
-          { href: "/inquiry", label: "Nasıl Çalışır?" },
+          { href: paths.inquiry, label: "Nasıl Çalışır?" },
           { href: "/dashboard", label: "Otelini Ekle" },
         ]
       : [
           { href: surface.home, label: "Anasayfa" },
           { href: surface.browse, label: surface.browseLabel },
-          { href: "/inquiry", label: "İletişim" },
+          { href: paths.inquiry, label: "İletişim" },
           { href: "/dashboard", label: "Otel Paneli" },
         ];
 
   const MOBILE_NAV = [
     { href: surface.home, label: "Anasayfa", Icon: IconHome },
     { href: surface.browse, label: "Oteller", Icon: IconBuildingSkyscraper },
-    { href: "/inquiry", label: "İletişim", Icon: IconMail },
+    { href: paths.inquiry, label: "İletişim", Icon: IconMail },
     { href: "/dashboard", label: "Panel", Icon: IconLayoutDashboard },
   ];
 
@@ -99,7 +101,7 @@ export function GuestAppShell({
     kesfet: [
       { href: surface.browse, label: "Otelleri Keşfet" },
       { href: surface.otherHref, label: surface.otherLabel },
-      { href: "/inquiry", label: "Talep Gönder" },
+      { href: paths.inquiry, label: "Talep Gönder" },
     ],
     kurumsal: [
       { href: "/dashboard", label: "Otel Paneli" },
@@ -179,7 +181,7 @@ export function GuestAppShell({
               Giriş Yap
             </Link>
           )}
-          <Link href="/inquiry" className={surfaceKey === "kis" ? "er-btn er-btn-cta" : "er-btn er-btn-primary"}>
+          <Link href={paths.inquiry} className={surfaceKey === "kis" ? "er-btn er-btn-cta" : "er-btn er-btn-primary"}>
             {surfaceKey === "kis" ? "Kış Planı Oluştur" : "Talep Gönder"}
           </Link>
         </div>

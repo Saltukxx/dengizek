@@ -94,7 +94,7 @@ export function RestaurantsSection({ restaurants }: { restaurants: Restaurant[] 
                       key={section.id}
                       style={{
                         border: "1px solid var(--er-line)",
-                        borderRadius: 6,
+                        borderRadius: "var(--er-radius)",
                         background: "var(--er-surface-2)",
                       }}
                     >
@@ -141,7 +141,7 @@ export function RestaurantsSection({ restaurants }: { restaurants: Restaurant[] 
                                       style={{
                                         fontSize: 10,
                                         padding: "2px 8px",
-                                        borderRadius: 999,
+                                        borderRadius: "var(--er-radius-pill)",
                                         border: "1px solid var(--er-line)",
                                         color: "var(--er-primary)",
                                       }}

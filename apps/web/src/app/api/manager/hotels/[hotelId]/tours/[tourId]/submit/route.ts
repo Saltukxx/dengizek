@@ -15,6 +15,7 @@ import { mediaAssetsTable, toursTable } from "@/lib/db/schema";
 import { getManifestFromDB } from "@/lib/db/manifest";
 import { tourManifestSchema } from "@/lib/schemas/tour-manifest";
 import { logAudit } from "@/lib/audit";
+import { contactLeakMessage, findContactLeaks } from "@/lib/content-contact-check";
 
 type RouteParams = { params: Promise<{ hotelId: string; tourId: string }> };
 
@@ -54,6 +55,15 @@ export async function POST(_req: Request, { params }: RouteParams) {
   if (!validated.success) {
     return NextResponse.json(
       { ok: false, error: "Tur taslağı geçersiz", issues: validated.error.flatten() },
+      { status: 400 },
+    );
+  }
+
+  // Durak metinleri misafire ve AI rehbere gider: iletişim bilgisi taşıyamaz.
+  const leaks = findContactLeaks({ title: tour.title, steps: draft.steps }, "Tur");
+  if (leaks.length > 0) {
+    return NextResponse.json(
+      { ok: false, error: contactLeakMessage(leaks), code: "CONTACT_INFO", fields: leaks },
       { status: 400 },
     );
   }

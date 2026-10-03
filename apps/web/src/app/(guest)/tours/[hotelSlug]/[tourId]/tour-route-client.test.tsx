@@ -39,8 +39,8 @@ describe("tur route bağlamı", () => {
         hotelName: "Kar Zirvesi",
         surface: "kis",
         contextRoomSlug: "dag-odasi",
-        backHref: "/kis/oteller/kar-zirvesi",
-        backLabel: "Kış oteline dön",
+        backHref: "/kis/oteller/kar-zirvesi/rooms/dag-odasi",
+        backLabel: "Oda sayfasına dön",
       }),
     );
   });

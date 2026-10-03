@@ -84,7 +84,8 @@ export async function GET(req: Request, { params }: RouteParams) {
         `UID:${uid}`,
         `DTSTART;VALUE=DATE:${formatIcalDate(b.checkIn)}`,
         `DTEND;VALUE=DATE:${formatIcalDate(b.checkOut)}`,
-        foldIcalLine(`SUMMARY:${escapeIcalText(`${b.guestName} — ${b.status}`)}`),
+        // Takvim dış platformlara gider: misafir adı taşınmaz, yalnız doluluk.
+        foldIcalLine(`SUMMARY:${escapeIcalText(`Dengizek rezervasyonu — ${b.status}`)}`),
         "END:VEVENT",
       ].join("\r\n");
     })

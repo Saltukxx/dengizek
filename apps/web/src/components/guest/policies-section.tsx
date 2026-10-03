@@ -6,10 +6,8 @@ import {
   IconBabyCarriage,
   IconCalendarX,
   IconCreditCard,
-  IconMail,
   IconMapPin,
   IconPaw,
-  IconPhone,
   IconPlane,
 } from "@tabler/icons-react";
 import type { HotelSpecs } from "@/lib/hotels-repo";
@@ -42,8 +40,7 @@ export function PoliciesSection({ specs }: { specs: HotelSpecs }) {
 
   const contact: { icon: typeof IconMapPin; label: string }[] = [];
   if (specs.address) contact.push({ icon: IconMapPin, label: specs.address });
-  if (specs.phone) contact.push({ icon: IconPhone, label: specs.phone });
-  if (specs.contactEmail) contact.push({ icon: IconMail, label: specs.contactEmail });
+  // Tesisin telefonu ve e-postası misafire gösterilmez — iletişim talep formundan.
   if (specs.airportDistanceKm != null) {
     contact.push({ icon: IconPlane, label: `Havalimanına ${specs.airportDistanceKm} km` });
   }

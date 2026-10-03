@@ -10,6 +10,7 @@ import { inquiriesTable, inquiryMessagesTable } from "@/lib/db/schema";
 import { inquiryMessageSchema } from "@/lib/schemas/hotel-panel";
 import { sendEmail } from "@/lib/email";
 import { rotateInquiryPortalToken } from "@/lib/inquiry-portal-token";
+import { inquiryForManager, messageForDisplay } from "@/lib/manager-privacy";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -39,7 +40,11 @@ export async function GET(_req: Request, { params }: RouteParams) {
     .where(eq(inquiryMessagesTable.inquiryId, id))
     .orderBy(asc(inquiryMessagesTable.createdAt));
 
-  return NextResponse.json({ ok: true, messages, inquiry });
+  return NextResponse.json({
+    ok: true,
+    messages: messages.map(messageForDisplay),
+    inquiry: inquiryForManager(inquiry),
+  });
 }
 
 export async function POST(req: Request, { params }: RouteParams) {

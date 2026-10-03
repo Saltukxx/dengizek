@@ -63,7 +63,7 @@ describe("GuestAppShell — kış yüzeyi", () => {
     );
     expect(screen.getByRole("link", { name: "Kış Planı Oluştur" })).toHaveAttribute(
       "href",
-      "/inquiry",
+      "/kis/talep",
     );
     expect(screen.getAllByRole("link", { name: "Yaz Otelleri" })[0]).toHaveAttribute(
       "href",

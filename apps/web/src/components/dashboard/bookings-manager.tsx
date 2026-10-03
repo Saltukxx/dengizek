@@ -3,15 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  Alert,
   Badge,
   Button,
   Drawer,
   Group,
-  Loader,
-  Modal,
-  NumberInput,
   Paper,
+  ScrollArea,
+  SegmentedControl,
   Select,
   Stack,
   Table,
@@ -20,18 +18,18 @@ import {
   TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconPlus, IconWallet } from "@tabler/icons-react";
-import { bookingStatusLabels } from "@/lib/labels";
-import { formatPrice, toMinor } from "@/lib/price";
+import { IconDownload, IconSearch, IconWallet } from "@tabler/icons-react";
+import { STAY_STATES, stayState, stayStateColors, stayStateLabels } from "@/lib/booking-stay";
+import { formatPrice, todayIso } from "@/lib/price";
+import { BookingsCalendar } from "./bookings-calendar";
 import { useMyHotel } from "./use-my-hotel";
 import { ListPagination } from "./list-pagination";
 import { newIdempotencyKey } from "@/lib/api-client";
+import { PanelEmpty, PanelError, PanelLoading } from "@/components/panel-resource-state";
 
 interface BookingRow {
   id: string;
   guestName: string;
-  guestEmail: string;
-  guestPhone: string | null;
   checkIn: string;
   checkOut: string;
   adults: number;
@@ -43,7 +41,30 @@ interface BookingRow {
   roomId: string | null;
   ratePlanId: string | null;
   inquiryId: string | null;
+  checkedInAt: string | null;
+  checkedOutAt: string | null;
 }
+
+type BookingAction =
+  | "approve"
+  | "cancel"
+  | "mark_no_show"
+  | "reopen"
+  | "check_in"
+  | "check_out"
+  | "undo_check_in"
+  | "undo_check_out";
+
+const ACTION_DONE: Record<BookingAction, string> = {
+  approve: "Rezervasyon onaylandı.",
+  cancel: "Rezervasyon iptal edildi.",
+  mark_no_show: "Rezervasyon gelmedi olarak işaretlendi.",
+  reopen: "Rezervasyon yeniden açıldı.",
+  check_in: "Giriş kaydedildi.",
+  check_out: "Çıkış kaydedildi.",
+  undo_check_in: "Giriş kaydı geri alındı.",
+  undo_check_out: "Çıkış kaydı geri alındı.",
+};
 
 interface RoomOption {
   id: string;
@@ -59,28 +80,22 @@ export function BookingsManager() {
   const [paymentsEnabled, setPaymentsEnabled] = useState(false);
   const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
   const [bookings, setBookings] = useState<BookingRow[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [rooms, setRooms] = useState<RoomOption[]>([]);
   const [plans, setPlans] = useState<PlanOption[]>([]);
   const [durum, setDurum] = useState<string | null>(null);
+  const [view, setView] = useState<"liste" | "takvim">("liste");
+  const [search, setSearch] = useState("");
+  const [q, setQ] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  // Takvim, listede yapılan değişiklikten sonra yeniden okunur.
+  const [calendarKey, setCalendarKey] = useState(0);
   const [sayfa, setSayfa] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [limit] = useState(50);
-  const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<BookingRow | null>(null);
-  const [form, setForm] = useState({
-    guestName: "",
-    guestEmail: "",
-    guestPhone: "",
-    checkIn: "",
-    checkOut: "",
-    adults: 2,
-    children: 0,
-    roomId: "" as string | null,
-    ratePlanId: "" as string | null,
-    totalMajor: null as number | null,
-    notes: "",
-  });
 
   useEffect(() => {
     void fetch("/api/manager/capabilities")
@@ -93,6 +108,9 @@ export function BookingsManager() {
     if (!hotel) return;
     const params = new URLSearchParams();
     if (durum) params.set("durum", durum);
+    if (q) params.set("q", q);
+    if (fromDate) params.set("baslangic", fromDate);
+    if (toDate) params.set("bitis", toDate);
     params.set("sayfa", String(sayfa));
     const qs = params.toString();
     const [bookingsRes, roomsRes, plansRes] = await Promise.all([
@@ -104,9 +122,13 @@ export function BookingsManager() {
     const roomsJson = await roomsRes.json();
     const plansJson = await plansRes.json();
     if (bookingsJson.ok) {
+      setLoadError(null);
       setBookings(bookingsJson.bookings);
       setTotalCount(bookingsJson.totalCount ?? bookingsJson.bookings.length);
       setHasMore(bookingsJson.hasMore ?? false);
+    } else {
+      setLoadError(bookingsJson.error ?? "Rezervasyonlar alınamadı.");
+      setBookings([]);
     }
     if (roomsJson.ok) {
       setRooms(
@@ -124,78 +146,59 @@ export function BookingsManager() {
         })),
       );
     }
-  }, [hotel, durum, sayfa]);
+  }, [hotel, durum, q, fromDate, toDate, sayfa]);
 
   useEffect(() => {
     setSayfa(1);
-  }, [durum]);
+  }, [durum, q, fromDate, toDate]);
+
+  // Arama her tuşta değil, yazma durunca gider.
+  useEffect(() => {
+    const timer = setTimeout(() => setQ(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
-  if (hotelLoading) return <Loader />;
+  if (hotelLoading) return <PanelLoading />;
   if (hotelError) {
-    return (
-      <Alert color="red" icon={<IconAlertCircle size={16} />}>
-        {hotelError}
-      </Alert>
-    );
+    return <PanelError message={hotelError} />;
   }
-  if (!hotel || !bookings) return <Loader />;
+  if (loadError) {
+    return <PanelError message={loadError} onRetry={() => void reload()} />;
+  }
+  if (!hotel || !bookings) return <PanelLoading />;
 
   const roomName = (id: string | null) =>
     id ? (rooms.find((r) => r.id === id)?.name ?? "—") : "—";
 
-  async function createBooking() {
+  async function runAction(id: string, action: BookingAction) {
     if (!hotel) return;
-    const res = await fetch(`/api/manager/hotels/${hotel.id}/bookings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        guestName: form.guestName,
-        guestEmail: form.guestEmail,
-        guestPhone: form.guestPhone || undefined,
-        checkIn: form.checkIn,
-        checkOut: form.checkOut,
-        adults: form.adults,
-        children: form.children,
-        roomId: form.roomId || null,
-        ratePlanId: form.ratePlanId || null,
-        totalMinor: form.totalMajor != null ? toMinor(form.totalMajor) : null,
-        notes: form.notes || undefined,
-      }),
-    });
-    const json = await res.json();
-    if (json.ok) {
-      notifications.show({ color: "green", message: "Rezervasyon oluşturuldu." });
-      setOpen(false);
-      await reload();
-    } else {
-      notifications.show({ color: "red", message: json.error ?? "Oluşturulamadı." });
-    }
-  }
-
-  async function setStatus(id: string, status: BookingRow["status"]) {
-    if (!hotel) return;
-    const action = status === "onaylandi" ? "approve" : status === "no_show" ? "mark_no_show" : status === "beklemede" ? "reopen" : "cancel";
     const res = await fetch(`/api/manager/hotels/${hotel.id}/bookings`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, action, idempotencyKey: newIdempotencyKey(action, id) }),
     });
-    const json = await res.json();
-    if (json.ok) {
+    const json = await res.json().catch(() => null);
+    if (json?.ok) {
       await reload();
-      if (detail?.id === id) setDetail((d) => (d ? { ...d, status } : d));
-      notifications.show({
-        color: "green",
-        message: `Rezervasyon ${bookingStatusLabels[status].toLocaleLowerCase("tr-TR")} olarak güncellendi.`,
-      });
+      setCalendarKey((key) => key + 1);
+      if (detail?.id === id) setDetail((d) => (d ? { ...d, ...(json.booking as BookingRow) } : d));
+      notifications.show({ color: "green", message: ACTION_DONE[action] });
     } else {
-      notifications.show({ color: "red", message: json.error ?? "Güncellenemedi." });
+      notifications.show({ color: "red", message: json?.error ?? "Güncellenemedi." });
     }
   }
+
+  const today = todayIso();
+  const exportParams = new URLSearchParams();
+  if (durum) exportParams.set("durum", durum);
+  if (q) exportParams.set("q", q);
+  if (fromDate) exportParams.set("baslangic", fromDate);
+  if (toDate) exportParams.set("bitis", toDate);
+  const hasFilters = Boolean(durum || q || fromDate || toDate);
 
   async function saveDetailNotes() {
     if (!hotel || !detail) return;
@@ -207,6 +210,7 @@ export function BookingsManager() {
     if ((await res.json()).ok) {
       notifications.show({ color: "green", message: "Notlar kaydedildi." });
       await reload();
+      setCalendarKey((key) => key + 1);
     }
   }
 
@@ -231,20 +235,68 @@ export function BookingsManager() {
 
   return (
     <Stack gap="md">
-      <Group justify="space-between">
+      <Group justify="space-between" wrap="wrap">
+        <SegmentedControl
+          value={view}
+          onChange={(value) => setView(value as "liste" | "takvim")}
+          data={[
+            { value: "liste", label: "Liste" },
+            { value: "takvim", label: "Takvim" },
+          ]}
+        />
+        <Button component={Link} href="/dashboard/inquiries" variant="default">
+          Taleplerden rezervasyon aç
+        </Button>
+      </Group>
+
+      {view === "takvim" && (
+        <BookingsCalendar<BookingRow> hotelId={hotel.id} reloadKey={calendarKey} onSelect={setDetail} />
+      )}
+
+      {view === "liste" && (
+      <>
+      <Group align="flex-end" wrap="wrap">
+        <TextInput
+          label="Ara"
+          placeholder="Misafir adı"
+          leftSection={<IconSearch size={16} />}
+          value={search}
+          onChange={(e) => setSearch(e.currentTarget.value)}
+          style={{ flex: "1 1 240px" }}
+        />
         <Select
-          placeholder="Duruma göre filtrele"
+          label="Durum"
+          placeholder="Tümü"
           clearable
-          data={Object.entries(bookingStatusLabels).map(([v, l]) => ({ value: v, label: l }))}
+          data={STAY_STATES.map((value) => ({ value, label: stayStateLabels[value] }))}
           value={durum}
           onChange={setDurum}
+          w={170}
         />
-        <Button leftSection={<IconPlus size={16} />} onClick={() => setOpen(true)}>
-          Rezervasyon ekle
+        <TextInput
+          label="Konaklama başlangıcı"
+          type="date"
+          value={fromDate}
+          onChange={(e) => setFromDate(e.currentTarget.value)}
+        />
+        <TextInput
+          label="Konaklama bitişi"
+          type="date"
+          value={toDate}
+          onChange={(e) => setToDate(e.currentTarget.value)}
+        />
+        <Button
+          component="a"
+          href={`/api/manager/hotels/${hotel.id}/bookings/export?${exportParams}`}
+          variant="default"
+          leftSection={<IconDownload size={16} />}
+        >
+          CSV indir
         </Button>
       </Group>
       <Paper withBorder radius="md">
-        <Table highlightOnHover>
+        <ScrollArea type="auto">
+        <Table highlightOnHover miw={920}>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Misafir</Table.Th>
@@ -259,9 +311,14 @@ export function BookingsManager() {
             {bookings.length === 0 && (
               <Table.Tr>
                 <Table.Td colSpan={6}>
-                  <Text c="dimmed" size="sm" py="sm">
-                    Rezervasyon yok.
-                  </Text>
+                  <PanelEmpty
+                    title={hasFilters ? "Eşleşen rezervasyon yok" : "Rezervasyon yok"}
+                    description={
+                      hasFilters
+                        ? "Arama veya süzgeçleri değiştirip yeniden deneyin."
+                        : "Rezervasyonlar, Talepler sayfasında bir talebi rezervasyona dönüştürünce burada görünür."
+                    }
+                  />
                 </Table.Td>
               </Table.Tr>
             )}
@@ -269,9 +326,6 @@ export function BookingsManager() {
               <Table.Tr key={b.id}>
                 <Table.Td>
                   <Text fw={500}>{b.guestName}</Text>
-                  <Text size="xs" c="dimmed">
-                    {b.guestEmail}
-                  </Text>
                 </Table.Td>
                 <Table.Td>
                   <Text size="sm">{roomName(b.roomId)}</Text>
@@ -279,7 +333,7 @@ export function BookingsManager() {
                     {plans.find((p) => p.id === b.ratePlanId)?.name ?? "—"}
                   </Text>
                 </Table.Td>
-                <Table.Td>
+                <Table.Td style={{ whiteSpace: "nowrap" }}>
                   {b.checkIn} — {b.checkOut}
                   <Text size="xs" c="dimmed">
                     {b.adults} yetişkin, {b.children} çocuk
@@ -290,8 +344,10 @@ export function BookingsManager() {
                     ? formatPrice(b.totalMinor, b.currency, false)
                     : "—"}
                 </Table.Td>
-                <Table.Td>
-                  <Badge>{bookingStatusLabels[b.status]}</Badge>
+                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                  <Badge color={stayStateColors[stayState(b)]} variant="light">
+                    {stayStateLabels[stayState(b)]}
+                  </Badge>
                 </Table.Td>
                 <Table.Td>
                   <Group gap="xs">
@@ -300,18 +356,28 @@ export function BookingsManager() {
                     </Button>
                     {b.status === "beklemede" && (
                       <>
-                        <Button size="xs" onClick={() => setStatus(b.id, "onaylandi")}>
+                        <Button size="xs" onClick={() => runAction(b.id, "approve")}>
                           Onayla
                         </Button>
                         <Button
                           size="xs"
                           variant="light"
                           color="red"
-                          onClick={() => setStatus(b.id, "iptal")}
+                          onClick={() => runAction(b.id, "cancel")}
                         >
                           İptal
                         </Button>
                       </>
+                    )}
+                    {stayState(b) === "onaylandi" && b.checkIn <= today && (
+                      <Button size="xs" color="teal" onClick={() => runAction(b.id, "check_in")}>
+                        Girişi kaydet
+                      </Button>
+                    )}
+                    {stayState(b) === "konakliyor" && (
+                      <Button size="xs" color="teal" variant="light" onClick={() => runAction(b.id, "check_out")}>
+                        Çıkışı kaydet
+                      </Button>
                     )}
                     {b.status === "onaylandi" && b.totalMinor != null && (
                       <Button
@@ -331,6 +397,7 @@ export function BookingsManager() {
             ))}
           </Table.Tbody>
         </Table>
+        </ScrollArea>
         <ListPagination
           sayfa={sayfa}
           hasMore={hasMore}
@@ -339,86 +406,8 @@ export function BookingsManager() {
           onSayfaChange={setSayfa}
         />
       </Paper>
-
-      <Modal opened={open} onClose={() => setOpen(false)} title="Yeni rezervasyon" size="md">
-        <Stack gap="sm">
-          <TextInput
-            label="Misafir adı"
-            value={form.guestName}
-            onChange={(e) => setForm({ ...form, guestName: e.currentTarget.value })}
-          />
-          <TextInput
-            label="E-posta"
-            type="email"
-            value={form.guestEmail}
-            onChange={(e) => setForm({ ...form, guestEmail: e.currentTarget.value })}
-          />
-          <TextInput
-            label="Telefon"
-            value={form.guestPhone}
-            onChange={(e) => setForm({ ...form, guestPhone: e.currentTarget.value })}
-          />
-          <Group grow>
-            <TextInput
-              label="Giriş"
-              type="date"
-              value={form.checkIn}
-              onChange={(e) => setForm({ ...form, checkIn: e.currentTarget.value })}
-            />
-            <TextInput
-              label="Çıkış"
-              type="date"
-              value={form.checkOut}
-              onChange={(e) => setForm({ ...form, checkOut: e.currentTarget.value })}
-            />
-          </Group>
-          <Group grow>
-            <NumberInput
-              label="Yetişkin"
-              min={1}
-              value={form.adults}
-              onChange={(v) => setForm({ ...form, adults: Number(v) || 2 })}
-            />
-            <NumberInput
-              label="Çocuk"
-              min={0}
-              value={form.children}
-              onChange={(v) => setForm({ ...form, children: Number(v) || 0 })}
-            />
-          </Group>
-          <Select
-            label="Oda"
-            placeholder="Seçin (opsiyonel)"
-            clearable
-            data={rooms.map((r) => ({ value: r.id, label: r.name }))}
-            value={form.roomId}
-            onChange={(v) => setForm({ ...form, roomId: v })}
-          />
-          <Select
-            label="Fiyat planı"
-            placeholder="Seçin (opsiyonel)"
-            clearable
-            data={plans.map((p) => ({ value: p.id, label: p.name }))}
-            value={form.ratePlanId}
-            onChange={(v) => setForm({ ...form, ratePlanId: v })}
-          />
-          <NumberInput
-            label="Toplam tutar"
-            min={0}
-            decimalScale={2}
-            value={form.totalMajor ?? ""}
-            onChange={(v) =>
-              setForm({ ...form, totalMajor: typeof v === "number" ? v : null })
-            }
-          />
-          <Textarea
-            label="Notlar"
-            value={form.notes}
-            onChange={(e) => setForm({ ...form, notes: e.currentTarget.value })}
-          />
-          <Button onClick={createBooking}>Oluştur</Button>
-        </Stack>
-      </Modal>
+      </>
+      )}
 
       <Drawer
         opened={!!detail}
@@ -430,10 +419,6 @@ export function BookingsManager() {
         {detail && (
           <Stack gap="sm">
             <Text fw={600}>{detail.guestName}</Text>
-            <Text size="sm" c="dimmed">
-              {detail.guestEmail}
-              {detail.guestPhone ? ` · ${detail.guestPhone}` : ""}
-            </Text>
             <Text size="sm">
               {detail.checkIn} → {detail.checkOut}
             </Text>
@@ -447,7 +432,17 @@ export function BookingsManager() {
                 ? formatPrice(detail.totalMinor, detail.currency, false)
                 : "—"}
             </Text>
-            <Badge>{bookingStatusLabels[detail.status]}</Badge>
+            <Badge color={stayStateColors[stayState(detail)]} variant="light" style={{ alignSelf: "flex-start" }}>
+              {stayStateLabels[stayState(detail)]}
+            </Badge>
+            {detail.checkedInAt && (
+              <Text size="xs" c="dimmed">
+                Giriş: {new Date(detail.checkedInAt).toLocaleString("tr-TR")}
+                {detail.checkedOutAt
+                  ? ` · Çıkış: ${new Date(detail.checkedOutAt).toLocaleString("tr-TR")}`
+                  : ""}
+              </Text>
+            )}
             {detail.inquiryId && (
               <Button
                 component={Link}
@@ -470,18 +465,69 @@ export function BookingsManager() {
               </Button>
               {detail.status === "beklemede" && (
                 <>
-                  <Button size="sm" onClick={() => setStatus(detail.id, "onaylandi")}>
+                  <Button size="sm" onClick={() => runAction(detail.id, "approve")}>
                     Onayla
                   </Button>
                   <Button
                     size="sm"
                     color="red"
                     variant="light"
-                    onClick={() => setStatus(detail.id, "iptal")}
+                    onClick={() => runAction(detail.id, "cancel")}
                   >
                     İptal
                   </Button>
                 </>
+              )}
+              {stayState(detail) === "onaylandi" && (
+                <>
+                  <Button
+                    size="sm"
+                    color="teal"
+                    disabled={detail.checkIn > today}
+                    title={detail.checkIn > today ? "Giriş tarihi henüz gelmedi" : undefined}
+                    onClick={() => runAction(detail.id, "check_in")}
+                  >
+                    Girişi kaydet
+                  </Button>
+                  {detail.checkIn <= today && (
+                    <Button
+                      size="sm"
+                      color="orange"
+                      variant="light"
+                      onClick={() => runAction(detail.id, "mark_no_show")}
+                    >
+                      Gelmedi
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    color="red"
+                    variant="light"
+                    onClick={() => runAction(detail.id, "cancel")}
+                  >
+                    İptal
+                  </Button>
+                </>
+              )}
+              {stayState(detail) === "konakliyor" && (
+                <>
+                  <Button size="sm" color="teal" onClick={() => runAction(detail.id, "check_out")}>
+                    Çıkışı kaydet
+                  </Button>
+                  <Button size="sm" variant="subtle" onClick={() => runAction(detail.id, "undo_check_in")}>
+                    Girişi geri al
+                  </Button>
+                </>
+              )}
+              {stayState(detail) === "cikis_yapti" && (
+                <Button size="sm" variant="subtle" onClick={() => runAction(detail.id, "undo_check_out")}>
+                  Çıkışı geri al
+                </Button>
+              )}
+              {(detail.status === "iptal" || detail.status === "no_show") && (
+                <Button size="sm" variant="light" onClick={() => runAction(detail.id, "reopen")}>
+                  Yeniden aç
+                </Button>
               )}
               {detail.status === "onaylandi" && detail.totalMinor != null && (
                 <Button

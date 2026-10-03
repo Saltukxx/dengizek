@@ -2,6 +2,7 @@
 // AI fact kataloğu — doğrulanmış bilgi + otel ifadesi etiketleri
 // ---------------------------------------------------------------------------
 
+import { redactContactInfo } from "@/lib/contact-guard";
 import { createHash } from "node:crypto";
 import { amenityLabel } from "@/lib/amenities-catalog";
 import { embedText } from "@/lib/ai/embeddings";
@@ -102,14 +103,7 @@ async function buildFactCatalogUncached(
       text: `Adres: ${specs.address}`,
     });
   }
-  if (specs.phone) {
-    entries.push({
-      id: "spec.phone",
-      kind: "verified",
-      hint: "telefon iletişim",
-      text: `Telefon: ${specs.phone}`,
-    });
-  }
+  // Tesis telefonu bilgi kataloğuna girmez: rehber iletişim bilgisi vermez.
 
   for (const room of content.rooms) {
     const parts: string[] = [];
@@ -183,7 +177,8 @@ async function buildFactCatalogUncached(
     });
   });
 
-  return entries;
+  // Tesisin serbest metinleri rehbere iletişim bilgisi taşıyamaz.
+  return entries.map((entry) => ({ ...entry, text: redactContactInfo(entry.text) }));
 }
 
 // Kasıtlı mimari karar (plan Faz 2.4): in-memory Map cache korunur, DB-backed

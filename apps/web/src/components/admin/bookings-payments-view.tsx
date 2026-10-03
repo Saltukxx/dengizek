@@ -10,6 +10,7 @@ import {
   Badge,
   Group,
   Paper,
+  ScrollArea,
   Select,
   SimpleGrid,
   Stack,
@@ -127,7 +128,8 @@ function BookingsTab() {
         />
       </Group>
       <Paper withBorder radius="md">
-        <Table highlightOnHover>
+        <ScrollArea type="auto">
+        <Table highlightOnHover miw={720}>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Misafir</Table.Th>
@@ -173,6 +175,7 @@ function BookingsTab() {
             ))}
           </Table.Tbody>
         </Table>
+        </ScrollArea>
         <ListPagination
           sayfa={sayfa}
           hasMore={hasMore}
@@ -287,7 +290,8 @@ function PaymentsTab() {
         />
       </Group>
       <Paper withBorder radius="md">
-        <Table highlightOnHover>
+        <ScrollArea type="auto">
+        <Table highlightOnHover miw={800}>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Tesis</Table.Th>
@@ -331,6 +335,7 @@ function PaymentsTab() {
             ))}
           </Table.Tbody>
         </Table>
+        </ScrollArea>
         <ListPagination
           sayfa={sayfa}
           hasMore={hasMore}

@@ -10,9 +10,14 @@ interface TourGuideMessageProps {
   message: GuideMessage;
   /** Sohbette tespit edilen dil (tr/en) — çerçeve metinleri buna uyar. */
   detectedLanguage?: string;
+  personaInitials?: string;
 }
 
-export function TourGuideMessage({ message, detectedLanguage }: TourGuideMessageProps) {
+export function TourGuideMessage({
+  message,
+  detectedLanguage,
+  personaInitials = "?",
+}: TourGuideMessageProps) {
   const isUser = message.role === "user";
   const strings = guideStrings(detectedLanguage);
 
@@ -66,7 +71,7 @@ export function TourGuideMessage({ message, detectedLanguage }: TourGuideMessage
             marginTop: 2,
           }}
         >
-          AE
+          {personaInitials}
         </Box>
       )}
       <Box

@@ -2,13 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  Alert,
   Badge,
   Button,
   Group,
-  Loader,
   Modal,
   Paper,
+  ScrollArea,
   Stack,
   Table,
   Text,
@@ -16,8 +15,9 @@ import {
   TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconMessage, IconPlus } from "@tabler/icons-react";
+import { IconMessage, IconPlus } from "@tabler/icons-react";
 import { reviewStatusLabels } from "@/lib/labels";
+import { PanelEmpty, PanelError, PanelLoading } from "@/components/panel-resource-state";
 import { useMyHotel } from "./use-my-hotel";
 
 interface ReviewRow {
@@ -34,6 +34,7 @@ interface ReviewRow {
 export function ReviewsManager() {
   const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
   const [reviews, setReviews] = useState<ReviewRow[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [replyOpen, setReplyOpen] = useState<{ id: string; reply: string } | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState({ guestName: "", rating: 5, title: "", body: "" });
@@ -42,22 +43,27 @@ export function ReviewsManager() {
     if (!hotel) return;
     const res = await fetch(`/api/manager/hotels/${hotel.id}/reviews`);
     const json = await res.json();
-    if (json.ok) setReviews(json.reviews);
+    if (json.ok) {
+      setLoadError(null);
+      setReviews(json.reviews);
+    } else {
+      setLoadError(json.error ?? "Yorumlar alınamadı.");
+      setReviews([]);
+    }
   }, [hotel]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
-  if (hotelLoading) return <Loader />;
+  if (hotelLoading) return <PanelLoading />;
   if (hotelError) {
-    return (
-      <Alert color="red" icon={<IconAlertCircle size={16} />}>
-        {hotelError}
-      </Alert>
-    );
+    return <PanelError message={hotelError} />;
   }
-  if (!hotel || !reviews) return <Loader />;
+  if (loadError) {
+    return <PanelError message={loadError} onRetry={() => void reload()} />;
+  }
+  if (!hotel || !reviews) return <PanelLoading />;
 
   async function saveReply() {
     if (!replyOpen || !hotel) return;
@@ -95,7 +101,8 @@ export function ReviewsManager() {
         </Button>
       </Group>
       <Paper withBorder radius="md">
-        <Table highlightOnHover>
+        <ScrollArea type="auto">
+        <Table highlightOnHover miw={680}>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Misafir</Table.Th>
@@ -106,6 +113,13 @@ export function ReviewsManager() {
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
+            {reviews.length === 0 && (
+              <Table.Tr>
+                <Table.Td colSpan={5}>
+                  <PanelEmpty title="Yorum yok" description="Manuel yorum ekleyebilir veya misafir yorumlarını bekleyebilirsiniz." />
+                </Table.Td>
+              </Table.Tr>
+            )}
             {reviews.map((r) => (
               <Table.Tr key={r.id}>
                 <Table.Td>{r.guestName}</Table.Td>
@@ -140,6 +154,7 @@ export function ReviewsManager() {
             ))}
           </Table.Tbody>
         </Table>
+        </ScrollArea>
       </Paper>
       <Modal opened={!!replyOpen} onClose={() => setReplyOpen(null)} title="Yanıt yaz">
         <Stack gap="sm">

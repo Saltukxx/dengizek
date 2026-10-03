@@ -7,7 +7,7 @@ export default function DashboardBookingsPage() {
       <div>
         <Title order={2}>Rezervasyonlar</Title>
         <Text c="dimmed" size="sm">
-          Rezervasyon taleplerini onaylayın veya iptal edin.
+          Rezervasyonları listede veya takvimde izleyin; onay, giriş ve çıkışı buradan kaydedin.
         </Text>
       </div>
       <BookingsManager />

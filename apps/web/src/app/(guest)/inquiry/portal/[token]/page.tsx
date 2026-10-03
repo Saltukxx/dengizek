@@ -1,4 +1,11 @@
 import { InquiryPortalClient } from "./portal-client";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Talep portalı",
+  description: "Tesisinizle yazışın ve yorum bırakın.",
+  robots: { index: false, follow: false },
+};
 
 type PageProps = { params: Promise<{ token: string }> };
 

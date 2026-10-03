@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { datePattern } from "./hotel-content";
 import { validateStayDates } from "@/lib/stay-dates";
+import { redactContactInfo } from "@/lib/contact-guard";
 
 const uuid = z.string().uuid();
 
@@ -104,9 +105,13 @@ export const promotionPatchSchema = promotionBaseSchema.partial().extend({
   id: uuid,
 });
 
+/** Serbest metin: iletişim bilgisi kayda girmeden maskelenir (bkz. contact-guard). */
+const guardedText = (min: number, max: number) =>
+  z.string().min(min).max(max).transform(redactContactInfo);
+
 export const inquiryMessageSchema = z.object({
-  body: z.string().min(1).max(5000),
-  senderName: z.string().max(120).optional(),
+  body: guardedText(1, 5000),
+  senderName: guardedText(0, 120).optional(),
 });
 
 // Otel panelinden girilen yorum. `source` KASITLI olarak yok — otelin kendi
@@ -115,9 +120,9 @@ export const inquiryMessageSchema = z.object({
 // /api/inquiry/portal/[token]/review).
 export const reviewCreateSchema = z.object({
   rating: z.number().int().min(1).max(5),
-  title: z.string().max(200).optional(),
-  body: z.string().min(1).max(5000),
-  guestName: z.string().min(1).max(120),
+  title: guardedText(0, 200).optional(),
+  body: guardedText(1, 5000),
+  guestName: guardedText(1, 120),
   stayDate: z.string().regex(datePattern).nullable().optional(),
   inquiryId: uuid.nullable().optional(),
   bookingId: uuid.nullable().optional(),
@@ -126,28 +131,28 @@ export const reviewCreateSchema = z.object({
 /** Misafirin talep portalından bıraktığı yorum — kimlik token'dan gelir. */
 export const guestReviewSchema = z.object({
   rating: z.number().int().min(1).max(5),
-  title: z.string().max(200).optional(),
-  body: z.string().min(1).max(5000),
+  title: guardedText(0, 200).optional(),
+  body: guardedText(1, 5000),
   stayDate: z.string().regex(datePattern).nullable().optional(),
 });
 
 export const reviewPatchSchema = z.object({
   id: uuid,
-  reply: z.string().max(5000).optional(),
+  reply: guardedText(0, 5000).optional(),
 });
 
 export const reviewModerationSchema = z.object({
   status: z.enum(["yayinda", "reddedildi"]),
 });
 
+// Rezervasyon yalnız Dengizek üzerinden gelen bir talepten açılır: inquiryId
+// zorunludur ve misafir adı/iletişimi istemciden ALINMAZ — sunucu talep
+// kaydından okur. Otel panelinden dışarıdan misafir girişi yapılamaz.
 export const bookingCreateSchema = z
   .object({
+    inquiryId: uuid,
     roomId: uuid.nullable().optional(),
     ratePlanId: uuid.nullable().optional(),
-    inquiryId: uuid.nullable().optional(),
-    guestName: z.string().min(1).max(120),
-    guestEmail: z.string().email(),
-    guestPhone: z.string().max(40).optional(),
     checkIn: z.string().regex(datePattern),
     checkOut: z.string().regex(datePattern),
     adults: z.number().int().min(1).default(2),
@@ -165,7 +170,7 @@ export const bookingCreateSchema = z
 
 export const bookingPatchSchema = z.object({
   id: uuid,
-  action: z.enum(["approve", "cancel", "mark_no_show", "reopen"]).optional(),
+  action: z.enum(["approve", "cancel", "mark_no_show", "reopen", "check_in", "check_out", "undo_check_in", "undo_check_out"]).optional(),
   idempotencyKey: z.string().min(8).max(120).optional(),
   notes: z.string().max(2000).optional(),
   totalMinor: z.number().int().nonnegative().nullable().optional(),

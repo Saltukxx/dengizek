@@ -11,6 +11,7 @@ import { validateStayDates } from "@/lib/stay-dates";
 import { apiRateLimited, apiServiceUnavailable, apiFail } from "@/lib/api-response";
 import { generatePortalToken, hashPortalToken, portalTokenExpiry } from "@/lib/inquiry-portal-token";
 import { guestVisibleHotelBySlugWhere } from "@/lib/hotel-visibility";
+import { redactContactInfo } from "@/lib/contact-guard";
 
 async function insertInquiryWithToken(
   db: ReturnType<typeof getDb>,
@@ -100,13 +101,18 @@ export async function POST(req: Request) {
     roomSlug = null;
   }
 
+  // Ad ve mesaj tesise gösterilir: içindeki telefon/e-posta maskelenir.
+  const guestName = redactContactInfo(data.name);
+  const guestMessage = redactContactInfo(data.message);
+
   const { inquiry, token: portalToken } = await insertInquiryWithToken(db, {
     hotelId,
     hotelSlug: data.hotelSlug ?? null,
-    name: data.name,
+    name: guestName,
     email: data.email,
-    phone: data.phone || null,
-    message: data.message,
+    // Telefon toplanmaz — yazışma yalnız Dengizek portalından yürür.
+    phone: null,
+    message: guestMessage,
     marketingConsent: data.marketingConsent,
     checkIn: dates.checkIn,
     checkOut: dates.checkOut,
@@ -131,7 +137,7 @@ export async function POST(req: Request) {
     void notifyHotelMembers(hotelId, {
       type: "talep",
       title: "Yeni talep",
-      body: `${data.name} — ${data.message.slice(0, 80)}`,
+      body: `${guestName} — ${guestMessage.slice(0, 80)}`,
       link: "/dashboard/inquiries",
     });
   }

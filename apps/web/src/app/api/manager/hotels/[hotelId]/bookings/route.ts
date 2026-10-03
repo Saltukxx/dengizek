@@ -6,19 +6,22 @@ import { NextResponse } from "next/server";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
-import { bookingsTable, paymentsTable } from "@/lib/db/schema";
+import { bookingsTable, inquiriesTable, paymentsTable } from "@/lib/db/schema";
 import { bookingCreateSchema, bookingPatchSchema } from "@/lib/schemas/hotel-panel";
 import {
   approveBooking,
   BookingServiceError,
   createPendingBooking,
+  recordStayStep,
   releaseApprovedBooking,
   reopenBooking,
 } from "@/lib/bookings";
+import { bookingListWhere } from "@/lib/booking-filters";
+import { bookingForManager } from "@/lib/manager-privacy";
 import { logAudit } from "@/lib/audit";
 import { parsePagination, paginatedQuery } from "@/lib/pagination";
 import { apiFail, apiOk } from "@/lib/api-response";
-import { assertInquiryBelongsToHotel, assertRatePlanBelongsToHotel, assertRoomsBelongToHotel } from "@/lib/tenant-integrity";
+import { assertRatePlanBelongsToHotel, assertRoomsBelongToHotel } from "@/lib/tenant-integrity";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -34,16 +37,10 @@ export async function GET(req: Request, { params }: RouteParams) {
   if (guard.response) return guard.response;
 
   const url = new URL(req.url);
-  const status = url.searchParams.get("durum");
   const pagination = parsePagination(url);
 
   const db = getDb();
-  const filters = [eq(bookingsTable.hotelId, guard.hotel.id)];
-  if (status && ["beklemede", "onaylandi", "iptal", "no_show"].includes(status)) {
-    filters.push(eq(bookingsTable.status, status as "beklemede" | "onaylandi" | "iptal" | "no_show"));
-  }
-
-  const where = and(...filters);
+  const where = bookingListWhere(guard.hotel.id, url.searchParams);
   const result = await paginatedQuery({
     db,
     table: bookingsTable,
@@ -54,7 +51,7 @@ export async function GET(req: Request, { params }: RouteParams) {
 
   return NextResponse.json({
     ok: true,
-    bookings: result.items,
+    bookings: (result.items as (typeof bookingsTable.$inferSelect)[]).map(bookingForManager),
     sayfa: result.sayfa,
     limit: result.limit,
     totalCount: result.totalCount,
@@ -75,13 +72,30 @@ export async function POST(req: Request, { params }: RouteParams) {
   const refsValid = await Promise.all([
     assertRoomsBelongToHotel(guard.hotel.id, [parsed.data.roomId]),
     assertRatePlanBelongsToHotel(guard.hotel.id, parsed.data.ratePlanId),
-    assertInquiryBelongsToHotel(guard.hotel.id, parsed.data.inquiryId),
   ]);
   if (refsValid.some((ok) => !ok)) return apiFail("İlişkili kayıt bulunamadı.", 404);
 
+  // Rezervasyon yalnız bu tesise gelmiş bir Dengizek talebinden açılır; misafir
+  // bilgisi istemciden değil talep kaydından alınır.
+  const [inquiry] = await getDb()
+    .select({
+      id: inquiriesTable.id,
+      name: inquiriesTable.name,
+      email: inquiriesTable.email,
+    })
+    .from(inquiriesTable)
+    .where(and(eq(inquiriesTable.id, parsed.data.inquiryId), eq(inquiriesTable.hotelId, guard.hotel.id)))
+    .limit(1);
+  if (!inquiry) return apiFail("Rezervasyon yalnız Dengizek üzerinden gelen bir talepten açılabilir.", 404);
+
   try {
-    const booking = await createPendingBooking(guard.hotel.id, parsed.data);
-    return apiOk({ booking }, 201);
+    const booking = await createPendingBooking(guard.hotel.id, {
+      ...parsed.data,
+      guestName: inquiry.name,
+      guestEmail: inquiry.email,
+      guestPhone: null,
+    });
+    return apiOk({ booking: bookingForManager(booking) }, 201);
   } catch (err) {
     // overlap → 409, kapasite/geçersiz durum → 400, oda yok → 404
     if (err instanceof BookingServiceError) {
@@ -125,7 +139,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
         entityId: id,
         meta: { hotelId: guard.hotel.id },
       });
-      return NextResponse.json({ ok: true, booking: updated });
+      return NextResponse.json({ ok: true, booking: updated ? bookingForManager(updated) : null });
     }
 
     if (action === "cancel" || action === "mark_no_show") {
@@ -138,11 +152,27 @@ export async function PATCH(req: Request, { params }: RouteParams) {
         entityId: id,
         meta: { hotelId: guard.hotel.id },
       });
-      return NextResponse.json({ ok: true, booking: updated });
+      return NextResponse.json({ ok: true, booking: updated ? bookingForManager(updated) : null });
+    }
+    if (
+      action === "check_in" ||
+      action === "check_out" ||
+      action === "undo_check_in" ||
+      action === "undo_check_out"
+    ) {
+      const updated = await recordStayStep(guard.hotel.id, id, action, idempotencyKey!);
+      await logAudit({
+        actor: guard.user,
+        action: `rezervasyon.${action.replace(/_/g, "-")}`,
+        entityType: "hotel",
+        entityId: id,
+        meta: { hotelId: guard.hotel.id },
+      });
+      return NextResponse.json({ ok: true, booking: updated ? bookingForManager(updated) : null });
     }
     if (action === "reopen") {
       const updated = await reopenBooking(guard.hotel.id, id, idempotencyKey!);
-      return NextResponse.json({ ok: true, booking: updated });
+      return NextResponse.json({ ok: true, booking: updated ? bookingForManager(updated) : null });
     }
   } catch (err) {
     if (err instanceof BookingServiceError) {
@@ -178,5 +208,5 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     .where(and(eq(bookingsTable.id, id), eq(bookingsTable.hotelId, guard.hotel.id)))
     .returning();
 
-  return NextResponse.json({ ok: true, booking: updated });
+  return NextResponse.json({ ok: true, booking: updated ? bookingForManager(updated) : null });
 }

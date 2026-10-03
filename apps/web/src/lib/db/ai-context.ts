@@ -5,6 +5,7 @@
 // DATABASE_URL yoksa boş dizi döner — mock gerçekler bozulmaz.
 // ---------------------------------------------------------------------------
 
+import { redactContactInfo } from "@/lib/contact-guard";
 import type { HotelProfile } from "@/lib/schemas/tour-manifest";
 
 /**
@@ -48,8 +49,8 @@ export async function getHotelAiProfile(hotelSlug: string): Promise<HotelProfile
       return {
         aiPersona: value("aiPersona", "Yapay Zeka Rehberi"),
         language: value("aiLanguage", "tr"),
-        facts: facts.length > 0 ? facts : undefined,
-        policies: policies.length > 0 ? policies : undefined,
+        facts: facts.length > 0 ? facts.map(redactContactInfo) : undefined,
+        policies: policies.length > 0 ? policies.map(redactContactInfo) : undefined,
       };
     }
 
@@ -58,8 +59,8 @@ export async function getHotelAiProfile(hotelSlug: string): Promise<HotelProfile
     return {
       aiPersona: row.aiPersona,
       language: row.aiLanguage,
-      facts: row.aiFacts.length > 0 ? row.aiFacts : undefined,
-      policies: row.aiPolicies.length > 0 ? row.aiPolicies : undefined,
+      facts: row.aiFacts.length > 0 ? row.aiFacts.map(redactContactInfo) : undefined,
+      policies: row.aiPolicies.length > 0 ? row.aiPolicies.map(redactContactInfo) : undefined,
     };
   } catch (err) {
     console.warn("[ai-context] Otel profili okunamadı:", err);

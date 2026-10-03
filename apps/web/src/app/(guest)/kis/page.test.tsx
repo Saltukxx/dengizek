@@ -50,6 +50,16 @@ describe("kış ana sayfası", () => {
     );
     expect(screen.getByRole("button", { name: "Kış Otellerini Bul" }).closest("form"))
       .toHaveAttribute("action", "/kis/oteller");
+    expect(screen.getByRole("img", { name: "Pistte kayakçı" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Kar manzaralı lobide video tur durakları" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Video tur örneğini incele" })).toHaveAttribute(
+      "href",
+      "/kis/oteller",
+    );
+    expect(screen.getByRole("link", { name: /Turu Başlat/ })).toHaveAttribute(
+      "href",
+      "/kis/oteller",
+    );
   });
 
   it("kış tesisi yokken yaz/legacy tesisi göstermeyip açıklayıcı boş durum sunar", async () => {

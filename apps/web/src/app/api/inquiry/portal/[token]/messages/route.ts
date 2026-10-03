@@ -10,6 +10,7 @@ import { notifyHotelMembers } from "@/lib/notifications";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { apiRateLimited, apiServiceUnavailable, apiFail, apiNotFound, apiOk } from "@/lib/api-response";
 import { hashPortalToken } from "@/lib/inquiry-portal-token";
+import { messageForDisplay } from "@/lib/manager-privacy";
 
 type RouteParams = { params: Promise<{ token: string }> };
 
@@ -63,7 +64,7 @@ export async function GET(req: Request, { params }: RouteParams) {
       status: inquiry.status,
       hotelSlug: inquiry.hotelSlug,
     },
-    messages,
+    messages: messages.map(messageForDisplay),
   });
 }
 
