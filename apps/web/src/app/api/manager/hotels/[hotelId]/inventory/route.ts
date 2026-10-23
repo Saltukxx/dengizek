@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { and, asc, eq, gte, lte } from "drizzle-orm";
+import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { roomInventoryTable } from "@/lib/db/schema";
@@ -59,18 +59,30 @@ export async function PUT(req: Request, { params }: RouteParams) {
   if (!(await assertRoomsBelongToHotel(guard.hotel.id, parsed.data.entries.map((e) => e.roomId)))) {
     return NextResponse.json({ ok: false, error: "Oda bulunamadı." }, { status: 404 });
   }
+  // Aynı oda+gece iki kez gelirse sonuncusu geçerli: çok satırlı upsert aynı
+  // satıra iki kez dokunamaz.
+  const unique = new Map<string, (typeof parsed.data.entries)[number]>();
+  for (const entry of parsed.data.entries) unique.set(`${entry.roomId}:${entry.date}`, entry);
+  const rows = [...unique.values()].map((entry) => ({
+    ...entry,
+    minStay: entry.minStay ?? null,
+    hotelId: guard.hotel.id,
+    source: "manual",
+    manualOverride: true,
+  }));
+
   let revision: number;
   try {
     const mutation = await runPanelMutation({
       hotelId: guard.hotel.id, scope: "inventory", expectedRevision, updatedBy: guard.user.id,
       mutate: async (tx) => {
-        for (const entry of parsed.data.entries) {
-          await tx.insert(roomInventoryTable).values({ ...entry, hotelId: guard.hotel.id })
+        for (let i = 0; i < rows.length; i += 250) {
+          await tx.insert(roomInventoryTable).values(rows.slice(i, i + 250))
             .onConflictDoUpdate({
               target: [roomInventoryTable.roomId, roomInventoryTable.date],
               set: {
-                allotment: entry.allotment, stopSell: entry.stopSell,
-                minStay: entry.minStay ?? null, cta: entry.cta, ctd: entry.ctd,
+                allotment: sql`excluded.allotment`, stopSell: sql`excluded.stop_sell`,
+                minStay: sql`excluded.min_stay`, cta: sql`excluded.cta`, ctd: sql`excluded.ctd`,
                 source: "manual", manualOverride: true,
               },
             });

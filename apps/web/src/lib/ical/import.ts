@@ -7,19 +7,32 @@
 //    atlanır — hangi odanın kapanacağı belirsizken envantere dokunulmaz.
 //  - Elle girilmiş satırlar (manual_override = true) EZİLMEZ; otelin kendi
 //    kararı dış kaynağı yener.
-//  - Bir önceki senkronun kapattığı ama artık feed'de olmayan günler yeniden
-//    açılır (source = 'ical' olan satırlar bu senkronun sahibidir).
+//  - Yalnız stop_sell yazılır; allotment'a dokunulmaz. allotment onaylı
+//    rezervasyonların düşümünü taşır — sıfırlanırsa dış rezervasyon kalkınca
+//    gece bir daha satılamaz.
+//  - Senkron ODA bazındadır: aynı odaya bağlı feed'lerin geceleri birleştirilir.
+//    Feed başına yapılırsa her feed diğerinin kapattığı geceleri açar.
+//  - Bir önceki senkronun kapattığı ama artık hiçbir feed'de olmayan geceler
+//    yeniden açılır (source = 'ical' satırlar bu senkronun sahibidir) — yalnız
+//    odanın TÜM feed'leri okunabildiyse; eksik veriyle gece açılmaz.
 // ---------------------------------------------------------------------------
 
-import { and, eq, inArray, isNotNull, notInArray } from "drizzle-orm";
+import { and, eq, gte, isNotNull, ne, notInArray, or } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { hotelIcalFeedsTable, roomInventoryTable } from "@/lib/db/schema";
-import { eachStayNight } from "@/lib/stay-dates";
+import { withTransaction } from "@/lib/db/transaction";
+import { hotelIcalFeedsTable, roomInventoryTable, roomsTable } from "@/lib/db/schema";
+import { addDays } from "@/lib/booking-stay";
+import { fetchIcalFeed } from "@/lib/ical/fetch";
 import { parseIcal } from "@/lib/ical/parse";
+import { bumpPanelRevision, lockPanelRevision } from "@/lib/panel-revision";
+import { todayIso } from "@/lib/price";
+import { eachStayNight } from "@/lib/stay-dates";
 
-/** Dış akış tek bir isteği süresiz bekletmesin. */
-const FETCH_TIMEOUT_MS = 15_000;
-const MAX_FEED_BYTES = 2_000_000;
+/** Bugünden itibaren işlenen pencere — uzak gelecekteki olaylar kırpılır. */
+const SYNC_WINDOW_DAYS = 730;
+const INSERT_CHUNK = 250;
+/** Aynı anda senkronlanan oda sayısı. */
+const ROOM_CONCURRENCY = 4;
 
 export interface FeedSyncResult {
   feedId: string;
@@ -31,103 +44,157 @@ export interface FeedSyncResult {
   error?: string;
 }
 
-async function fetchFeed(url: string): Promise<string> {
-  const res = await fetch(url, {
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    headers: { Accept: "text/calendar, text/plain" },
-    redirect: "follow",
-  });
-  if (!res.ok) {
-    throw new Error(`Takvim alınamadı (HTTP ${res.status}).`);
-  }
-  const text = await res.text();
-  if (text.length > MAX_FEED_BYTES) {
-    throw new Error("Takvim dosyası çok büyük.");
-  }
-  return text;
+interface Feed {
+  id: string;
+  name: string;
+  hotelId: string;
+  roomId: string | null;
+  importUrl: string | null;
 }
 
-/** Feed'deki olayları gece listesine çevirir (DTEND hariç). */
-export function nightsFromEvents(events: { start: string; end: string }[]): string[] {
+/**
+ * Feed'deki olayları gece listesine çevirir (DTEND hariç). Pencere verilirse
+ * olaylar açılmadan ÖNCE [from, to) aralığına kırpılır — yüz yıllık tek bir
+ * olay yüz binlerce gece üretmesin.
+ */
+export function nightsFromEvents(
+  events: { start: string; end: string }[],
+  window?: { from: string; to: string },
+): string[] {
   const nights = new Set<string>();
   for (const event of events) {
-    for (const night of eachStayNight(event.start, event.end)) {
+    const start = window && event.start < window.from ? window.from : event.start;
+    const end = window && event.end > window.to ? window.to : event.end;
+    for (const night of eachStayNight(start, end)) {
       nights.add(night);
     }
   }
   return [...nights].sort();
 }
 
-async function syncFeed(
-  db: ReturnType<typeof getDb>,
-  feed: {
-    id: string;
-    name: string;
-    hotelId: string;
-    roomId: string | null;
-    importUrl: string | null;
-  },
-): Promise<FeedSyncResult> {
-  const base = { feedId: feed.id, name: feed.name };
-  if (!feed.importUrl) return { ...base, ok: true, events: 0 };
-  if (!feed.roomId) {
-    return { ...base, ok: false, error: "Feed bir odaya bağlanmamış." };
+/** Bir odanın kapalı gecelerini yazar; release açıksa artık kapalı olmayanları açar. */
+async function applyRoomBlocks(
+  hotelId: string,
+  roomId: string,
+  nights: string[],
+  today: string,
+  release: boolean,
+): Promise<{ blocked: number; released: number }> {
+  return withTransaction(async (tx) => {
+    const [room] = await tx
+      .select({ unitCount: roomsTable.unitCount })
+      .from(roomsTable)
+      .where(and(eq(roomsTable.id, roomId), eq(roomsTable.hotelId, hotelId)))
+      .limit(1);
+    if (!room) throw new Error("Feed'in bağlı olduğu oda bulunamadı.");
+
+    // Envanter paneliyle aynı kilit sırası: önce revizyon, sonra satırlar.
+    await lockPanelRevision(tx, hotelId, "inventory");
+
+    let blocked = 0;
+    for (let i = 0; i < nights.length; i += INSERT_CHUNK) {
+      const changed = await tx
+        .insert(roomInventoryTable)
+        .values(
+          nights.slice(i, i + INSERT_CHUNK).map((date) => ({
+            hotelId,
+            roomId,
+            date,
+            // Satırı olmayan gece: düşüm yapılmamıştır, tam kapasiteyle açılır.
+            allotment: room.unitCount ?? 0,
+            stopSell: true,
+            source: "ical",
+            manualOverride: false,
+          })),
+        )
+        .onConflictDoUpdate({
+          target: [roomInventoryTable.roomId, roomInventoryTable.date],
+          set: { stopSell: true, source: "ical" },
+          // Zaten bu senkronun kapattığı satır yeniden yazılmaz.
+          setWhere: and(
+            eq(roomInventoryTable.manualOverride, false),
+            or(eq(roomInventoryTable.stopSell, false), ne(roomInventoryTable.source, "ical")),
+          ),
+        })
+        .returning();
+      blocked += changed.length;
+    }
+
+    let released = 0;
+    if (release) {
+      const reopened = await tx
+        .update(roomInventoryTable)
+        .set({ stopSell: false, source: "system" })
+        .where(
+          and(
+            eq(roomInventoryTable.roomId, roomId),
+            eq(roomInventoryTable.source, "ical"),
+            eq(roomInventoryTable.manualOverride, false),
+            eq(roomInventoryTable.stopSell, true),
+            gte(roomInventoryTable.date, today),
+            nights.length > 0 ? notInArray(roomInventoryTable.date, nights) : undefined,
+          ),
+        )
+        .returning();
+      released = reopened.length;
+    }
+
+    if (blocked + released > 0) await bumpPanelRevision(tx, hotelId, "inventory");
+    return { blocked, released };
+  });
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message.slice(0, 500) : "Bilinmeyen hata";
+}
+
+async function syncRoom(roomId: string, feeds: Feed[]): Promise<FeedSyncResult[]> {
+  const today = todayIso();
+  const window = { from: today, to: addDays(today, SYNC_WINDOW_DAYS) };
+
+  const fetched = await Promise.all(
+    feeds.map(async (feed) => {
+      try {
+        const events = parseIcal(await fetchIcalFeed(feed.importUrl!));
+        return { feed, events: events.length, nights: nightsFromEvents(events, window) };
+      } catch (error) {
+        return { feed, error: errorMessage(error) };
+      }
+    }),
+  );
+
+  const nights = [...new Set(fetched.flatMap((entry) => entry.nights ?? []))].sort();
+  const allFetched = fetched.every((entry) => !entry.error);
+
+  let applied: { blocked: number; released: number };
+  try {
+    applied = await applyRoomBlocks(feeds[0].hotelId, roomId, nights, today, allFetched);
+  } catch (error) {
+    const message = errorMessage(error);
+    return feeds.map((feed) => ({ feedId: feed.id, name: feed.name, ok: false, error: message }));
   }
 
-  const events = parseIcal(await fetchFeed(feed.importUrl));
-  const nights = nightsFromEvents(events);
-
-  // 1) Feed'in kapattığı geceleri yaz. manual_override satırlarına dokunma.
-  for (const date of nights) {
-    await db
-      .insert(roomInventoryTable)
-      .values({
-        hotelId: feed.hotelId,
-        roomId: feed.roomId,
-        date,
-        allotment: 0,
-        stopSell: true,
-        source: "ical",
-        manualOverride: false,
-      })
-      .onConflictDoUpdate({
-        target: [roomInventoryTable.roomId, roomInventoryTable.date],
-        set: { stopSell: true, allotment: 0, source: "ical" },
-        setWhere: eq(roomInventoryTable.manualOverride, false),
-      });
-  }
-
-  // 2) Artık feed'de olmayan, önceki senkronun kapattığı geceleri serbest bırak.
-  const released = await db
-    .update(roomInventoryTable)
-    .set({ stopSell: false })
-    .where(
-      and(
-        eq(roomInventoryTable.roomId, feed.roomId),
-        eq(roomInventoryTable.source, "ical"),
-        eq(roomInventoryTable.manualOverride, false),
-        eq(roomInventoryTable.stopSell, true),
-        nights.length > 0 ? notInArray(roomInventoryTable.date, nights) : undefined,
-      ),
-    )
-    .returning();
-
-  return {
-    ...base,
-    ok: true,
-    events: events.length,
-    blockedNights: nights.length,
-    releasedNights: released.length,
-  };
+  return fetched.map((entry) =>
+    entry.error
+      ? { feedId: entry.feed.id, name: entry.feed.name, ok: false, error: entry.error }
+      : {
+          feedId: entry.feed.id,
+          name: entry.feed.name,
+          ok: true,
+          events: entry.events,
+          blockedNights: entry.nights?.length ?? 0,
+          releasedNights: applied.released,
+        },
+  );
 }
 
 /**
- * importUrl tanımlı tüm feed'leri senkronize eder. Bir feed'in hatası
+ * importUrl tanımlı tüm feed'leri senkronize eder. Bir odanın hatası
  * diğerlerini durdurmaz; hata feed satırına yazılır ve panelde gösterilir.
  */
-export async function syncIcalFeeds(feedIds?: string[]): Promise<FeedSyncResult[]> {
+export async function syncIcalFeeds(): Promise<FeedSyncResult[]> {
   const db = getDb();
-  const feeds = await db
+  const feeds: Feed[] = await db
     .select({
       id: hotelIcalFeedsTable.id,
       name: hotelIcalFeedsTable.name,
@@ -136,34 +203,32 @@ export async function syncIcalFeeds(feedIds?: string[]): Promise<FeedSyncResult[
       importUrl: hotelIcalFeedsTable.importUrl,
     })
     .from(hotelIcalFeedsTable)
-    .where(
-      and(
-        isNotNull(hotelIcalFeedsTable.importUrl),
-        feedIds?.length ? inArray(hotelIcalFeedsTable.id, feedIds) : undefined,
-      ),
-    );
+    .where(isNotNull(hotelIcalFeedsTable.importUrl));
 
   const results: FeedSyncResult[] = [];
+  const byRoom = new Map<string, Feed[]>();
   for (const feed of feeds) {
-    try {
-      const result = await syncFeed(db, feed);
-      await db
-        .update(hotelIcalFeedsTable)
-        .set({
-          lastSyncAt: new Date(),
-          lastSyncError: result.ok ? null : (result.error ?? null),
-        })
-        .where(eq(hotelIcalFeedsTable.id, feed.id));
-      results.push(result);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message.slice(0, 500) : "Bilinmeyen hata";
-      await db
-        .update(hotelIcalFeedsTable)
-        .set({ lastSyncAt: new Date(), lastSyncError: message })
-        .where(eq(hotelIcalFeedsTable.id, feed.id));
-      results.push({ feedId: feed.id, name: feed.name, ok: false, error: message });
+    if (!feed.roomId) {
+      results.push({ feedId: feed.id, name: feed.name, ok: false, error: "Feed bir odaya bağlanmamış." });
+      continue;
     }
+    byRoom.set(feed.roomId, [...(byRoom.get(feed.roomId) ?? []), feed]);
+  }
+
+  const queue = [...byRoom.entries()];
+  await Promise.all(
+    Array.from({ length: Math.min(ROOM_CONCURRENCY, queue.length) }, async () => {
+      for (let next = queue.shift(); next; next = queue.shift()) {
+        results.push(...(await syncRoom(next[0], next[1])));
+      }
+    }),
+  );
+
+  for (const result of results) {
+    await db
+      .update(hotelIcalFeedsTable)
+      .set({ lastSyncAt: new Date(), lastSyncError: result.ok ? null : (result.error ?? null) })
+      .where(eq(hotelIcalFeedsTable.id, result.feedId));
   }
   return results;
 }
