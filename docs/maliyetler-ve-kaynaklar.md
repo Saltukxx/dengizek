@@ -72,10 +72,33 @@ Kaynak: **AI_Uretim** sayfası; tur başına token ve STT/TTS dakikası ile çar
 | ------------------------ | --------------------------------- | --------------------------------------------------------------------------- |
 | LLM (örn. Claude Sonnet) | MTok başına ücretler              | [Anthropic API pricing](https://docs.anthropic.com/en/about-claude/pricing) |
 | STT (Whisper)            | Dakika başına                     | [OpenAI API Pricing](https://openai.com/api/pricing)                        |
-| TTS                      | Karakter veya model bazlı         | [OpenAI API Pricing](https://openai.com/api/pricing)                        |
+| TTS                      | Öneri: `gpt-4o-mini-tts` ~0,015 USD/dk (aşağıdaki tabloya bakın) | [OpenAI API Pricing](https://openai.com/api/pricing)                        |
 
 
 Excel’de **hibrit senaryo** (Sonnet / Haiku karışımı) ve **otel başı aylık tur** varsayımı ile ölçeklenir; platform toplamı **Özet** sayfasındaki **hedef otel sayısı** ile çarpılır.
+
+
+### TTS model karşılaştırması (kontrol tarihi: Ekim 2026)
+
+Sesli çıkış (TTS) henüz uygulanmadı; bu tablo planlama içindir. Varsayım: tur başına **5 dakika** konuşma ≈ **5.000 karakter** (tahmin), otel başı **300 tur/ay**, her misafir sesi açıyor (tavan). Excel: **AI_Uretim** sayfası, satır 35+ (`scripts/patch_excel_tts.py`).
+
+| Model | Türkçe | Liste fiyatı | Tur başı | Otel başı/ay | Kaynak |
+| --- | --- | --- | --- | --- | --- |
+| **OpenAI `gpt-4o-mini-tts`** (sohbet — öneri) | Var | ~0,015 USD/dk | 0,075 USD | 22,5 USD | [OpenAI API Pricing](https://openai.com/api/pricing) — rakam üçüncü taraf kaynaktan, teyit edilmeli |
+| **Azure Neural TTS** | Var | 15 USD / 1M karakter | 0,075 USD | 22,5 USD | [Azure Speech pricing](https://azure.microsoft.com/pricing/details/cognitive-services/speech-services/) — rakam üçüncü taraf kaynaktan, teyit edilmeli |
+| **Google Chirp 3 HD** | Var | 30 USD / 1M karakter (ilk 1M/ay ücretsiz) | 0,15 USD | 45 USD | [Google TTS pricing](https://cloud.google.com/text-to-speech/pricing) |
+| **ElevenLabs Flash/Turbo** | Var | 0,04 USD / 1K karakter | 0,20 USD | 60 USD | [ElevenLabs API pricing](https://elevenlabs.io/pricing/api) |
+| **ElevenLabs v3 / Multilingual v2** (anlatım — öneri) | Var | 0,08 USD / 1K karakter | 0,40 USD | 120 USD | [ElevenLabs API pricing](https://elevenlabs.io/pricing/api) |
+| **Chatterbox Multilingual** (kendi GPU) | Var, MIT | GPU kirası | — | — | [GitHub](https://github.com/resemble-ai/chatterbox) |
+
+**Kararlar ve notlar**
+
+- **Sohbet cevapları** canlı üretilir; asıl maliyet buradadır. Öneri: `gpt-4o-mini-tts` veya Azure Neural.
+- **Adım anlatımları** sabit metindir: otel ve dil başına bir kez üretilip R2'de saklanır. Otel başı ~10.000 karakter (tahmin) ElevenLabs v3 ile tek seferlik ~0,80 USD.
+- ElevenLabs abonelik paketleri liste fiyatını düşürür (ör. Business 990 USD/ay, 45M karakter). v4 Turbo 12 Ekim 2026'ya kadar 0,011 USD/1K kampanyada; normal fiyatı 0,04 USD/1K.
+- **Elenenler:** XTTS-v2 ve Fish Audio S2 Pro ticari kullanıma kapalı lisanslı; Deepgram Aura-2'de Türkçe desteği bulunamadı.
+- **Kendi GPU:** Hetzner GEX44 (RTX 4000 Ada) 184 EUR/ay + 79 EUR kurulum; RunPod RTX 4090 ~0,60 USD/saat (sürekli açık ~440 USD/ay). GPU sayısı ve Türkçe kalite **ölçülmedi**; kabaca ayda 40.000 dakikanın altında API daha ucuzdur (tahmin).
+- **Sunucu etkisi:** TTS API'den alındığında VPS yalnızca ses akışını iletir; Droplet boyutu kararı değişmez. Hetzner'e geçilirse Haziran 2026 zammından sonra CX serisi hâlâ ucuzdur (CX23 5,49 EUR, CX53 29,49 EUR); CPX ve CCX serileri 2–3 kat zamlandı.
 
 ---
 
@@ -131,6 +154,7 @@ Bu mimaride **Vercel + Neon** yerine uygulama ve (isteğe bağlı) veritabanı D
 | `gbsoft-fiyat-modeli.xlsx`             | Özet, geliştirme araçları, sunucu, AI üretim, 24 ay senaryo, canlı altyapı |
 | `scripts/update-excel-real-pricing.py` | Excel’e kaynak notları ve infra USD güncellemesi (tekrar çalıştırılabilir) |
 | `scripts/fix-excel-dollar-display.py`  | Notlarda `$` görünüm düzeltmesi                                            |
+| `scripts/patch_excel_tts.py`           | AI_Uretim sayfasına TTS model karşılaştırma bloğu (tekrar çalıştırılabilir) |
 
 
 ---
