@@ -1,38 +1,36 @@
 // ---------------------------------------------------------------------------
 // Embedding yardımcıları — fact retrieval (context-router) ve rezervasyon
-// niyeti tespiti (completion-engine) tarafından paylaşılır.
+// niyeti tespiti (completion-engine) tarafından paylaşılır. Model: Gemini
+// embedding (bkz. llm.ts).
 // ---------------------------------------------------------------------------
 
-import { embed, cosineSimilarity, type EmbeddingModel } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
-
-const EMBEDDING_MODEL_ID = "text-embedding-3-small";
-
-// Yalnızca BAŞARILI (API key mevcutken kurulan) model instance'ı önbelleğe
-// alınır — "key yok" durumu kalıcı olarak önbelleklenmez, aksi halde key
-// sonradan tanımlansa bile (dev hot-reload, test env stub'ları) hep null
-// dönerdi.
-let cachedModel: EmbeddingModel | null = null;
-
-function getEmbeddingModel(): EmbeddingModel | null {
-  if (cachedModel) return cachedModel;
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return null;
-  const openai = createOpenAI({ apiKey });
-  cachedModel = openai.embedding(EMBEDDING_MODEL_ID);
-  return cachedModel;
-}
+import { embed, cosineSimilarity } from "ai";
+import { EMBEDDING_DIMENSIONS, EMBEDDING_PROVIDER_OPTIONS, getEmbeddingModel } from "@/lib/ai/llm";
 
 /**
- * Metni embed eder. OPENAI_API_KEY yoksa veya API çağrısı başarısız olursa
- * null döner — çağıran taraf her zaman lexical/deterministik bir fallback'e
- * düşebilmeli (RAG hatası sohbeti asla kırmamalı).
+ * Metni embed eder. GEMINI_API_KEY yoksa, API hata verirse veya
+ * vektör boyutu şemayla uyuşmazsa null döner — çağıran taraf her zaman
+ * lexical/deterministik bir fallback'e düşebilmeli (RAG hatası sohbeti asla
+ * kırmamalı).
  */
 export async function embedText(text: string): Promise<number[] | null> {
+  if (!text.trim()) return null;
   const model = getEmbeddingModel();
-  if (!model || !text.trim()) return null;
+  if (!model) return null;
   try {
-    const { embedding } = await embed({ model, value: text });
+    const { embedding } = await embed({
+      model,
+      value: text,
+      maxRetries: 1,
+      providerOptions: EMBEDDING_PROVIDER_OPTIONS,
+    });
+    if (embedding.length !== EMBEDDING_DIMENSIONS) {
+      // Yanlış model seçilmiş: DB'ye yazılamaz, sorguda pgvector hata verir.
+      console.warn(
+        `[embeddings] beklenen boyut ${EMBEDDING_DIMENSIONS}, gelen ${embedding.length} — AI_EMBEDDING_MODEL'i kontrol edin`,
+      );
+      return null;
+    }
     return embedding;
   } catch (err) {
     console.warn("[embeddings] embedText başarısız:", err);

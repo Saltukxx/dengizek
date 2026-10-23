@@ -53,6 +53,26 @@ curl -sI http://localhost/            # nginx üzerinden 200 dönmeli
 docker compose -f docker-compose.prod.yml logs app --tail=50   # assertEnv hatası olmamalı
 ```
 
+## 4b. AI tur rehberi (Google Gemini)
+
+AI rehberi Google Gemini API'sini kullanır; sunucuda ek servis gerekmez.
+`.env.production`'a ekleyin:
+
+```
+GEMINI_API_KEY=<aistudio.google.com'dan alınan anahtar>
+```
+
+**Gerçek misafirlerden önce** Google projesinde faturalandırmayı açın:
+ücretsiz katmanda içerik Google tarafından ürün geliştirmede kullanılır ve
+istek sınırları düşüktür. Anahtar aynı kalır, kod değişmez. Fatura günlük
+token tavanlarıyla sınırlıdır (bkz. `apps/web/.env.example`).
+
+İlk kurulumda ve 0019 migration'ından sonra fact embedding'lerini üretin:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production run --rm app npm run db:backfill-embeddings
+```
+
 ## 5. Cron kurulumu
 
 `vercel.json`'daki 3 iş + günlük yedek için:
@@ -91,5 +111,5 @@ docker compose -f docker-compose.prod.yml --env-file .env.production up -d app
 
 - Redis: mevcut kod kullanmıyor (JWT auth, Postgres tabanlı rate limiting) —
   eklenmedi.
-- Bunny Stream / R2 / Resend / OpenAI hesapları: barındırmadan bağımsız, ayrı
+- Bunny Stream / R2 / Resend / Google Gemini hesapları: barındırmadan bağımsız, ayrı
   ayrı açılmalı — bkz. `apps/web/.env.example`.

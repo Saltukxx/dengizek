@@ -125,7 +125,7 @@ describe("citeFactById", () => {
 describe("syncFactEmbeddings", () => {
   beforeEach(() => {
     vi.stubEnv("DATABASE_URL", "postgres://test");
-    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("GEMINI_API_KEY", "test-key");
     clearFactCatalogCache();
     selectResultMock.mockReset().mockResolvedValue([]);
     insertMock.mockReset();
@@ -137,8 +137,8 @@ describe("syncFactEmbeddings", () => {
     vi.unstubAllEnvs();
   });
 
-  it("DATABASE_URL veya OPENAI_API_KEY yoksa hiçbir şey yapmadan çıkar", async () => {
-    vi.stubEnv("OPENAI_API_KEY", "");
+  it("DATABASE_URL veya GEMINI_API_KEY yoksa hiçbir şey yapmadan çıkar", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "");
     vi.mocked(getHotelAiProfile).mockResolvedValue(undefined);
     vi.mocked(getPublishedHotelContent).mockResolvedValue(emptyContent);
     await syncFactEmbeddings("aurelia-bay");

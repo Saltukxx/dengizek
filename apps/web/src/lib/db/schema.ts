@@ -915,6 +915,7 @@ export const hotelFactEmbeddingsTable = pgTable("hotel_fact_embeddings", {
   hotelSlug:   text("hotel_slug").notNull(),
   factId:      text("fact_id").notNull(),
   contentHash: text("content_hash").notNull(),
+  // Boyut, llm.ts EMBEDDING_DIMENSIONS ile aynı olmalı (gemini-embedding-2 → 1536).
   embedding:   vector("embedding", { dimensions: 1536 }).notNull(),
   createdAt:   timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({

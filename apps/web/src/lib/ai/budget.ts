@@ -1,23 +1,25 @@
 // ---------------------------------------------------------------------------
-// AI günlük bütçe bekçisi — OpenAI çağrısından ÖNCE çalışır.
+// AI günlük token bekçisi — Gemini çağrısından ÖNCE çalışır.
 //
-// Harcama analytics_events'teki ai_usage kayıtlarından (UTC gün başından beri)
-// toplanır ve estimateCostUsd ile USD'ye çevrilir. İki tavan vardır:
-//   - AI_DAILY_BUDGET_USD_PER_HOTEL (varsayılan 5 USD/otel/gün)
-//   - AI_DAILY_BUDGET_USD_GLOBAL   (varsayılan 50 USD/gün, tüm oteller)
+// Faturanın üst sınırıdır: tek bir otel (veya kötüye kullanım) günlük
+// kotayı tüketemesin. Kullanım analytics_events'teki ai_usage kayıtlarından
+// (UTC gün başından beri) girdi + çıktı token olarak toplanır. İki tavan:
+//   - AI_DAILY_TOKENS_PER_HOTEL (varsayılan 1.000.000 token/otel/gün)
+//   - AI_DAILY_TOKENS_GLOBAL    (varsayılan 6.000.000 token/gün, tüm oteller)
+// gemini-3.1-flash-lite fiyatlarıyla (Ekim 2026) global tavan ≈ 1,5-2 $/gün
+// (≈ 55 $/ay) eder; çoğu token girdi olduğu için gerçek tutar bunun altındadır.
 // Tavan aşımında sohbet 503 döner; tur oynatma etkilenmez.
 //
-// DB hatasında fail-open: bütçe bir maliyet emniyeti, kullanılabilirlik
-// bariyeri değil — kötüye kullanım koruması rate-limit'te (fail-closed).
+// DB hatasında fail-open: bu bir yük emniyeti, kullanılabilirlik bariyeri
+// değil — kötüye kullanım koruması rate-limit'te (fail-closed).
 // ---------------------------------------------------------------------------
 
 import { and, eq, gte, sql } from "drizzle-orm";
 import { getDb, isDbConfigured } from "@/lib/db";
 import { analyticsEventsTable } from "@/lib/db/schema";
-import { estimateCostUsd } from "@/lib/ai/token-cost";
 
-const DEFAULT_HOTEL_DAILY_USD = 5;
-const DEFAULT_GLOBAL_DAILY_USD = 50;
+const DEFAULT_HOTEL_DAILY_TOKENS = 1_000_000;
+const DEFAULT_GLOBAL_DAILY_TOKENS = 6_000_000;
 
 function envNumber(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -28,7 +30,7 @@ function envNumber(name: string, fallback: number): number {
 
 export type AiBudgetDecision =
   | { allowed: true }
-  | { allowed: false; scope: "hotel" | "global"; spentUsd: number; capUsd: number };
+  | { allowed: false; scope: "hotel" | "global"; spentTokens: number; capTokens: number };
 
 const tokenSums = {
   inputTokens: sql<string>`coalesce(sum((${analyticsEventsTable.payload}->>'inputTokens')::bigint), 0)`,
@@ -38,8 +40,8 @@ const tokenSums = {
 export async function checkAiBudget(hotelSlug: string): Promise<AiBudgetDecision> {
   if (!isDbConfigured()) return { allowed: true };
 
-  const hotelCap = envNumber("AI_DAILY_BUDGET_USD_PER_HOTEL", DEFAULT_HOTEL_DAILY_USD);
-  const globalCap = envNumber("AI_DAILY_BUDGET_USD_GLOBAL", DEFAULT_GLOBAL_DAILY_USD);
+  const hotelCap = envNumber("AI_DAILY_TOKENS_PER_HOTEL", DEFAULT_HOTEL_DAILY_TOKENS);
+  const globalCap = envNumber("AI_DAILY_TOKENS_GLOBAL", DEFAULT_GLOBAL_DAILY_TOKENS);
 
   const dayStart = new Date();
   dayStart.setUTCHours(0, 0, 0, 0);
@@ -68,20 +70,16 @@ export async function checkAiBudget(hotelSlug: string): Promise<AiBudgetDecision
         ),
     ]);
 
-    const hotelSpent = estimateCostUsd(
-      Number(hotelRows[0]?.inputTokens ?? 0),
-      Number(hotelRows[0]?.outputTokens ?? 0),
-    );
+    const hotelSpent =
+      Number(hotelRows[0]?.inputTokens ?? 0) + Number(hotelRows[0]?.outputTokens ?? 0);
     if (hotelSpent >= hotelCap) {
-      return { allowed: false, scope: "hotel", spentUsd: hotelSpent, capUsd: hotelCap };
+      return { allowed: false, scope: "hotel", spentTokens: hotelSpent, capTokens: hotelCap };
     }
 
-    const globalSpent = estimateCostUsd(
-      Number(globalRows[0]?.inputTokens ?? 0),
-      Number(globalRows[0]?.outputTokens ?? 0),
-    );
+    const globalSpent =
+      Number(globalRows[0]?.inputTokens ?? 0) + Number(globalRows[0]?.outputTokens ?? 0);
     if (globalSpent >= globalCap) {
-      return { allowed: false, scope: "global", spentUsd: globalSpent, capUsd: globalCap };
+      return { allowed: false, scope: "global", spentTokens: globalSpent, capTokens: globalCap };
     }
 
     return { allowed: true };

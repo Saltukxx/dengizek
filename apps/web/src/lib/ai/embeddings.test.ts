@@ -8,16 +8,18 @@ vi.mock("ai", () => ({
     (Math.sqrt(a.reduce((s, v) => s + v * v, 0)) * Math.sqrt(b.reduce((s, v) => s + v * v, 0))),
 }));
 
-vi.mock("@ai-sdk/openai", () => ({
-  createOpenAI: () => ({
-    embedding: (id: string) => ({ modelId: id }),
+vi.mock("@ai-sdk/google", () => ({
+  createGoogleGenerativeAI: () => ({
+    embeddingModel: (id: string) => ({ modelId: id }),
   }),
 }));
+
+const vec = (n: number) => Array.from({ length: n }, (_, i) => (i + 1) / n);
 
 import { embedText, cosineSimilarity } from "@/lib/ai/embeddings";
 
 beforeEach(() => {
-  vi.stubEnv("OPENAI_API_KEY", "test-key");
+  vi.stubEnv("GEMINI_API_KEY", "test-key");
   embedMock.mockReset();
 });
 
@@ -26,8 +28,8 @@ afterEach(() => {
 });
 
 describe("embedText", () => {
-  it("OPENAI_API_KEY yoksa null döner, API çağırmaz", async () => {
-    vi.stubEnv("OPENAI_API_KEY", "");
+  it("GEMINI_API_KEY yoksa null döner, API'yi çağırmaz", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "");
     const result = await embedText("merhaba");
     expect(result).toBeNull();
     expect(embedMock).not.toHaveBeenCalled();
@@ -40,9 +42,15 @@ describe("embedText", () => {
   });
 
   it("embed sonucunu döner", async () => {
-    embedMock.mockResolvedValue({ embedding: [0.1, 0.2, 0.3] });
+    embedMock.mockResolvedValue({ embedding: vec(1536) });
     const result = await embedText("check-in saati kaçta?");
-    expect(result).toEqual([0.1, 0.2, 0.3]);
+    expect(result).toEqual(vec(1536));
+  });
+
+  it("şema boyutuyla uyuşmayan vektörü reddeder (yanlış model seçimi)", async () => {
+    embedMock.mockResolvedValue({ embedding: vec(768) });
+    const result = await embedText("merhaba");
+    expect(result).toBeNull();
   });
 
   it("API hatasında null döner (RAG hatası sohbeti kırmamalı)", async () => {

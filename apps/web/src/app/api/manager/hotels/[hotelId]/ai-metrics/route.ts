@@ -7,7 +7,6 @@ import { and, eq, gte, inArray } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { computeFactEmbeddingFreshness } from "@/lib/ai/fact-store";
 import { computeAiReadinessScore } from "@/lib/ai/readiness-score";
-import { estimateCostUsd } from "@/lib/ai/token-cost";
 import { getDb } from "@/lib/db";
 import { analyticsEventsTable, roomsTable, tourStepsTable, toursTable } from "@/lib/db/schema";
 
@@ -159,11 +158,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
     },
     guardTriggered: byType.ai_guard_triggered ?? 0,
     completionDrift: byType.ai_completion_drift ?? 0,
-    tokenUsage: {
-      inputTokens,
-      outputTokens,
-      estimatedCostUsd: Math.round(estimateCostUsd(inputTokens, outputTokens) * 10000) / 10000,
-    },
+    tokenUsage: { inputTokens, outputTokens },
     embeddingFreshness,
     readinessScore: readiness.score,
     readinessIssues: readiness.issues,

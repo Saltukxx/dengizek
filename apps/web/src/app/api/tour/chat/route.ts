@@ -17,6 +17,7 @@ import {
   buildToolHintPrompt,
   createGuardStreamTransform,
   decideToolChoice,
+  serverTurnText,
   detectToolHints,
 } from "@/lib/ai/response-guard";
 import type { AiFactCatalogEntry } from "@/lib/ai/types";
@@ -26,16 +27,37 @@ import { trackEvent } from "@/lib/analytics";
 import { checkAiBudget } from "@/lib/ai/budget";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { apiRateLimited, apiNotFound, apiServiceUnavailable } from "@/lib/api-response";
-import { stepCountIs, streamText, tool, type ModelMessage } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
+import {
+  convertToModelMessages,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  stepCountIs,
+  streamText,
+  tool,
+  type ModelMessage,
+} from "ai";
+import { CHAT_PROVIDER_OPTIONS, chatModelId, getChatModel } from "@/lib/ai/llm";
+import {
+  extractConversationContext,
+  planServerTools,
+  type PlannedToolCall,
+} from "@/lib/ai/deterministic-tools";
+import { hasInquiryIntent, hasInquiryIntentSemantic } from "@/lib/ai/completion-engine";
+import { todayIso } from "@/lib/price";
 
-// Vercel fonksiyon üst sınırı — takılı bir OpenAI stream'i fonksiyonu
-// süresiz kilitleyemesin. Model çağrısının kendi iptali aşağıda
-// AbortSignal.timeout ile daha erken (45s) kesilir.
+// Fonksiyon üst sınırı — takılı bir model stream'i isteği süresiz
+// kilitleyemesin. Model çağrısının kendi iptali aşağıda AbortSignal.timeout
+// ile daha erken kesilir. Gerekirse AI_STREAM_TIMEOUT_MS ile ayarlanır
+// (maxDuration'ı aşmamalı).
 export const maxDuration = 60;
-const STREAM_TIMEOUT_MS = 45_000;
+const STREAM_TIMEOUT_MS = (() => {
+  const raw = Number(process.env.AI_STREAM_TIMEOUT_MS);
+  return Number.isFinite(raw) && raw > 0 && raw <= 58_000 ? raw : 45_000;
+})();
 /** Tool çağrısı + ardından anlatım için 2 adım yeterli (bkz. stopWhen). */
 const MAX_MODEL_STEPS = 2;
+/** Adım başına en fazla üretilecek token (araç çağrısı JSON'u dahil). */
+const MAX_OUTPUT_TOKENS = 350;
 
 // ---------------------------------------------------------------------------
 // Request schema
@@ -128,7 +150,10 @@ export interface AuthoritativeContext extends ChatRequest {
     aiPersona?: string;
     language?: string;
   } | undefined;
+  /** Prompt'a giren, mesaja göre süzülmüş katalog (en fazla 15). */
   factCatalog: AiFactCatalogEntry[];
+  /** Otelin tüm fact kataloğu — sunucu tarafı fact seçimi ve citeFact doğrulaması için. */
+  fullFactCatalog?: AiFactCatalogEntry[];
   roomOptions: { slug: string; name: string }[];
   completion: CompletionState;
   lastUserMessage?: string;
@@ -137,21 +162,26 @@ export interface AuthoritativeContext extends ChatRequest {
   detectedLanguage?: string;
 }
 
-function extractLastUserMessage(messages: ModelMessage[]): string | undefined {
+/**
+ * Son kullanıcı mesajının metni. Hem ModelMessage ({ content }) hem de
+ * tarayıcının gönderdiği UI mesajı ({ parts }) biçimini okur — useChat
+ * mesajları parts ile gönderir; yalnız content'e bakmak canlıda mesajı
+ * hiç görmemek demektir.
+ */
+function extractLastUserMessage(messages: unknown[]): string | undefined {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
-    const m = messages[i];
+    const m = messages[i] as { role?: string; content?: unknown; parts?: unknown } | undefined;
     if (m?.role !== "user") continue;
     if (typeof m.content === "string") {
       if (m.content !== "[HIDDEN]") return m.content;
       continue;
     }
-    if (Array.isArray(m.content)) {
-      const text = m.content
-        .filter((p): p is { type: "text"; text: string } => p.type === "text")
-        .map((p) => p.text)
-        .join("");
-      if (text && text !== "[HIDDEN]") return text;
-    }
+    const parts = Array.isArray(m.content) ? m.content : Array.isArray(m.parts) ? m.parts : [];
+    const text = (parts as Array<{ type?: string; text?: unknown }>)
+      .filter((p) => p?.type === "text" && typeof p.text === "string")
+      .map((p) => p.text as string)
+      .join("");
+    if (text && text !== "[HIDDEN]") return text;
   }
   return undefined;
 }
@@ -242,6 +272,7 @@ KESİN KURALLAR — FİYAT VE FACT:
 - citeFact sonucu kartta gösterilir; sen yalnızca kısa çerçeve cümlesi yaz.
 - "Otel ifadesi" etiketli bilgiler tesis sahibinin ifadesidir; doğrulanmış bilgi değildir — kart etiketine güven.
 - Bilmiyorsan uydurma; "Bu konuda otelden sizin için bilgi alabilirim." de.
+- Bir alanı ya da oteli anlatırken YALNIZCA aşağıdaki adım açıklamalarını, öne çıkanları ve fact kataloğunu kullan. Listede olmayan özellik (jakuzi, balkon, manzara ayrıntısı), mesafe, hizmet veya sayı EKLEME; emin değilsen genel ve kısa konuş.
 
 İLETİŞİM KURALI:
 - Otelin telefonunu, e-postasını, web sitesini veya sosyal medya hesabını ASLA verme; bilmiyorsun ve tahmin etmezsin.
@@ -257,9 +288,14 @@ ${stepsContext}
 ODALAR (getRoomPrice roomSlug):
 ${roomBlock}`;
 
-  const dynamicSuffix = `DİL:
+  const serverToolLine = toolHints ? `\n${toolHints}\n` : "";
+
+  const dynamicSuffix = `TARİH:
+- Bugün: ${todayIso()} (YYYY-AA-GG). Yılı belirtilmeyen tarihleri buna göre yorumla.
+
+DİL:
 - ${languageLine}${factSourceNote}
-${toolHints ? `\n${toolHints}\n` : ""}
+${serverToolLine}
 DURUM:
 - ${inquiryGate}
 - Tur ilerlemesi: ${completion.seenCount}/${completion.totalCount} (%${progressPct}).
@@ -363,7 +399,7 @@ export async function buildAuthoritativeContext(req: ChatRequest): Promise<Autho
   const currentStep = availableSteps.find((s) => s.stepId === req.currentStepId);
   const lastUserMessage =
     req.triggerReason === "userMessage"
-      ? extractLastUserMessage(req.messages as ModelMessage[])
+      ? extractLastUserMessage(req.messages)
       : undefined;
 
   // Bu turun kullanıcı-mesajı embedding'i — hem fact retrieval (context-router)
@@ -399,6 +435,7 @@ export async function buildAuthoritativeContext(req: ChatRequest): Promise<Autho
     hotelName: content.name?.trim() || fallbackHotelName,
     hotelProfile,
     factCatalog,
+    fullFactCatalog: fullCatalog,
     roomOptions: content.rooms.map((r) => ({ slug: r.slug, name: r.name })),
     completion,
     lastUserMessage,
@@ -415,7 +452,9 @@ export type ToolFlags = { hadPriceTool: boolean; hadFactTool: boolean };
  */
 export function buildTools(data: AuthoritativeContext, toolFlags: ToolFlags) {
   const hotelSlug = data.hotelSlug;
-  const factCatalog = data.factCatalog;
+  // Süzülmüş katalog yalnızca prompt'u kısaltır; citeFact otelin tüm
+  // doğrulanmış kataloğunda arar (sunucu seçimi de oradan yapılır).
+  const factCatalog = data.fullFactCatalog ?? data.factCatalog;
   return {
     navigateTo: tool({
       description: "Kullanıcıyı mevcut turda başka bir adıma yönlendir. Sadece availableSteps listesindeki stepId'leri kullan.",
@@ -499,8 +538,150 @@ export function buildTools(data: AuthoritativeContext, toolFlags: ToolFlags) {
   };
 }
 
+export interface ServerToolRun {
+  toolCallId: string;
+  toolName: PlannedToolCall["toolName"];
+  input: PlannedToolCall["input"];
+  output: unknown;
+  /** Modele verilecek geçmiş: araç çağrısı + sonucu. */
+  messages: ModelMessage[];
+}
+
+/**
+ * İstemci (useChat) mesajları UI biçiminde gönderir: { role, parts: [...] }.
+ * Model ise ModelMessage ister ({ role, content }). content taşıyan mesajlar
+ * olduğu gibi kalır; parts taşıyanlar SDK'nın dönüştürücüsünden geçer.
+ * Tarayıcıda çalışan araçların (navigateTo vb.) sonuçsuz çağrıları atlanır.
+ */
+export async function toModelMessages(raw: unknown[]): Promise<ModelMessage[]> {
+  const out: ModelMessage[] = [];
+  for (const item of raw as Array<{ role?: string; content?: unknown; parts?: unknown[] }>) {
+    if (item?.content !== undefined) {
+      out.push(item as ModelMessage);
+      continue;
+    }
+    if (!Array.isArray(item?.parts) || (item.role !== "user" && item.role !== "assistant")) continue;
+    try {
+      out.push(
+        ...(await convertToModelMessages([{ role: item.role, parts: item.parts } as never], {
+          ignoreIncompleteToolCalls: true,
+        })),
+      );
+    } catch (err) {
+      // Bozuk/eski biçimli parça: yalnız metni koru, sohbeti kırma.
+      console.warn("[chat] mesaj dönüştürülemedi, yalnız metin kullanılıyor:", err);
+      const text = item.parts
+        .map((p) => ((p as { type?: string; text?: unknown }).type === "text" ? String((p as { text?: unknown }).text ?? "") : ""))
+        .join("");
+      if (text) out.push({ role: item.role, content: text } as ModelMessage);
+    }
+  }
+  return out;
+}
+
+/** Kullanıcı mesajı olmayan tetikleyiciler (tur başlangıcı, adıma geliş…) için model talimatı. */
+export function triggerInstruction(data: AuthoritativeContext): string | null {
+  if (data.triggerReason === "userMessage") return null;
+  const triggerMap: Record<string, string> = {
+    tourStart: "[SİSTEM] Tur başladı. Kullanıcıyı karşıla ve nereden başlamak istediğini sor. suggestNext ile 2-3 alan öner.",
+    stepStart: `[SİSTEM] Kullanıcı "${data.currentStepId}" adımına geldi. Bu alanı yalnızca adım açıklamasındaki bilgilerle kısa tanıt.`,
+    stepEnd: `[SİSTEM] "${data.currentStepId}" adımı bitti. Geçişi yorum yap ve henüz görülmemiş bir alan öner (navigateTo veya suggestNext).`,
+    idle: "[SİSTEM] Kullanıcı 12 saniyedir hareketsiz. Hafif bir soru veya öneri ile meşgul et.",
+    autoTourNext: `[SİSTEM] Otomatik tur devam ediyor. Sıradaki adım: ${data.completion.nextStepId ?? "yok"}. autoTourNext ile bu adıma geç.`,
+  };
+  return triggerMap[data.triggerReason] ?? null;
+}
+
+export interface ServerTurn {
+  /** Sunucuda çalışan araçlar (kart sırasıyla). */
+  runs: ServerToolRun[];
+  /** unknown: katalog dışı soru · contact: iletişim bilgisi isteği — araç yok, sabit cevap. */
+  reply?: "unknown" | "contact";
+}
+
+/**
+ * Fiyat / bilgi / talep / gezinme sorularında araçları modelden ÖNCE sunucuda
+ * çalıştırır. Fiyat ve bilgi kartı modelin insiyatifine bırakılmaz: model aracı
+ * atlayıp bilgi uydurabilir (bkz. deterministic-tools.ts). Plan yoksa null
+ * döner ve model her zamanki gibi araçları kendisi seçer.
+ */
+export async function runServerTools(
+  data: AuthoritativeContext,
+  toolFlags: ToolFlags,
+): Promise<ServerTurn | null> {
+  if (data.triggerReason !== "userMessage" || !data.lastUserMessage) return null;
+  const message = data.lastUserMessage;
+
+  const plan = await planServerTools({
+    message,
+    messageEmbedding: data.userMessageEmbedding,
+    hints: detectToolHints(message),
+    inquiryIntent: hasInquiryIntent(message)
+      ? "explicit"
+      : (await hasInquiryIntentSemantic(data.userMessageEmbedding))
+        ? "semantic"
+        : "none",
+    catalog: data.fullFactCatalog ?? data.factCatalog,
+    rooms: data.roomOptions,
+    steps: data.availableSteps,
+    currentStepId: data.currentStepId,
+    today: todayIso(),
+    context: extractConversationContext(data.messages),
+  });
+  if (!plan.calls.length && !plan.reply) return null;
+
+  const tools = buildTools(data, toolFlags);
+  const runs: ServerToolRun[] = [];
+  for (const call of plan.calls) {
+    const toolCallId = `srv_${crypto.randomUUID()}`;
+    const options = { toolCallId, messages: [] as ModelMessage[] };
+    let output: unknown;
+    switch (call.toolName) {
+      case "navigateTo": {
+        // İstemci aracı (execute yok): tarayıcı tool-input-available ile adıma geçer.
+        const step = data.availableSteps.find((s) => s.stepId === call.input.stepId);
+        output = { ok: true, stepId: call.input.stepId, title: step?.title, description: step?.aiDescription };
+        break;
+      }
+      case "getRoomPrice":
+        output = await tools.getRoomPrice.execute!(call.input, options);
+        break;
+      case "citeFact":
+        output = await tools.citeFact.execute!(call.input, options);
+        break;
+      case "openInquiry":
+        output = await tools.openInquiry.execute!(call.input, options);
+        break;
+    }
+    runs.push({
+      toolCallId,
+      toolName: call.toolName,
+      input: call.input,
+      output,
+      messages: [
+        {
+          role: "assistant",
+          content: [{ type: "tool-call", toolCallId, toolName: call.toolName, input: call.input }],
+        },
+        {
+          role: "tool",
+          content: [
+            {
+              type: "tool-result",
+              toolCallId,
+              toolName: call.toolName,
+              output: { type: "json", value: output as never },
+            },
+          ],
+        },
+      ],
+    });
+  }
+  return { runs, reply: plan.reply };
+}
+
 export async function POST(req: Request) {
-  // OpenAI maliyetine giden uç — DB düşerse bellek fallback'i örnek başına
+  // Model sunucusuna giden uç — DB düşerse bellek fallback'i örnek başına
   // saydığından limit fiilen katlanır; burada fail-closed tercih edilir.
   if (
     !(await checkRateLimit(requestIp(req), {
@@ -562,48 +743,54 @@ export async function POST(req: Request) {
     }
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+  const model = getChatModel();
+  if (!model) {
     return apiServiceUnavailable("Yapay zeka servisi yapılandırılmamış.");
   }
+  const modelId = chatModelId();
 
-  // Günlük bütçe tavanı — OpenAI'ye gitmeden önce kontrol edilir.
+  // Günlük token tavanı — model sunucusuna gitmeden önce kontrol edilir.
   const budget = await checkAiBudget(data.hotelSlug);
   if (!budget.allowed) {
     console.warn("[chat] AI bütçe tavanı aşıldı", {
       hotelSlug: data.hotelSlug,
       scope: budget.scope,
-      spentUsd: budget.spentUsd,
-      capUsd: budget.capUsd,
+      spentTokens: budget.spentTokens,
+      capTokens: budget.capTokens,
     });
     return apiServiceUnavailable("Rehber şu an yoğunlukta — lütfen daha sonra tekrar deneyin.");
   }
 
-  const openai = createOpenAI({ apiKey });
-  const systemPrompt = buildSystemPrompt(data);
   const hotelSlug = data.hotelSlug;
   const tourId = data.tourId;
 
-  let instructions: ModelMessage | null = null;
-  if (data.triggerReason !== "userMessage") {
-    const triggerMap: Record<string, string> = {
-      tourStart: "[SİSTEM] Tur başladı. Kullanıcıyı karşıla ve nereden başlamak istediğini sor. suggestNext ile 2-3 alan öner.",
-      stepStart: `[SİSTEM] Kullanıcı "${data.currentStepId}" adımına geldi. Bu alanı kısa tanıt.`,
-      stepEnd: `[SİSTEM] "${data.currentStepId}" adımı bitti. Geçişi yorum yap ve henüz görülmemiş bir alan öner (navigateTo veya suggestNext).`,
-      idle: "[SİSTEM] Kullanıcı 12 saniyedir hareketsiz. Hafif bir soru veya öneri ile meşgul et.",
-      autoTourNext: `[SİSTEM] Otomatik tur devam ediyor. Sıradaki adım: ${data.completion.nextStepId ?? "yok"}. autoTourNext ile bu adıma geç.`,
-    };
-    const inst = triggerMap[data.triggerReason];
-    if (inst) instructions = { role: "user", content: inst };
-  }
+  const instruction = triggerInstruction(data);
+  const instructions: ModelMessage | null = instruction ? { role: "user", content: instruction } : null;
 
-  const messages: ModelMessage[] = windowConversationHistory(data.messages as ModelMessage[]);
+  const messages: ModelMessage[] = windowConversationHistory(await toModelMessages(data.messages));
   if (instructions) {
     messages.push(instructions);
   }
 
   const toolFlags = { hadPriceTool: false, hadFactTool: false };
   let guardAnalyticsFired = false;
+  const onGuardTriggered = (originalLength: number) => {
+    if (guardAnalyticsFired) return;
+    guardAnalyticsFired = true;
+    void trackEvent("ai_guard_triggered", { tourId: data.tourId, originalLength }, hotelId, data.hotelSlug);
+  };
+
+  // Fiyat / bilgi / talep / gezinme: araç sunucuda çalışır.
+  const serverTurn = await runServerTools(data, toolFlags).catch((err) => {
+    console.warn("[chat] sunucu aracı çalıştırılamadı, model serbest:", err);
+    return null;
+  });
+  const language = data.detectedLanguage ?? data.hotelProfile?.language;
+  const fixedText = serverTurn ? serverTurnText(serverTurn, language) : null;
+  if (serverTurn && fixedText !== null) {
+    // Sunucu turu (kart, gezinme, "bilgim yok", iletişim): model çağrılmaz.
+    return serverToolResponse(serverTurn.runs, fixedText);
+  }
 
   // Fiyat/fact sorusu tespit edilirse ilk adımda o tool'u ZORLA — serbest
   // metinde rakam üretmeyi olası değil, yapısal olarak imkansız kılar.
@@ -613,15 +800,23 @@ export async function POST(req: Request) {
       ? detectToolHints(data.lastUserMessage)
       : { needsPriceTool: false, needsFactTool: false };
 
+  const systemPrompt = buildSystemPrompt(data);
+  const allTools = buildTools(data, toolFlags);
+
   const result = streamText({
-    model: openai("gpt-4o-mini"),
+    model,
     system: systemPrompt,
     messages,
-    temperature: 0.7,
+    // Düşük sıcaklık: aynı soruya tutarlı ve temkinli cevap.
+    temperature: 0.3,
     // Takılı/uzayan model çağrısı burada kesilir; istemci onError ile
     // kullanıcıya geri dönüş mesajı gösterir.
     abortSignal: AbortSignal.timeout(STREAM_TIMEOUT_MS),
     maxRetries: 1,
+    // Kontrolsüz uzun üretim faturayı ve gecikmeyi büyütür; rehber yanıtları
+    // 1-2 cümledir.
+    maxOutputTokens: MAX_OUTPUT_TOKENS,
+    providerOptions: CHAT_PROVIDER_OPTIONS,
     // SDK varsayılanı stepCountIs(1): tool çalıştığı anda üretim durur, model
     // sonucu GÖRMEDEN biter. O zaman kullanıcıya çıplak bir fiyat/fact kartı
     // düşer — oysa tasarım "kısa çerçeve cümlesi + kart" istiyor. İki adım,
@@ -637,17 +832,10 @@ export async function POST(req: Request) {
       const toolChoice = decideToolChoice(toolHints, toolFlags);
       return toolChoice ? { toolChoice } : {};
     },
-    experimental_transform: createGuardStreamTransform(toolFlags, ({ originalLength }) => {
-      if (guardAnalyticsFired) return;
-      guardAnalyticsFired = true;
-      void trackEvent(
-        "ai_guard_triggered",
-        { tourId, originalLength },
-        hotelId,
-        hotelSlug,
-      );
-    }),
-    tools: buildTools(data, toolFlags),
+    experimental_transform: createGuardStreamTransform(toolFlags, ({ originalLength }) =>
+      onGuardTriggered(originalLength),
+    ),
+    tools: allTools,
     onFinish: ({ totalUsage }) => {
       void trackEvent(
         "ai_usage",
@@ -655,7 +843,7 @@ export async function POST(req: Request) {
           tourId,
           inputTokens: totalUsage.inputTokens ?? 0,
           outputTokens: totalUsage.outputTokens ?? 0,
-          model: "gpt-4o-mini",
+          model: modelId,
         },
         hotelId,
         hotelSlug,
@@ -664,4 +852,38 @@ export async function POST(req: Request) {
   });
 
   return result.toUIMessageStreamResponse();
+}
+
+/**
+ * Sunucu araçlarının sonuçlarını, ardından sabit metni aynı asistan mesajında
+ * gönderir — istemci bunu modelin çağırdığı araçtan ayırt etmez (navigateTo
+ * için tool-input-available tarayıcıda adıma geçirir).
+ */
+function serverToolResponse(runs: ServerToolRun[], text: string): Response {
+  const stream = createUIMessageStream({
+    execute: ({ writer }) => {
+      writer.write({ type: "start" });
+      if (runs.length) {
+        writer.write({ type: "start-step" });
+        for (const run of runs) {
+          writer.write({
+            type: "tool-input-available",
+            toolCallId: run.toolCallId,
+            toolName: run.toolName,
+            input: run.input,
+          });
+          writer.write({ type: "tool-output-available", toolCallId: run.toolCallId, output: run.output });
+        }
+        writer.write({ type: "finish-step" });
+      }
+      const id = `srv_text_${crypto.randomUUID()}`;
+      writer.write({ type: "start-step" });
+      writer.write({ type: "text-start", id });
+      writer.write({ type: "text-delta", id, delta: text });
+      writer.write({ type: "text-end", id });
+      writer.write({ type: "finish-step" });
+      writer.write({ type: "finish" });
+    },
+  });
+  return createUIMessageStreamResponse({ stream });
 }

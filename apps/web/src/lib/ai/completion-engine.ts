@@ -107,7 +107,8 @@ const INQUIRY_INTENT_EXEMPLARS = [
   "I would like to book this room.",
   "Can you help me make a reservation?",
 ];
-// text-embedding-3-small için ampirik olarak seçilmiş, muhafazakâr bir eşik.
+// Bu eşik eski OpenAI embedding modeli (text-embedding-3-small) için seçildi;
+// Gemini embedding benzerlik dağılımı farklıdır, canlı veriyle yeniden ayarlanmalı.
 // Gerçek veriyle ayarlamak için: `npm run ai:threshold-report` (scripts/
 // ai-threshold-report.ts) otel-başına guard/drift/inquiry oranlarını döker;
 // erken-inquiry şikayeti yoksa ve blocked oranı yüksekse eşiği düşürün,

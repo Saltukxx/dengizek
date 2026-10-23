@@ -75,7 +75,6 @@ describe("GET /api/manager/hotels/[hotelId]/ai-metrics", () => {
     const json = await res.json();
     expect(json.tokenUsage.inputTokens).toBe(15_000);
     expect(json.tokenUsage.outputTokens).toBe(3_000);
-    expect(json.tokenUsage.estimatedCostUsd).toBeGreaterThan(0);
     expect(json.embeddingFreshness).toEqual({
       totalFacts: 4,
       embedded: 3,
@@ -90,6 +89,6 @@ describe("GET /api/manager/hotels/[hotelId]/ai-metrics", () => {
 
     const res = await GET(new Request("http://localhost"), makeParams());
     const json = await res.json();
-    expect(json.tokenUsage).toEqual({ inputTokens: 0, outputTokens: 0, estimatedCostUsd: 0 });
+    expect(json.tokenUsage).toEqual({ inputTokens: 0, outputTokens: 0 });
   });
 });

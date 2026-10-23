@@ -43,7 +43,7 @@ export function getRuntimeCapabilities(): RuntimeCapabilities {
           "BUNNY_WEBHOOK_SECRET",
         ),
       ),
-      ai: providerStatus(configured("OPENAI_API_KEY")),
+      ai: providerStatus(configured("GEMINI_API_KEY")),
       email: providerStatus(configured("RESEND_API_KEY", "EMAIL_FROM", "CRON_SECRET")),
       imageStorage: providerStatus(
         configured(

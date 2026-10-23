@@ -78,8 +78,8 @@ export function validateEnv(env: NodeJS.ProcessEnv = process.env): EnvValidation
       }
     }
 
-    if (!env.OPENAI_API_KEY) {
-      warnings.push("OPENAI_API_KEY yok — AI tur sohbeti 503 döner");
+    if (!env.GEMINI_API_KEY) {
+      warnings.push("GEMINI_API_KEY yok — AI tur sohbeti 503 döner");
     }
 
     // Bunny yapılandırılmışken imzalama anahtarı yoksa videolar herkese açık

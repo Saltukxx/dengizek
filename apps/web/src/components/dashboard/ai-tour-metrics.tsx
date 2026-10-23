@@ -27,7 +27,7 @@ interface AiMetricsData {
   toolUsage: { price: number; fact: number };
   guardTriggered: number;
   completionDrift: number;
-  tokenUsage: { inputTokens: number; outputTokens: number; estimatedCostUsd: number };
+  tokenUsage: { inputTokens: number; outputTokens: number };
   embeddingFreshness: {
     totalFacts: number;
     embedded: number;
@@ -148,8 +148,7 @@ export function AiTourMetrics() {
         </Text>
         <Text size="sm" c="dimmed" mt={4}>
           {data.tokenUsage.inputTokens.toLocaleString("tr-TR")} girdi ·{" "}
-          {data.tokenUsage.outputTokens.toLocaleString("tr-TR")} çıktı token · tahmini $
-          {data.tokenUsage.estimatedCostUsd.toFixed(4)}
+          {data.tokenUsage.outputTokens.toLocaleString("tr-TR")} çıktı token
         </Text>
       </Paper>
 
