@@ -6,6 +6,7 @@ import { redactContactInfo } from "@/lib/contact-guard";
 import { createHash } from "node:crypto";
 import { amenityLabel } from "@/lib/amenities-catalog";
 import { embedText } from "@/lib/ai/embeddings";
+import { isLlmConfigured } from "@/lib/ai/llm";
 import { getHotelAiProfile } from "@/lib/db/ai-context";
 import { getPublishedHotelContent } from "@/lib/hotels-repo";
 import { boardTypeLabels } from "@/lib/schemas/hotel-content";
@@ -310,11 +311,11 @@ export async function computeFactEmbeddingFreshness(
  * plan Faz 3.1) — admin onay rotasından çağrılır, chat isteği sırasında
  * ÇAĞRILMAZ (per-turn gecikmeyi etkilemesin diye). Yalnızca contentHash'i
  * değişen fact'ler yeniden embed edilir; kataloqdan düşen fact'lerin
- * embedding'leri silinir. DB veya OPENAI_API_KEY yoksa sessizce çıkar —
+ * embedding'leri silinir. DB veya GEMINI_API_KEY yoksa sessizce çıkar —
  * yayına alma akışını asla kırmaz.
  */
 export async function syncFactEmbeddings(hotelSlug: string): Promise<void> {
-  if (!process.env.DATABASE_URL || !process.env.OPENAI_API_KEY) return;
+  if (!process.env.DATABASE_URL || !isLlmConfigured()) return;
 
   try {
     const { getDb } = await import("@/lib/db");

@@ -7,12 +7,13 @@
 
 import { and, count, eq, isNotNull, isNull } from "drizzle-orm";
 import { clearFactCatalogCache, syncFactEmbeddings } from "../src/lib/ai/fact-store";
+import { isLlmConfigured } from "../src/lib/ai/llm";
 import { getDb } from "../src/lib/db";
 import { hotelFactEmbeddingsTable, hotelsTable } from "../src/lib/db/schema";
 
 async function main() {
-  if (!process.env.DATABASE_URL || !process.env.OPENAI_API_KEY) {
-    console.error("DATABASE_URL ve OPENAI_API_KEY gerekli.");
+  if (!process.env.DATABASE_URL || !isLlmConfigured()) {
+    console.error("DATABASE_URL ve GEMINI_API_KEY gerekli.");
     process.exitCode = 1;
     return;
   }

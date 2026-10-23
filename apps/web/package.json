@@ -24,7 +24,7 @@
     "ai:threshold-report": "dotenv -e .env.local -- tsx scripts/ai-threshold-report.ts"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^3.0.58",
+    "@ai-sdk/google": "^3.0.83",
     "@ai-sdk/react": "^3.0.176",
     "@hookform/resolvers": "^5.2.2",
     "@mantine/core": "^7.17.8",

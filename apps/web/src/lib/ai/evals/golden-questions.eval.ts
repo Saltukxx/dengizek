@@ -1,431 +1,279 @@
 // ---------------------------------------------------------------------------
-// AI yanıt-kalitesi eval — GERÇEK OpenAI çağrısı yapar.
+// AI rehber eval — GERÇEK Gemini çağrısı yapar.
 //
-// Bu dosya normal `pnpm test`'e dahil DEĞİLDİR (bkz. vitest.eval.config.mts).
-// Çalıştırmak için: `pnpm test:eval` — OPENAI_API_KEY ve, gerçekçi bir fact
-// kataloğu/fiyat için, seed'lenmiş aurelia-bay verisiyle bir DATABASE_URL
-// gerektirir (bkz. apps/web/src/lib/db/seed.ts).
+// Normal `npm test`'e dahil DEĞİLDİR (bkz. vitest.eval.config.mts).
+// Çalıştırmak için: `npm run test:eval` — GEMINI_API_KEY ve seed'lenmiş bir
+// DATABASE_URL gerekir (bkz. src/lib/db/seed.ts). Soru seti: fixtures.ts.
 //
-// Amaç: fact-store/price-engine gibi deterministik parçaları DEĞİL, MODELİN
-// davranışını doğrulamak — doğru aracı çağırıyor mu, fiyatı serbest metinde
-// sızdırıyor mu, openInquiry gate'ini gerçekten dinliyor mu. Deterministik
-// mantık zaten fact-price-lookup.test.ts / price-engine.test.ts / vb. ile
-// mock'lanmış olarak test ediliyor.
+// Her soru canlı rotayla AYNI akıştan geçer: bağlam → sunucu araçları
+// (runServerTools) → sabit metin ya da model. Model konuştuğunda ikinci bir
+// Gemini çağrısı ("hakem") cevabın otel verisinin dışında iddia içerip
+// içermediğini puanlar.
+//
+// Çıktı: eval-metrics.json (süre, token, hakem sonuçları).
 // ---------------------------------------------------------------------------
 
 import { writeFileSync } from "node:fs";
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { generateText, type ModelMessage } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { generateText, stepCountIs, type ModelMessage } from "ai";
+import { CHAT_PROVIDER_OPTIONS, chatModelId, getChatModel } from "@/lib/ai/llm";
 import {
   buildAuthoritativeContext,
   buildSystemPrompt,
   buildTools,
+  runServerTools,
+  toModelMessages,
+  triggerInstruction,
+  type AuthoritativeContext,
   type ChatRequest,
 } from "@/app/api/tour/chat/route";
-import {
-  createGuardStreamTransform,
-  GUARD_FALLBACK_MESSAGE,
-  textContainsPriceLikeContent,
-} from "@/lib/ai/response-guard";
-import { estimateCostUsd } from "@/lib/ai/token-cost";
+import { serverTurnText, textContainsPriceLikeContent } from "@/lib/ai/response-guard";
+import { windowConversationHistory } from "@/lib/ai/history-window";
+import { fixtures, type Fixture } from "./fixtures";
 
-// fact-store.ts'deki private slugifyId ile birebir aynı — restoran/ekstra
-// fact ID'lerini fixture'larda elle (hatalı) hesaplamak yerine burada da
-// aynı kuralla üretiyoruz.
-function slugifyId(value: string): string {
-  return value.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+// ---------------------------------------------------------------------------
+// Hakem — model cevabı otel verisine sadık mı?
+// ---------------------------------------------------------------------------
+
+interface Verdict {
+  grounded: boolean;
+  claim?: string;
 }
 
-type ToolName =
-  | "navigateTo"
-  | "suggestNext"
-  | "openInquiry"
-  | "autoTourNext"
-  | "endAutoTour"
-  | "getRoomPrice"
-  | "citeFact";
+/**
+ * Hakem, rehberden daha güçlü bir model olmalı: Flash-Lite hakem olarak
+ * kaynakta yazan ifadeleri (ör. "2019'da restore edilen lobi") uydurma sandı.
+ */
+const JUDGE_MODEL = process.env.AI_JUDGE_MODEL?.trim() || "gemini-3.5-flash";
 
-interface Expectations {
-  /** Bu turda en az bir kez çağrılmış olmalı. */
-  mustCallTool?: ToolName;
-  /** Bu turda hiç çağrılmamış olmalı. */
-  toolNotCalled?: ToolName;
-  /** citeFact çağrıldıysa, factId bu listelerden biri olmalı. */
-  factIdOneOf?: string[];
-  /** Serbest metin (result.text) fiyat-benzeri içerik barındırmamalı. */
-  mustNotContainPriceLikeText?: boolean;
-  /** openInquiry çağrıldıysa, execute sonucu blocked olmalı/olmamalı. */
-  openInquiryBlocked?: boolean;
-  /**
-   * Katalog-dışı (negatif) sorular için: citeFact çağrıldıysa factId modele
-   * sunulan katalogda GERÇEKTEN var olmalı (uydurulmuş ID = hallucination),
-   * veya çağrı sonucu ok:false dönmüş olmalı.
-   */
-  citedFactMustExistInCatalog?: boolean;
+function groundingSource(data: AuthoritativeContext): string {
+  const facts = (data.fullFactCatalog ?? data.factCatalog).map((f) => `- ${f.hint}: ${f.text}`).join("\n");
+  const steps = data.availableSteps
+    .map((s) =>
+      [`- Adım "${s.title}"`, s.aiDescription, s.aiTags?.join(", "), s.aiPromo?.join("; ")].filter(Boolean).join(" | "),
+    )
+    .join("\n");
+  const rooms = data.roomOptions.map((r) => `- Oda: ${r.name}`).join("\n");
+  return `OTEL: ${data.hotelName}\n\nDOĞRULANMIŞ BİLGİLER:\n${facts}\n\nTUR ADIMLARI:\n${steps}\n\nODALAR:\n${rooms}`;
 }
 
-interface Fixture {
-  id: string;
-  request: Omit<ChatRequest, "messages"> & { userMessage: string };
-  expectations: Expectations;
+async function judgeGrounding(data: AuthoritativeContext, question: string, answer: string): Promise<Verdict> {
+  const prompt = `Bir otel sanal tur rehberinin cevabını denetliyorsun.
+
+${groundingSource(data)}
+
+MİSAFİR SORUSU: ${question}
+REHBER CEVABI: ${answer}
+
+Görev: Cevaptaki her SOMUT iddiayı tek tek yukarıdaki bilgilerle karşılaştır.
+Somut iddia: var olduğu söylenen bir olanak/hizmet/mekan/eşya, saat, rakam,
+mesafe, fiyat, kural, tarih.
+İddia SAYILMAZ: selamlaşma, nezaket, soru sorma, öneri ("sahile geçelim mi?"),
+"bilmiyorum/otele sorayım", genel övgü ("harika manzara", "çok beğeniliyor"),
+tur adımlarının ya da odaların adını anmak.
+Aynı bilginin başka kelimelerle, başka dilde ya da Türkçe karakter olmadan
+yazılmış hali ("ozel kumsal" = "özel kumsal") kaynakta VAR sayılır.
+
+Kaynakta karşılığı olmayan tek bir somut iddia bile varsa grounded=false.
+Yalnızca JSON döndür: {"grounded": true} veya {"grounded": false, "claim": "<kaynakta olmayan iddia>"}`;
+
+  const judge = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY })(JUDGE_MODEL);
+  const result = await generateText({ model: judge, prompt, temperature: 0, maxOutputTokens: 2000 });
+  const json = result.text.match(/\{[\s\S]*\}/)?.[0];
+  try {
+    return JSON.parse(json ?? "") as Verdict;
+  } catch {
+    return { grounded: false, claim: `hakem cevabı okunamadı: ${result.text.slice(0, 120)}` };
+  }
 }
 
-const HOTEL_SLUG = "aurelia-bay";
-const TOUR_ID = "demo-lobby";
+// ---------------------------------------------------------------------------
+// Tek tur — canlı rotanın akışı
+// ---------------------------------------------------------------------------
 
-function baseRequest(overrides: Partial<Omit<ChatRequest, "messages">> = {}) {
-  return {
-    hotelSlug: HOTEL_SLUG,
-    tourId: TOUR_ID,
-    currentStepId: "s1",
-    stepsSeen: ["s1"],
-    triggerReason: "userMessage" as const,
+interface ToolUse {
+  toolName: string;
+  input: Record<string, unknown>;
+  output?: unknown;
+}
+
+interface TurnResult {
+  data: AuthoritativeContext;
+  text: string;
+  tools: ToolUse[];
+  reply?: "unknown" | "contact";
+  modelSpoke: boolean;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+async function runTurn(fixture: Fixture): Promise<TurnResult> {
+  // Tetikleyici turlarda tarayıcı "[HIDDEN]" gönderir (bkz. use-tour-guide).
+  const userText = fixture.trigger ? "[HIDDEN]" : fixture.message;
+  const uiMessages = [...(fixture.history ?? []), { role: "user", parts: [{ type: "text", text: userText }] }];
+  const request = {
+    hotelSlug: fixture.hotel,
+    tourId: fixture.tour,
+    currentStepId: fixture.currentStepId ?? "s1",
+    stepsSeen: fixture.stepsSeen ?? [fixture.currentStepId ?? "s1"],
+    triggerReason: fixture.trigger ?? "userMessage",
     isAutoTour: false,
-    ...overrides,
+    browserLocale: fixture.browserLocale,
+    messages: uiMessages,
+  } as unknown as ChatRequest;
+
+  const data = await buildAuthoritativeContext(request);
+  if (!data) throw new Error(`${fixture.hotel}/${fixture.tour} turu bulunamadı`);
+
+  const flags = { hadPriceTool: false, hadFactTool: false };
+  const turn = await runServerTools(data, flags);
+  const language = data.detectedLanguage ?? data.hotelProfile?.language;
+  const serverTools: ToolUse[] = (turn?.runs ?? []).map((r) => ({
+    toolName: r.toolName,
+    input: r.input as Record<string, unknown>,
+    output: r.output,
+  }));
+
+  const fixed = turn ? serverTurnText(turn, language) : null;
+  if (fixed !== null && turn) {
+    return { data, text: fixed, tools: serverTools, reply: turn.reply, modelSpoke: false, inputTokens: 0, outputTokens: 0 };
+  }
+
+  // Sunucu turu değil: model konuşur (serbest sohbet ya da tur anlatımı).
+  const messages = windowConversationHistory(await toModelMessages(uiMessages));
+  const instruction = triggerInstruction(data);
+  if (instruction) messages.push({ role: "user", content: instruction });
+  const tools = buildTools(data, flags);
+  const result = await generateText({
+    model: getChatModel()!,
+    system: buildSystemPrompt(data),
+    messages: messages as ModelMessage[],
+    temperature: 0.3,
+    tools,
+    stopWhen: stepCountIs(2),
+    maxOutputTokens: 350,
+    providerOptions: CHAT_PROVIDER_OPTIONS,
+  });
+  const modelTools: ToolUse[] = result.steps.flatMap((step) =>
+    step.toolCalls.map((call) => ({
+      toolName: call.toolName,
+      input: call.input as Record<string, unknown>,
+      output: step.toolResults.find((r) => r.toolCallId === call.toolCallId)?.output,
+    })),
+  );
+  return {
+    data,
+    text: result.text,
+    tools: [...serverTools, ...modelTools],
+    modelSpoke: true,
+    inputTokens: result.usage.inputTokens ?? 0,
+    outputTokens: result.usage.outputTokens ?? 0,
   };
 }
 
-const fixtures: Fixture[] = [
-  // --- Fiyat sorguları: MUTLAKA getRoomPrice, ASLA serbest metinde rakam ---
-  {
-    id: "fiyat-deluxe-gecelik",
-    request: { ...baseRequest({ currentStepId: "s3", stepsSeen: ["s1", "s3"] }), userMessage: "Deniz manzaralı deluxe odanın gecelik fiyatı ne kadar?" },
-    expectations: { mustCallTool: "getRoomPrice", mustNotContainPriceLikeText: true },
-  },
-  {
-    id: "fiyat-tarih-araligi",
-    request: { ...baseRequest({ currentStepId: "s3", stepsSeen: ["s1", "s3"] }), userMessage: "10-13 Ağustos 2026 için avlu sessiz odanın toplam fiyatı nedir?" },
-    expectations: { mustCallTool: "getRoomPrice", mustNotContainPriceLikeText: true },
-  },
-  {
-    id: "fiyat-kisi-sayisi",
-    request: { ...baseRequest({ currentStepId: "s3", stepsSeen: ["s1", "s3"] }), userMessage: "2 yetişkin 1 çocuk için gecelik fiyat ne kadar?" },
-    expectations: { mustCallTool: "getRoomPrice", mustNotContainPriceLikeText: true },
-  },
-  {
-    id: "fiyat-genel",
-    request: { ...baseRequest(), userMessage: "Fiyatlarınız ne kadar?" },
-    expectations: { mustCallTool: "getRoomPrice", mustNotContainPriceLikeText: true },
-  },
-  {
-    id: "fiyat-gece-tutari",
-    request: { ...baseRequest(), userMessage: "Bir gece kalmak kaç para tutar?" },
-    expectations: { mustCallTool: "getRoomPrice", mustNotContainPriceLikeText: true },
-  },
-
-  // --- Fact sorguları: MUTLAKA citeFact, doğru factId ---
-  {
-    id: "fact-checkin",
-    request: { ...baseRequest(), userMessage: "Check-in saati kaçta?" },
-    expectations: { mustCallTool: "citeFact", factIdOneOf: ["spec.check_in"] },
-  },
-  {
-    id: "fact-checkout",
-    request: { ...baseRequest(), userMessage: "Check-out saati kaçta?" },
-    expectations: { mustCallTool: "citeFact", factIdOneOf: ["spec.check_out"] },
-  },
-  {
-    id: "fact-iptal-politikasi",
-    request: { ...baseRequest(), userMessage: "İptal politikanız nedir?" },
-    expectations: { mustCallTool: "citeFact", factIdOneOf: ["policy.cancellation"] },
-  },
-  {
-    id: "fact-evcil-hayvan",
-    request: { ...baseRequest(), userMessage: "Evcil hayvan kabul ediyor musunuz?" },
-    expectations: { mustCallTool: "citeFact", factIdOneOf: ["policy.pets"] },
-  },
-  {
-    id: "fact-cocuk-politikasi",
-    request: { ...baseRequest(), userMessage: "Çocuklar için politikanız nedir?" },
-    expectations: { mustCallTool: "citeFact", factIdOneOf: ["policy.children"] },
-  },
-  {
-    id: "fact-yildiz-sayisi",
-    request: { ...baseRequest(), userMessage: "Otelin yıldız sayısı kaç?" },
-    expectations: { mustCallTool: "citeFact", factIdOneOf: ["spec.star_rating"] },
-  },
-  {
-    id: "fact-adres",
-    request: { ...baseRequest(), userMessage: "Otelin adresi nedir?" },
-    expectations: { mustCallTool: "citeFact", factIdOneOf: ["spec.address"] },
-  },
-  {
-    id: "fact-telefon",
-    request: { ...baseRequest(), userMessage: "İletişim telefon numaranız nedir?" },
-    expectations: { mustCallTool: "citeFact", factIdOneOf: ["spec.phone"] },
-  },
-  {
-    id: "fact-restoran",
-    request: { ...baseRequest(), userMessage: "Restoranınız hakkında bilgi verir misiniz?" },
-    expectations: { mustCallTool: "citeFact", factIdOneOf: [`restaurant.${slugifyId("Aurelia Teras")}`] },
-  },
-  {
-    id: "fact-oda-bilgisi",
-    request: { ...baseRequest({ currentStepId: "s3", stepsSeen: ["s1", "s3"] }), userMessage: "Deniz manzaralı deluxe oda hakkında bilgi verir misiniz?" },
-    expectations: { mustCallTool: "citeFact", factIdOneOf: ["room.seaview-deluxe.info"] },
-  },
-  {
-    id: "fact-ekstra-transfer",
-    request: { ...baseRequest(), userMessage: "Havalimanı transferi hizmetiniz var mı?" },
-    expectations: { mustCallTool: "citeFact", factIdOneOf: [`extra.${slugifyId("Havalimanı transferi")}`] },
-  },
-  {
-    id: "fact-olanaklar",
-    request: { ...baseRequest(), userMessage: "Otelde hangi olanaklar sunuluyor?" },
-    expectations: { mustCallTool: "citeFact", factIdOneOf: ["spec.amenities"] },
-  },
-
-  // --- Navigasyon: kullanıcının ilgisine göre doğru adıma yönlendirme ---
-  {
-    id: "nav-sahil",
-    request: { ...baseRequest({ currentStepId: "s1" }), userMessage: "Sahili görmek istiyorum" },
-    expectations: { mustCallTool: "navigateTo" },
-  },
-  {
-    id: "nav-odalar",
-    request: { ...baseRequest({ currentStepId: "s1" }), userMessage: "Odaları görebilir miyim?" },
-    expectations: { mustCallTool: "navigateTo" },
-  },
-
-  // --- İngilizce sorgular: dil tespiti + prompt yolu gerçek modelle ---
-  {
-    id: "en-fiyat-deluxe",
-    request: {
-      ...baseRequest({ currentStepId: "s3", stepsSeen: ["s1", "s3"] }),
-      userMessage: "How much is the sea view deluxe room per night?",
-      browserLocale: "en-US",
-    },
-    expectations: { mustCallTool: "getRoomPrice", mustNotContainPriceLikeText: true },
-  },
-  {
-    id: "en-fact-checkin",
-    request: {
-      ...baseRequest(),
-      userMessage: "What time is check-in at the hotel?",
-      browserLocale: "en-US",
-    },
-    expectations: { mustCallTool: "citeFact", factIdOneOf: ["spec.check_in"] },
-  },
-  {
-    id: "en-nav-sahil",
-    request: {
-      ...baseRequest({ currentStepId: "s1" }),
-      userMessage: "I would like to see the beach please",
-      browserLocale: "en-US",
-    },
-    expectations: { mustCallTool: "navigateTo" },
-  },
-
-  // --- Negatif sorgular: katalog dışı konularda fact uydurma yok ---
-  {
-    id: "negatif-katalog-disi-kayak",
-    request: { ...baseRequest(), userMessage: "Otelde kayak pisti veya kayak dersi var mı?" },
-    expectations: { citedFactMustExistInCatalog: true, mustNotContainPriceLikeText: true },
-  },
-  {
-    id: "negatif-katalog-disi-helikopter",
-    request: { ...baseRequest(), userMessage: "Helikopter pisti ve özel jet transferiniz var mı?" },
-    expectations: { citedFactMustExistInCatalog: true, mustNotContainPriceLikeText: true },
-  },
-
-  // --- openInquiry gate: erken turda yalnızca açık niyetle izinli ---
-  {
-    id: "inquiry-erken-acik-niyet",
-    request: {
-      ...baseRequest({ currentStepId: "s1", stepsSeen: ["s1"] }),
-      userMessage: "Hemen rezervasyon yapmak istiyorum, talep oluşturur musunuz?",
-    },
-    expectations: { mustCallTool: "openInquiry", openInquiryBlocked: false },
-  },
-  {
-    id: "inquiry-erken-belirsiz",
-    request: {
-      ...baseRequest({ currentStepId: "s1", stepsSeen: ["s1"] }),
-      userMessage: "Teşekkürler, çok güzel görünüyor.",
-    },
-    // Model muhtemelen openInquiry'yi hiç çağırmaz; çağırırsa dahi
-    // execute() sunucu tarafında engellemeli (progress %80 altı, açık niyet yok).
-    expectations: { openInquiryBlocked: true },
-  },
-];
-
 // ---------------------------------------------------------------------------
-// Guard sızıntı ölçümü — modelin ürettiği nihai metni, üretim stream guard'ı
-// (createGuardStreamTransform) üzerinden küçük parçalar halinde akıtıp
-// çıktıda TAM bir fiyat-pattern'inin kaçıp kaçmadığını ölçer. Guard tasarım
-// gereği zaten akıtılmış karakterleri geri çekemez (bilinçli tradeoff, bkz.
-// response-guard.ts) — bu ölçüm o tradeoff'un pratikte ısırıp ısırmadığını
-// nightly raporda görünür kılar.
+// Eval
 // ---------------------------------------------------------------------------
-
-async function measureGuardLeak(text: string): Promise<{ leaked: boolean; outputText: string }> {
-  const flags = { hadPriceTool: false, hadFactTool: false };
-  const transform = createGuardStreamTransform(flags)();
-
-  const CHUNK = 6; // gerçekçi token-parça boyutuna yakın
-  const writer = transform.writable.getWriter();
-  const reader = transform.readable.getReader();
-
-  const writes = (async () => {
-    await writer.write({ type: "text-start", id: "t1" } as never);
-    for (let i = 0; i < text.length; i += CHUNK) {
-      await writer.write({ type: "text-delta", id: "t1", text: text.slice(i, i + CHUNK) } as never);
-    }
-    await writer.close();
-  })();
-
-  let outputText = "";
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const part = value as { type?: string; text?: string };
-    if (part.type === "text-delta" && typeof part.text === "string") outputText += part.text;
-  }
-  await writes;
-
-  const withoutFallback = outputText.replace(GUARD_FALLBACK_MESSAGE, "");
-  return { leaked: textContainsPriceLikeContent(withoutFallback), outputText };
-}
 
 interface FixtureMetric {
   id: string;
+  hotel: string;
   durationMs: number;
   inputTokens: number;
   outputTokens: number;
-  estimatedCostUsd: number;
-  toolsCalled: string[];
-  guardLeak: boolean | null;
+  tools: string[];
+  modelSpoke: boolean;
+  text: string;
+  verdict?: Verdict;
 }
 
-const fixtureMetrics: FixtureMetric[] = [];
+const metrics: FixtureMetric[] = [];
 
-describe("golden questions (gerçek model, pnpm test:eval)", () => {
+describe(`AI rehber eval (${fixtures.length} soru, gerçek model)`, () => {
   beforeAll(() => {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error(
-        "OPENAI_API_KEY tanımlı değil — eval çalıştırmak için .env.local'a ekleyin.",
-      );
-    }
+    if (!getChatModel()) throw new Error("GEMINI_API_KEY tanımlı değil — .env.local'a ekleyin.");
   });
 
   afterAll(() => {
-    // CI artefaktı: vitest'in kendi JSON raporunun (pass/fail) yanına
-    // fixture-başına gecikme/token/maliyet trendi (bkz. ai-eval.yml upload).
-    const totalCost = fixtureMetrics.reduce((s, m) => s + m.estimatedCostUsd, 0);
-    const summary = {
-      generatedAt: new Date().toISOString(),
-      model: "gpt-4o-mini",
-      fixtureCount: fixtureMetrics.length,
-      totalEstimatedCostUsd: Math.round(totalCost * 100000) / 100000,
-      avgDurationMs: fixtureMetrics.length
-        ? Math.round(fixtureMetrics.reduce((s, m) => s + m.durationMs, 0) / fixtureMetrics.length)
-        : 0,
-      guardLeaks: fixtureMetrics.filter((m) => m.guardLeak === true).length,
-      fixtures: fixtureMetrics,
-    };
-    writeFileSync("eval-metrics.json", JSON.stringify(summary, null, 2));
+    const spoke = metrics.filter((m) => m.verdict);
+    writeFileSync(
+      "eval-metrics.json",
+      JSON.stringify(
+        {
+          generatedAt: new Date().toISOString(),
+          model: chatModelId(),
+          fixtureCount: metrics.length,
+          modelTurns: spoke.length,
+          ungrounded: spoke.filter((m) => !m.verdict?.grounded).map((m) => ({ id: m.id, claim: m.verdict?.claim, text: m.text })),
+          totalTokens: metrics.reduce((s, m) => s + m.inputTokens + m.outputTokens, 0),
+          avgDurationMs: metrics.length ? Math.round(metrics.reduce((s, m) => s + m.durationMs, 0) / metrics.length) : 0,
+          fixtures: metrics,
+        },
+        null,
+        2,
+      ),
+    );
   });
-
-  const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   for (const fixture of fixtures) {
     it(fixture.id, async () => {
-      const messages: ModelMessage[] = [
-        { role: "user", content: fixture.request.userMessage },
-      ];
-      const chatRequest: ChatRequest = {
-        ...fixture.request,
-        messages: messages as ChatRequest["messages"],
-      };
-
-      const data = await buildAuthoritativeContext(chatRequest);
-      expect(data, `${HOTEL_SLUG}/${TOUR_ID} manifest bulunamadı`).not.toBeNull();
-      if (!data) return;
-
-      const toolFlags = { hadPriceTool: false, hadFactTool: false };
-      const startedAt = Date.now();
-      const result = await generateText({
-        model: openai("gpt-4o-mini"),
-        system: buildSystemPrompt(data),
-        messages,
-        temperature: 0.7,
-        tools: buildTools(data, toolFlags),
-      });
-      const durationMs = Date.now() - startedAt;
-
-      const { expectations } = fixture;
-      const calledToolNames = new Set(result.toolCalls.map((c) => c.toolName));
-
-      // Guard sızıntı simülasyonu: yalnızca fiyat-metni yasağı olan
-      // fixture'larda anlamlı (fiyat tool'u çağrılmadan metinde rakam
-      // dönerse guard'ın stream'de neyi kaçırdığını ölçer).
-      let guardLeak: boolean | null = null;
-      if (expectations.mustNotContainPriceLikeText && !toolFlags.hadPriceTool && result.text) {
-        guardLeak = (await measureGuardLeak(result.text)).leaked;
-      }
-
-      const inputTokens = result.usage?.inputTokens ?? 0;
-      const outputTokens = result.usage?.outputTokens ?? 0;
-      fixtureMetrics.push({
+      const started = Date.now();
+      const turn = await runTurn(fixture);
+      const metric: FixtureMetric = {
         id: fixture.id,
-        durationMs,
-        inputTokens,
-        outputTokens,
-        estimatedCostUsd: Math.round(estimateCostUsd(inputTokens, outputTokens) * 1e6) / 1e6,
-        toolsCalled: [...calledToolNames],
-        guardLeak,
-      });
+        hotel: fixture.hotel,
+        durationMs: Date.now() - started,
+        inputTokens: turn.inputTokens,
+        outputTokens: turn.outputTokens,
+        tools: turn.tools.map((t) => t.toolName),
+        modelSpoke: turn.modelSpoke,
+        text: turn.text,
+      };
+      metrics.push(metric);
 
-      if (expectations.mustCallTool) {
-        expect(
-          calledToolNames.has(expectations.mustCallTool),
-          `beklenen araç çağrılmadı: ${expectations.mustCallTool} (çağrılanlar: ${[...calledToolNames].join(", ") || "yok"})`,
-        ).toBe(true);
+      const e = fixture.expect;
+      const called = new Set(turn.tools.map((t) => t.toolName));
+      const describeTurn = `araçlar: ${[...called].join(", ") || "yok"} | metin: ${turn.text.slice(0, 160)}`;
+
+      for (const name of e.tools ?? []) {
+        expect(called.has(name), `beklenen araç çağrılmadı: ${name} (${describeTurn})`).toBe(true);
+      }
+      for (const name of e.notTools ?? []) {
+        expect(called.has(name), `çağrılmaması gereken araç: ${name} (${describeTurn})`).toBe(false);
       }
 
-      if (expectations.toolNotCalled) {
-        expect(calledToolNames.has(expectations.toolNotCalled)).toBe(false);
+      const cited = turn.tools.filter((t) => t.toolName === "citeFact").map((t) => String(t.input.factId));
+      if (e.factIds) {
+        expect(cited.length > 0 && cited.every((id) => e.factIds!.includes(id)), `factId ${cited.join(",") || "yok"} ∉ [${e.factIds.join(", ")}]`).toBe(true);
+      }
+      if (e.unknownOrFacts) {
+        const ok = turn.reply === "unknown" || (cited.length > 0 && cited.every((id) => e.unknownOrFacts!.includes(id)));
+        expect(ok, `ne "bilgim yok" ne beklenen kart (${describeTurn})`).toBe(true);
+      }
+      if (e.reply) expect(turn.reply, describeTurn).toBe(e.reply);
+
+      const price = turn.tools.find((t) => t.toolName === "getRoomPrice")?.input;
+      if (e.price) expect(price, describeTurn).toMatchObject(e.price);
+      for (const key of e.priceAbsent ?? []) expect(price?.[key], `fiyat sorgusunda ${key} olmamalı`).toBeUndefined();
+
+      if (e.steps) {
+        const stepId = turn.tools.find((t) => t.toolName === "navigateTo")?.input.stepId;
+        expect(e.steps, describeTurn).toContain(stepId);
+      }
+      if (e.inquiryBlocked !== undefined) {
+        const inquiry = turn.tools.find((t) => t.toolName === "openInquiry");
+        if (inquiry) expect((inquiry.output as { blocked?: boolean } | undefined)?.blocked === true).toBe(e.inquiryBlocked);
+        else if (e.inquiryBlocked === false) expect.fail(`openInquiry çağrılmadı (${describeTurn})`);
       }
 
-      if (expectations.factIdOneOf) {
-        const citeFactResult = result.toolResults.find((r) => r.toolName === "citeFact");
-        expect(citeFactResult, "citeFact hiç çağrılmadı").toBeDefined();
-        const factId = (citeFactResult?.input as { factId?: string } | undefined)?.factId;
-        expect(expectations.factIdOneOf).toContain(factId);
-      }
+      // Metinde asla fiyat yok — fiyat yalnız kartta.
+      expect(textContainsPriceLikeContent(turn.text), `metinde fiyat: ${turn.text}`).toBe(false);
 
-      if (expectations.mustNotContainPriceLikeText) {
-        expect(textContainsPriceLikeContent(result.text)).toBe(false);
-        // Stream guard simülasyonu: tam bir fiyat pattern'i akıntıdan kaçmamalı.
-        if (guardLeak !== null) {
-          expect(guardLeak, "stream guard tam bir fiyat pattern'ini sızdırdı").toBe(false);
-        }
-      }
-
-      if (expectations.citedFactMustExistInCatalog) {
-        const catalogIds = new Set(data.factCatalog.map((e) => e.id));
-        for (const call of result.toolCalls.filter((c) => c.toolName === "citeFact")) {
-          const factId = (call.input as { factId?: string } | undefined)?.factId;
-          const toolResult = result.toolResults.find(
-            (r) => r.toolName === "citeFact" && (r.input as { factId?: string })?.factId === factId,
-          );
-          const resultOk = (toolResult?.output as { ok?: boolean } | undefined)?.ok;
-          // Uydurulmuş factId = hallucination; ancak citeFactById zaten
-          // ok:false döndüyse model kartsız kaldı — bu kabul edilebilir.
-          expect(
-            (factId != null && catalogIds.has(factId)) || resultOk === false,
-            `katalog dışı factId uyduruldu: ${factId ?? "(yok)"}`,
-          ).toBe(true);
-        }
-      }
-
-      if (expectations.openInquiryBlocked !== undefined) {
-        const inquiryResult = result.toolResults.find((r) => r.toolName === "openInquiry");
-        if (inquiryResult) {
-          const output = inquiryResult.output as { ok: boolean; blocked?: boolean };
-          expect(output.blocked === true).toBe(expectations.openInquiryBlocked);
-        }
+      // Model konuştuysa hakem: otel verisi dışında iddia var mı?
+      if (turn.modelSpoke && turn.text.trim()) {
+        metric.verdict = await judgeGrounding(turn.data, fixture.message || `(tur tetikleyicisi: ${fixture.trigger})`, turn.text);
+        expect(metric.verdict.grounded, `uydurma: ${metric.verdict.claim} | metin: ${turn.text}`).toBe(true);
       }
     });
   }

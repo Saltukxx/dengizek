@@ -45,6 +45,13 @@ describe("textContainsPriceLikeContent", () => {
     expect(textContainsPriceLikeContent("4500 TL")).toBe(true);
     expect(textContainsPriceLikeContent("Merhaba, hoş geldiniz.")).toBe(false);
   });
+
+  it("rakam olmadan noktalama + 'gece/kişi' fiyat sayılmaz (yanlış alarm)", () => {
+    expect(textContainsPriceLikeContent("Piste kapıdan çıkılır. Gece kayağı da mevcut.")).toBe(false);
+    expect(textContainsPriceLikeContent("Harika, kişi başı değil oda başı düşünün.")).toBe(false);
+    expect(textContainsPriceLikeContent("3 gece kalırsanız")).toBe(true);
+    expect(textContainsPriceLikeContent("€120")).toBe(true);
+  });
 });
 
 describe("createGuardStreamTransform", () => {

@@ -11,7 +11,12 @@ vi.mock("@/lib/ai/price-engine", () => ({
 }));
 
 const streamTextMock = vi.fn();
-vi.mock("ai", () => ({
+vi.mock("ai", async () => ({
+  convertToModelMessages: (await vi.importActual<typeof import("ai")>("ai")).convertToModelMessages,
+  // Sunucu aracı akışı gerçek UI stream yardımcılarıyla birleştirilir.
+  createUIMessageStream: (await vi.importActual<typeof import("ai")>("ai")).createUIMessageStream,
+  createUIMessageStreamResponse: (await vi.importActual<typeof import("ai")>("ai"))
+    .createUIMessageStreamResponse,
   streamText: (...args: unknown[]) => streamTextMock(...args),
   tool: (def: unknown) => def,
   // Gerçek SDK'daki gibi bir stop koşulu nesnesi döndürmesi yeterli —
@@ -19,8 +24,8 @@ vi.mock("ai", () => ({
   stepCountIs: (n: number) => ({ __stopAfter: n }),
 }));
 
-vi.mock("@ai-sdk/openai", () => ({
-  createOpenAI: () => () => "mock-model",
+vi.mock("@ai-sdk/google", () => ({
+  createGoogleGenerativeAI: () => ({ languageModel: () => "mock-model" }),
 }));
 
 // embedText'i mock'luyoruz ki bu dosyadaki testler embedding/RAG davranışını
@@ -39,7 +44,8 @@ vi.mock("@/lib/analytics", () => ({
 import { POST } from "./route";
 
 const baseBody = {
-  messages: [{ role: "user", content: "Sahili görmek istiyorum" }],
+  // Serbest sohbet: sunucu aracı tetiklemez, model konuşur.
+  messages: [{ role: "user", content: "Merhaba, burası çok güzel görünüyor" }],
   hotelSlug: "aurelia-bay",
   tourId: "demo-lobby",
   currentStepId: "s1",
@@ -58,6 +64,16 @@ function makeRequest(body: unknown, ip = "1.2.3.4") {
 
 function mockStreamResult() {
   return {
+    toUIMessageStream: () =>
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue({ type: "text-start", id: "t1" });
+          controller.enqueue({ type: "text-delta", id: "t1", delta: "İşte fiyatlar." });
+          controller.enqueue({ type: "text-end", id: "t1" });
+          controller.enqueue({ type: "finish" });
+          controller.close();
+        },
+      }),
     toUIMessageStreamResponse: () =>
       new Response("data: {}\n\n", {
         status: 200,
@@ -74,7 +90,9 @@ beforeEach(() => {
   queryRoomPricesMock.mockClear();
   trackEventMock.mockClear();
   streamTextMock.mockReturnValue(mockStreamResult());
-  vi.stubEnv("OPENAI_API_KEY", "test-key");
+  vi.stubEnv("GEMINI_API_KEY", "test-key");
+  vi.stubEnv("AI_CHAT_MODEL", "");
+  vi.stubEnv("AI_FALLBACK_MODEL", "none");
   vi.stubEnv("DATABASE_URL", "");
 });
 
@@ -138,8 +156,8 @@ describe("POST /api/tour/chat", () => {
     });
   });
 
-  it("OPENAI_API_KEY yokken 503 döner", async () => {
-    vi.stubEnv("OPENAI_API_KEY", "");
+  it("GEMINI_API_KEY yokken 503 döner", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "");
     const res = await POST(makeRequest(baseBody));
     expect(res.status).toBe(503);
     await expect(res.json()).resolves.toMatchObject({
@@ -176,33 +194,73 @@ describe("POST /api/tour/chat", () => {
     );
   });
 
-  it("fiyat sorusunda system prompt tool ipucu içerir", async () => {
-    await POST(
+  it("fiyat sorusunda getRoomPrice sunucuda çalışır, model çağrılmaz", async () => {
+    const res = await POST(
       makeRequest({
         ...baseBody,
         messages: [{ role: "user", content: "Gecelik fiyat ne kadar?" }],
       }),
     );
-    const call = streamTextMock.mock.calls[0][0] as { system: string };
-    expect(call.system).toContain("getRoomPrice");
+    expect(queryRoomPricesMock).toHaveBeenCalledWith("aurelia-bay", {});
+    // Kart turunda model uydurmasın diye hiç çağrılmaz.
+    expect(streamTextMock).not.toHaveBeenCalled();
+
+    const body = await res.text();
+    expect(body).toContain('"toolName":"getRoomPrice"');
+    expect(body.indexOf('"tool-output-available"')).toBeGreaterThan(-1);
+    expect(body.indexOf('"tool-output-available"')).toBeLessThan(body.indexOf('"text-delta"'));
+    expect(body).toContain("Güncel fiyatları kartta görebilirsiniz");
   });
 
-  it("fiyat sorusunda prepareStep ilk adımda getRoomPrice'ı zorlar", async () => {
+  it("tarayıcının UI biçimli (parts) son mesajı okunur: fiyat sorusu sunucuda çözülür", async () => {
     await POST(
       makeRequest({
         ...baseBody,
-        messages: [{ role: "user", content: "Gecelik fiyat ne kadar?" }],
+        messages: [{ id: "m1", role: "user", parts: [{ type: "text", text: "Gecelik fiyat ne kadar?" }] }],
       }),
     );
-    const call = streamTextMock.mock.calls[0][0] as {
-      prepareStep: (args: { stepNumber: number }) => { toolChoice?: unknown };
-    };
-    expect(call.prepareStep({ stepNumber: 0 })).toEqual({
-      toolChoice: { type: "tool", toolName: "getRoomPrice" },
-    });
-    // İlk adım dışında zorlama yapılmaz (varsayılan single-step tasarımda
-    // pratikte hiç çağrılmaz ama gelecekte çok adımlı akışa geçilirse güvenli olsun).
-    expect(call.prepareStep({ stepNumber: 1 })).toEqual({});
+    expect(queryRoomPricesMock).toHaveBeenCalledWith("aurelia-bay", {});
+    expect(streamTextMock).not.toHaveBeenCalled();
+  });
+
+  it("tarayıcının UI biçimli mesajları (parts) modele ModelMessage olarak gider", async () => {
+    await POST(
+      makeRequest({
+        ...baseBody,
+        messages: [
+          { id: "m1", role: "user", parts: [{ type: "text", text: "Merhaba" }] },
+          {
+            id: "m2",
+            role: "assistant",
+            parts: [
+              { type: "step-start" },
+              { type: "text", text: "Hoş geldiniz!" },
+              // Tarayıcıda çalışan aracın sonuçsuz çağrısı atlanmalı.
+              { type: "tool-navigateTo", toolCallId: "c1", state: "input-available", input: { stepId: "s2", reason: "x" } },
+            ],
+          },
+          { id: "m3", role: "user", parts: [{ type: "text", text: "Burada neler yapılabilir?" }] },
+        ],
+      }),
+    );
+    const call = streamTextMock.mock.calls[0][0] as { messages: Array<{ role: string; content: unknown }> };
+    expect(call.messages).toEqual([
+      { role: "user", content: [{ type: "text", text: "Merhaba" }] },
+      { role: "assistant", content: [{ type: "text", text: "Hoş geldiniz!" }] },
+      { role: "user", content: [{ type: "text", text: "Burada neler yapılabilir?" }] },
+    ]);
+  });
+
+  it("gezinme isteğinde navigateTo sunucuda seçilir, model çağrılmaz", async () => {
+    const res = await POST(
+      makeRequest({ ...baseBody, messages: [{ role: "user", content: "Sahili görmek istiyorum" }] }),
+    );
+    expect(streamTextMock).not.toHaveBeenCalled();
+    const body = await res.text();
+    expect(body).toContain('"toolName":"navigateTo"');
+    expect(body.indexOf('"tool-input-available"')).toBeLessThan(body.indexOf('"text-delta"'));
+    // Metin modelden değil adımın kendi adından gelir (uydurma yok).
+    expect(body).toMatch(/bölümüne geçiyoruz/);
   });
 
   it("fiyat/fact ipucu olmayan mesajda prepareStep tool zorlamaz", async () => {
@@ -238,12 +296,7 @@ describe("POST /api/tour/chat", () => {
   });
 
   it("getRoomPrice execute fiyat motorunu çağırır", async () => {
-    await POST(
-      makeRequest({
-        ...baseBody,
-        messages: [{ role: "user", content: "Gecelik fiyat ne kadar?" }],
-      }),
-    );
+    await POST(makeRequest(baseBody));
     const call = streamTextMock.mock.calls[0][0] as {
       tools: { getRoomPrice: { execute: (input: unknown) => Promise<unknown> } };
     };
@@ -290,7 +343,7 @@ describe("POST /api/tour/chat", () => {
     await POST(
       makeRequest({
         ...baseBody,
-        messages: [...longHistory, { role: "user", content: "Sahili görmek istiyorum" }],
+        messages: [...longHistory, { role: "user", content: "Merhaba, burası çok güzel görünüyor" }],
       }),
     );
     const call = streamTextMock.mock.calls[0][0] as { messages: unknown[] };
@@ -305,7 +358,7 @@ describe("POST /api/tour/chat", () => {
     call.onFinish({ totalUsage: { inputTokens: 123, outputTokens: 45 } });
     expect(trackEventMock).toHaveBeenCalledWith(
       "ai_usage",
-      expect.objectContaining({ inputTokens: 123, outputTokens: 45, model: "gpt-4o-mini" }),
+      expect.objectContaining({ inputTokens: 123, outputTokens: 45, model: "gemini-3.1-flash-lite" }),
       null,
       "aurelia-bay",
     );
@@ -338,19 +391,20 @@ describe("POST /api/tour/chat — çok adımlı yanıt", () => {
     expect(call.stopWhen?.__stopAfter).toBe(2);
   });
 
-  it("tool yalnızca İLK adımda zorlanır; sonraki adım serbest metin içindir", async () => {
+  it("sunucu fact seçemezse araç modelde İLK adımda zorlanır; sonraki adım serbest", async () => {
     await POST(
       makeRequest({
         ...baseBody,
-        messages: [{ role: "user", content: "gecelik fiyat ne kadar?" }],
+        // Fact ipucu var ("politika") ama katalogla eşleşen belirgin bir kelime yok.
+        messages: [{ role: "user", content: "Genel politikanız nasıl?" }],
       }),
     );
     const call = streamTextMock.mock.calls[0][0] as {
       prepareStep: (a: { stepNumber: number }) => Record<string, unknown>;
     };
-    // 0. adım: fiyat aracı zorlanır
+    // 0. adım: fact aracı zorlanır
     expect(call.prepareStep({ stepNumber: 0 })).toMatchObject({
-      toolChoice: { type: "tool", toolName: "getRoomPrice" },
+      toolChoice: { type: "tool", toolName: "citeFact" },
     });
     // 1. adım: zorlama yok → model tool sonucunu anlatabilir
     expect(call.prepareStep({ stepNumber: 1 })).toEqual({});
