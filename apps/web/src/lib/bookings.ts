@@ -1,4 +1,4 @@
-import { and, eq, gt, inArray, ne, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, lt, ne, sql } from "drizzle-orm";
 import type { Db, Tx } from "@/lib/db";
 import { withTransaction } from "@/lib/db/transaction";
 import {
@@ -10,6 +10,7 @@ import {
 } from "@/lib/db/schema";
 import { eachStayNight, stayRangesOverlap } from "@/lib/stay-dates";
 import { todayIso } from "@/lib/price";
+import { bumpPanelRevision } from "@/lib/panel-revision";
 
 const ACTIVE_STATUSES = ["beklemede", "onaylandi"] as const;
 
@@ -88,6 +89,9 @@ export async function findFullNight(
         eq(bookingsTable.hotelId, hotelId),
         eq(bookingsTable.roomId, roomId),
         inArray(bookingsTable.status, [...ACTIVE_STATUSES]),
+        // Yalnız istenen aralıkla kesişenler — odanın tüm geçmişi yüklenmez.
+        lt(bookingsTable.checkIn, checkOut),
+        gt(bookingsTable.checkOut, checkIn),
       ),
     );
   const units = Math.max(1, unitCount);
@@ -100,22 +104,65 @@ export async function findFullNight(
   return null;
 }
 
+/**
+ * Envanter ufkunun ötesindeki (veya hiç tohumlanmamış) gecelerde satır yoksa
+ * tam kapasiteyle açar. Satır yokken o geceden düşüm yapılmış olamaz; bu
+ * yüzden başlangıç değeri birim sayısıdır.
+ */
+async function ensureInventoryRowsTx(
+  db: DbLike,
+  hotelId: string,
+  roomId: string,
+  unitCount: number | null | undefined,
+  nights: string[],
+) {
+  if (nights.length === 0) return;
+  await db
+    .insert(roomInventoryTable)
+    .values(
+      nights.map((date) => ({
+        hotelId,
+        roomId,
+        date,
+        allotment: unitCount ?? 0,
+        stopSell: false,
+        cta: false,
+        ctd: false,
+        source: "system",
+        manualOverride: false,
+      })),
+    )
+    .onConflictDoNothing();
+}
+
 async function assertInventoryAvailableTx(
   db: DbLike,
   roomId: string | null | undefined,
   checkIn: string,
   checkOut: string,
+  options: { lock?: boolean } = {},
 ) {
   if (!roomId) return;
 
   const nights = eachStayNight(checkIn, checkOut);
-  for (const date of nights) {
-    const [row] = await db
-      .select()
-      .from(roomInventoryTable)
-      .where(and(eq(roomInventoryTable.roomId, roomId), eq(roomInventoryTable.date, date)))
-      .limit(1);
+  if (nights.length === 0) return;
 
+  // Tüm geceler + çıkış günü tek sorguda. lock: onay sırasında satırlar
+  // kilitlenir; doğrulama ile düşüm arasına başka bir yazım giremez.
+  const query = db
+    .select()
+    .from(roomInventoryTable)
+    .where(
+      and(
+        eq(roomInventoryTable.roomId, roomId),
+        inArray(roomInventoryTable.date, [...nights, checkOut]),
+      ),
+    );
+  const rows = options.lock ? await query.for("update") : await query;
+  const byDate = new Map(rows.map((row) => [String(row.date), row]));
+
+  for (const date of nights) {
+    const row = byDate.get(date);
     if (!row) {
       throw new BookingServiceError(`${date} tarihinde envanter kaydı yok.`, "inventory");
     }
@@ -132,11 +179,9 @@ async function assertInventoryAvailableTx(
       throw new BookingServiceError(`Minimum konaklama ${row.minStay} gecedir.`, "inventory");
     }
   }
-  const [departure] = await db.select({ ctd: roomInventoryTable.ctd })
-    .from(roomInventoryTable)
-    .where(and(eq(roomInventoryTable.roomId, roomId), eq(roomInventoryTable.date, checkOut)))
-    .limit(1);
-  if (departure?.ctd) throw new BookingServiceError(`${checkOut} tarihinde çıkışa kapalı.`, "inventory");
+  if (byDate.get(checkOut)?.ctd) {
+    throw new BookingServiceError(`${checkOut} tarihinde çıkışa kapalı.`, "inventory");
+  }
 }
 
 async function deductInventoryTx(
@@ -147,35 +192,26 @@ async function deductInventoryTx(
   checkOut: string,
 ) {
   const nights = eachStayNight(checkIn, checkOut);
-  for (const date of nights) {
-    const updated = await db
-      .update(roomInventoryTable)
-      .set({ allotment: sql`${roomInventoryTable.allotment} - 1` })
-      .where(
-        and(
-          eq(roomInventoryTable.roomId, roomId),
-          eq(roomInventoryTable.date, date),
-          eq(roomInventoryTable.stopSell, false),
-          gt(roomInventoryTable.allotment, 0),
-        ),
-      )
-      .returning();
+  if (nights.length === 0) return;
 
-    if (updated.length === 0) {
-      const [row] = await db
-        .select({ allotment: roomInventoryTable.allotment, stopSell: roomInventoryTable.stopSell })
-        .from(roomInventoryTable)
-        .where(and(eq(roomInventoryTable.roomId, roomId), eq(roomInventoryTable.date, date)))
-        .limit(1);
+  const updated = await db
+    .update(roomInventoryTable)
+    .set({ allotment: sql`${roomInventoryTable.allotment} - 1` })
+    .where(
+      and(
+        eq(roomInventoryTable.roomId, roomId),
+        inArray(roomInventoryTable.date, nights),
+        eq(roomInventoryTable.stopSell, false),
+        gt(roomInventoryTable.allotment, 0),
+      ),
+    )
+    .returning();
 
-      if (!row) {
-        throw new BookingServiceError(`${date} tarihinde envanter kaydı yok.`, "inventory");
-      }
-      if (row.stopSell || row.allotment <= 0) {
-        throw new BookingServiceError(`${date} tarihinde müsait oda yok.`, "inventory");
-      }
-      throw new BookingServiceError(`${date} tarihinde envanter güncellenemedi.`, "inventory");
-    }
+  // Koşul bir geceyi dışarıda bıraktıysa düşüm eksik kalmıştır — tümü geri alınır.
+  if (updated.length !== nights.length) {
+    const done = new Set(updated.map((row) => String(row.date)));
+    const missing = nights.find((date) => !done.has(date)) ?? nights[0];
+    throw new BookingServiceError(`${missing} tarihinde müsait oda yok.`, "inventory");
   }
 }
 
@@ -187,28 +223,25 @@ async function restoreInventoryTx(
   checkOut: string,
 ) {
   const nights = eachStayNight(checkIn, checkOut);
-  for (const date of nights) {
-    const updated = await db
-      .update(roomInventoryTable)
-      .set({ allotment: sql`${roomInventoryTable.allotment} + 1` })
-      .where(
-        and(eq(roomInventoryTable.roomId, roomId), eq(roomInventoryTable.date, date)),
-      )
-      .returning();
+  if (nights.length === 0) return;
 
-    if (updated.length === 0) {
-      await db.insert(roomInventoryTable).values({
-        hotelId,
-        roomId,
-        date,
-        allotment: 1,
-        stopSell: false,
-      });
-    }
-  }
+  // İade, odanın birim sayısını aşamaz: arada elle veya senkronla yeniden
+  // yazılmış bir gece +1 ile kapasitenin üstüne çıkmasın. Satırı olmayan gece
+  // atlanır — ilk onayda tam kapasiteyle açılır (bkz. ensureInventoryRowsTx).
+  const capacity = sql`(SELECT ${roomsTable.unitCount} FROM ${roomsTable} WHERE ${roomsTable.id} = ${roomId})`;
+  await db
+    .update(roomInventoryTable)
+    .set({
+      allotment: sql`CASE WHEN ${roomInventoryTable.allotment} < COALESCE(${capacity}, ${roomInventoryTable.allotment} + 1) THEN ${roomInventoryTable.allotment} + 1 ELSE ${roomInventoryTable.allotment} END`,
+    })
+    .where(and(eq(roomInventoryTable.roomId, roomId), inArray(roomInventoryTable.date, nights)));
 }
 
-/** Beklemede rezervasyon oluşturur — çakışan satırları kilitleyerek yarışı önler. */
+/**
+ * Beklemede rezervasyon oluşturur. Oda satırı FOR UPDATE ile kilitlenir: aynı
+ * oda tipine eşzamanlı gelen istekler sıraya girer, ikisi birden "yer var"
+ * kontrolünü geçemez.
+ */
 export async function createPendingBooking(
   hotelId: string,
   input: Omit<
@@ -227,7 +260,7 @@ export async function createPendingBooking(
         })
         .from(roomsTable)
         .where(and(eq(roomsTable.id, input.roomId), eq(roomsTable.hotelId, hotelId)))
-        .limit(1);
+        .for("update");
       if (!room) throw new BookingServiceError("Oda bulunamadı.", "not_found");
 
       // Kapasite: odanın alabileceğinden fazla misafirle rezervasyon açılmasın.
@@ -301,11 +334,14 @@ export async function approveBooking(hotelId: string, bookingId: string, idempot
     const checkOut = String(existing.checkOut);
 
     if (existing.roomId) {
-      const [room] = await tx.select({ id: roomsTable.id }).from(roomsTable).where(
+      const [room] = await tx.select({ id: roomsTable.id, unitCount: roomsTable.unitCount }).from(roomsTable).where(
         and(eq(roomsTable.id, existing.roomId), eq(roomsTable.hotelId, hotelId)),
       ).limit(1);
       if (!room) throw new BookingServiceError("Oda bulunamadı.", "not_found");
-      await assertInventoryAvailableTx(tx, existing.roomId, checkIn, checkOut);
+      // Envanter panelinde açık duran eski değerler bu düşümün üzerine yazamasın.
+      await bumpPanelRevision(tx, hotelId, "inventory");
+      await ensureInventoryRowsTx(tx, hotelId, existing.roomId, room.unitCount, eachStayNight(checkIn, checkOut));
+      await assertInventoryAvailableTx(tx, existing.roomId, checkIn, checkOut, { lock: true });
       await deductInventoryTx(tx, hotelId, existing.roomId, checkIn, checkOut);
     }
 
@@ -385,6 +421,7 @@ export async function releaseApprovedBooking(
     // boyunca fiilen bloke kalmıştır — iade edilirse geçmiş tarihler yeniden
     // satılabilir görünür ve doluluk raporu şişer.
     if (existing.roomId && status === "iptal") {
+      await bumpPanelRevision(tx, hotelId, "inventory");
       await restoreInventoryTx(
         tx,
         hotelId,
@@ -426,6 +463,7 @@ export async function reopenBooking(hotelId: string, bookingId: string, idempote
     // sonradan onaylanırsa envanter tekrar düşüleceği için tahsisi burada geri
     // vermek gerekir; "iptal"de iade zaten yapılmıştı, tekrarlanmaz.
     if (existing.roomId && existing.status === "no_show") {
+      await bumpPanelRevision(tx, hotelId, "inventory");
       await restoreInventoryTx(
         tx,
         hotelId,
@@ -433,6 +471,29 @@ export async function reopenBooking(hotelId: string, bookingId: string, idempote
         String(existing.checkIn),
         String(existing.checkOut),
       );
+    }
+
+    // Kayıt kapalıyken oda başkasına verilmiş olabilir: yeni rezervasyondaki
+    // doluluk kontrolü burada da geçerli (oda satırı aynı şekilde kilitlenir).
+    if (existing.roomId) {
+      const [room] = await tx
+        .select({ id: roomsTable.id, unitCount: roomsTable.unitCount })
+        .from(roomsTable)
+        .where(and(eq(roomsTable.id, existing.roomId), eq(roomsTable.hotelId, hotelId)))
+        .for("update");
+      if (room) {
+        const fullNight = await findFullNight(
+          tx,
+          hotelId,
+          existing.roomId,
+          room.unitCount ?? 1,
+          String(existing.checkIn),
+          String(existing.checkOut),
+        );
+        if (fullNight) {
+          throw new BookingServiceError(`Bu oda tipi ${fullNight} gecesi için dolu.`, "overlap");
+        }
+      }
     }
 
     const [updated] = await tx.update(bookingsTable).set({ status: "beklemede", updatedAt: new Date() })

@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { getDb, isDbConfigured } from "@/lib/db";
 import { bookingsTable, hotelIcalFeedsTable } from "@/lib/db/schema";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
@@ -64,19 +64,28 @@ export async function GET(req: Request, { params }: RouteParams) {
   const fromStr = from.toISOString().slice(0, 10);
   const toStr = to.toISOString().slice(0, 10);
 
+  // Feed bir odaya bağlıysa yalnız o odanın doluluğu gider — aksi halde A
+  // odasının kanal ilanı B odasının rezervasyonlarıyla kapanır. Pencere
+  // kesişimle süzülür: sınırı aşan konaklama da (kalan geceleriyle) dahildir.
   const bookings = await db
-    .select()
+    .select({
+      id: bookingsTable.id,
+      status: bookingsTable.status,
+      checkIn: bookingsTable.checkIn,
+      checkOut: bookingsTable.checkOut,
+    })
     .from(bookingsTable)
     .where(
       and(
         eq(bookingsTable.hotelId, feed.hotelId),
-        gte(bookingsTable.checkIn, fromStr),
-        lte(bookingsTable.checkOut, toStr),
+        feed.roomId ? eq(bookingsTable.roomId, feed.roomId) : undefined,
+        inArray(bookingsTable.status, ["onaylandi", "beklemede"]),
+        lte(bookingsTable.checkIn, toStr),
+        gte(bookingsTable.checkOut, fromStr),
       ),
     );
 
   const events = bookings
-    .filter((b) => b.status === "onaylandi" || b.status === "beklemede")
     .map((b) => {
       const uid = `${b.id}@dengizek`;
       return [

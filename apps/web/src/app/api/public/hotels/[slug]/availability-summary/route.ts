@@ -7,17 +7,8 @@ import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { getDb, isDbConfigured } from "@/lib/db";
 import { hotelsTable, roomInventoryTable, roomsTable } from "@/lib/db/schema";
 import { guestVisibleHotelBySlugWhere } from "@/lib/hotel-visibility";
-
-function todayIso(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(iso + "T12:00:00");
-  d.setDate(d.getDate() + days);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+import { addDays } from "@/lib/booking-stay";
+import { todayIso } from "@/lib/price";
 
 export async function GET(
   _req: Request,

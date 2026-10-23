@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { datePattern } from "./hotel-content";
-import { validateStayDates } from "@/lib/stay-dates";
+import { eachStayNight, validateStayDates } from "@/lib/stay-dates";
 import { redactContactInfo } from "@/lib/contact-guard";
 
 const uuid = z.string().uuid();
@@ -148,6 +148,11 @@ export const reviewModerationSchema = z.object({
 // Rezervasyon yalnız Dengizek üzerinden gelen bir talepten açılır: inquiryId
 // zorunludur ve misafir adı/iletişimi istemciden ALINMAZ — sunucu talep
 // kaydından okur. Otel panelinden dışarıdan misafir girişi yapılamaz.
+// integer sütun sınırı (2^31-1) ve gece başına envanter yazımı için üst sınırlar.
+const MAX_GUESTS = 50;
+const MAX_TOTAL_MINOR = 2_000_000_000;
+const MAX_STAY_NIGHTS = 365;
+
 export const bookingCreateSchema = z
   .object({
     inquiryId: uuid,
@@ -155,9 +160,9 @@ export const bookingCreateSchema = z
     ratePlanId: uuid.nullable().optional(),
     checkIn: z.string().regex(datePattern),
     checkOut: z.string().regex(datePattern),
-    adults: z.number().int().min(1).default(2),
-    children: z.number().int().min(0).default(0),
-    totalMinor: z.number().int().nonnegative().nullable().optional(),
+    adults: z.number().int().min(1).max(MAX_GUESTS).default(2),
+    children: z.number().int().min(0).max(MAX_GUESTS).default(0),
+    totalMinor: z.number().int().nonnegative().max(MAX_TOTAL_MINOR).nullable().optional(),
     currency: z.string().length(3).default("TRY"),
     notes: z.string().max(2000).optional(),
   })
@@ -165,6 +170,12 @@ export const bookingCreateSchema = z
     const dates = validateStayDates(data.checkIn, data.checkOut);
     if (!dates.ok) {
       ctx.addIssue({ code: "custom", message: dates.error, path: ["checkOut"] });
+    } else if (eachStayNight(data.checkIn, data.checkOut).length > MAX_STAY_NIGHTS) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Konaklama en fazla ${MAX_STAY_NIGHTS} gece olabilir.`,
+        path: ["checkOut"],
+      });
     }
   });
 
@@ -173,15 +184,15 @@ export const bookingPatchSchema = z.object({
   action: z.enum(["approve", "cancel", "mark_no_show", "reopen", "check_in", "check_out", "undo_check_in", "undo_check_out"]).optional(),
   idempotencyKey: z.string().min(8).max(120).optional(),
   notes: z.string().max(2000).optional(),
-  totalMinor: z.number().int().nonnegative().nullable().optional(),
+  totalMinor: z.number().int().nonnegative().max(MAX_TOTAL_MINOR).nullable().optional(),
 }).refine((value) => !value.action || Boolean(value.idempotencyKey), { message: "Durum değişikliği için idempotencyKey gerekli.", path: ["idempotencyKey"] });
 
 export const inventoryEntrySchema = z.object({
   roomId: uuid,
   date: z.string().regex(datePattern),
-  allotment: z.number().int().min(0),
+  allotment: z.number().int().min(0).max(10_000),
   stopSell: z.boolean().default(false),
-  minStay: z.number().int().positive().nullable().optional(),
+  minStay: z.number().int().positive().max(365).nullable().optional(),
   cta: z.boolean().default(false),
   ctd: z.boolean().default(false),
 });
@@ -197,7 +208,7 @@ export const paymentIntentSchema = z.object({
 
 export const icalFeedSchema = z.object({
   name: z.string().min(1).max(120),
-  importUrl: z.string().url().nullable().optional(),
+  importUrl: z.string().url().max(2000).regex(/^https?:\/\//i, "Adres http(s) ile başlamalıdır.").nullable().optional(),
   // İçe aktarılan meşguliyetin yazılacağı oda — importUrl varsa zorunlu.
   roomId: uuid.nullable().optional(),
 });

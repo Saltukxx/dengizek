@@ -3,14 +3,16 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gte, inArray } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
-import { roomsTable } from "@/lib/db/schema";
+import { bookingsTable, roomsTable } from "@/lib/db/schema";
 import { roomUpsertSchema } from "@/lib/schemas/hotel-content";
 import { logAudit } from "@/lib/audit";
 import { syncSystemInventoryCapacity } from "@/lib/inventory-seed";
+import { todayIso } from "@/lib/price";
 import {
+  abortPanelMutation,
   expectedRevisionRequiredResponse,
   panelRevisionConflictResponse,
   readExpectedRevision,
@@ -66,7 +68,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
           .where(eq(roomsTable.id, room.id))
           .returning();
         if (row.unitCount !== room.unitCount) {
-          await syncSystemInventoryCapacity(tx, room.id, row.unitCount);
+          await syncSystemInventoryCapacity(tx, guard.hotel.id, room.id, room.unitCount, row.unitCount);
         }
         return row;
       },
@@ -107,6 +109,23 @@ export async function DELETE(req: Request, { params }: RouteParams) {
       expectedRevision,
       updatedBy: guard.user.id,
       mutate: async (tx) => {
+        // Oda silinince rezervasyonun oda bağı kopar (room_id → NULL) ve
+        // envanteri silinir; süren rezervasyon odasız kalmasın.
+        const [active] = await tx
+          .select({ id: bookingsTable.id })
+          .from(bookingsTable)
+          .where(and(
+            eq(bookingsTable.roomId, room.id),
+            inArray(bookingsTable.status, ["beklemede", "onaylandi"]),
+            gte(bookingsTable.checkOut, todayIso()),
+          ))
+          .limit(1);
+        if (active) {
+          abortPanelMutation(
+            "Bu odanın bekleyen veya onaylı rezervasyonu var — önce rezervasyonları kapatın.",
+            409,
+          );
+        }
         await tx.delete(roomsTable).where(eq(roomsTable.id, room.id));
       },
     });

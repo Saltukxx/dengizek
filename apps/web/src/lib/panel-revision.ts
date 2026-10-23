@@ -198,6 +198,38 @@ export async function runPanelMutation<T>({
   });
 }
 
+/**
+ * Panel kaydı dışındaki bir yazımın (rezervasyon onayı, iCal senkronu, birim
+ * sayısı değişimi) bir kapsamı değiştirdiğini işaretler. Açık duran panelin
+ * eski değerlerle kaydı REVISION_CONFLICT alır; sessizce üzerine yazamaz.
+ *
+ * Kilit sırası: revizyon satırı her zaman kapsamın veri satırlarından ÖNCE
+ * kilitlenir (runPanelMutation ile aynı sıra) — aksi halde panel kaydıyla
+ * karşılıklı kilitlenme oluşur.
+ */
+export async function lockPanelRevision(tx: Tx, hotelId: string, scope: HotelPanelScope) {
+  await tx.insert(hotelPanelRevisionsTable).values({ hotelId, scope }).onConflictDoNothing();
+  await tx
+    .select({ revision: hotelPanelRevisionsTable.revision })
+    .from(hotelPanelRevisionsTable)
+    .where(and(
+      eq(hotelPanelRevisionsTable.hotelId, hotelId),
+      eq(hotelPanelRevisionsTable.scope, scope),
+    ))
+    .for("update");
+}
+
+export async function bumpPanelRevision(tx: Tx, hotelId: string, scope: HotelPanelScope) {
+  await tx.insert(hotelPanelRevisionsTable).values({ hotelId, scope }).onConflictDoNothing();
+  await tx
+    .update(hotelPanelRevisionsTable)
+    .set({ revision: sql`${hotelPanelRevisionsTable.revision} + 1`, updatedAt: new Date() })
+    .where(and(
+      eq(hotelPanelRevisionsTable.hotelId, hotelId),
+      eq(hotelPanelRevisionsTable.scope, scope),
+    ));
+}
+
 export function getPanelRevisionFromDatabase(hotelId: string, scope: HotelPanelScope) {
   return getPanelRevision(getDb(), hotelId, scope);
 }
