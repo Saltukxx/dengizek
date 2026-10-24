@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---------------------------------------------------------------------------
-# Dengizek web — üretim imajı (VPS + docker-compose.prod.yml için).
+# Otelsayfam web — üretim imajı (VPS + docker-compose.prod.yml için).
 # Next.js standalone çıktısı kullanılır: runner aşamasına tam node_modules
 # değil, yalnızca gerekli alt küme + server.js kopyalanır.
 # ---------------------------------------------------------------------------

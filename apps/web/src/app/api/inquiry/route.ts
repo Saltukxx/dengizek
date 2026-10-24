@@ -110,7 +110,7 @@ export async function POST(req: Request) {
     hotelSlug: data.hotelSlug ?? null,
     name: guestName,
     email: data.email,
-    // Telefon toplanmaz — yazışma yalnız Dengizek portalından yürür.
+    // Telefon toplanmaz — yazışma yalnız Otelsayfam portalından yürür.
     phone: null,
     message: guestMessage,
     marketingConsent: data.marketingConsent,
@@ -145,7 +145,7 @@ export async function POST(req: Request) {
   const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/inquiry/portal/${portalToken}`;
   const emailStatus = await sendEmail({
     to: data.email,
-    subject: "Talebiniz alındı — Dengizek",
+    subject: "Talebiniz alındı — Otelsayfam",
     text: `Merhaba ${data.name},\n\nTalebiniz otele iletildi. Yanıtları takip etmek için: ${portalUrl}`,
   });
 

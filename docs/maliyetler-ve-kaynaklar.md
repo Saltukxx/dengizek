@@ -1,6 +1,6 @@
 # Maliyetler ve resmi kaynaklar
 
-Bu belge, Dengizek / GBSoft akıllı otel turu için kullanılan **maliyet varsayımlarının** dayandığı **resmi fiyat sayfalarını** listeler. Rakamlar **tahmini** olabilir; kesin fatura her zaman sağlayıcı konsoluna bağlıdır. Güncelleme için uygun tarih notlarıyla birlikte tutulmalıdır.
+Bu belge, Otelsayfam / GBSoft akıllı otel turu için kullanılan **maliyet varsayımlarının** dayandığı **resmi fiyat sayfalarını** listeler. Rakamlar **tahmini** olabilir; kesin fatura her zaman sağlayıcı konsoluna bağlıdır. Güncelleme için uygun tarih notlarıyla birlikte tutulmalıdır.
 
 ---
 

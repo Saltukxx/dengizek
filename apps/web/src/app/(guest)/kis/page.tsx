@@ -102,7 +102,7 @@ export default async function WinterHomePage() {
               </button>
             </form>
           </div>
-          <div className="er-winter-trust" aria-label="Dengizek güvenceleri">
+          <div className="er-winter-trust" aria-label="Otelsayfam güvenceleri">
             <span><IconShieldCheck size={18} /> Doğrulanmış tesis</span>
             <span><IconVideo size={18} /> Gerçek video turu</span>
             <span><IconCircleCheck size={18} /> Doğrudan talep</span>
@@ -182,7 +182,7 @@ export default async function WinterHomePage() {
         <div className="er-container">
           <div className="er-winter-experience-stage">
             <div className="er-winter-experience-head">
-              <p className="er-eyebrow">Dengizek video turları</p>
+              <p className="er-eyebrow">Otelsayfam video turları</p>
               <h2 className="er-display er-h2">Otel odasını değil, deneyimi görün</h2>
               <p>Rezervasyon talebinden önce tesisin akışını kendi hızınızda keşfedin.</p>
             </div>

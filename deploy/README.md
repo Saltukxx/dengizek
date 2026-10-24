@@ -1,4 +1,4 @@
-# Dengizek — VPS deploy runbook
+# Otelsayfam — VPS deploy runbook
 
 Genel mimari kararları için bkz. [`docs/altyapi-cdn-sunucu.md`](../docs/altyapi-cdn-sunucu.md).
 Bu belge yalnızca somut komutları listeler.

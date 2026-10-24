@@ -972,7 +972,7 @@ async function seedWinterHotel(db: ReturnType<typeof getDb>, def: WinterHotel) {
 // Operasyon demosu — Aurelia Bay için bugüne göre tarihlenen talepler ve
 // rezervasyonlar. "Bugün" panosu, takvim ve liste her seed'de dolu açılır.
 //
-// Kurala uygun: her rezervasyon bir Dengizek talebine bağlıdır. Kayıtlar
+// Kurala uygun: her rezervasyon bir Otelsayfam talebine bağlıdır. Kayıtlar
 // @seed.dengizek.dev e-postasıyla işaretlenir ve her çalıştırmada yeniden
 // yazılır; elle girilmiş kayıtlara ve elle düzenlenmiş envantere dokunulmaz.
 // ---------------------------------------------------------------------------

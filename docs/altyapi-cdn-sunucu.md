@@ -1,4 +1,4 @@
-# Dengizek — Altyapı, CDN & Sunucu Kararları
+# Otelsayfam — Altyapı, CDN & Sunucu Kararları
 
 > **Güncelleme:** Nisan 2026  
 > **Kapsam:** Nerede ne çalışır, nereye video gider, Docker kurulumu.

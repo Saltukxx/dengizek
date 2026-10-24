@@ -53,7 +53,7 @@ export async function POST(req: Request) {
     const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/sifremi-sifirla/${token}`;
     await sendEmail({
       to: user.email,
-      subject: "Şifre sıfırlama — Dengizek",
+      subject: "Şifre sıfırlama — Otelsayfam",
       text: `Merhaba ${user.name},\n\nŞifrenizi sıfırlamak için: ${resetUrl}\n\nBu bağlantı ${RESET_TOKEN_MINUTES} dakika geçerlidir. Bu talebi siz yapmadıysanız bu e-postayı yok sayabilirsiniz.`,
     });
   }

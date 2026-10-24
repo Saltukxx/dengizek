@@ -79,7 +79,7 @@ export default async function HomePage() {
       <Hero
         eyebrow="Gitmeden önce gezin"
         title="Hayalindeki tatili keşfet"
-        description="Dengizek, otelleri etkileşimli video turlarıyla gösterir. Lobide ve odalarda kendi hızınızda ilerleyin, sorularınızı tur sırasında sorun."
+        description="Otelsayfam, otelleri etkileşimli video turlarıyla gösterir. Lobide ve odalarda kendi hızınızda ilerleyin, sorularınızı tur sırasında sorun."
         primaryCta={{ label: "Otelleri Keşfet", href: "/browse" }}
         secondaryCta={{ label: "Özel Tur Planla", href: "/inquiry" }}
         bgImage={heroImage}
@@ -216,7 +216,7 @@ export default async function HomePage() {
           <div className="er-tour-story-stage">
             <div>
               <p className="er-eyebrow" style={{ color: "var(--er-primary)" }}>
-                Dengizek video turları
+                Otelsayfam video turları
               </p>
               <h2 className="er-display er-h2" style={{ marginTop: 8 }}>
                 Otel odasını değil, deneyimi görün

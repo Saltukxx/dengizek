@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Dengizek — günlük Postgres yedeği → Cloudflare R2.
+# Otelsayfam — günlük Postgres yedeği → Cloudflare R2.
 #
 # Gereksinimler (VPS'te bir kere): `aws` CLI kurulu olmalı (R2 S3-uyumlu).
 # Kurulum sonrası crontab'a bkz. deploy/crontab.example.

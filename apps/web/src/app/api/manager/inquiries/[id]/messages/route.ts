@@ -85,7 +85,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/inquiry/portal/${token}`;
     await sendEmail({
       to: inquiry.email,
-      subject: "Tesisinizden yeni mesaj — Dengizek",
+      subject: "Tesisinizden yeni mesaj — Otelsayfam",
       text: `Merhaba ${inquiry.name},\n\nTesisinizden yeni bir mesaj var:\n\n${parsed.data.body}\n\nYanıtlamak için: ${portalUrl}`,
     });
   }

@@ -112,7 +112,7 @@ export function InquiryForm() {
           Talep Gönder
         </h1>
         <p style={{ margin: 0, color: "var(--er-text-muted)", fontSize: 15, lineHeight: 1.6 }}>
-          Talebiniz otele iletilecek; yanıtı e-postanıza gelen bağlantıdaki Dengizek portalından alırsınız. Müsaitlik bilgilendiricidir; kesin onay otelden gelir.
+          Talebiniz otele iletilecek; yanıtı e-postanıza gelen bağlantıdaki Otelsayfam portalından alırsınız. Müsaitlik bilgilendiricidir; kesin onay otelden gelir.
         </p>
       </div>
 

@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // İletişim bilgisi koruması.
 //
-// Misafir ile tesis yalnız Dengizek üzerinden yazışır ve rezervasyon yalnız
+// Misafir ile tesis yalnız Otelsayfam üzerinden yazışır ve rezervasyon yalnız
 // buradan alınır. Serbest metinle telefon, e-posta, web adresi ya da sosyal
 // medya hesabı paylaşmak bu kuralı deler; bu modül o parçaları bulur ve
 // maskeler. Saf fonksiyonlar — sunucu ve istemci ortak kullanır.

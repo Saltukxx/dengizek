@@ -68,7 +68,7 @@ export function LoginForm() {
     <Paper withBorder shadow="md" p="xl" radius="md" w="100%" maw={420}>
       <Stack gap="md">
         <div>
-          <Title order={2}>Dengizek</Title>
+          <Title order={2}>Otelsayfam</Title>
           <Text c="dimmed" size="sm">
             Otel paneli ve yönetim için giriş yapın.
           </Text>

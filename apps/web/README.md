@@ -1,4 +1,4 @@
-# Dengizek web (`apps/web`)
+# Otelsayfam web (`apps/web`)
 
 Next.js 15 (App Router) + TypeScript + Mantine 7. Tailwind yok. **Arayüz dili: Türkçe.**
 

@@ -1,6 +1,6 @@
 # AI Destekli Tur Motoru — Detaylı Plan
 
-**Proje:** Dengizek  
+**Proje:** Otelsayfam  
 **Tarih:** Nisan 2026 (son güncelleme: Temmuz 2026)  
 **Durum:** Faz 1–6 uygulandı — completion engine, response guard, AI analytics, ai-metrics panel, fact cache, context router, readiness score, production manifest hardening. Temmuz 2026: güvenilirlik sağlamlaştırması (aşağıya bakın).
 

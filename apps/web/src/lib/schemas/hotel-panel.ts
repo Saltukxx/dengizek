@@ -145,7 +145,7 @@ export const reviewModerationSchema = z.object({
   status: z.enum(["yayinda", "reddedildi"]),
 });
 
-// Rezervasyon yalnız Dengizek üzerinden gelen bir talepten açılır: inquiryId
+// Rezervasyon yalnız Otelsayfam üzerinden gelen bir talepten açılır: inquiryId
 // zorunludur ve misafir adı/iletişimi istemciden ALINMAZ — sunucu talep
 // kaydından okur. Otel panelinden dışarıdan misafir girişi yapılamaz.
 // integer sütun sınırı (2^31-1) ve gece başına envanter yazımı için üst sınırlar.
