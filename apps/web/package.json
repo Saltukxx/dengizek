@@ -21,7 +21,8 @@
     "db:studio": "drizzle-kit studio",
     "db:backfill-snapshots": "dotenv -e .env.local -- tsx scripts/backfill-hotel-snapshots.ts",
     "db:backfill-embeddings": "dotenv -e .env.local -- tsx scripts/backfill-fact-embeddings.ts",
-    "ai:threshold-report": "dotenv -e .env.local -- tsx scripts/ai-threshold-report.ts"
+    "ai:threshold-report": "dotenv -e .env.local -- tsx scripts/ai-threshold-report.ts",
+    "import:oteldenrezerve": "dotenv -e .env.local -- tsx scripts/import-oteldenrezerve.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.83",
