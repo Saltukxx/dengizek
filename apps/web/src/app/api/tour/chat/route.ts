@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getTourManifest } from "@/lib/mocks/hotels";
 import { getHotelAiProfile } from "@/lib/db/ai-context";
 import { buildFactCatalog, citeFactById, formatCatalogForPrompt } from "@/lib/ai/fact-store";
-import { queryRoomPrices } from "@/lib/ai/price-engine";
+import { queryRoomPrices, type RoomPriceQuery } from "@/lib/ai/price-engine";
 import {
   computeCompletionState,
   shouldAllowOpenInquiry,
@@ -38,9 +38,11 @@ import {
 } from "ai";
 import { CHAT_PROVIDER_OPTIONS, chatModelId, getChatModel } from "@/lib/ai/llm";
 import {
+  analyzePriceMessage,
   extractConversationContext,
   planServerTools,
   type PlannedToolCall,
+  type ServerReply,
 } from "@/lib/ai/deterministic-tools";
 import { hasInquiryIntent, hasInquiryIntentSemantic } from "@/lib/ai/completion-engine";
 import { todayIso } from "@/lib/price";
@@ -510,7 +512,13 @@ export function buildTools(data: AuthoritativeContext, toolFlags: ToolFlags) {
           .regex(/^\d{4}-\d{2}-\d{2}$/)
           .optional()
           .describe("Çıkış YYYY-MM-DD"),
-        guestCount: z.number().int().min(1).max(12).optional().describe("Kişi sayısı"),
+        month: z
+          .string()
+          .regex(/^\d{4}-\d{2}$/)
+          .optional()
+          .describe("Gün verilmeden sorulan ay YYYY-AA (ör. 'Temmuzda fiyat?') — checkIn/checkOut yoksa"),
+        guestCount: z.number().int().min(1).max(12).optional().describe("Yetişkin sayısı"),
+        childCount: z.number().int().min(0).max(10).optional().describe("Çocuk sayısı (yaşları bilinmese de)"),
         childAges: z
           .array(z.number().int().min(0).max(17))
           .max(10)
@@ -521,7 +529,7 @@ export function buildTools(data: AuthoritativeContext, toolFlags: ToolFlags) {
       // ihtiyaç duyduğu tek doğru kaynak budur, başka yerde tekrarlanmaz.
       execute: async (input) => {
         toolFlags.hadPriceTool = true;
-        return queryRoomPrices(hotelSlug, input);
+        return queryRoomPrices(hotelSlug, withServerParsedStay(input, data));
       },
     }),
     citeFact: tool({
@@ -536,6 +544,32 @@ export function buildTools(data: AuthoritativeContext, toolFlags: ToolFlags) {
       },
     }),
   };
+}
+
+/**
+ * Model fiyat aracını kendisi çağırdığında tarih ve kişi bilgisini sunucunun
+ * çıkarımıyla düzeltir: model yılı ya da günü yanlış yazabilir ("15 Temmuz"u
+ * geçen yıla koymak gibi). Sunucu mesajdan güvenle çıkaramadıysa modelin
+ * değeri kalır; sunucu sorgusu sunucu turlarında zaten doğrudan kullanılır.
+ */
+export function withServerParsedStay(input: RoomPriceQuery, data: AuthoritativeContext): RoomPriceQuery {
+  if (data.triggerReason !== "userMessage" || !data.lastUserMessage) return input;
+  const parsed = analyzePriceMessage(data.lastUserMessage, data.roomOptions, todayIso());
+  if (parsed.needsClarification) return input;
+  const out: RoomPriceQuery = { ...input };
+  if (parsed.query.checkIn && parsed.query.checkOut) {
+    out.checkIn = parsed.query.checkIn;
+    out.checkOut = parsed.query.checkOut;
+    delete out.month;
+  } else if (parsed.query.month) {
+    out.month = parsed.query.month;
+    delete out.checkIn;
+    delete out.checkOut;
+  }
+  if (parsed.query.guestCount) out.guestCount = parsed.query.guestCount;
+  if (parsed.query.childAges?.length) out.childAges = parsed.query.childAges;
+  if (parsed.query.childCount) out.childCount = parsed.query.childCount;
+  return out;
 }
 
 export interface ServerToolRun {
@@ -595,8 +629,8 @@ export function triggerInstruction(data: AuthoritativeContext): string | null {
 export interface ServerTurn {
   /** Sunucuda çalışan araçlar (kart sırasıyla). */
   runs: ServerToolRun[];
-  /** unknown: katalog dışı soru · contact: iletişim bilgisi isteği — araç yok, sabit cevap. */
-  reply?: "unknown" | "contact";
+  /** unknown: katalog dışı soru · contact: iletişim bilgisi isteği · askDates: fiyat için tarih sorulur. */
+  reply?: ServerReply;
 }
 
 /**

@@ -102,7 +102,7 @@ interface TurnResult {
   data: AuthoritativeContext;
   text: string;
   tools: ToolUse[];
-  reply?: "unknown" | "contact";
+  reply?: "unknown" | "contact" | "askDates";
   modelSpoke: boolean;
   inputTokens: number;
   outputTokens: number;

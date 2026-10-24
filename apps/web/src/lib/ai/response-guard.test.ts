@@ -102,8 +102,20 @@ describe("createGuardStreamTransform", () => {
     expect(deltaTexts(out)).toEqual([` ${GUARD_FALLBACK_MESSAGE}`]);
   });
 
-  it("getRoomPrice çağrıldıysa fiyatlı metne dokunmaz", async () => {
-    const original = "Gecelik 4500 ₺ tutuyor.";
+  it("getRoomPrice çağrılmış olsa da serbest metinde tutar yazılamaz (kartla çelişebilir)", async () => {
+    const out = await runTransform(
+      { hadPriceTool: true, hadFactTool: false },
+      [
+        { type: "text-start", id: "1" },
+        { type: "text-delta", id: "1", text: "Gecelik 4500 ₺ tutuyor." },
+        { type: "text-end", id: "1" },
+      ],
+    );
+    expect(deltaTexts(out)).toEqual([` ${GUARD_FALLBACK_MESSAGE}`]);
+  });
+
+  it("getRoomPrice çağrıldıysa gece/kişi sayısı geçen çerçeve cümlesine dokunmaz", async () => {
+    const original = "3 gece için fiyatlar kartta.";
     const out = await runTransform(
       { hadPriceTool: true, hadFactTool: false },
       [
@@ -238,5 +250,11 @@ describe("detectToolHints — İngilizce", () => {
     expect(detectToolHints("gecelik fiyat ne kadar?").needsPriceTool).toBe(true);
     expect(detectToolHints("iptal politikanız nedir?").needsFactTool).toBe(true);
     expect(detectToolHints("deniz sıcak mı?").needsPriceTool).toBe(false);
+  });
+});
+
+describe("serbest metin fiyat kalıpları", () => {
+  it.each(["Gecelik 4.500 lira", "120 euro", "%20 indirim var", "yüzde 15 indirim", "toplam 300 USD"])("%s", (text) => {
+    expect(textContainsPriceLikeContent(text, { hadPriceTool: true })).toBe(true);
   });
 });

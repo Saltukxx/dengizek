@@ -14,256 +14,12 @@ import { cosineSimilarity } from "@/lib/ai/embeddings";
 import { EMBEDDING_PROVIDER_OPTIONS, getEmbeddingModel } from "@/lib/ai/llm";
 import type { RoomPriceQuery } from "@/lib/ai/price-engine";
 import type { AiFactCatalogEntry } from "@/lib/ai/types";
+import { normalizeText, stemMatch, tokens } from "@/lib/ai/text";
+import { addDays, parseGuests, parseStayDates } from "@/lib/ai/stay-query";
 
-// ---------------------------------------------------------------------------
-// Metin normalleştirme
-// ---------------------------------------------------------------------------
+export { extractStayDates } from "@/lib/ai/stay-query";
 
-/** Küçük harf, Türkçe karakterleri sadeleştirir, check-in/out'u tek kelime yapar. */
-export function normalizeText(value: string): string {
-  return value
-    .toLocaleLowerCase("tr-TR")
-    .replace(/ç/g, "c")
-    .replace(/ğ/g, "g")
-    .replace(/ı/g, "i")
-    .replace(/ö/g, "o")
-    .replace(/ş/g, "s")
-    .replace(/ü/g, "u")
-    .replace(/â/g, "a")
-    .replace(/check[\s_-]?in/g, "checkin")
-    .replace(/check[\s_-]?out/g, "checkout")
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function tokens(value: string): string[] {
-  return normalizeText(value).split(" ").filter((t) => t.length >= 3);
-}
-
-/**
- * Türkçe ekleri tolere eden eşleşme: kısa kelime uzunun başıysa eşleşir
- * ("hayvan" ↔ "hayvanlari"). Ortak önek yetmez — "checkin" ≠ "checkout".
- */
-function stemMatch(a: string, b: string): boolean {
-  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
-  return short.length >= 3 && long.startsWith(short);
-}
-
-// ---------------------------------------------------------------------------
-// Fiyat sorgusu çıkarımı
-// ---------------------------------------------------------------------------
-
-const MONTHS: Array<[number, string[]]> = [
-  [1, ["ocak", "jan"]],
-  [2, ["subat", "feb"]],
-  [3, ["mart", "mar"]],
-  [4, ["nisan", "apr"]],
-  [5, ["mayis", "may"]],
-  [6, ["haziran", "jun"]],
-  [7, ["temmuz", "jul"]],
-  [8, ["agustos", "aug"]],
-  [9, ["eylul", "sep"]],
-  [10, ["ekim", "oct"]],
-  [11, ["kasim", "nov"]],
-  [12, ["aralik", "dec"]],
-];
-
-function monthFromWord(word: string): number | null {
-  for (const [month, prefixes] of MONTHS) {
-    if (prefixes.some((p) => word.startsWith(p))) return month;
-  }
-  return null;
-}
-
-function pad(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
-function isoDate(year: number, month: number, day: number): string | null {
-  const date = new Date(Date.UTC(year, month - 1, day));
-  if (date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
-  return `${year}-${pad(month)}-${pad(day)}`;
-}
-
-function addDays(iso: string, days: number): string {
-  const date = new Date(`${iso}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-/** Yıl verilmemişse: bu yıl, tarih geçmişse gelecek yıl. */
-function withYear(month: number, day: number, year: number | null, today: string): string | null {
-  if (year) return isoDate(year, month, day);
-  const thisYear = Number(today.slice(0, 4));
-  const candidate = isoDate(thisYear, month, day);
-  if (candidate && candidate >= today) return candidate;
-  return isoDate(thisYear + 1, month, day);
-}
-
-const DAY = String.raw`\b(\d{1,2})`;
-const MONTH_WORD = String.raw`([a-z]{3,})`;
-const YEAR = String.raw`(?:\s+(\d{4}))?`;
-const RANGE_SEP = String.raw`\s*(?:ile|ila|to|until|dan|den|tan|ten)\s*`;
-
-/** İlk geçerli eşleşmeyi döndürür (ay adı olmayan "2 kişi" gibi eşleşmeleri atlar). */
-function firstMatch<T>(text: string, pattern: string, build: (m: RegExpMatchArray) => T | null): T | null {
-  for (const m of text.matchAll(new RegExp(pattern, "g"))) {
-    const value = build(m);
-    if (value) return value;
-  }
-  return null;
-}
-
-type DatePair = { checkIn: string; checkOut?: string };
-
-/** Mesajdan giriş/çıkış tarihlerini çıkarır (TR + EN yazımlar). */
-export function extractStayDates(
-  message: string,
-  today: string,
-): { checkIn?: string; checkOut?: string } {
-  const raw = message.toLocaleLowerCase("tr-TR");
-
-  // 1) ISO tarihler: 2026-08-10
-  const iso = [...raw.matchAll(/\b(\d{4})-(\d{2})-(\d{2})\b/g)]
-    .map((m) => isoDate(Number(m[1]), Number(m[2]), Number(m[3])))
-    .filter((d): d is string => Boolean(d));
-  // 2) Noktalı/eğik çizgili: 10.08.2026, 10/08/2026
-  const dotted = [...raw.matchAll(/\b(\d{1,2})[./](\d{1,2})[./](\d{4})\b/g)]
-    .map((m) => isoDate(Number(m[3]), Number(m[2]), Number(m[1])))
-    .filter((d): d is string => Boolean(d));
-  const explicit = iso.length ? iso : dotted;
-
-  // 3) Serbest metin. Tireler "ila"ya çevrilir ("10-13 Ağustos" → "10 ila 13 agustos").
-  const text = normalizeText(message.replace(/[-–—]/g, " ila ").replace(/[’']/g, " "));
-
-  const pair: DatePair | null = explicit.length
-    ? { checkIn: explicit[0]!, checkOut: explicit[1] }
-    : // "10 agustos - 13 eylul 2026"
-      firstMatch(text, `${DAY}\\s+${MONTH_WORD}${YEAR}${RANGE_SEP}${DAY}\\s+${MONTH_WORD}${YEAR}`, (m) => {
-        const m1 = monthFromWord(m[2]!);
-        const m2 = monthFromWord(m[5]!);
-        if (!m1 || !m2) return null;
-        const outYear = m[6] ? Number(m[6]) : null;
-        const checkIn = withYear(m1, Number(m[1]), m[3] ? Number(m[3]) : outYear, today);
-        if (!checkIn) return null;
-        const checkOut = withYear(m2, Number(m[4]), outYear ?? Number(checkIn.slice(0, 4)), checkIn);
-        return { checkIn, checkOut: checkOut ?? undefined };
-      }) ??
-      // "10-13 agustos 2026"
-      firstMatch(text, `${DAY}${RANGE_SEP}${DAY}\\s+${MONTH_WORD}${YEAR}`, (m) => {
-        const month = monthFromWord(m[3]!);
-        if (!month) return null;
-        const checkIn = withYear(month, Number(m[1]), m[4] ? Number(m[4]) : null, today);
-        if (!checkIn) return null;
-        return { checkIn, checkOut: isoDate(Number(checkIn.slice(0, 4)), month, Number(m[2])) ?? undefined };
-      }) ??
-      // "august 10-13 2026"
-      firstMatch(text, `${MONTH_WORD}\\s+${DAY}${RANGE_SEP}${DAY}\\b${YEAR}`, (m) => {
-        const month = monthFromWord(m[1]!);
-        if (!month) return null;
-        const checkIn = withYear(month, Number(m[2]), m[4] ? Number(m[4]) : null, today);
-        if (!checkIn) return null;
-        return { checkIn, checkOut: isoDate(Number(checkIn.slice(0, 4)), month, Number(m[3])) ?? undefined };
-      }) ??
-      // Tek tarih: "15 temmuz", "july 15"
-      firstMatch(text, `${DAY}\\s+${MONTH_WORD}${YEAR}`, (m) => {
-        const month = monthFromWord(m[2]!);
-        const checkIn = month ? withYear(month, Number(m[1]), m[3] ? Number(m[3]) : null, today) : null;
-        return checkIn ? { checkIn } : null;
-      }) ??
-      firstMatch(text, `${MONTH_WORD}\\s+${DAY}\\b${YEAR}`, (m) => {
-        const month = monthFromWord(m[1]!);
-        const checkIn = month ? withYear(month, Number(m[2]), m[3] ? Number(m[3]) : null, today) : null;
-        return checkIn ? { checkIn } : null;
-      });
-
-  const resolved = pair ?? relativeStayDates(normalizeText(message), today);
-  if (!resolved) return {};
-  const { checkIn } = resolved;
-  let checkOut = resolved.checkOut;
-  if (checkOut && checkOut <= checkIn) {
-    // "28 aralik - 2 ocak": çıkış ertesi yıla düşer.
-    const next = isoDate(Number(checkOut.slice(0, 4)) + 1, Number(checkOut.slice(5, 7)), Number(checkOut.slice(8, 10)));
-    checkOut = next && next > checkIn ? next : undefined;
-  }
-  if (!checkOut) {
-    const nights = normalizeText(message).match(/\b(\d{1,2})\s*(?:gece|nights?)\b/);
-    checkOut = addDays(checkIn, nights ? Math.max(1, Number(nights[1])) : 1);
-  }
-  return { checkIn, checkOut };
-}
-
-
-// ---------------------------------------------------------------------------
-// Göreli tarihler: "yarın", "bu hafta sonu", "haftaya cuma", "next friday"
-// ---------------------------------------------------------------------------
-
-/** 0 = pazar … 6 = cumartesi */
-const WEEKDAYS: Array<[number, RegExp]> = [
-  [1, /\b(pazartesi|monday)/],
-  [2, /\b(sali|tuesday)\b/],
-  [3, /\b(carsamba|wednesday)/],
-  [4, /\b(persembe|thursday)/],
-  [5, /\b(cuma|friday)\b/],
-  [6, /\b(cumartesi|saturday)/],
-  [0, /\b(pazar|sunday)\b/],
-];
-
-function dayOfWeek(iso: string): number {
-  return new Date(`${iso}T00:00:00Z`).getUTCDay();
-}
-
-/** Bugünden sonraki ilk `target` günü (1..7 gün ileri). */
-function nextWeekday(today: string, target: number): string {
-  const diff = (target - dayOfWeek(today) + 7) % 7 || 7;
-  return addDays(today, diff);
-}
-
-/** Gelecek takvim haftasındaki (pazartesi başlangıçlı) `target` günü. */
-function weekdayNextWeek(today: string, target: number): string {
-  const mondayThisWeek = addDays(today, -((dayOfWeek(today) + 6) % 7));
-  return addDays(mondayThisWeek, 7 + ((target + 6) % 7));
-}
-
-function relativeStayDates(text: string, today: string): DatePair | null {
-  const nextWeek = /\b(haftaya|gelecek hafta|onumuzdeki hafta|next week|next)\b/.test(text);
-
-  if (/\b(hafta ?sonu|weekend)/.test(text)) {
-    // Hafta sonu = cuma girişi, pazar çıkışı (2 gece).
-    const dow = dayOfWeek(today);
-    let friday: string;
-    if (nextWeek) friday = weekdayNextWeek(today, 5);
-    else if (dow === 5 || dow === 6) friday = dow === 5 ? today : addDays(today, -1);
-    else friday = nextWeekday(today, 5);
-    const checkIn = friday < today ? today : friday;
-    return { checkIn, checkOut: addDays(friday, 2) };
-  }
-  if (/\b(bugun|bu gece|today|tonight)\b/.test(text)) return { checkIn: today };
-  if (/\b(yarin|tomorrow)\b/.test(text)) return { checkIn: addDays(today, 1) };
-
-  for (const [target, re] of WEEKDAYS) {
-    // "cumartesi" içindeki "cuma"yı ayrı eşleştirmemek için sıra önemli: önce uzun adlar denenir.
-    if (target === 5 && /\bcumartesi/.test(text)) continue;
-    if (target === 0 && /\bpazartesi/.test(text)) continue;
-    if (re.test(text)) {
-      return { checkIn: nextWeek ? weekdayNextWeek(today, target) : nextWeekday(today, target) };
-    }
-  }
-  return null;
-}
-
-const NUMBER_WORDS: Record<string, number> = {
-  bir: 1, iki: 2, uc: 3, dort: 4, bes: 5, alti: 6,
-  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6,
-};
-
-function countBefore(text: string, nouns: string): number | undefined {
-  const m = text.match(new RegExp(`\\b(\\d{1,2}|${Object.keys(NUMBER_WORDS).join("|")})\\s+(?:${nouns})`));
-  if (!m) return undefined;
-  const n = /^\d+$/.test(m[1]!) ? Number(m[1]) : NUMBER_WORDS[m[1]!];
-  return n && n > 0 && n <= 12 ? n : undefined;
-}
+export { normalizeText };
 
 /** Mesajdaki odayı oda adı / slug kelimeleriyle eşleştirir; belirsizse undefined. */
 export function matchRoomSlug(
@@ -289,32 +45,50 @@ export function matchRoomSlug(
   return best.slug;
 }
 
+export interface PriceMessageAnalysis {
+  query: RoomPriceQuery;
+  /** Mesajda açıkça geçen gece sayısı (tarihsiz takip sorusu için). */
+  nights?: number;
+  /** Tarihten söz ediliyor ama güvenle çözülemedi — misafire sorulur. */
+  needsClarification: boolean;
+}
+
+/** Fiyat mesajını çözer: oda, tarih / ay, gece, kişi ve çocuklar. */
+export function analyzePriceMessage(
+  message: string,
+  rooms: Array<{ slug: string; name: string }>,
+  today: string,
+): PriceMessageAnalysis {
+  const query: RoomPriceQuery = {};
+  const roomSlug = matchRoomSlug(message, rooms);
+  if (roomSlug) query.roomSlug = roomSlug;
+
+  const stay = parseStayDates(message, today);
+  if (stay.checkIn && stay.checkOut && !stay.needsClarification) {
+    query.checkIn = stay.checkIn;
+    query.checkOut = stay.checkOut;
+  } else if (stay.month) {
+    query.month = stay.month;
+  }
+
+  const guests = parseGuests(message);
+  if (guests.guestCount) query.guestCount = guests.guestCount;
+  if (guests.childAges?.length) query.childAges = guests.childAges;
+  if (guests.childCount) query.childCount = guests.childCount;
+
+  return {
+    query,
+    ...(stay.nights ? { nights: stay.nights } : {}),
+    needsClarification: stay.needsClarification,
+  };
+}
+
 export function extractPriceQuery(
   message: string,
   rooms: Array<{ slug: string; name: string }>,
   today: string,
 ): RoomPriceQuery {
-  const text = normalizeText(message);
-  const query: RoomPriceQuery = {};
-
-  const roomSlug = matchRoomSlug(message, rooms);
-  if (roomSlug) query.roomSlug = roomSlug;
-
-  const dates = extractStayDates(message, today);
-  if (dates.checkIn) query.checkIn = dates.checkIn;
-  if (dates.checkOut) query.checkOut = dates.checkOut;
-
-  const adults = countBefore(text, "yetiskin|adults?");
-  const people = countBefore(text, "kisi|kisilik|people|persons?|guests?");
-  const guestCount = adults ?? people;
-  if (guestCount) query.guestCount = guestCount;
-
-  const childAges = [...text.matchAll(/\b(\d{1,2})\s*(?:yasinda|yas|years? old|yo)\b/g)]
-    .map((m) => Number(m[1]))
-    .filter((age) => age >= 0 && age <= 17);
-  if (childAges.length) query.childAges = childAges.slice(0, 10);
-
-  return query;
+  return analyzePriceMessage(message, rooms, today).query;
 }
 
 // ---------------------------------------------------------------------------
@@ -519,6 +293,8 @@ export async function pickStep(
   return best && best.score >= STEP_MIN_SCORE ? best : null;
 }
 
+export type ServerReply = "unknown" | "contact" | "askDates";
+
 export type PlannedToolCall =
   | { toolName: "navigateTo"; input: { stepId: string; reason: string } }
   | { toolName: "getRoomPrice"; input: RoomPriceQuery }
@@ -533,8 +309,11 @@ export type PlannedToolCall =
  */
 export interface ServerPlan {
   calls: PlannedToolCall[];
-  /** unknown: katalog dışı konu · contact: iletişim bilgisi isteği (verilmez). */
-  reply?: "unknown" | "contact";
+  /**
+   * unknown: katalog dışı konu · contact: iletişim bilgisi isteği (verilmez) ·
+   * askDates: fiyat istendi ama tarih belirsiz — tarih sorulur.
+   */
+  reply?: ServerReply;
 }
 
 // ---------------------------------------------------------------------------
@@ -593,13 +372,16 @@ export function extractConversationContext(messages: unknown[]): ConversationCon
 const SINGULAR_ROOM_REFERENCE = /\b(bu oda|o oda|ayni oda|odanin|odasinin|fiyati|it|this room|that room|the room)\b/;
 
 function hasStayDetails(query: RoomPriceQuery): boolean {
-  return Boolean(query.checkIn || query.guestCount || query.childAges?.length || query.roomSlug);
+  return Boolean(
+    query.checkIn || query.month || query.guestCount || query.childAges?.length || query.childCount || query.roomSlug,
+  );
 }
 
 /**
  * Fiyat sorgusunu sohbet bağlamıyla tamamlar: tarih/kişi sayısı aynı
  * yolculuk için taşınır; oda yalnızca mesaj odayı belirtmiyorsa ve takip
  * sorusu ya da tekil gönderme ("odanın fiyatı") varsa taşınır.
+ * `nights`: tarihsiz gece sayısı ("Peki 5 gece olursa?") — önceki girişe uygulanır.
  */
 export function mergePriceQuery(
   message: string,
@@ -607,6 +389,7 @@ export function mergePriceQuery(
   context: ConversationContext,
   rooms: Array<{ slug: string; name: string }>,
   isFollowUp: boolean,
+  nights?: number,
 ): RoomPriceQuery {
   const previous = context.lastPriceQuery ?? {};
   const merged: RoomPriceQuery = {};
@@ -622,15 +405,27 @@ export function mergePriceQuery(
   }
   if (roomSlug) merged.roomSlug = roomSlug;
 
-  const checkIn = current.checkIn ?? previous.checkIn;
-  const checkOut = current.checkIn ? current.checkOut : previous.checkOut;
-  if (checkIn) merged.checkIn = checkIn;
-  if (checkOut) merged.checkOut = checkOut;
+  if (current.checkIn && current.checkOut) {
+    merged.checkIn = current.checkIn;
+    merged.checkOut = current.checkOut;
+  } else if (current.month) {
+    merged.month = current.month;
+  } else if (nights && previous.checkIn) {
+    merged.checkIn = previous.checkIn;
+    merged.checkOut = addDays(previous.checkIn, nights);
+  } else if (previous.checkIn && previous.checkOut) {
+    merged.checkIn = previous.checkIn;
+    merged.checkOut = previous.checkOut;
+  } else if (previous.month) {
+    merged.month = previous.month;
+  }
 
   const guestCount = current.guestCount ?? previous.guestCount;
   if (guestCount) merged.guestCount = guestCount;
-  const childAges = current.childAges ?? previous.childAges;
+  const childAges = current.childAges ?? (current.childCount ? undefined : previous.childAges);
   if (childAges?.length) merged.childAges = childAges;
+  const childCount = current.childCount ?? previous.childCount;
+  if (childCount) merged.childCount = Math.max(childCount, childAges?.length ?? 0);
   return merged;
 }
 
@@ -709,30 +504,35 @@ export async function planServerTools(args: {
   const calls: PlannedToolCall[] = [];
 
   // Fiyat: açık fiyat sorusu ya da fiyat konuşmasının devamı ("Peki 3 kişi olursak?").
-  const priceDetails = extractPriceQuery(message, args.rooms, args.today);
+  const analysis = analyzePriceMessage(message, args.rooms, args.today);
+  const priceDetails = analysis.query;
   const isFollowUp =
     !hints.needsPriceTool &&
     !hints.needsFactTool &&
     Boolean(context.lastPriceQuery) &&
-    hasStayDetails(priceDetails);
+    (hasStayDetails(priceDetails) || Boolean(analysis.nights) || analysis.needsClarification);
+  let askDates = false;
   if (hints.needsPriceTool || isFollowUp) {
-    calls.push({
-      toolName: "getRoomPrice",
-      input: mergePriceQuery(message, priceDetails, context, args.rooms, isFollowUp),
-    });
+    const input = mergePriceQuery(message, priceDetails, context, args.rooms, isFollowUp, analysis.nights);
+    // Tarihten söz edilmiş ama güvenle çözülememişse ya da gece sayısı var
+    // ama giriş tarihi yoksa: yanlış (ya da bugünün) fiyatını göstermek
+    // yerine misafire tarih sorulur.
+    askDates = analysis.needsClarification || (Boolean(analysis.nights) && !input.checkIn && !input.month);
+    if (!askDates) calls.push({ toolName: "getRoomPrice", input });
   }
+  const priceWanted = hints.needsPriceTool || isFollowUp;
 
   // İletişim bilgisi istenirse: rehber vermez, talep formuna yönlendirir.
-  if (!calls.length && hasContactIntent(message)) return { calls: [], reply: "contact" };
+  if (!calls.length && !askDates && hasContactIntent(message)) return { calls: [], reply: "contact" };
 
   // Katalogda karşılığı olmayan "… var mı?" sorusu: kart aranmaz, model de
   // "evet" uyduramaz.
-  if (!calls.length && isAvailabilityQuestion(message) && !mentionsCatalogTerm(message, args.catalog)) {
+  if (!calls.length && !askDates && !priceWanted && isAvailabilityQuestion(message) && !mentionsCatalogTerm(message, args.catalog)) {
     return { calls: [], reply: "unknown" };
   }
 
   // Bilgi: fiyatla aynı mesajda da sorulabilir ("Fiyat ve iptal koşulları?").
-  if (!isFollowUp && !hasContactIntent(message) && (!hints.needsPriceTool || hints.needsFactTool)) {
+  if (!isFollowUp && !hasContactIntent(message) && (!priceWanted || hints.needsFactTool)) {
     const pick = await pickFact(message, args.messageEmbedding, args.catalog);
     const accepted =
       pick &&
@@ -742,5 +542,6 @@ export async function planServerTools(args: {
           (pick.score >= FACT_MIN_SCORE_WITH_TEXT_MATCH && pick.textHits > 0));
     if (accepted) calls.push({ toolName: "citeFact", input: { factId: pick.factId } });
   }
+  if (askDates) return { calls, reply: "askDates" };
   return calls.length ? { calls } : none;
 }
