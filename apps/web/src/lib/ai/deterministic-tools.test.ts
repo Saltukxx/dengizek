@@ -109,6 +109,7 @@ describe("extractPriceQuery", () => {
       checkOut: "2026-08-13",
       guestCount: 2,
       childAges: [5],
+      childCount: 1,
     });
   });
 
@@ -432,5 +433,123 @@ describe("ipuçları ve sabit metinler", () => {
   it("iletişim ve bilinmeyen konu cevapları dile göre", () => {
     expect(serverTurnText({ runs: [], reply: "contact" }, "tr")).toMatch(/iletişim bilgilerini paylaşamıyorum/);
     expect(serverTurnText({ runs: [], reply: "unknown" }, "en")).toMatch(/don't have verified information/);
+  });
+});
+
+describe("fiyat niyeti — kelime sınırı ve bağlam", () => {
+  it.each([
+    "Plaja ne kadar uzak?",
+    "Havaalanına ne kadar sürede gidilir?",
+    "Separate beds?",
+    "Kesinlikle görmeliyim",
+    "Kahve makinesi var mı?",
+    "Odada şarj aleti var mı?",
+    "Ne kadar kalabiliriz?",
+  ])("fiyat sorusu değil: %s", (message) => {
+    expect(detectToolHints(message).needsPriceTool).toBe(false);
+  });
+
+  it.each([
+    "Kalsak ne kadar?",
+    "Gecesi kaç lira?",
+    "Kaça kalıyor?",
+    "how much is it",
+    "What's the rate?",
+    "İndirim var mı?",
+    "next to the beach this weekend price",
+  ])("fiyat sorusu: %s", (message) => {
+    expect(detectToolHints(message).needsPriceTool).toBe(true);
+  });
+
+  it.each(["Otopark ücretli mi?", "Is there a parking fee?", "Kahvaltı fiyata dahil mi?", "Spa fiyatları nedir?"])(
+    "olanak ücreti bilgi sorusudur, oda fiyatı değil: %s",
+    (message) => {
+      expect(detectToolHints(message)).toEqual({ needsPriceTool: false, needsFactTool: true });
+    },
+  );
+});
+
+describe("planlayıcı — tarih belirsizse fiyat göstermez, sorar", () => {
+  const base = {
+    messageEmbedding: null,
+    inquiryIntent: "none" as const,
+    catalog: [] as AiFactCatalogEntry[],
+    rooms,
+    today: TODAY,
+  };
+  const priceHints = { needsPriceTool: true, needsFactTool: false };
+
+  it.each(["Bayramda fiyatlar ne kadar?", "Cumartesi ve pazar gecesi fiyat?", "3 gece kalsak fiyat?"])("%s", async (message) => {
+    const plan = await planServerTools({ ...base, message, hints: detectToolHints(message) });
+    expect(plan).toEqual({ calls: [], reply: "askDates" });
+    expect(serverTurnText({ runs: [], reply: plan.reply }, "tr")).toMatch(/giriş ve çıkış tarihlerinizi/);
+  });
+
+  it("takip sorusunda tarihsiz gece sayısı önceki girişe uygulanır", async () => {
+    const msgs = [
+      { role: "user", content: "10-13 Ağustos 2027 fiyat?" },
+      { role: "assistant", content: [{ type: "tool-call", toolName: "getRoomPrice", input: { checkIn: "2027-08-10", checkOut: "2027-08-13" } }] },
+      { role: "user", content: "Peki 5 gece olursa?" },
+    ];
+    const plan = await planServerTools({
+      ...base,
+      message: "Peki 5 gece olursa?",
+      hints: { needsPriceTool: false, needsFactTool: false },
+      context: extractConversationContext(msgs),
+    });
+    expect(plan.calls[0]).toEqual({ toolName: "getRoomPrice", input: { checkIn: "2027-08-10", checkOut: "2027-08-15" } });
+  });
+
+  it("ay sorusunda ay sorgusu planlar", async () => {
+    const plan = await planServerTools({ ...base, message: "Temmuzda fiyatlar ne kadar?", hints: priceHints });
+    expect(plan.calls[0]).toEqual({ toolName: "getRoomPrice", input: { month: "2027-07" } });
+  });
+});
+
+describe("fiyat turu metni anlaşılan sorguyu geri söyler", () => {
+  const run = (output: unknown) => ({ runs: [{ toolName: "getRoomPrice" as const, output }] });
+
+  it("tarih, gece ve kişi", () => {
+    const output = { ok: true, cards: [], query: { checkIn: "2027-08-10", checkOut: "2027-08-13", guestCount: 2, childAges: [5], childCount: 1 } };
+    expect(serverTurnText(run(output), "tr")).toBe(
+      "10–13 Ağustos 2027 (3 gece), 2 yetişkin ve 1 çocuk (5 yaş) için fiyatlar kartta. Tarih ya da kişi sayısı farklıysa yazmanız yeterli.",
+    );
+    expect(serverTurnText(run(output), "en")).toMatch(/^Prices for 10–13 August 2027 \(3 nights\), 2 adults and 1 child \(5 yrs\) are on the card\./);
+  });
+
+  it("yaşı bilinmeyen çocuk için yaş ister", () => {
+    const output = { ok: true, cards: [], query: { checkIn: "2027-08-10", checkOut: "2027-08-11", guestCount: 2, childCount: 1 } };
+    expect(serverTurnText(run(output), "tr")).toMatch(/çocukların yaşlarını yazarsanız/);
+  });
+
+  it("hata kodunu İngilizcede de açıklar", () => {
+    const output = { ok: false, cards: [], error: "Giriş tarihi geçmişte kalıyor.", errorCode: "past_date" };
+    expect(serverTurnText(run(output), "tr")).toMatch(/^Giriş tarihi geçmişte kalıyor\./);
+    expect(serverTurnText(run(output), "en")).toMatch(/^That date is already in the past\./);
+  });
+});
+
+describe("takip: 'aynı tarihlerde' önceki tarihleri kullanır", () => {
+  it("oda değişir, tarih korunur", async () => {
+    const msgs = [
+      { role: "user", content: "Deniz manzaralı deluxe 10-13 Ağustos ne kadar?" },
+      { role: "assistant", content: [{ type: "tool-call", toolName: "getRoomPrice", input: { roomSlug: "seaview-deluxe", checkIn: "2027-08-10", checkOut: "2027-08-13" } }] },
+      { role: "user", content: "Avlu sessiz oda için aynı tarihlerde fiyat ne olur?" },
+    ];
+    const message = "Avlu sessiz oda için aynı tarihlerde fiyat ne olur?";
+    const plan = await planServerTools({
+      messageEmbedding: null,
+      inquiryIntent: "none",
+      catalog: [],
+      rooms,
+      today: TODAY,
+      message,
+      hints: detectToolHints(message),
+      context: extractConversationContext(msgs),
+    });
+    expect(plan.calls[0]).toEqual({
+      toolName: "getRoomPrice",
+      input: { roomSlug: "courtyard-quiet", checkIn: "2027-08-10", checkOut: "2027-08-13" },
+    });
   });
 });

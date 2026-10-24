@@ -32,10 +32,31 @@ export interface AiPriceCard {
   priceOnRequest: boolean;
 }
 
+export type AiPriceErrorCode =
+  | "no_rooms"
+  | "room_not_found"
+  | "invalid_dates"
+  | "past_date"
+  | "too_far"
+  | "too_long";
+
+/** Fiyatlanan sorgu — misafire "şunu anladım" diye geri söylenir. */
+export interface AiPriceQueryEcho {
+  roomSlug?: string;
+  checkIn?: string;
+  checkOut?: string;
+  month?: string;
+  guestCount?: number;
+  childAges?: number[];
+  childCount?: number;
+}
+
 export interface AiPriceQueryResult {
   ok: boolean;
   cards: AiPriceCard[];
   error?: string;
+  errorCode?: AiPriceErrorCode;
+  query?: AiPriceQueryEcho;
 }
 
 export interface AiFactQueryResult {

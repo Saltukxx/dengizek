@@ -34,7 +34,7 @@ export interface Expectations {
   /** navigateTo'nun stepId'si bunlardan biri olmalı. */
   steps?: string[];
   /** Sunucunun sabit cevabı: "bilgim yok" ya da "iletişim bilgisi paylaşamam". */
-  reply?: "unknown" | "contact";
+  reply?: "unknown" | "contact" | "askDates";
   /** Ya "bilgim yok" cevabı ya da bu fact'lerden birinin kartı (ikisi de doğru). */
   unknownOrFacts?: string[];
   /** openInquiry çağrıldıysa sonucu engellenmiş olmalı/olmamalı. */
@@ -95,6 +95,8 @@ const AUG_10 = nextOccurrence(8, 10);
 const AUG_13 = shiftYear("2000-08-13", AUG_10);
 const JUL_15 = nextOccurrence(7, 15);
 const JUL_18 = shiftYear("2000-07-18", JUL_15);
+/** Gün verilmeden anılan Temmuz: bu ay ya da sonrasıysa bu yıl, geçtiyse gelecek yıl. */
+const JULY = `${Number(TODAY.slice(5, 7)) > 7 ? Number(TODAY.slice(0, 4)) + 1 : TODAY.slice(0, 4)}-07`;
 
 // ---------------------------------------------------------------------------
 // Ortak beklentiler
@@ -134,6 +136,17 @@ const aurelia: Fixture[] = [
   { ...A, id: "a-fiyat-yazim", message: "fiyatlar ne kadr acaba", expect: { tools: ["getRoomPrice"] } },
   { ...A, id: "a-fiyat-en", message: "How much is the sea view deluxe room per night?", browserLocale: "en-US", expect: { tools: ["getRoomPrice"], price: { roomSlug: "seaview-deluxe" } } },
   { ...A, id: "a-fiyat-en-tarih", message: "What's the price for August 10-13 for 2 adults?", browserLocale: "en-US", expect: { tools: ["getRoomPrice"], price: { checkIn: AUG_10, checkOut: AUG_13, guestCount: 2 } } },
+
+  // Fiyat ve tarih doğruluğu: anlaşılmayan tarihte tahmin yok, mesafe sorusu fiyat değil.
+  { ...A, id: "a-fiyat-ay", message: "Temmuzda deluxe oda gecelik ne kadar?", expect: { tools: ["getRoomPrice"], price: { roomSlug: "seaview-deluxe", month: JULY }, priceAbsent: ["checkIn"] } },
+  { ...A, id: "a-fiyat-en-ordinal", message: "Price from August 10th to 13th?", browserLocale: "en-US", expect: { tools: ["getRoomPrice"], price: { checkIn: AUG_10, checkOut: AUG_13 } } },
+  { ...A, id: "a-fiyat-noktali", message: "10.08 - 13.08 arası fiyat nedir?", expect: { tools: ["getRoomPrice"], price: { checkIn: AUG_10, checkOut: AUG_13 } } },
+  { ...A, id: "a-fiyat-cocuk-yassiz", message: "2 yetişkin 1 çocuk 10-13 Ağustos fiyat?", expect: { tools: ["getRoomPrice"], price: { checkIn: AUG_10, checkOut: AUG_13, guestCount: 2, childCount: 1 }, priceAbsent: ["childAges"] } },
+  { ...A, id: "a-fiyat-bayram", message: "Bayramda fiyatlarınız ne kadar?", expect: { notTools: ["getRoomPrice"], reply: "askDates" } },
+  { ...A, id: "a-fiyat-gece-tarihsiz", message: "3 gece kalsak ne kadar tutar?", expect: { notTools: ["getRoomPrice"], reply: "askDates" } },
+  { ...A, id: "a-fiyat-iki-secenek", message: "Yarın veya cuma için fiyat?", expect: { notTools: ["getRoomPrice"], reply: "askDates" } },
+  { ...A, id: "a-mesafe-fiyat-degil", message: "Plaja ne kadar uzaktasınız?", expect: { notTools: ["getRoomPrice"] } },
+  { ...A, id: "a-otopark-fiyat-degil", message: "Otopark ücretli mi?", expect: { notTools: ["getRoomPrice"] } },
 
   // Bilgi
   { ...A, id: "a-checkin", message: "Check-in saati kaçta?", expect: { tools: ["citeFact"], factIds: CHECK_IN } },
@@ -202,6 +215,13 @@ const aurelia: Fixture[] = [
     history: [user("Deniz manzaralı deluxe 10-13 Ağustos ne kadar?"), priceTurn({ roomSlug: "seaview-deluxe", checkIn: AUG_10, checkOut: AUG_13 })],
     message: "Avlu sessiz oda için aynı tarihlerde fiyat ne olur?",
     expect: { tools: ["getRoomPrice"], price: { roomSlug: "courtyard-quiet", checkIn: AUG_10, checkOut: AUG_13 } },
+  },
+  {
+    ...A,
+    id: "a-takip-gece",
+    history: [user("Deniz manzaralı deluxe 10-13 Ağustos ne kadar?"), priceTurn({ roomSlug: "seaview-deluxe", checkIn: AUG_10, checkOut: AUG_13 })],
+    message: "Peki 5 gece kalırsak?",
+    expect: { tools: ["getRoomPrice"], price: { roomSlug: "seaview-deluxe", checkIn: AUG_10, checkOut: addDays(AUG_10, 5) } },
   },
   {
     ...A,

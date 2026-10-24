@@ -209,7 +209,7 @@ describe("POST /api/tour/chat", () => {
     expect(body).toContain('"toolName":"getRoomPrice"');
     expect(body.indexOf('"tool-output-available"')).toBeGreaterThan(-1);
     expect(body.indexOf('"tool-output-available"')).toBeLessThan(body.indexOf('"text-delta"'));
-    expect(body).toContain("Güncel fiyatları kartta görebilirsiniz");
+    expect(body).toContain("Bugünkü gecelik fiyat için fiyatlar kartta");
   });
 
   it("tarayıcının UI biçimli (parts) son mesajı okunur: fiyat sorusu sunucuda çözülür", async () => {

@@ -3,50 +3,87 @@
 // ---------------------------------------------------------------------------
 
 import type { TextStreamPart, ToolSet } from "ai";
+import type { AiPriceErrorCode, AiPriceQueryEcho, AiPriceQueryResult } from "@/lib/ai/types";
 
 // Her kalıp en az bir RAKAM ister: "[\d.,]+" tek başına "." ile eşleşip
 // ". Gece kayağı" gibi düz cümleleri fiyat sanıyordu.
-const PRICE_PATTERNS = [
+//
+// Para birimi / yüzde kalıpları HER ZAMAN uygulanır: fiyat aracı çağrılmış
+// olsa bile modelin serbest metinde tutar ya da indirim yazması kartla
+// çelişebilir (yanlış toplam, uydurma yüzde). Doğru tutar yalnız karttadır.
+const CURRENCY_PATTERNS = [
   /₺\s*\d/,
   /\d[\d.,]*\s*₺/,
   /\$\s*\d/,
   /\d[\d.,]*\s*\$/,
   /€\s*\d/,
   /\d[\d.,]*\s*€/,
-  /\d[\d.,]*\s*(TL|tl|TRY|try)\b/,
-  /\b\d[\d.,]*\s*(gece|kişi|kisi)\b/i,
+  /£\s*\d/,
+  /\d[\d.,]*\s*(TL|tl|TRY|try|lira|Lira|USD|usd|EUR|eur|euro|Euro|dolar|Dolar|dollars?|Dollars?)\b/,
+  /(?:^|\s)%\s*\d/,
+  /\d\s*%/,
+  /\byüzde\s*\d/i,
 ];
+// Sayı + gece/kişi: fiyat aracı çağrılmadıysa uydurma konaklama ayrıntısı.
+const COUNT_PATTERNS = [/\b\d[\d.,]*\s*(gece|kişi|kisi)\b/i];
 
 export const GUARD_FALLBACK_MESSAGE =
   "Güncel bilgiyi kartta göstermek için lütfen tekrar sorun; size doğru veriyi göstereyim.";
 
-export function textContainsPriceLikeContent(text: string): boolean {
-  return PRICE_PATTERNS.some((re) => re.test(text));
+export function textContainsPriceLikeContent(text: string, opts: { hadPriceTool?: boolean } = {}): boolean {
+  if (CURRENCY_PATTERNS.some((re) => re.test(text))) return true;
+  return !opts.hadPriceTool && COUNT_PATTERNS.some((re) => re.test(text));
 }
 
-// Anahtar kelimeler TR + EN: motor İngilizce yanıt verebiliyor
-// (bkz. language-detect), dolayısıyla araç yönlendirmesi de İngilizce
-// sorularda çalışmalı. Aksi halde EN misafirde tool zorlanmaz, model serbest
-// metinde rakam yazar ve aşağıdaki guard mesajı ortasından keser.
-const PRICE_KEYWORDS = [
+// ---------------------------------------------------------------------------
+// Fiyat / bilgi niyeti — normalize edilmiş metinde KELİME SINIRIYLA aranır.
+// Alt dize araması "otel"de "tl", "coffee"de "fee", "separate"te "rate"
+// buluyordu; "Plaja ne kadar uzak?" fiyat kartı açıyordu.
+// ---------------------------------------------------------------------------
+
+function normalize(value: string): string {
+  return value
+    .toLocaleLowerCase("tr-TR")
+    .replace(/ç/g, "c").replace(/ğ/g, "g").replace(/ı/g, "i")
+    .replace(/ö/g, "o").replace(/ş/g, "s").replace(/ü/g, "u").replace(/â/g, "a")
+    .replace(/check[\s_-]?in/g, "checkin")
+    .replace(/check[\s_-]?out/g, "checkout")
+    .replace(/[^a-z0-9\s₺$€£%]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const PRICE_PATTERNS_INTENT = [
   // TR
-  "fiyat", "kaç para", "gecelik", "ne kadar", "ücret", "ucret", "tl", "€", "$",
+  /\bfiyat/, /\bucret(?!siz|li\b|li mi)/, /\bkac para\b/, /\bkaca\b/, /\bkac (?:tl|lira|euro|dolar)\b/,
+  /\bgecelik\b/, /\bgecesi (?:kac|ne kadar)\b/, /\btutar/, /\bmaliyet/, /\bpahali/, /\bucuz/,
+  /\bbutce/, /\bindirim/, /\bkampanya/, /\berken rezervasyon/, /\bteklif/,
   // EN
-  "price", "cost", "how much", "rate", "per night", "nightly", "fee", "charge",
-  "expensive", "cheap", "budget",
+  /\bprices?\b/, /\bpricing\b/, /\bcosts?\b/, /\bcosting\b/, /\brates?\b/, /\bper night\b/, /\bnightly\b/,
+  /\bfees?\b/, /\bcharges?\b/, /\bexpensive\b/, /\bcheap/, /\bbudget\b/, /\bdiscounts?\b/, /\bdeals?\b/,
+  /\bquote\b/, /\btariff/, /\bhow much\b(?! (?:time|longer))/,
+  // Para birimi
+  /₺|\$|€|£/, /\b(?:tl|try|lira|euro|eur|usd|dolar|dollars?)\b/,
 ];
 
-const FACT_KEYWORDS = [
+/** "ne kadar" mesafe/süre/boyut sorusundaysa fiyat değildir ("Plaja ne kadar uzak?"). */
+const NE_KADAR = /\bne kadar\b/;
+const NON_PRICE_NE_KADAR =
+  /\b(uzak\w*|yakin\w*|mesafe\w*|sur\w*|zaman|vakit|dakika\w*|saat\w*|km|metre\w*|buyuk\w*|genis\w*|derin\w*|sicak\w*|soguk\w*|kalabalik\w*|kalabil\w*|erken|gec\b|bekle\w*|yuru\w*)\b/;
+
+/** Olanak adı geçen fiyat sorusu oda fiyatı değil, bilgi sorusudur ("Otopark ücretli mi?"). */
+const AMENITY_WORDS =
+  /\b(otopark\w*|park\w*|kahvalti\w*|breakfast|spa|havuz\w*|pool|wifi|wi fi|internet|minibar|transfer\w*|sezlong\w*|plaj\w*|beach|sauna|hamam\w*|masaj\w*|massage|restoran\w*|restaurant|aksam yemeg\w*|dinner|ogle\w*|lunch|cocuk kulub\w*|kids club|shuttle|servis)\b/;
+
+const FACT_PATTERNS_INTENT = [
   // TR
-  "iptal", "evcil", "check-in", "check-out", "check in", "politika", "olanak",
-  "restoran", "oda fiyat", "oda tipi", "oda özellik", "oda ozellik", "kapasite",
-  "adres", "köpe", "kope", "kedi", // köpe: köpek + köpeğim (ünsüz yumuşaması)
+  /\biptal/, /\bevcil/, /\bcheckin/, /\bcheckout/, /\bpolitika/, /\bolanak/, /\brestoran/,
+  /\boda tip/, /\boda ozellik/, /\bkapasite/, /\badres/, /\bkope/, /\bkedi/,
   // "telefon/phone/contact" bilerek yok: rehber iletişim bilgisi vermez ve
   // telefon kataloğa girmez; zorlanırsa model alakasız bir kart seçer.
   // EN
-  "cancel", "refund", "pet", "policy", "policies", "amenit", "facilit",
-  "restaurant", "breakfast", "capacity", "address", "dog", "cat",
-  "wifi", "parking", "check out",
+  /\bcancel/, /\brefund/, /\bpets?\b/, /\bpolic(?:y|ies)\b/, /\bamenit/, /\bfacilit/, /\brestaurants?\b/,
+  /\bbreakfast\b/, /\bcapacity\b/, /\baddress\b/, /\bdogs?\b/, /\bcats?\b/, /\bwifi\b/, /\bparking\b/,
 ];
 
 export interface ToolHints {
@@ -55,23 +92,28 @@ export interface ToolHints {
 }
 
 /** "oda/room" + politika-benzeri sözcük → fact sorusu (TR ve EN). */
-function mentionsRoomFact(lower: string): boolean {
-  const mentionsRoom = /\boda\b/.test(lower) || /\brooms?\b/.test(lower);
-  if (!mentionsRoom) return false;
-  return [
-    "politika", "iptal", "özellik", "ozellik", "tipi", "kapasite",
-    "policy", "cancel", "feature", "type", "capacity", "size",
-  ].some((kw) => lower.includes(kw));
+function mentionsRoomFact(text: string): boolean {
+  if (!/\b(oda\w*|rooms?)\b/.test(text)) return false;
+  return /\b(politika\w*|iptal\w*|ozellik\w*|tipi\w*|kapasite\w*|policy|cancel\w*|features?|types?|capacity|size)\b/.test(text);
 }
 
 export function detectToolHints(userMessage: string): ToolHints {
-  const lower = userMessage.toLowerCase();
-  // "ücretsiz/free" bir fiyat sorusu değildir ("Çocuklar ücretsiz mi?" → politika).
-  const priceText = lower.replace(/ücretsiz|ucretsiz|ücretsizdir/g, " ");
-  return {
-    needsPriceTool: PRICE_KEYWORDS.some((kw) => priceText.includes(kw)),
-    needsFactTool: FACT_KEYWORDS.some((kw) => lower.includes(kw)) || mentionsRoomFact(lower),
-  };
+  const text = normalize(userMessage);
+  let needsPriceTool = PRICE_PATTERNS_INTENT.some((re) => re.test(text));
+  if (!needsPriceTool && NE_KADAR.test(text) && !NON_PRICE_NE_KADAR.test(text)) needsPriceTool = true;
+  let needsFactTool = FACT_PATTERNS_INTENT.some((re) => re.test(text)) || mentionsRoomFact(text);
+
+  // "Kahvaltı fiyata dahil mi?", "Otopark ücretli mi?", "Spa fiyatları?" —
+  // oda/konaklama sözü yoksa bu bir olanak sorusudur, oda fiyatı değil.
+  const staysTalk =
+    /\d/.test(text) ||
+    /\b(gece\w*|nights?|konaklama\w*|stay\w*|kisi\w*|people|guests?|oda\w*|rooms?|suit\w*|suite|hafta ?sonu\w*|weekend|yarin\w*|bugun\w*|tomorrow|tonight|today|tarih\w*|dates?)\b/.test(text);
+  const amenityPriceTalk = /\b(ucret\w*|fiyat\w*|fees?|charge\w*|costs?|prices?|dahil\w*|included|free|bedava|paid|extra|ekstra)\b/.test(text);
+  if (AMENITY_WORDS.test(text) && amenityPriceTalk && !staysTalk) {
+    needsPriceTool = false;
+    needsFactTool = true;
+  }
+  return { needsPriceTool, needsFactTool };
 }
 
 export function buildToolHintPrompt(hints: ToolHints): string {
@@ -139,7 +181,7 @@ export function createGuardStreamTransform<TOOLS extends ToolSet>(
           if (suppressing) return;
           blockLength += chunk.text.length;
           recentText = (recentText + chunk.text).slice(-GUARD_WINDOW_CHARS);
-          if (!flags.hadPriceTool && textContainsPriceLikeContent(recentText)) {
+          if (textContainsPriceLikeContent(recentText, { hadPriceTool: flags.hadPriceTool })) {
             suppressing = true;
             onGuardTriggered?.({ originalLength: blockLength });
             controller.enqueue({ type: "text-delta", id: chunk.id, text: ` ${GUARD_FALLBACK_MESSAGE}` });
@@ -199,11 +241,7 @@ export function serverToolCardText(
   const en = Boolean(language && language !== "tr");
   const result = (output ?? {}) as { ok?: boolean; blocked?: boolean; error?: string };
 
-  if (toolName === "getRoomPrice" && result.ok === false) {
-    return en
-      ? "I couldn't find a price for that request — could you check the dates or room?"
-      : `${result.error ? `${result.error} ` : ""}Tarihleri veya odayı değiştirerek tekrar sorabilirsiniz.`;
-  }
+  if (toolName === "getRoomPrice") return priceTurnText(output as AiPriceQueryResult | null, en);
   if (toolName === "citeFact" && result.ok === false) {
     return en
       ? "I don't have verified information on that, but I can ask the hotel for you."
@@ -216,6 +254,105 @@ export function serverToolCardText(
   }
   return serverToolFallbackText(toolName, language);
 }
+
+// ---------------------------------------------------------------------------
+// Fiyat turu metni — misafire anlaşılan sorgu AÇIKÇA geri söylenir
+// ("10–13 Ağustos 2027, 3 gece, 2 kişi"). Yanlış çıkarılmış bir tarih ya da
+// kişi sayısı böylece kartı okumadan da fark edilir.
+// ---------------------------------------------------------------------------
+
+const MONTHS_TR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+const MONTHS_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+function dateParts(iso: string): [number, number, number] {
+  const [y, m, d] = iso.split("-").map(Number);
+  return [y!, m!, d!];
+}
+
+function rangeText(checkIn: string, checkOut: string, en: boolean): string {
+  const [y1, m1, d1] = dateParts(checkIn);
+  const [y2, m2, d2] = dateParts(checkOut);
+  const months = en ? MONTHS_EN : MONTHS_TR;
+  if (en) {
+    if (y1 === y2 && m1 === m2) return `${d1}–${d2} ${months[m1 - 1]} ${y1}`;
+    if (y1 === y2) return `${d1} ${months[m1 - 1]} – ${d2} ${months[m2 - 1]} ${y1}`;
+    return `${d1} ${months[m1 - 1]} ${y1} – ${d2} ${months[m2 - 1]} ${y2}`;
+  }
+  if (y1 === y2 && m1 === m2) return `${d1}–${d2} ${months[m1 - 1]} ${y1}`;
+  if (y1 === y2) return `${d1} ${months[m1 - 1]} – ${d2} ${months[m2 - 1]} ${y1}`;
+  return `${d1} ${months[m1 - 1]} ${y1} – ${d2} ${months[m2 - 1]} ${y2}`;
+}
+
+function guestsText(q: AiPriceQueryEcho, en: boolean): string | null {
+  const parts: string[] = [];
+  const children = Math.max(q.childCount ?? 0, q.childAges?.length ?? 0);
+  if (q.guestCount) {
+    parts.push(en ? `${q.guestCount} ${children ? "adult" : "guest"}${q.guestCount > 1 ? "s" : ""}` : `${q.guestCount} ${children ? "yetişkin" : "kişi"}`);
+  }
+  if (children) {
+    const ages = q.childAges?.length ? ` (${q.childAges.join(", ")} ${en ? "yrs" : "yaş"})` : "";
+    parts.push(en ? `${children} child${children > 1 ? "ren" : ""}${ages}` : `${children} çocuk${ages}`);
+  }
+  if (!parts.length) return null;
+  return parts.join(en ? " and " : " ve ");
+}
+
+function nightsBetween(checkIn: string, checkOut: string): number {
+  return Math.round((Date.parse(`${checkOut}T00:00:00Z`) - Date.parse(`${checkIn}T00:00:00Z`)) / 86_400_000);
+}
+
+const PRICE_ERROR_EN: Record<AiPriceErrorCode, string> = {
+  no_rooms: "There are no rooms on sale at the moment.",
+  room_not_found: "I couldn't find that room.",
+  invalid_dates: "Those dates don't look valid — check-out must be after check-in.",
+  past_date: "That date is already in the past.",
+  too_far: "The hotel may not have published prices that far ahead yet; it's best to confirm with the hotel.",
+  too_long: "For stays longer than 30 nights the hotel sets the price individually.",
+};
+
+function priceTurnText(result: AiPriceQueryResult | null, en: boolean): string {
+  if (!result || result.ok === false) {
+    const code = result?.errorCode;
+    if (en) {
+      return `${code ? `${PRICE_ERROR_EN[code]} ` : ""}You can ask again with different dates or another room.`;
+    }
+    return `${result?.error ? `${result.error} ` : ""}Tarihleri veya odayı değiştirerek tekrar sorabilirsiniz.`;
+  }
+  const q = result.query ?? {};
+  const guests = guestsText(q, en);
+  let period: string;
+  let tail: string;
+  if (q.checkIn && q.checkOut) {
+    const nights = nightsBetween(q.checkIn, q.checkOut);
+    period = en
+      ? `${rangeText(q.checkIn, q.checkOut, true)} (${nights} night${nights > 1 ? "s" : ""})`
+      : `${rangeText(q.checkIn, q.checkOut, false)} (${nights} gece)`;
+    tail = en ? "Let me know if the dates or guests are different." : "Tarih ya da kişi sayısı farklıysa yazmanız yeterli.";
+  } else if (q.month) {
+    const [y, m] = q.month.split("-").map(Number);
+    period = en ? `${MONTHS_EN[m! - 1]} ${y} (nightly range)` : `${MONTHS_TR[m! - 1]} ${y} (gecelik aralık)`;
+    tail = en ? "Tell me your exact dates and I'll calculate the total." : "Giriş-çıkış tarihlerini yazarsanız toplamı hesaplayayım.";
+  } else {
+    period = en ? "tonight's nightly rate" : "bugünkü gecelik fiyat";
+    tail = en ? "Tell me your dates for an exact total." : "Belirli tarihler için giriş-çıkış tarihlerini yazabilirsiniz.";
+  }
+  const subject = guests ? (en ? `${period}, ${guests}` : `${period}, ${guests}`) : period;
+  const missingAges = Math.max(q.childCount ?? 0, q.childAges?.length ?? 0) - (q.childAges?.length ?? 0);
+  const ageNote =
+    missingAges > 0
+      ? en
+        ? " Child rates depend on age — tell me the children's ages and I'll add them."
+        : " Çocuk ücreti yaşa göre değişiyor; çocukların yaşlarını yazarsanız ekleyeyim."
+      : "";
+  return en
+    ? `Prices for ${subject} are on the card. ${tail}${ageNote}`
+    : `${subject.charAt(0).toLocaleUpperCase("tr-TR")}${subject.slice(1)} için fiyatlar kartta. ${tail}${ageNote}`;
+}
+
+const ASK_DATES_TEXT = {
+  tr: "Fiyatı doğru hesaplayabilmem için giriş ve çıkış tarihlerinizi yazar mısınız? Örneğin “10–13 Ağustos” ya da “15 Temmuz'dan itibaren 3 gece”.",
+  en: "To quote the right price, could you tell me your check-in and check-out dates? For example “10–13 August” or “3 nights from 15 July”.",
+};
 
 const CONTACT_TEXT = {
   tr: "Otelin iletişim bilgilerini paylaşamıyorum. Sorunuzu ya da rezervasyon isteğinizi talep formuyla otele iletebilirsiniz.",
@@ -249,14 +386,20 @@ const MULTI_CARD_TEXT = {
  * otelin kendi verisinden üretilir. null → sunucu turu değil, model konuşur.
  */
 export function serverTurnText(
-  turn: { runs: Array<{ toolName: ServerToolName; output: unknown }>; reply?: "unknown" | "contact" },
+  turn: { runs: Array<{ toolName: ServerToolName; output: unknown }>; reply?: "unknown" | "contact" | "askDates" },
   language: string | undefined,
 ): string | null {
   const en = Boolean(language && language !== "tr");
   if (!turn.runs.length) {
     if (turn.reply === "unknown") return en ? UNKNOWN_TEXT.en : UNKNOWN_TEXT.tr;
     if (turn.reply === "contact") return en ? CONTACT_TEXT.en : CONTACT_TEXT.tr;
+    if (turn.reply === "askDates") return en ? ASK_DATES_TEXT.en : ASK_DATES_TEXT.tr;
     return null;
+  }
+  if (turn.reply === "askDates") {
+    // Bilgi kartı gösterildi, fiyat için tarih soruluyor.
+    const cardText = serverTurnText({ runs: turn.runs }, language);
+    return `${cardText ?? ""} ${en ? ASK_DATES_TEXT.en : ASK_DATES_TEXT.tr}`.trim();
   }
   const navigation = turn.runs.find((run) => run.toolName === "navigateTo");
   if (navigation) return navigationText(navigation.output, en);
