@@ -1,4 +1,4 @@
-# Dengizek — VPS crontab (Vercel cron'larının yerini alır, bkz. apps/web/vercel.json).
+# Otelsayfam — VPS crontab (Vercel cron'larının yerini alır, bkz. apps/web/vercel.json).
 #
 # Kurulum: `crontab -e` ile bu satırları ekleyin, $CRON_SECRET ve $APP_URL'i
 # gerçek değerlerle değiştirin (.env.production'daki CRON_SECRET ile aynı olmalı).

@@ -135,7 +135,7 @@ export function DashboardShell({
             </Box>
             <div>
               <Title order={5} lh={1.1}>
-                Dengizek
+                Otelsayfam
               </Title>
               <Text size="xs" c="dimmed" lh={1.1}>
                 Otel paneli

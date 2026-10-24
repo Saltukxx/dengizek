@@ -1,4 +1,4 @@
-# Moderasyon politikası — Dengizek
+# Moderasyon politikası — Otelsayfam
 
 Bu belge, platform genelinde içerik moderasyonu, yorum onayı ve misafir güvenliği için geçerli kuralları özetler.
 

@@ -13,7 +13,7 @@ test.describe("Panel yaşam döngüleri", () => {
     const sql = process.env.DATABASE_URL ? postgres(process.env.DATABASE_URL, { max: 1 }) : null;
     await login(page, "manager");
     try {
-      // Rezervasyonun tek kaynağı Dengizek talebidir.
+      // Rezervasyonun tek kaynağı Otelsayfam talebidir.
       const created = await page.request.post("/api/inquiry", {
         data: {
           name: guestName,

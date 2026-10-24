@@ -40,7 +40,7 @@ export async function POST(_req: Request, { params }: RouteParams) {
   }
 
   // Yayına gidecek metinlerde telefon/e-posta/web adresi olamaz: misafir
-  // tesise yalnız Dengizek üzerinden ulaşır.
+  // tesise yalnız Otelsayfam üzerinden ulaşır.
   const leaks = findContactLeaks(await buildHotelContentSnapshot(db, guard.hotel.id));
   if (leaks.length > 0) {
     return NextResponse.json(

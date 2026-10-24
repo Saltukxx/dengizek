@@ -20,7 +20,7 @@ export function TourHeader({ hotelName, hotelSlug, backHref, surface = "yaz" }: 
       style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50 }}
     >
       <Link href={isWinter ? "/kis" : "/"} className="er-brand">
-        Dengizek
+        Otelsayfam
       </Link>
 
       <nav className="er-nav" aria-label="Tur navigasyonu">

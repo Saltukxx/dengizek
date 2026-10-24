@@ -40,8 +40,8 @@ const hankenGrotesk = Hanken_Grotesk({
 
 export const metadata: Metadata = {
   title: {
-    default: "Dengizek — Otel video turları",
-    template: "%s | Dengizek",
+    default: "Otelsayfam — Otel video turları",
+    template: "%s | Otelsayfam",
   },
   description:
     "Etkileşimli, adım adım video turlarla otelleri keşfedin ve yer ayırtmadan önce mekânlara göz atın.",

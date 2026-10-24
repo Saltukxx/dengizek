@@ -140,7 +140,7 @@ export function GuestAppShell({
         </button>
 
         <Link href={surface.home} className="er-brand">
-          Dengizek
+          Otelsayfam
         </Link>
 
         <nav className="er-nav" aria-label="Ana navigasyon">
@@ -201,7 +201,7 @@ export function GuestAppShell({
                 marginBottom: 8,
               }}
             >
-              <span className="er-brand">Dengizek</span>
+              <span className="er-brand">Otelsayfam</span>
               <button
                 type="button"
                 onClick={closeDrawer}
@@ -242,7 +242,7 @@ export function GuestAppShell({
         <div className="er-container">
           <div className="er-footer-grid">
             <div>
-              <span className="er-brand">Dengizek</span>
+              <span className="er-brand">Otelsayfam</span>
               <p
                 className="er-muted"
                 style={{ margin: "12px 0 0", maxWidth: 320, fontSize: 14 }}
@@ -273,7 +273,7 @@ export function GuestAppShell({
           </div>
 
           <div className="er-footer-bottom">
-            © {new Date().getFullYear()} Dengizek. Tüm hakları saklıdır.
+            © {new Date().getFullYear()} Otelsayfam. Tüm hakları saklıdır.
           </div>
         </div>
       </footer>

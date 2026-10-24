@@ -1,4 +1,4 @@
-# ADR 001: Ön yüke yığını (Dengizek `apps/web`)
+# ADR 001: Ön yüke yığını (Otelsayfam `apps/web`)
 
 **Durum:** kabul edildi  
 **Tarih:** 2026-04-23

@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Otel paneline giden misafir kayıtları.
 //
-// Tesis misafire yalnız Dengizek içindeki yazışmadan ulaşır; e-posta ve telefon
+// Tesis misafire yalnız Otelsayfam içindeki yazışmadan ulaşır; e-posta ve telefon
 // panele hiç gönderilmez (arayüzde gizlemek yetmez — yanıtın kendisinde yok).
 // Platform yöneticisi (admin uçları) tam kaydı görmeye devam eder.
 // ---------------------------------------------------------------------------

@@ -208,7 +208,7 @@ describe("public inquiry API", () => {
     );
     expect(mocks.sendEmail).toHaveBeenCalledWith({
       to: "ada@example.com",
-      subject: "Talebiniz alındı — Dengizek",
+      subject: "Talebiniz alındı — Otelsayfam",
       text: expect.stringContaining("https://dengizek.test/inquiry/portal/portal-secret"),
     });
   });

@@ -482,14 +482,14 @@ export function PropertyForm() {
           <Group grow>
             <TextInput
               label="Telefon"
-              description="Yalnız Dengizek ekibi görür; misafire gösterilmez."
+              description="Yalnız Otelsayfam ekibi görür; misafire gösterilmez."
               placeholder="+90 ..."
               value={detail.phone ?? ""}
               onChange={(e) => set("phone", e.currentTarget.value)}
             />
             <TextInput
               label="İletişim e-postası"
-              description="Yalnız Dengizek ekibi görür; misafire gösterilmez."
+              description="Yalnız Otelsayfam ekibi görür; misafire gösterilmez."
               placeholder="rezervasyon@otel.com"
               value={detail.contactEmail ?? ""}
               onChange={(e) => set("contactEmail", e.currentTarget.value)}

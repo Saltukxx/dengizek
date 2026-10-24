@@ -70,5 +70,5 @@ export function findContactLeaks(content: Record<string, unknown>, fallbackSecti
 }
 
 export function contactLeakMessage(leaks: string[]): string {
-  return `Misafirle iletişim yalnız Dengizek üzerinden kurulur. Şu alanlardan telefon, e-posta, web adresi veya sosyal medya hesabını kaldırın: ${leaks.join("; ")}.`;
+  return `Misafirle iletişim yalnız Otelsayfam üzerinden kurulur. Şu alanlardan telefon, e-posta, web adresi veya sosyal medya hesabını kaldırın: ${leaks.join("; ")}.`;
 }

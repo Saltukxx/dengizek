@@ -140,7 +140,7 @@ export function InquiryPortalClient({ token }: { token: string }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "dengizek-verilerim.json";
+    a.download = "otelsayfam-verilerim.json";
     a.click();
     URL.revokeObjectURL(url);
   }

@@ -75,7 +75,7 @@ export async function POST(req: Request, { params }: RouteParams) {
   ]);
   if (refsValid.some((ok) => !ok)) return apiFail("İlişkili kayıt bulunamadı.", 404);
 
-  // Rezervasyon yalnız bu tesise gelmiş bir Dengizek talebinden açılır; misafir
+  // Rezervasyon yalnız bu tesise gelmiş bir Otelsayfam talebinden açılır; misafir
   // bilgisi istemciden değil talep kaydından alınır.
   const [inquiry] = await getDb()
     .select({
@@ -86,7 +86,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     .from(inquiriesTable)
     .where(and(eq(inquiriesTable.id, parsed.data.inquiryId), eq(inquiriesTable.hotelId, guard.hotel.id)))
     .limit(1);
-  if (!inquiry) return apiFail("Rezervasyon yalnız Dengizek üzerinden gelen bir talepten açılabilir.", 404);
+  if (!inquiry) return apiFail("Rezervasyon yalnız Otelsayfam üzerinden gelen bir talepten açılabilir.", 404);
 
   try {
     const booking = await createPendingBooking(guard.hotel.id, {

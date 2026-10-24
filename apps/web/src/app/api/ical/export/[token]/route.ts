@@ -94,7 +94,7 @@ export async function GET(req: Request, { params }: RouteParams) {
         `DTSTART;VALUE=DATE:${formatIcalDate(b.checkIn)}`,
         `DTEND;VALUE=DATE:${formatIcalDate(b.checkOut)}`,
         // Takvim dış platformlara gider: misafir adı taşınmaz, yalnız doluluk.
-        foldIcalLine(`SUMMARY:${escapeIcalText(`Dengizek rezervasyonu — ${b.status}`)}`),
+        foldIcalLine(`SUMMARY:${escapeIcalText(`Otelsayfam rezervasyonu — ${b.status}`)}`),
         "END:VEVENT",
       ].join("\r\n");
     })
@@ -103,7 +103,7 @@ export async function GET(req: Request, { params }: RouteParams) {
   const ical = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Dengizek//TR",
+    "PRODID:-//Otelsayfam//TR",
     "CALSCALE:GREGORIAN",
     events,
     "END:VCALENDAR",
