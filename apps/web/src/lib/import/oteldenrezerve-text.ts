@@ -21,7 +21,11 @@ export function isKeywordList(line: string): boolean {
 /** Tamamı BÜYÜK harf yazılmış adı Türkçe kurala göre düzeltir ("AİLE ODASI" → "Aile Odası"). */
 export function fixCaps(name: string): string {
   const letters = name.replace(/[^\p{L}]/gu, "");
-  if (!letters || letters !== letters.toLocaleUpperCase("tr-TR")) return name.trim();
+  if (!letters) return name.trim();
+  if (letters !== letters.toLocaleUpperCase("tr-TR")) {
+    // Shift tuşu kaymış kelime ("ODa", "SUit"): baştaki iki harf büyük, kalanı küçük.
+    return name.replace(/(?<!\p{L})(\p{Lu})(\p{Lu})(\p{Ll}+)(?!\p{L})/gu, (_, a: string, b: string, rest: string) => a + b.toLocaleLowerCase("tr-TR") + rest).trim();
+  }
   return name
     .toLocaleLowerCase("tr-TR")
     .replace(/(^|[\s(&/-])(\p{L})/gu, (_, pre: string, ch: string) => pre + ch.toLocaleUpperCase("tr-TR"))

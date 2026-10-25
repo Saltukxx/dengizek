@@ -99,7 +99,16 @@ async function main() {
     const allText = h.bolumler.map((x) => x.metin).join("\n");
     const roomsText = section(h, /oda özellik/i);
     const totalRooms = Number(roomsText.match(/toplam\s+(\d{1,4})\s+oda/i)?.[1]) || null;
-    const amenities = [...new Set(h.olanaklar.flatMap((f) => f.ozellikler).map((x) => x.trim()).filter(Boolean))];
+    // "Tesis Tipi" grubu ("Spa Otelleri", "Termal Oteller") kategori etiketidir, olanak değil.
+    const amenities = [
+      ...new Set(
+        h.olanaklar
+          .filter((f) => !/tesis tipi/i.test(f.baslik))
+          .flatMap((f) => f.ozellikler)
+          .map((x) => x.trim())
+          .filter(Boolean),
+      ),
+    ];
     const aiFacts = h.bolumler
       .filter((s) => !/tesis bilgi|^notlar/i.test(s.baslik) && s.metin.trim())
       .map((s) => `${s.baslik}: ${cleanText(s.metin)}`.slice(0, 1500))

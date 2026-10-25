@@ -24,3 +24,6 @@ playwright/.cache/
 
 # Vitest
 apps/web/coverage/
+
+# Kazınan/yedeklenen yerel veri (büyük, git dışı)
+/data/
