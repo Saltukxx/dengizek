@@ -2,6 +2,7 @@ import Link from "next/link";
 import { IconChevronLeft, IconChevronRight, IconMapPin, IconSearch } from "@tabler/icons-react";
 import { getPublishedHotelsForBrowse } from "@/lib/hotels-repo";
 import { ViewTracker } from "@/components/guest/analytics-tracker";
+import { AssistantSearchBox } from "@/components/guest/assistant-search-box";
 import { HotelCard, EmptyState } from "@/components/marketing";
 import { amenitiesCatalog } from "@/lib/amenities-catalog";
 import { pageWindow, paginate } from "@/lib/browse-pagination";
@@ -157,6 +158,11 @@ export async function HotelBrowse({
           <p>Yalnızca kış sezonuna seçilmiş, video turla gezilebilen tesisleri keşfedin.</p>
         </div>
       )}
+      {/* ── Arama asistanı ───────────────────────────────────────────────── */}
+      <div style={{ marginBottom: 16 }}>
+        <AssistantSearchBox compact />
+      </div>
+
       {/* ── Üst arama çubuğu + sıralama ─────────────────────────────────── */}
       <div
         style={{
