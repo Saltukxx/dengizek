@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Badge,
+  Group,
   Loader,
   Paper,
   SimpleGrid,
@@ -36,6 +37,12 @@ interface AiMetricsData {
   } | null;
   readinessScore: number;
   readinessIssues: string[];
+  unansweredQuestions?: Array<{
+    question: string;
+    count: number;
+    reason: "bilgi-yok" | "kartsiz";
+    lastAskedAt: string;
+  }>;
 }
 
 function MetricCard({
@@ -187,6 +194,37 @@ export function AiTourMetrics() {
           </Text>
         </Paper>
       ) : null}
+
+      <Paper withBorder p="md" radius="md">
+        <Text size="sm" fw={500}>
+          Rehberin cevaplayamadığı sorular (son 30 gün)
+        </Text>
+        <Text size="xs" c="dimmed" mt={4} mb="xs">
+          Misafirlerin sorduğu ama otel bilgilerinizde karşılığı olmayan sorular. Cevabı yukarıdaki
+          “Otel ifadesi” ya da “Politika” alanına ekleyin; rehber bir sonraki yayından itibaren cevaplar.
+        </Text>
+        {data.unansweredQuestions && data.unansweredQuestions.length > 0 ? (
+          <Stack gap={6}>
+            {data.unansweredQuestions.map((q) => (
+              <Group key={q.question} justify="space-between" wrap="nowrap" gap="sm">
+                <Text size="sm" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                  {q.question}
+                </Text>
+                <Group gap={6} wrap="nowrap">
+                  <Badge variant="light" color={q.reason === "bilgi-yok" ? "red" : "gray"}>
+                    {q.reason === "bilgi-yok" ? "Bilgi yok" : "Kartsız cevap"}
+                  </Badge>
+                  <Badge variant="outline">{q.count}×</Badge>
+                </Group>
+              </Group>
+            ))}
+          </Stack>
+        ) : (
+          <Text size="sm" c="dimmed">
+            Henüz cevapsız soru yok.
+          </Text>
+        )}
+      </Paper>
 
       {data.readinessIssues.length > 0 ? (
         <Paper withBorder p="md" radius="md">

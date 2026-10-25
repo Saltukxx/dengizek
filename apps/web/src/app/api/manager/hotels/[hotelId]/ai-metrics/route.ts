@@ -7,6 +7,7 @@ import { and, eq, gte, inArray } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { computeFactEmbeddingFreshness } from "@/lib/ai/fact-store";
 import { computeAiReadinessScore } from "@/lib/ai/readiness-score";
+import { UNANSWERED_EVENT, groupUnanswered } from "@/lib/ai/unanswered";
 import { getDb } from "@/lib/db";
 import { analyticsEventsTable, roomsTable, tourStepsTable, toursTable } from "@/lib/db/schema";
 
@@ -128,6 +129,9 @@ export async function GET(_req: Request, { params }: RouteParams) {
   const autoCompletionRate =
     autoStarts > 0 ? Math.round((autoCompletes / autoStarts) * 1000) / 10 : null;
 
+  // Rehberin cevaplayamadığı sorular — otel sahibi eksik bilgiyi buradan görür.
+  const unansweredQuestions = groupUnanswered(events.filter((e) => e.eventType === UNANSWERED_EVENT));
+
   // RAG lexical fallback'e mi düşüyor? Yayındaki katalog vs. embedding tablosu.
   const embeddingFreshness = await computeFactEmbeddingFreshness(hotel.slug);
 
@@ -162,6 +166,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
     embeddingFreshness,
     readinessScore: readiness.score,
     readinessIssues: readiness.issues,
+    unansweredQuestions,
     byType,
   });
 }
