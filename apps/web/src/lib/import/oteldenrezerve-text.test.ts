@@ -71,10 +71,13 @@ describe("metin temizliği", () => {
     expect(cleanText(text)).toBe("Şifalı termal suları ile öne çıkar.\nKapalı havuz mevcuttur.");
   });
 
-  it("tamamı büyük harf adları Türkçe kurala göre düzeltir, karışık yazıma dokunmaz", () => {
+  it("tamamı büyük harf adları Türkçe kurala göre düzeltir, kaymış büyük harfi düzeltir", () => {
     expect(fixCaps("ORUÇOĞLU THERMAL HOTEL")).toBe("Oruçoğlu Thermal Hotel");
     expect(fixCaps("AİLE ODASI")).toBe("Aile Odası");
-    expect(fixCaps("Deluxe ODa")).toBe("Deluxe ODa");
+    expect(fixCaps("Deluxe ODa")).toBe("Deluxe Oda");
+    expect(fixCaps("Kral SUit")).toBe("Kral Suit");
+    expect(fixCaps("Deluxe Oda SPA")).toBe("Deluxe Oda SPA");
+    expect(fixCaps("McDonald Suit")).toBe("McDonald Suit");
   });
 
   it("kısa açıklama başlık satırını atlar", () => {
