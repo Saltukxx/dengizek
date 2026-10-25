@@ -13,6 +13,7 @@ import {
   IconWaveSine,
 } from "@tabler/icons-react";
 import { Hero, HotelCard } from "@/components/marketing";
+import { AssistantSearchBox } from "@/components/guest/assistant-search-box";
 import { getPublishedHotelsForBrowse } from "@/lib/hotels-repo";
 import { guestShareMeta } from "@/lib/guest-seo";
 
@@ -132,6 +133,11 @@ export default async function HomePage() {
           </form>
         }
       />
+
+      {/* ── Arama asistanı ───────────────────────────────────────────────── */}
+      <section className="er-container" style={{ paddingTop: "clamp(28px, 4vw, 40px)", maxWidth: 880 }}>
+        <AssistantSearchBox />
+      </section>
 
       {/* ── Kategori çipleri ─────────────────────────────────────────────── */}
       {categories.length > 0 && (
