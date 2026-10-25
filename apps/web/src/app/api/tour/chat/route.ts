@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getTourManifest } from "@/lib/mocks/hotels";
 import { getHotelAiProfile } from "@/lib/db/ai-context";
-import { buildFactCatalog, citeFactById, formatCatalogForPrompt } from "@/lib/ai/fact-store";
+import { buildFactCatalog, citeFactById, formatCatalogForPrompt, loadFactEmbeddings } from "@/lib/ai/fact-store";
 import { queryRoomPrices, type RoomPriceQuery } from "@/lib/ai/price-engine";
 import {
   computeCompletionState,
@@ -15,6 +15,7 @@ import { windowConversationHistory } from "@/lib/ai/history-window";
 import { detectLanguageHint } from "@/lib/ai/language-detect";
 import {
   buildToolHintPrompt,
+  createCardPointerTransform,
   createGuardStreamTransform,
   decideToolChoice,
   serverTurnText,
@@ -26,6 +27,7 @@ import { getHotelIdBySlug, getPublishedHotelContent } from "@/lib/hotels-repo";
 import { trackEvent } from "@/lib/analytics";
 import { checkAiBudget } from "@/lib/ai/budget";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
+import { UNANSWERED_EVENT, unansweredPayload, type UnansweredReason } from "@/lib/ai/unanswered";
 import { apiRateLimited, apiNotFound, apiServiceUnavailable } from "@/lib/api-response";
 import {
   convertToModelMessages,
@@ -160,6 +162,8 @@ export interface AuthoritativeContext extends ChatRequest {
   completion: CompletionState;
   lastUserMessage?: string;
   userMessageEmbedding: number[] | null;
+  /** Yayında kaydedilmiş fact embedding'leri — sunucu tarafı kart seçimi için. */
+  storedFactEmbeddings?: Map<string, number[]>;
   /** Bu turda tespit edilen dil (BCP-47 kısa kod) — yoksa hotelProfile.language varsayılan kalır. */
   detectedLanguage?: string;
 }
@@ -407,7 +411,9 @@ export async function buildAuthoritativeContext(req: ChatRequest): Promise<Autho
   // Bu turun kullanıcı-mesajı embedding'i — hem fact retrieval (context-router)
   // hem openInquiry'nin embedding-destekli niyet kontrolü (completion-engine)
   // tarafından paylaşılır; tek embed API çağrısı.
-  const userMessageEmbedding = lastUserMessage ? await embedText(lastUserMessage) : null;
+  const [userMessageEmbedding, storedFactEmbeddings] = lastUserMessage
+    ? await Promise.all([embedText(lastUserMessage), loadFactEmbeddings(req.hotelSlug, fullCatalog)])
+    : [null, undefined];
   const detectedLanguage = lastUserMessage
     ? detectLanguageHint(lastUserMessage, req.browserLocale)
     : undefined;
@@ -442,6 +448,7 @@ export async function buildAuthoritativeContext(req: ChatRequest): Promise<Autho
     completion,
     lastUserMessage,
     userMessageEmbedding,
+    storedFactEmbeddings,
     detectedLanguage,
   };
 }
@@ -626,11 +633,24 @@ export function triggerInstruction(data: AuthoritativeContext): string | null {
   return triggerMap[data.triggerReason] ?? null;
 }
 
+function compactAmenityCard(output: unknown, amenities: string[]): unknown {
+  const result = output as { ok?: boolean; card?: { text?: string } } | null;
+  if (!result?.ok || !result.card) return output;
+  return { ...result, card: { ...result.card, text: `Otel olanakları: ${amenities.join(", ")}.` } };
+}
+
 export interface ServerTurn {
   /** Sunucuda çalışan araçlar (kart sırasıyla). */
   runs: ServerToolRun[];
   /** unknown: katalog dışı soru · contact: iletişim bilgisi isteği · askDates: fiyat için tarih sorulur. */
   reply?: ServerReply;
+  /** "X var mı?" sorusunda olanak listesinde bulunan olanaklar. */
+  amenities?: string[];
+  amenityPriceAsked?: boolean;
+  /** Misafirin sorusu (kart cevabında soruya uyan cümle için). */
+  question?: string;
+  /** reply "rooms": oda tipleri listesi. */
+  rooms?: string[];
 }
 
 /**
@@ -656,6 +676,7 @@ export async function runServerTools(
         ? "semantic"
         : "none",
     catalog: data.fullFactCatalog ?? data.factCatalog,
+    storedFactEmbeddings: data.storedFactEmbeddings,
     rooms: data.roomOptions,
     steps: data.availableSteps,
     currentStepId: data.currentStepId,
@@ -682,6 +703,8 @@ export async function runServerTools(
         break;
       case "citeFact":
         output = await tools.citeFact.execute!(call.input, options);
+        // Olanak sorusu: 45 maddelik liste yerine yalnız sorulan olanaklar.
+        if (plan.amenities?.length && call.input.factId === "spec.amenities") output = compactAmenityCard(output, plan.amenities);
         break;
       case "openInquiry":
         output = await tools.openInquiry.execute!(call.input, options);
@@ -711,7 +734,14 @@ export async function runServerTools(
       ],
     });
   }
-  return { runs, reply: plan.reply };
+  return {
+    runs,
+    reply: plan.reply,
+    amenities: plan.amenities,
+    amenityPriceAsked: plan.amenityPriceAsked,
+    rooms: plan.rooms,
+    question: message,
+  };
 }
 
 export async function POST(req: Request) {
@@ -821,7 +851,14 @@ export async function POST(req: Request) {
   });
   const language = data.detectedLanguage ?? data.hotelProfile?.language;
   const fixedText = serverTurn ? serverTurnText(serverTurn, language) : null;
+  // Cevapsız soru kaydı (otel paneli): sunucu "bilgim yok" dedi.
+  const recordUnanswered = (reason: UnansweredReason) => {
+    const payload = data.lastUserMessage ? unansweredPayload(data.lastUserMessage, reason) : null;
+    if (payload) void trackEvent(UNANSWERED_EVENT, { ...payload, tourId: data.tourId }, hotelId, data.hotelSlug);
+  };
   if (serverTurn && fixedText !== null) {
+    const factFailed = serverTurn.runs.some((r) => r.toolName === "citeFact" && (r.output as { ok?: boolean } | null)?.ok === false);
+    if (serverTurn.reply === "unknown" || factFailed) recordUnanswered("bilgi-yok");
     // Sunucu turu (kart, gezinme, "bilgim yok", iletişim): model çağrılmaz.
     return serverToolResponse(serverTurn.runs, fixedText);
   }
@@ -866,11 +903,22 @@ export async function POST(req: Request) {
       const toolChoice = decideToolChoice(toolHints, toolFlags);
       return toolChoice ? { toolChoice } : {};
     },
-    experimental_transform: createGuardStreamTransform(toolFlags, ({ originalLength }) =>
-      onGuardTriggered(originalLength),
-    ),
+    experimental_transform: [
+      createGuardStreamTransform(toolFlags, ({ originalLength }) => onGuardTriggered(originalLength)),
+      createCardPointerTransform(data.lastUserMessage, language),
+    ],
     tools: allTools,
-    onFinish: ({ totalUsage }) => {
+    onFinish: ({ totalUsage, steps }) => {
+      // Model geçerli bir bilgi/fiyat kartı göstermeden cevapladıysa soru panelde
+      // "kartsız" olarak listelenir (otel verisinde karşılığı yok ya da bulunamadı).
+      if (data.triggerReason === "userMessage") {
+        const results = (steps ?? []).flatMap((step) => step.toolResults ?? []);
+        const grounded = results.some(
+          (r) => (r.toolName === "citeFact" || r.toolName === "getRoomPrice") && (r.output as { ok?: boolean } | null)?.ok !== false,
+        );
+        const failed = results.some((r) => r.toolName === "citeFact" && (r.output as { ok?: boolean } | null)?.ok === false);
+        if (!grounded) recordUnanswered(failed ? "bilgi-yok" : "kartsiz");
+      }
       void trackEvent(
         "ai_usage",
         {

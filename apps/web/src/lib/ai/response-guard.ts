@@ -4,6 +4,7 @@
 
 import type { TextStreamPart, ToolSet } from "ai";
 import type { AiPriceErrorCode, AiPriceQueryEcho, AiPriceQueryResult } from "@/lib/ai/types";
+import { normalizeText, synonymsOf, tokens } from "@/lib/ai/text";
 
 // Her kalıp en az bir RAKAM ister: "[\d.,]+" tek başına "." ile eşleşip
 // ". Gece kayağı" gibi düz cümleleri fiyat sanıyordu.
@@ -79,11 +80,15 @@ const FACT_PATTERNS_INTENT = [
   // TR
   /\biptal/, /\bevcil/, /\bcheckin/, /\bcheckout/, /\bpolitika/, /\bolanak/, /\brestoran/,
   /\boda tip/, /\boda ozellik/, /\bkapasite/, /\badres/, /\bkope/, /\bkedi/,
+  /\bgiris saat/, /\bcikis saat/, /\bkacta (?:giris|cikis|cik|gir)/, /\b(?:giris|cikis)\w* kacta/, /\ben gec kacta/,
+  /\bkac oda\b/, /\boda sayisi/, /\bkac kisilik/, /\bkonsept/, /\bpansiyon/, /\byemekler? dahil/,
+  /\bmesafe/, /\buzaklig/, /\bhava(?:alani|limani)/,
   // "telefon/phone/contact" bilerek yok: rehber iletişim bilgisi vermez ve
   // telefon kataloğa girmez; zorlanırsa model alakasız bir kart seçer.
   // EN
   /\bcancel/, /\brefund/, /\bpets?\b/, /\bpolic(?:y|ies)\b/, /\bamenit/, /\bfacilit/, /\brestaurants?\b/,
   /\bbreakfast\b/, /\bcapacity\b/, /\baddress\b/, /\bdogs?\b/, /\bcats?\b/, /\bwifi\b/, /\bparking\b/,
+  /\bwhat time\b/, /\bhow many rooms\b/, /\bairport\b/, /\bdistance\b/, /\bhow far\b/, /\bboard\b/, /\bmeals?\b/,
 ];
 
 export interface ToolHints {
@@ -374,6 +379,36 @@ const UNKNOWN_TEXT = {
   en: "I don't have verified information about that. You can ask the hotel through the request form.",
 };
 
+const AMENITY_ANSWER_MAX = 8;
+
+/** "Evet, tesiste “Fitness Center” bulunuyor." — yalnız listede olan olanaklar. */
+export function amenityAnswerText(amenities: string[], priceAsked: boolean, en: boolean): string {
+  const shown = amenities.slice(0, AMENITY_ANSWER_MAX).map((a) => `“${a}”`);
+  const rest = amenities.length - shown.length;
+  const list = shown.join(", ") + (rest > 0 ? (en ? ` and ${rest} more` : ` ve ${rest} olanak daha`) : "");
+  const priceNote = priceAsked
+    ? en
+      ? " I don't have information on whether it is free or paid; I can ask the hotel for you."
+      : " Ücretli olup olmadığına dair bilgim yok; isterseniz otele sorabilirim."
+    : "";
+  if (en) return `Yes, the property has ${list}.${priceNote}`;
+  return amenities.length === 1
+    ? `Evet, tesiste ${list} bulunuyor.${priceNote}`
+    : `Evet, tesiste şunlar bulunuyor: ${list}.${priceNote}`;
+}
+
+/** Oda listesi — oda kartlarının metninden ("Aile Odası: 39 m², 2 yetişkin + 3 çocuk, Yarım pansiyon."). */
+function roomListText(rooms: string[], en: boolean): string {
+  const shown = rooms.slice(0, 10);
+  if (en) {
+    const names = shown.map((r) => r.split(":")[0]!.trim());
+    return `We have ${rooms.length} room types: ${names.join(", ")}. Ask me about any of them for size, capacity or prices.`;
+  }
+  const lines = shown.map((r) => `• ${r.replace(/\.$/, "")}`).join("\n");
+  const more = rooms.length > shown.length ? `\n…ve ${rooms.length - shown.length} oda tipi daha.` : "";
+  return `Otelimizde ${rooms.length} oda tipi var:\n${lines}${more}\nFiyat ya da ayrıntı için oda adını yazmanız yeterli.`;
+}
+
 const MULTI_CARD_TEXT = {
   tr: "Fiyatları ve istediğiniz bilgiyi kartlarda paylaştım.",
   en: "I've shared the prices and the details on the cards.",
@@ -386,11 +421,24 @@ const MULTI_CARD_TEXT = {
  * otelin kendi verisinden üretilir. null → sunucu turu değil, model konuşur.
  */
 export function serverTurnText(
-  turn: { runs: Array<{ toolName: ServerToolName; output: unknown }>; reply?: "unknown" | "contact" | "askDates" },
+  turn: {
+    runs: Array<{ toolName: ServerToolName; output: unknown }>;
+    reply?: "unknown" | "contact" | "askDates" | "rooms";
+    amenities?: string[];
+    amenityPriceAsked?: boolean;
+    rooms?: string[];
+    /** Misafirin sorusu — bilgi kartının soruya uyan cümlesi cevapta söylenir. */
+    question?: string;
+  },
   language: string | undefined,
 ): string | null {
   const en = Boolean(language && language !== "tr");
+  const amenityRun = turn.runs.length === 1 && turn.runs[0]!.toolName === "citeFact" ? turn.runs[0] : undefined;
+  if (turn.amenities?.length && amenityRun && (amenityRun.output as { ok?: boolean } | null)?.ok !== false) {
+    return amenityAnswerText(turn.amenities, Boolean(turn.amenityPriceAsked), en);
+  }
   if (!turn.runs.length) {
+    if (turn.reply === "rooms" && turn.rooms?.length) return roomListText(turn.rooms, en);
     if (turn.reply === "unknown") return en ? UNKNOWN_TEXT.en : UNKNOWN_TEXT.tr;
     if (turn.reply === "contact") return en ? CONTACT_TEXT.en : CONTACT_TEXT.tr;
     if (turn.reply === "askDates") return en ? ASK_DATES_TEXT.en : ASK_DATES_TEXT.tr;
@@ -405,9 +453,164 @@ export function serverTurnText(
   if (navigation) return navigationText(navigation.output, en);
 
   const failed = turn.runs.find((run) => (run.output as { ok?: boolean } | null)?.ok === false);
+  // Tek bilgi kartı: "kartta paylaştım" yerine kartın soruya uyan cümlesi.
+  const card = turn.runs.length === 1 && !failed && turn.runs[0]!.toolName === "citeFact"
+    ? (turn.runs[0]!.output as { card?: { title?: string; text?: string } } | null)?.card
+    : undefined;
+  if (card?.text && turn.question && !en) {
+    const sentence = cardAnswerSentence({ title: card.title, text: card.text }, turn.question);
+    if (sentence) return `${/[.!?…]$/.test(sentence) ? sentence : `${sentence}.`} Ayrıntılar kartta.`;
+  }
   if (turn.runs.length === 1 || failed) {
     const run = failed ?? turn.runs[0]!;
     return serverToolCardText(run.toolName as Exclude<ServerToolName, "navigateTo">, language, run.output);
   }
   return en ? MULTI_CARD_TEXT.en : MULTI_CARD_TEXT.tr;
+}
+
+// ---------------------------------------------------------------------------
+// Boş kart cümlesi — "Detayları aşağıda bulabilirsiniz" deyip bilgi vermeyen
+// model cevabı, kartın soruya en uygun cümlesiyle değiştirilir.
+// ---------------------------------------------------------------------------
+
+/** Kartı işaret eden boş çerçeve ifadeleri (normalize metinde). */
+const CARD_POINTER =
+  /\b(asagida|asagidaki|kartta|karttaki|kartimizda|burada (?:bulabilir|gorebilir)|paylastim|paylasiyorum|listeledim|derledim|below|on the card|in the card|the card below|you can find|you can see|you can check|shared)\b/;
+
+/** Soru/çerçeve kelimeleri — kartın hangi cümlesinin soruya uyduğunu ölçerken sayılmaz. */
+const FRAME_WORDS = /^(otel|tesis|bilgi|detay|hakkin|anlat|nedir|neler|misin|musun|olanak|hizmet|politika|guncel|what|tell|about|your|the|have|does)/;
+
+const CARD_SENTENCE_MAX = 220;
+
+function sameRoot(a: string, b: string): boolean {
+  if (a.length >= 5 && b.length >= 5) return a.slice(0, 5) === b.slice(0, 5);
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  return short.length >= 3 && long.startsWith(short);
+}
+
+function clip(text: string): string {
+  if (text.length <= CARD_SENTENCE_MAX) return text;
+  const cut = text.slice(0, CARD_SENTENCE_MAX);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(","), cut.lastIndexOf(" "))).replace(/[,;:.\s]+$/, "")}…`;
+}
+
+/**
+ * Kartın soruya en uygun cümlesi. "Otel olanakları: a, b, c…" gibi liste
+ * cümlelerinde yalnız soruyla eşleşen öğeler kalır ("termal havuz" →
+ * "Otel olanakları: Kapalı Termal Havuz, Açık Termal Havuz.").
+ */
+export function cardAnswerSentence(card: { title?: string; text: string }, question: string): string {
+  // Her soru kelimesi eş anlamlılarıyla tek grup: bir kelime en fazla bir kez sayılır.
+  const groups = tokens(question)
+    .filter((t) => t.length >= 4 && !FRAME_WORDS.test(t))
+    .map((t) => [t, ...(synonymsOf(t) ?? [])]);
+  const hits = (value: string) => {
+    const words = tokens(value);
+    return groups.filter((group) => group.some((term) => words.some((w) => sameRoot(term, w)))).length;
+  };
+  const sentences = card.text
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+  if (!sentences.length) return "";
+  // Nadir kelime ağır basar: "Termal havuz kaç derece?" sorusunda "termal havuz"
+  // her cümlede geçer, "derece" yalnız cevap cümlesinde.
+  const groupWeight = groups.map((group) => {
+    const containing = sentences.filter((x) => {
+      const words = tokens(x);
+      return group.some((term) => words.some((w) => sameRoot(term, w)));
+    }).length;
+    return containing ? 1 / containing : 0;
+  });
+  const score = (value: string) => {
+    const words = tokens(value);
+    return groups.reduce((sum, group, i) => (group.some((term) => words.some((w) => sameRoot(term, w))) ? sum + groupWeight[i]! : sum), 0);
+  };
+  const best = sentences.reduce((a, b) => (score(b) > score(a) ? b : a), sentences[0]!);
+
+  const list = best.match(/^([^:]{2,60}):\s*(.+?)\.?$/);
+  const items = list?.[2]?.split(/\s*,\s*/) ?? [];
+  if (list && items.length >= 5) {
+    const matching = items.filter((item) => hits(item) > 0);
+    const shown = matching.length ? matching : items.slice(0, 8);
+    const more = matching.length ? "" : "…";
+    return clip(`${list[1]}: ${shown.join(", ")}${more || "."}`);
+  }
+  // Aynı konuda birden çok satır ("Zafer Havaalanı 37 km", "Esenboğa
+  // Havalimanı 257 km"): en fazla 3'ü birlikte, metindeki sırayla.
+  const top = score(best);
+  const related = top > 0 ? sentences.filter((x) => Math.abs(score(x) - top) < 1e-9).slice(0, 3) : [best];
+  if (related.length === 1) return clip(best);
+  return clip(related.map(withPeriod).join(" "));
+}
+
+function withPeriod(sentence: string): string {
+  const trimmed = sentence.replace(/[,;:\s]+$/, "");
+  return /[.!?…]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
+/**
+ * Model kart gösterdi ama metni yalnız karta işaret ediyorsa ("Detaylı
+ * bilgiyi aşağıda bulabilirsiniz") metin, kartın kendi cümlesiyle değişir —
+ * misafir bilgiyi cevapta görür, model de karta bilgi ekleyemez.
+ * null → metin olduğu gibi kalır.
+ */
+export function cardPointerReplacement(
+  text: string,
+  cards: Array<{ title?: string; text: string }>,
+  question: string,
+  language: string | undefined,
+): string | null {
+  const card = cards[0];
+  if (!card || !CARD_POINTER.test(normalizeText(text))) return null;
+  if (language && language !== "tr") return SERVER_TOOL_FALLBACK.citeFact.en;
+  const sentence = cardAnswerSentence(card, question);
+  return sentence ? `${/[.!?…]$/.test(sentence) ? sentence : `${sentence}.`} Ayrıntılar kartta.` : null;
+}
+
+/**
+ * Akış dönüşümü: model citeFact kartı aldıktan sonra yazdığı metin bloğu
+ * tamponlanır; blok bitince boş kart cümlesiyse kartın cümlesiyle değişir.
+ * Kart gelmeden yazılan metin her zamanki gibi gerçek zamanlı akar.
+ */
+export function createCardPointerTransform<TOOLS extends ToolSet>(question: string | undefined, language: string | undefined) {
+  return () => {
+    const cards: Array<{ title?: string; text: string }> = [];
+    let buffering = false;
+    let buffer = "";
+    let blockId = "";
+
+    const transform = new TransformStream<TextStreamPart<ToolSet>, TextStreamPart<ToolSet>>({
+      transform(chunk, controller) {
+        if (chunk.type === "tool-result" && chunk.toolName === "citeFact") {
+          const card = (chunk.output as { card?: { title?: string; text?: string } } | undefined)?.card;
+          if (card?.text) cards.push({ title: card.title, text: card.text });
+        }
+        if (chunk.type === "text-start" && cards.length && question) {
+          buffering = true;
+          buffer = "";
+          blockId = chunk.id;
+          controller.enqueue(chunk);
+          return;
+        }
+        if (buffering && chunk.type === "text-delta") {
+          buffer += chunk.text;
+          return;
+        }
+        if (buffering && chunk.type === "text-end") {
+          const text = cardPointerReplacement(buffer, cards, question!, language) ?? buffer;
+          if (text) controller.enqueue({ type: "text-delta", id: blockId, text });
+          buffering = false;
+          controller.enqueue(chunk);
+          return;
+        }
+        controller.enqueue(chunk);
+      },
+      flush(controller) {
+        // Blok kapanmadan akış biterse tamponlanan metin kaybolmasın.
+        if (buffering && buffer) controller.enqueue({ type: "text-delta", id: blockId, text: buffer });
+      },
+    });
+    return transform as unknown as TransformStream<TextStreamPart<TOOLS>, TextStreamPart<TOOLS>>;
+  };
 }

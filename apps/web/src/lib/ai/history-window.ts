@@ -37,5 +37,11 @@ export function windowConversationHistory(
   const maxMessages = opts.maxMessages ?? DEFAULT_MAX_MESSAGES;
   const meaningful = messages.filter((m) => !isHiddenMessage(m));
   if (meaningful.length <= maxMessages) return meaningful;
-  return meaningful.slice(-maxMessages);
+  const windowed = meaningful.slice(-maxMessages);
+  // Pencere bir kullanıcı mesajıyla başlamalı: kesim bir araç çağrısı ile
+  // sonucunun arasına düşerse sahipsiz "tool" mesajı kalır ve Gemini
+  // ("function response turn comes immediately after a function call turn")
+  // isteği reddeder. Kart turları 3 mesaj olduğundan uzun sohbette olağan.
+  const firstUser = windowed.findIndex((m) => m.role === "user");
+  return firstUser > 0 ? windowed.slice(firstUser) : windowed;
 }

@@ -12,6 +12,7 @@ import { getPublishedHotelContent } from "@/lib/hotels-repo";
 import { boardTypeLabels } from "@/lib/schemas/hotel-content";
 import type { AiFactCard, AiFactCatalogEntry, AiFactQueryResult } from "@/lib/ai/types";
 import { FACT_KIND_LABELS } from "@/lib/ai/types";
+import { chunkFactText } from "@/lib/ai/fact-chunks";
 
 function slugifyId(value: string): string {
   return value.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
@@ -45,6 +46,14 @@ async function buildFactCatalogUncached(
       text: `${specs.starRating} yıldızlı tesis.`,
     });
   }
+  if (specs.totalRooms != null) {
+    entries.push({
+      id: "spec.total_rooms",
+      kind: "verified",
+      hint: "toplam oda sayısı kaç oda",
+      text: `Tesiste toplam ${specs.totalRooms} oda bulunur.`,
+    });
+  }
   if (specs.checkInTime) {
     entries.push({
       id: "spec.check_in",
@@ -62,12 +71,14 @@ async function buildFactCatalogUncached(
     });
   }
   if (content.amenities.length > 0) {
-    const labels = content.amenities.slice(0, 25).map(amenityLabel);
+    // Tüm olanaklar: kartta olmayan bir olanak için rehber "bilgim yok" der.
+    const labels = content.amenities.slice(0, 120).map(amenityLabel);
     entries.push({
       id: "spec.amenities",
       kind: "verified",
       hint: "otel olanakları tesis imkanları",
       text: `Otel olanakları: ${labels.join(", ")}.`,
+      items: labels,
     });
   }
   if (specs.cancellationPolicy) {
@@ -160,23 +171,21 @@ async function buildFactCatalogUncached(
     });
   }
 
-  (profile?.policies ?? []).forEach((text, i) => {
-    entries.push({
-      id: `policy.manual.${i}`,
-      kind: "policy",
-      hint: "otel politikası",
-      text,
+  // Uzun metinler parçalara bölünür (bkz. fact-chunks): her parça ayrı
+  // aranır, kartta yalnız o görünür. Kısa metnin kimliği değişmez.
+  const pushChunked = (baseId: string, kind: AiFactCatalogEntry["kind"], hint: string, text: string) => {
+    const { title, chunks } = chunkFactText(text);
+    if (chunks.length === 1 && !title) {
+      entries.push({ id: baseId, kind, hint, text: chunks[0]! });
+      return;
+    }
+    chunks.forEach((chunk, k) => {
+      entries.push({ id: `${baseId}.${k}`, kind, hint: title ? `${hint}: ${title}` : hint, ...(title ? { title } : {}), text: chunk });
     });
-  });
+  };
 
-  (profile?.facts ?? []).forEach((text, i) => {
-    entries.push({
-      id: `statement.${i}`,
-      kind: "otel_ifadesi",
-      hint: "otel ifadesi sahibi notu",
-      text,
-    });
-  });
+  (profile?.policies ?? []).forEach((text, i) => pushChunked(`policy.manual.${i}`, "policy", "otel politikası", text));
+  (profile?.facts ?? []).forEach((text, i) => pushChunked(`statement.${i}`, "otel_ifadesi", "otel ifadesi sahibi notu", text));
 
   // Tesisin serbest metinleri rehbere iletişim bilgisi taşıyamaz.
   return entries.map((entry) => ({ ...entry, text: redactContactInfo(entry.text) }));
@@ -246,6 +255,45 @@ export async function citeFactById(
 
 function hashFactContent(entry: AiFactCatalogEntry): string {
   return createHash("sha256").update(`${entry.hint} ${entry.text}`).digest("hex");
+}
+
+/** Bir fact'in embed edilen metni — DB'deki embedding'ler ve sunucu tarafı seçim aynı metni kullanır. */
+export function factEmbeddingText(entry: AiFactCatalogEntry): string {
+  return `${entry.hint}. ${entry.text}`;
+}
+
+/**
+ * Yayın sırasında kaydedilmiş fact embedding'lerini okur (yalnız içeriği
+ * değişmemiş olanlar). Sohbet turu bunları kullanır; katalog her istekte
+ * yeniden embed edilmez. DB yoksa veya hata olursa boş harita döner.
+ */
+export async function loadFactEmbeddings(
+  hotelSlug: string,
+  catalog: AiFactCatalogEntry[],
+): Promise<Map<string, number[]>> {
+  const result = new Map<string, number[]>();
+  if (!process.env.DATABASE_URL || !catalog.length) return result;
+  try {
+    const { getDb } = await import("@/lib/db");
+    const { hotelFactEmbeddingsTable } = await import("@/lib/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const rows = await getDb()
+      .select({
+        factId: hotelFactEmbeddingsTable.factId,
+        contentHash: hotelFactEmbeddingsTable.contentHash,
+        embedding: hotelFactEmbeddingsTable.embedding,
+      })
+      .from(hotelFactEmbeddingsTable)
+      .where(eq(hotelFactEmbeddingsTable.hotelSlug, hotelSlug));
+    const byId = new Map(catalog.map((e) => [e.id, e]));
+    for (const row of rows) {
+      const entry = byId.get(row.factId);
+      if (entry && row.contentHash === hashFactContent(entry)) result.set(row.factId, row.embedding);
+    }
+  } catch (err) {
+    console.warn("[fact-store] loadFactEmbeddings başarısız:", err);
+  }
+  return result;
 }
 
 export type FactEmbeddingFreshness = {
@@ -337,7 +385,7 @@ export async function syncFactEmbeddings(hotelSlug: string): Promise<void> {
       const contentHash = hashFactContent(entry);
       if (existingHashByFactId.get(entry.id) === contentHash) continue;
 
-      const embedding = await embedText(`${entry.hint}. ${entry.text}`);
+      const embedding = await embedText(factEmbeddingText(entry));
       if (!embedding) continue; // embed API başarısız — bu fact'i atla, diğerlerine devam et
 
       await db
