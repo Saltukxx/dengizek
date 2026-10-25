@@ -23,6 +23,9 @@ export default defineConfig({
     // Eval'lar gerçek API'ye seri seri gitsin — paralel çoklu istekte
     // rate-limit'e takılma riski azalır, sonuçlar da okunması kolay sırada gelir.
     fileParallelism: false,
+    // describe.concurrent kullanan eval'larda (imported-hotels) aynı anda en
+    // fazla 2 soru: ücretsiz katmanın dakika başı sınırına takılmasın.
+    maxConcurrency: 2,
   },
   resolve: {
     alias: {

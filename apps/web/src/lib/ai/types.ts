@@ -11,6 +11,8 @@ export interface AiFactCatalogEntry {
   hint: string;
   text: string;
   title?: string;
+  /** Liste türü bilgide tek tek öğeler (ör. olanak adları) — sunucu "X var mı?" sorusunu buradan cevaplar. */
+  items?: string[];
 }
 
 export interface AiFactCard {

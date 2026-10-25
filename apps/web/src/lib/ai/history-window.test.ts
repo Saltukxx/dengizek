@@ -59,3 +59,24 @@ describe("windowConversationHistory", () => {
     expect(result[0]?.content).toBe("cevap");
   });
 });
+
+describe("pencere araç çağrısının ortasından başlamaz", () => {
+  // Sunucu kart turu: asistan araç çağrısı + araç sonucu + asistan metni.
+  const cardTurn = (n: number): ModelMessage[] => [
+    { role: "user", content: `soru ${n}` },
+    { role: "assistant", content: [{ type: "tool-call", toolCallId: `c${n}`, toolName: "citeFact", input: {} }] },
+    { role: "tool", content: [{ type: "tool-result", toolCallId: `c${n}`, toolName: "citeFact", output: { type: "json", value: {} } }] },
+    { role: "assistant", content: `cevap ${n}` },
+  ];
+
+  it("kesim bir 'tool' mesajına düşerse sonraki kullanıcı mesajından başlar", () => {
+    const history = [1, 2, 3, 4, 5].flatMap(cardTurn); // 20 mesaj
+    const windowed = windowConversationHistory(history, { maxMessages: 14 });
+    expect(windowed[0]).toEqual({ role: "user", content: "soru 3" });
+    expect(windowed.length).toBe(12);
+    // Her araç sonucunun çağrısı pencerede.
+    windowed.forEach((m, i) => {
+      if (m.role === "tool") expect(windowed[i - 1]?.role).toBe("assistant");
+    });
+  });
+});

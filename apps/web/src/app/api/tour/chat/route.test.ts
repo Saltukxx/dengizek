@@ -275,7 +275,8 @@ describe("POST /api/tour/chat", () => {
     await POST(
       makeRequest({
         ...baseBody,
-        messages: [{ role: "user", content: "Hello, what is the check-in time please?" }],
+        // Bilgi sorusu değil: sunucu turu olmadan model konuşur.
+        messages: [{ role: "user", content: "Hello, could you tell me a little about this place please?" }],
       }),
     );
     const call = streamTextMock.mock.calls[0][0] as { system: string };
@@ -362,6 +363,36 @@ describe("POST /api/tour/chat", () => {
       null,
       "aurelia-bay",
     );
+  });
+
+  it("model kart göstermeden cevapladıysa soru cevapsız olarak kaydedilir", async () => {
+    await POST(makeRequest({ ...baseBody, messages: [{ role: "user", content: "Hello, could you tell me a little about this place please?" }] }));
+    const call = streamTextMock.mock.calls[0][0] as { onFinish: (event: unknown) => void };
+    call.onFinish({ totalUsage: {}, steps: [{ toolResults: [] }] });
+    expect(trackEventMock).toHaveBeenCalledWith(
+      "ai_unanswered",
+      expect.objectContaining({ question: "Hello, could you tell me a little about this place please?", reason: "kartsiz" }),
+      null,
+      "aurelia-bay",
+    );
+  });
+
+  it("sunucu 'bilgim yok' dediğinde soru 'bilgi-yok' olarak kaydedilir, model çağrılmaz", async () => {
+    await POST(makeRequest({ ...baseBody, messages: [{ role: "user", content: "Otelde golf sahası var mı?" }] }));
+    expect(streamTextMock).not.toHaveBeenCalled();
+    expect(trackEventMock).toHaveBeenCalledWith(
+      "ai_unanswered",
+      expect.objectContaining({ question: "Otelde golf sahası var mı?", reason: "bilgi-yok" }),
+      null,
+      "aurelia-bay",
+    );
+  });
+
+  it("model geçerli bir kart gösterdiyse kayıt yapılmaz", async () => {
+    await POST(makeRequest({ ...baseBody, messages: [{ role: "user", content: "Hello, could you tell me a little about this place please?" }] }));
+    const call = streamTextMock.mock.calls[0][0] as { onFinish: (event: unknown) => void };
+    call.onFinish({ totalUsage: {}, steps: [{ toolResults: [{ toolName: "citeFact", output: { ok: true } }] }] });
+    expect(trackEventMock).not.toHaveBeenCalledWith("ai_unanswered", expect.anything(), expect.anything(), expect.anything());
   });
 
   it("hız sınırı aşıldığında 429 ve Türkçe mesaj döner", async () => {

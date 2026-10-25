@@ -22,7 +22,11 @@
     "db:backfill-snapshots": "dotenv -e .env.local -- tsx scripts/backfill-hotel-snapshots.ts",
     "db:backfill-embeddings": "dotenv -e .env.local -- tsx scripts/backfill-fact-embeddings.ts",
     "ai:threshold-report": "dotenv -e .env.local -- tsx scripts/ai-threshold-report.ts",
-    "import:oteldenrezerve": "dotenv -e .env.local -- tsx scripts/import-oteldenrezerve.ts"
+    "import:oteldenrezerve": "dotenv -e .env.local -- tsx scripts/import-oteldenrezerve.ts",
+    "eval:imported": "dotenv -e .env.local -- tsx scripts/eval-imported-hotels.ts",
+    "test:eval:imported": "dotenv -e .env.local -- vitest run --config vitest.eval.config.mts src/lib/ai/evals/imported-hotels.eval.ts",
+    "test:eval:planner": "dotenv -e .env.local -- vitest run --config vitest.eval.config.mts src/lib/ai/evals/planner-offline.eval.ts",
+    "test:eval:search": "dotenv -e .env.local -- vitest run --config vitest.eval.config.mts src/lib/ai/evals/search-offline.eval.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.83",
