@@ -22,6 +22,7 @@ import { notifications } from "@mantine/notifications";
 import { IconDownload, IconLinkOff, IconMessage } from "@tabler/icons-react";
 import { inquirySourceLabels, inquiryStatusColors, inquiryStatusLabels } from "@/lib/labels";
 import { PanelEmpty, PanelError, PanelLoading } from "@/components/panel-resource-state";
+import { attributionLabel, type AdAttribution } from "@/lib/ad-tags";
 import { usePanelConfirm } from "@/components/dashboard/panel-confirm";
 
 interface AdminInquiry {
@@ -35,6 +36,7 @@ interface AdminInquiry {
   message: string;
   status: "yeni" | "ilgileniliyor" | "kapatildi";
   source: "web" | "tour_ai" | "tour_player";
+  attribution: AdAttribution | null;
   checkIn: string | null;
   checkOut: string | null;
   adults: number | null;
@@ -255,6 +257,11 @@ export function InquiriesTable() {
                   <Badge variant="light" size="sm">
                     {inquirySourceLabels[q.source]}
                   </Badge>
+                  {attributionLabel(q.attribution) && (
+                    <Text size="xs" c="dimmed" mt={4}>
+                      {attributionLabel(q.attribution)}
+                    </Text>
+                  )}
                 </Table.Td>
                 <Table.Td>
                   <Badge color={q.marketingConsent ? "green" : "gray"} variant="light" size="sm">

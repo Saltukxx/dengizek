@@ -3,6 +3,23 @@ import { validateStayDates } from "@/lib/stay-dates";
 
 export const inquirySourceValues = ["web", "tour_ai", "tour_player"] as const;
 
+const attributionValue = z.string().trim().min(1).max(200).optional();
+
+/** Reklam kaynağı — yalnız analitik onayı verilmişse gönderilir (bkz. lib/ad-tags). */
+export const adAttributionSchema = z
+  .object({
+    gclid: attributionValue,
+    gbraid: attributionValue,
+    wbraid: attributionValue,
+    utmSource: attributionValue,
+    utmMedium: attributionValue,
+    utmCampaign: attributionValue,
+    utmTerm: attributionValue,
+    utmContent: attributionValue,
+    landingPath: z.string().max(200).regex(/^\/[^\s]*$/).optional(),
+  })
+  .strip();
+
 const optionalDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal(""));
 
 export const inquiryFormSchema = z
@@ -22,6 +39,7 @@ export const inquiryFormSchema = z
     stepKey: z.string().max(120).optional(),
     source: z.enum(inquirySourceValues).optional(),
     locale: z.string().max(10).optional(),
+    attribution: adAttributionSchema.optional(),
   })
   .superRefine((data, ctx) => {
     const dates = validateStayDates(data.checkIn, data.checkOut);

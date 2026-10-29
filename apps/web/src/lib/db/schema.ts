@@ -19,6 +19,7 @@ import {
   vector,
 } from "drizzle-orm/pg-core";
 import type { TourManifest } from "@/lib/schemas/tour-manifest";
+import type { AdAttribution } from "@/lib/ad-tags";
 import type { HotelContentSnapshot } from "@/lib/schemas/hotel-content-snapshot";
 
 // ---------------------------------------------------------------------------
@@ -517,6 +518,9 @@ export const inquiriesTable = pgTable("inquiries", {
   stepKey:   text("step_key"),
   source:    inquirySourceEnum("source").default("web").notNull(),
   locale:    text("locale").default("tr"),
+  // Reklam kaynağı (gclid, utm_*, giriş sayfası) — yalnız analitik onayı
+  // verilmişse gönderilir (bkz. lib/ad-tags).
+  attribution: jsonb("attribution").$type<AdAttribution>(),
   // Düz metin access_token kolonu 0013 migration'ında düşürüldü — token
   // yalnızca hash'lenmiş saklanır.
   accessTokenHash: text("access_token_hash").unique(),
@@ -895,7 +899,7 @@ export const auditLogTable = pgTable("audit_log", {
   actorId:    uuid("actor_id").references(() => usersTable.id, { onDelete: "set null" }),
   actorEmail: text("actor_email"), // kullanıcı silinse de iz kalsın
   action:     text("action").notNull(),
-  entityType: text("entity_type").notNull(), // "hotel" | "tour" | "user" | "media" | "inquiry"
+  entityType: text("entity_type").notNull(), // "hotel" | "tour" | "user" | "media" | "inquiry" | "ad_tag"
   entityId:   text("entity_id").notNull(),
   meta:       jsonb("meta").$type<Record<string, unknown>>(),
   createdAt:  timestamp("created_at").defaultNow().notNull(),
@@ -947,6 +951,30 @@ export const guestSessionsTable = pgTable("guest_sessions", {
 }));
 
 // ---------------------------------------------------------------------------
+// ad_tags — reklam dönüşüm kodları (Google Ads / GA4)
+//
+// Yalnız platform admini yönetir. Kayıt ya genel bir sayfaya (page_path) ya da
+// bir otele (hotel_id) bağlıdır — ikisi birden değil (CHECK, 0020 migration).
+// Bir hedefe birden çok kayıt girilebilir (ör. iki ayrı Ads hesabı).
+// ---------------------------------------------------------------------------
+
+export const adTagsTable = pgTable("ad_tags", {
+  id:              uuid("id").defaultRandom().primaryKey(),
+  pagePath:        text("page_path"),
+  hotelId:         uuid("hotel_id").references(() => hotelsTable.id, { onDelete: "cascade" }),
+  googleAdsId:     text("google_ads_id"),
+  conversionLabel: text("conversion_label"),
+  ga4Id:           text("ga4_id"),
+  note:            text("note"),
+  enabled:         boolean("enabled").default(true).notNull(),
+  createdAt:       timestamp("created_at").defaultNow().notNull(),
+  updatedAt:       timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  pageIdx: index("ad_tags_page_idx").on(table.pagePath),
+  hotelIdx: index("ad_tags_hotel_idx").on(table.hotelId),
+}));
+
+// ---------------------------------------------------------------------------
 // Tip dışa aktarımları
 // ---------------------------------------------------------------------------
 
@@ -980,6 +1008,7 @@ export type HotelIcalFeed = typeof hotelIcalFeedsTable.$inferSelect;
 export type EmailOutbox = typeof emailOutboxTable.$inferSelect;
 export type HotelFactEmbedding = typeof hotelFactEmbeddingsTable.$inferSelect;
 export type GuestSession = typeof guestSessionsTable.$inferSelect;
+export type AdTag = typeof adTagsTable.$inferSelect;
 
 export type ModerationStatus = (typeof moderationStatusEnum.enumValues)[number];
 export type MediaStatus      = (typeof mediaStatusEnum.enumValues)[number];

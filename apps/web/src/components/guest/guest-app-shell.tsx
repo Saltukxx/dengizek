@@ -16,6 +16,8 @@ import {
 } from "@tabler/icons-react";
 import { guestPaths, guestSurfaceFromPath } from "@/lib/guest-surface";
 import { ConsentBanner } from "./consent-banner";
+import { AdTagManager } from "./ad-tag-manager";
+import type { PublicAdTag } from "@/lib/ad-tags";
 
 /**
  * Yaz ve kış yüzeyleri aynı kabuğu paylaşır; yalnızca rotalar, etiketler ve
@@ -63,9 +65,12 @@ function navActive(path: string | null, href: string, homeHrefs: string[]) {
 export function GuestAppShell({
   children,
   account = null,
+  adTags = [],
 }: {
   children: ReactNode;
   account?: GuestAccount | null;
+  /** Etkin reklam kodları (bkz. lib/ad-tags) — istemci yola göre süzer. */
+  adTags?: PublicAdTag[];
 }) {
   const path = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -124,6 +129,7 @@ export function GuestAppShell({
       <>
         {children}
         <ConsentBanner />
+        <AdTagManager tags={adTags} />
       </>
     );
 
@@ -290,6 +296,7 @@ export function GuestAppShell({
       </nav>
 
       <ConsentBanner />
+      <AdTagManager tags={adTags} />
     </div>
   );
 }

@@ -141,6 +141,13 @@
       "when": 1792200000000,
       "tag": "0019_gemini_embeddings",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792300000000,
+      "tag": "0020_ad_tags",
+      "breakpoints": true
     }
   ]
 }

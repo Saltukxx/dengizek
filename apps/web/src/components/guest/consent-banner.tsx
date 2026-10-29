@@ -38,8 +38,9 @@ export function ConsentBanner() {
           lineHeight: 1.6,
         }}
       >
-        Deneyimi geliştirmek için isteğe bağlı kullanım istatistikleri toplamak istiyoruz.
-        Sitenin çalışması için gerekli çerezler bu tercihten etkilenmez.
+        Deneyimi geliştirmek ve reklamlarımızın etkisini ölçmek için isteğe bağlı kullanım
+        istatistikleri ile Google ölçüm çerezlerini kullanmak istiyoruz. Kişiselleştirilmiş
+        reklam yapılmaz. Sitenin çalışması için gerekli çerezler bu tercihten etkilenmez.
       </p>
       <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
         <button type="button" onClick={() => decide("denied")} className="er-btn er-btn-ghost">

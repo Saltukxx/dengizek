@@ -19,7 +19,7 @@ export interface AuditEntry {
   actorLabel?: string;
   /** Nokta-ayrımlı ASCII anahtar: "otel.onaylandi", "tur.reddedildi", "kullanici.olusturuldu" */
   action: string;
-  entityType: "hotel" | "tour" | "user" | "media" | "inquiry";
+  entityType: "hotel" | "tour" | "user" | "media" | "inquiry" | "ad_tag";
   entityId: string;
   meta?: Record<string, unknown>;
 }
