@@ -19,13 +19,16 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      // Next.js inline runtime + Mantine style-props için gerekli
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      // Next.js inline runtime + Mantine style-props için gerekli. Google
+      // etiketi (gtag.js) yalnız analitik onayından sonra yüklenir (lib/ad-tags).
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "media-src 'self' blob: https:",
       "font-src 'self' data:",
       "connect-src 'self' https:",
+      // Google Ads dönüşüm ölçümü gizli iframe kullanabilir.
+      "frame-src 'self' https://td.doubleclick.net https://www.googletagmanager.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

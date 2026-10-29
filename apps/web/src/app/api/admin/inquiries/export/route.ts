@@ -41,6 +41,7 @@ export async function GET(req: Request) {
   const header = [
     "id", "hotelId", "hotelSlug", "name", "email", "phone", "message", "status", "source",
     "marketingConsent", "checkIn", "checkOut", "adults", "children", "roomSlug", "tourId", "createdAt",
+    "landingPath", "utmSource", "utmMedium", "utmCampaign", "gclid",
   ].join(",");
 
   const lines = rows.map((r) =>
@@ -48,6 +49,8 @@ export async function GET(req: Request) {
       r.id, r.hotelId, r.hotelSlug, r.name, r.email, r.phone, r.message, r.status, r.source,
       r.marketingConsent, r.checkIn, r.checkOut, r.adults, r.children, r.roomSlug, r.tourId,
       r.createdAt?.toISOString(),
+      r.attribution?.landingPath, r.attribution?.utmSource, r.attribution?.utmMedium, r.attribution?.utmCampaign,
+      r.attribution?.gclid ?? r.attribution?.gbraid ?? r.attribution?.wbraid,
     ].map(csvEscape).join(","),
   );
 

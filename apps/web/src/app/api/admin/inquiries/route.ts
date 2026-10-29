@@ -41,6 +41,7 @@ export async function GET(req: Request) {
       message: inquiriesTable.message,
       status: inquiriesTable.status,
       source: inquiriesTable.source,
+      attribution: inquiriesTable.attribution,
       checkIn: inquiriesTable.checkIn,
       checkOut: inquiriesTable.checkOut,
       adults: inquiriesTable.adults,

@@ -35,6 +35,7 @@ const entityTypeLabels: Record<string, string> = {
   user: "Kullanıcı",
   media: "Medya",
   inquiry: "Talep",
+  ad_tag: "Reklam kodu",
 };
 
 export function AuditTable() {

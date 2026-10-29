@@ -6,6 +6,7 @@ import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { inquiryFormSchema, type InquiryFormValues } from "@/lib/schemas/inquiry";
 import { trackEvent } from "@/lib/analytics-client";
+import { attributionForSubmit, rememberInquiryConversion } from "@/lib/ad-tags-client";
 
 type RoomOption = { slug: string; name: string };
 
@@ -75,6 +76,8 @@ export function InquiryForm() {
       tourId: data.tourId || tourFromQuery,
       stepKey: data.stepKey || stepFromQuery,
       source: data.source || sourceFromQuery,
+      // Reklam kaynağı yalnız onayla gider; onay yoksa undefined (JSON'a girmez).
+      attribution: attributionForSubmit(),
     };
     const res = await fetch("/api/inquiry", {
       method: "POST",
@@ -93,6 +96,7 @@ export function InquiryForm() {
     const emailStatus = ["queued", "sent", "unavailable"].includes(json.emailStatus)
       ? json.emailStatus
       : "unavailable";
+    if (typeof json.id === "string") rememberInquiryConversion(json.id, payload.hotelSlug);
     router.push(`${isWinter ? "/kis/talep/basarili" : "/inquiry/success"}?emailStatus=${emailStatus}`);
   });
 

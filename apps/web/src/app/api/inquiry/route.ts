@@ -124,6 +124,7 @@ export async function POST(req: Request) {
     stepKey: data.stepKey ?? null,
     source: data.source ?? "web",
     locale: data.locale ?? "tr",
+    attribution: data.attribution && Object.keys(data.attribution).length ? data.attribution : null,
   });
 
   void trackEvent(

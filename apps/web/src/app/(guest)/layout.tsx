@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { GuestAppShell } from "@/components/guest/guest-app-shell";
+import { getActiveAdTags } from "@/lib/ad-tags-repo";
 
 /**
  * Misafir kabuğu oturumdan haberdar: giriş yapmış kullanıcı için header
@@ -11,11 +12,12 @@ export default async function GuestLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
+  const [session, adTags] = await Promise.all([auth(), getActiveAdTags()]);
   const user = session?.user;
 
   return (
     <GuestAppShell
+      adTags={adTags}
       account={
         user
           ? {
