@@ -17,6 +17,7 @@ import type { AiFactCatalogEntry } from "@/lib/ai/types";
 import { normalizeText, stemMatch, suffixMatch, synonymsOf, tokens } from "@/lib/ai/text";
 import { addDays, parseGuests, parseStayDates } from "@/lib/ai/stay-query";
 import { asksAmenityPrice, asksKnownAmenity, canonicalAmenityText, matchAmenities, textsMentionAmenity } from "@/lib/ai/amenity-match";
+import { pointsToCard } from "@/lib/ai/response-guard";
 
 export { extractStayDates } from "@/lib/ai/stay-query";
 
@@ -590,11 +591,31 @@ const KNOWN_TOPICS: Array<{ ask: (text: string) => boolean; evidence: RegExp }> 
   },
 ];
 
-export function isMissingKnownTopic(message: string, catalog: AiFactCatalogEntry[]): boolean {
+/** Soru bilinen bir konuya aitse (giriş saati, evcil hayvan…) cevabın kanıt deseni. */
+export function knownTopicEvidence(message: string): RegExp | null {
   const text = normalizeText(message);
-  const topic = KNOWN_TOPICS.find((t) => t.ask(text));
-  if (!topic) return false;
-  return !catalog.some((entry) => topic.evidence.test(`${entry.title ?? ""} ${entry.text}`));
+  return KNOWN_TOPICS.find((t) => t.ask(text))?.evidence ?? null;
+}
+
+export function isMissingKnownTopic(message: string, catalog: AiFactCatalogEntry[]): boolean {
+  const evidence = knownTopicEvidence(message);
+  if (!evidence) return false;
+  return !catalog.some((entry) => evidence.test(`${entry.title ?? ""} ${entry.text}`));
+}
+
+/**
+ * Yanıltıcı yönlendirme: bilinen bir konu soruldu, cevap karta işaret ediyor
+ * ("giriş saatini aşağıda görebilirsiniz") ama gösterilen hiçbir kart o
+ * konunun cevabını içermiyor. Misafir cevap aldığını sanır — en zararlı hata.
+ */
+export function isMisleadingCardPointer(
+  question: string,
+  text: string,
+  cards: Array<{ title?: string; text: string }>,
+): boolean {
+  const evidence = knownTopicEvidence(question);
+  if (!evidence || !pointsToCard(text)) return false;
+  return !cards.some((card) => evidence.test(`${card.title ?? ""} ${card.text}`));
 }
 
 // ---------------------------------------------------------------------------

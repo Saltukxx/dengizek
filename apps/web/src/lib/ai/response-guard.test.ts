@@ -6,6 +6,8 @@ import {
   createGuardStreamTransform,
   decideToolChoice,
   detectToolHints,
+  hasOnlyFramingSentences,
+  pointsToCard,
   textContainsPriceLikeContent,
 } from "@/lib/ai/response-guard";
 
@@ -256,5 +258,25 @@ describe("detectToolHints — İngilizce", () => {
 describe("serbest metin fiyat kalıpları", () => {
   it.each(["Gecelik 4.500 lira", "120 euro", "%20 indirim var", "yüzde 15 indirim", "toplam 300 USD"])("%s", (text) => {
     expect(textContainsPriceLikeContent(text, { hadPriceTool: true })).toBe(true);
+  });
+});
+
+describe("hasOnlyFramingSentences", () => {
+  it("karta yönlendirme + nezaket cümlesi: somut iddia yok", () => {
+    expect(hasOnlyFramingSentences("Termal havuzlarımız hakkında detaylı bilgiyi aşağıda görebilirsiniz. Başka merak ettiğiniz bir konu var mı?")).toBe(true);
+    expect(hasOnlyFramingSentences("Bilgiyi sizin için kartta paylaştım.")).toBe(true);
+    expect(hasOnlyFramingSentences("You can find the details below.")).toBe(true);
+  });
+
+  it("somut iddia içeren cümle varsa hakem gerekir", () => {
+    expect(hasOnlyFramingSentences("Lobide 24 saat açık bir bar var. Detaylar aşağıda.")).toBe(false);
+    expect(hasOnlyFramingSentences("Otelimizin özel bir kumsalı var.")).toBe(false);
+  });
+});
+
+describe("pointsToCard", () => {
+  it("kart yönlendirmesini tanır", () => {
+    expect(pointsToCard("Giriş saatini aşağıda görebilirsiniz.")).toBe(true);
+    expect(pointsToCard("Giriş saati 14:00.")).toBe(false);
   });
 });

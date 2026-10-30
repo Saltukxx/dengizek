@@ -27,7 +27,8 @@ import { getHotelAiProfile } from "@/lib/db/ai-context";
 import { petsAllowedOf } from "@/lib/import/oteldenrezerve-text";
 import { todayIso } from "@/lib/price";
 import type { Fixture } from "./fixtures";
-import { judgeGrounding, runTurn, type TurnResult, type Verdict } from "./harness";
+import { isMisleadingCardPointer } from "@/lib/ai/deterministic-tools";
+import { judgeGrounding, runTurn, shownCards, type TurnResult, type Verdict } from "./harness";
 
 // Aktarılan otellerin sanal turu yok: tek adımlı bir tur taklit edilir.
 vi.mock("@/lib/mocks/hotels", async (importOriginal) => ({
@@ -52,13 +53,7 @@ const slugs = (JSON.parse(readFileSync(HOTELS_FILE, "utf-8")) as Array<{ slug: s
 // ---------------------------------------------------------------------------
 
 function visibleText(turn: TurnResult): string {
-  const parts = [turn.text];
-  for (const tool of turn.tools) {
-    const out = tool.output as { card?: { title?: string; text?: string }; cards?: Array<{ roomName: string; lines: Array<{ label: string; value: string }> }> } | undefined;
-    if (out?.card) parts.push(`${out.card.title ?? ""} ${out.card.text ?? ""}`);
-    for (const card of out?.cards ?? []) parts.push(`${card.roomName} ${card.lines.map((l) => `${l.label}: ${l.value}`).join(" ")}`);
-  }
-  return parts.join("\n");
+  return [turn.text, ...shownCards(turn.tools).map((c) => `${c.title ?? ""} ${c.text}`)].join("\n");
 }
 
 function mentions(haystack: string, needle: string): boolean {
@@ -206,7 +201,12 @@ interface Result {
   category: string;
   hotel: string;
   message: string;
+  /** Kesin kontrol + hakem geçti. Hakem bekliyorsa false ve pending=true. */
   ok: boolean;
+  /** Kesin (kod tabanlı) kontrol geçti mi — hakemden bağımsız. */
+  checkOk: boolean;
+  /** Hakem kotası doldu; karar sonraki koşuda (önbellek dışı cevaplar için). */
+  pending: boolean;
   reason?: string;
   modelSpoke: boolean;
   verdict?: Verdict;
@@ -225,35 +225,39 @@ describe.concurrent(`Aktarılan oteller AI doğruluğu (${slugs.length} otel, ${
       byCategory[r.category]!.total += 1;
       if (r.ok) byCategory[r.category]!.ok += 1;
     }
-    const spoke = results.filter((r) => r.verdict && !r.verdict.skipped);
+    const judged = results.filter((r) => r.verdict && !r.verdict.skipped);
+    const decided = results.filter((r) => !r.pending);
+    const ratio = (n: number, d: number) => (d ? +(n / d).toFixed(4) : 0);
+    const judgeKey = (v: Verdict) => (v.skipped ? "bekliyor" : `${v.judge ?? "?"}${v.cached ? " (önbellek)" : ""}`);
     const summary = {
       generatedAt: new Date().toISOString(),
       model: chatModelId(),
       hotels: slugs.length,
       questions: results.length,
-      accuracy: results.length ? +(results.filter((r) => r.ok).length / results.length).toFixed(4) : 0,
-      modelTurns: spoke.length,
-      ungrounded: spoke.filter((r) => !r.verdict?.grounded).length,
-      judges: Object.fromEntries(
-        Object.entries(
-          results.reduce<Record<string, number>>((acc, r) => {
-            if (r.verdict) acc[r.verdict.skipped ? "denetlenemedi" : r.verdict.judge ?? "?"] = (acc[r.verdict.skipped ? "denetlenemedi" : r.verdict.judge ?? "?"] ?? 0) + 1;
-            return acc;
-          }, {}),
-        ),
-      ),
+      // Hakemi bekleyenler paydaya girmez — geçti de sayılmaz.
+      accuracy: ratio(decided.filter((r) => r.ok).length, decided.length),
+      checkAccuracy: ratio(results.filter((r) => r.checkOk).length, results.length),
+      pending: results.length - decided.length,
+      modelTurns: results.filter((r) => r.modelSpoke).length,
+      judged: judged.length,
+      ungrounded: judged.filter((r) => !r.verdict?.grounded).length,
+      misleading: results.filter((r) => r.reason?.startsWith("yanıltıcı")).length,
+      judges: results.reduce<Record<string, number>>((acc, r) => {
+        if (r.verdict) acc[judgeKey(r.verdict)] = (acc[judgeKey(r.verdict)] ?? 0) + 1;
+        return acc;
+      }, {}),
       byCategory: Object.fromEntries(
         Object.entries(byCategory)
           .sort()
           .map(([k, v]) => [k, { ...v, accuracy: +(v.ok / v.total).toFixed(3) }]),
       ),
-      failures: results.filter((r) => !r.ok).map(({ id, message, reason, text, tools }) => ({ id, message, reason, text: text.slice(0, 300), tools })),
+      failures: results.filter((r) => !r.ok && !r.pending).map(({ id, message, reason, text, tools }) => ({ id, message, reason, text: text.slice(0, 300), tools })),
       results,
     };
     writeFileSync("eval-imported-metrics.json", JSON.stringify(summary, null, 2));
-    console.log(`\nDoğruluk: ${(summary.accuracy * 100).toFixed(1)}% (${results.filter((r) => r.ok).length}/${results.length})`);
+    console.log(`\nDoğruluk: ${(summary.accuracy * 100).toFixed(1)}% (${decided.filter((r) => r.ok).length}/${decided.length}) | kesin kontroller: ${(summary.checkAccuracy * 100).toFixed(1)}% | hakem bekleyen: ${summary.pending}`);
     for (const [k, v] of Object.entries(summary.byCategory)) console.log(`  ${k.padEnd(28)} ${String(v.ok).padStart(3)}/${String(v.total).padEnd(3)} ${(v.accuracy * 100).toFixed(0)}%`);
-    console.log(`Model konuştu: ${spoke.length}, hakeme göre uydurma: ${summary.ungrounded} | hakemler: ${JSON.stringify(summary.judges)}`);
+    console.log(`Model konuştu: ${summary.modelTurns}, hakeme göre uydurma: ${summary.ungrounded}, yanıltıcı yönlendirme: ${summary.misleading} | hakemler: ${JSON.stringify(summary.judges)}`);
   });
 
   for (const c of cases) {
@@ -262,22 +266,32 @@ describe.concurrent(`Aktarılan oteller AI doğruluğu (${slugs.length} otel, ${
       const fixture: Fixture = { id: c.id, hotel: c.hotel, tour: "eval", message: c.message, browserLocale: c.browserLocale, expect: {} };
       const turn = await runTurn(fixture);
       const visible = visibleText(turn);
+      const cards = shownCards(turn.tools);
       let reason = c.check(turn, visible);
+      // Her kategoride: bilinen konu sorulmuş, cevap karta işaret ediyor ama
+      // kart o konuyu içermiyor → misafir cevap aldığını sanır.
+      if (!reason && turn.reply !== "unknown" && isMisleadingCardPointer(c.message, turn.text, cards)) {
+        reason = `yanıltıcı yönlendirme: ${turn.text.slice(0, 120)}`;
+      }
       // Sunucunun sabit metni ("10–13 Ağustos (3 gece)") gece/kişi sayısı içerebilir;
       // tutar ve yüzde her durumda yasak.
       const pricedOrServer = !turn.modelSpoke || turn.tools.some((t) => t.toolName === "getRoomPrice");
       if (!reason && textContainsPriceLikeContent(turn.text, { hadPriceTool: pricedOrServer })) reason = `metinde fiyat: ${turn.text}`;
       let verdict: Verdict | undefined;
       if (turn.modelSpoke && turn.text.trim()) {
-        verdict = await judgeGrounding(turn.data, c.message, turn.text);
-        if (!reason && !verdict.grounded && !verdict.skipped) reason = `uydurma: ${verdict.claim}`;
+        verdict = await judgeGrounding(turn.data, c.message, turn.text, cards);
       }
+      const checkOk = !reason;
+      if (!reason && verdict && !verdict.grounded && !verdict.skipped) reason = `uydurma: ${verdict.claim}`;
+      const pending = !reason && Boolean(verdict?.skipped);
       results.push({
         id: c.id,
         category: c.category,
         hotel: c.hotel,
         message: c.message,
-        ok: !reason,
+        ok: !reason && !pending,
+        checkOk,
+        pending,
         reason: reason ?? undefined,
         modelSpoke: turn.modelSpoke,
         verdict,

@@ -1,6 +1,10 @@
 name: AI Engine Eval
 
-# Gerçek OpenAI çağrısı yapan yanıt-kalitesi eval'ları (src/lib/ai/evals/).
+# Gerçek Gemini çağrısı yapan yanıt-kalitesi eval'ları (src/lib/ai/evals/).
+# CI yalnız golden eval'ı seed otelleriyle koşar; diğer eval'lar aktarılan
+# otel verisini (data/oteldenrezerve, repoda değil) ister — yerelde koşulur.
+# Anahtar: GEMINI_API_KEY secret'ı. Ücretsiz kota proje başına olduğundan
+# canlıdan AYRI bir AI Studio projesi önerilir.
 # PR/push'ta ÇALIŞMAZ — maliyet ve flakiness nedeniyle yalnızca gece
 # (schedule) veya elle (workflow_dispatch) tetiklenir. Tek bir flaky fixture
 # tüm run'ı kırmasın diye eşik bazlı geçme kullanılır (bkz. son adım).
@@ -19,7 +23,7 @@ jobs:
       has-key: ${{ steps.check.outputs.has-key }}
     steps:
       - id: check
-        run: echo "has-key=${{ secrets.OPENAI_API_KEY != '' }}" >> "$GITHUB_OUTPUT"
+        run: echo "has-key=${{ secrets.GEMINI_API_KEY != '' }}" >> "$GITHUB_OUTPUT"
 
   eval:
     needs: gate
@@ -45,7 +49,7 @@ jobs:
       AUTH_SECRET: ci-only-secret-ci-only-secret-ci-only
       PAYMENTS_ENABLED: "false"
       USE_MOCK_DATA: "false"
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -58,8 +62,16 @@ jobs:
         run: PGPASSWORD=dev psql -h 127.0.0.1 -U postgres -d dengizek -c "CREATE EXTENSION IF NOT EXISTS vector;"
       - run: npx drizzle-kit push --force
       - run: npm run db:seed
+      # Hakem kararları koşular arasında saklanır: güçlü hakemin ücretsiz
+      # kotası günde ~20 istek, yalnız yeni cevaplar hakeme gider.
+      - name: Hakem önbelleği
+        uses: actions/cache@v4
+        with:
+          path: apps/web/.eval-cache
+          key: eval-judge-${{ github.run_id }}
+          restore-keys: eval-judge-
       - name: Eval çalıştır (JSON rapor, tek fixture hatası run'ı kırmaz)
-        run: npx vitest run --config vitest.eval.config.mts --reporter=json --outputFile=eval-results.json
+        run: npx vitest run --config vitest.eval.config.mts src/lib/ai/evals/golden-questions.eval.ts --reporter=json --outputFile=eval-results.json
         continue-on-error: true
       - name: Sonuçları yükle
         if: always()
@@ -84,6 +96,11 @@ jobs:
               console.error("Hiç fixture çalışmadı — eval-results.json kontrol edin.");
               process.exit(1);
             }
+            try {
+              const metrics = JSON.parse(fs.readFileSync("eval-metrics.json", "utf8"));
+              const pending = metrics.judgePending ?? [];
+              if (pending.length) console.log(`::warning::Hakem kotası doldu: ${pending.length} cevap denetlenemedi (geçti sayılmadı): ${pending.join(", ")}`);
+            } catch {}
             if (rate < 0.9) {
               console.error("Geçme oranı %90 eşiğinin altında.");
               process.exit(1);

@@ -477,6 +477,30 @@ export function serverTurnText(
 const CARD_POINTER =
   /\b(asagida|asagidaki|kartta|karttaki|kartimizda|burada (?:bulabilir|gorebilir)|paylastim|paylasiyorum|listeledim|derledim|below|on the card|in the card|the card below|you can find|you can see|you can check|shared)\b/;
 
+/** Metin karta işaret ediyor mu ("Detayları aşağıda görebilirsiniz")? */
+export function pointsToCard(text: string): boolean {
+  return CARD_POINTER.test(normalizeText(text));
+}
+
+/** Nezaket/kapanış cümlesi — bilgi iddiası taşımaz ("Başka sorunuz var mı?"). */
+const COURTESY =
+  /\b(yardimci ol\w*|buradayim|memnuniyet\w*|baska (?:bir )?(?:sorunuz|konu\w*|merak\w*)|let me know|happy to help|anything else|feel free)\b/;
+
+/**
+ * Cevap yalnız karta yönlendirme, soru ve nezaket cümlelerinden mi oluşuyor?
+ * Böyle bir cevapta denetlenecek somut iddia yoktur (eval hakemi atlanır).
+ */
+export function hasOnlyFramingSentences(text: string): boolean {
+  const sentences = text
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return sentences.every((s) => {
+    const n = normalizeText(s);
+    return s.endsWith("?") || CARD_POINTER.test(n) || COURTESY.test(n);
+  });
+}
+
 /** Soru/çerçeve kelimeleri — kartın hangi cümlesinin soruya uyduğunu ölçerken sayılmaz. */
 const FRAME_WORDS = /^(otel|tesis|bilgi|detay|hakkin|anlat|nedir|neler|misin|musun|olanak|hizmet|politika|guncel|what|tell|about|your|the|have|does)/;
 

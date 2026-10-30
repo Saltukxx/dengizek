@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/ai/llm", () => ({ getEmbeddingModel: () => null, EMBEDDING_PROVIDER_OPTIONS: {} }));
 
 import {
+  isMisleadingCardPointer,
   extractPriceQuery,
   extractStayDates,
   hasNavigationIntent,
@@ -734,5 +735,28 @@ describe("oda listesi sorusu", () => {
     const message = "Hangi odanın fiyatı en uygun?";
     const plan = await planServerTools({ message, messageEmbedding: null, hints: detectToolHints(message), inquiryIntent: "none", catalog, rooms, today: TODAY });
     expect(plan.reply).not.toBe("rooms");
+  });
+});
+
+describe("isMisleadingCardPointer", () => {
+  const policy = { title: "Politikalar", text: "İptal 7 gün öncesine kadar ücretsizdir." };
+  const checkIn = { title: "Giriş / çıkış", text: "Giriş saati 14:00, çıkış saati 12:00." };
+
+  it("giriş saati sorusu + cevabı içermeyen karta yönlendirme → yanıltıcı", () => {
+    expect(isMisleadingCardPointer("Giriş saati kaçta?", "Giriş saatleri hakkında bilgiyi aşağıda görebilirsiniz.", [policy])).toBe(true);
+    expect(isMisleadingCardPointer("What time is check-in?", "You can find the details below.", [policy])).toBe(true);
+  });
+
+  it("kart yokken karta yönlendirme de yanıltıcı", () => {
+    expect(isMisleadingCardPointer("Köpeğimi getirebilir miyim?", "Evcil hayvan politikamızı aşağıda paylaşıyorum.", [])).toBe(true);
+  });
+
+  it("kart cevabı içeriyorsa yanıltıcı değil", () => {
+    expect(isMisleadingCardPointer("Giriş saati kaçta?", "Bilgiyi kartta paylaştım.", [checkIn])).toBe(false);
+  });
+
+  it("bilinen konu değilse ya da karta yönlendirme yoksa karar verilmez", () => {
+    expect(isMisleadingCardPointer("Termal havuzları anlatır mısınız?", "Detaylar aşağıda.", [policy])).toBe(false);
+    expect(isMisleadingCardPointer("Giriş saati kaçta?", "Bu konuda otelden bilgi alabilirim.", [policy])).toBe(false);
   });
 });
