@@ -382,7 +382,13 @@ const UNKNOWN_TEXT = {
 const AMENITY_ANSWER_MAX = 8;
 
 /** "Evet, tesiste “Fitness Center” bulunuyor." — yalnız listede olan olanaklar. */
-export function amenityAnswerText(amenities: string[], priceAsked: boolean, en: boolean): string {
+export function amenityAnswerText(
+  amenities: string[],
+  priceAsked: boolean,
+  en: boolean,
+  /** Oda özelliği (balkon, klima…): "odalarda" denir, bulunmayan odalar belirtilir. */
+  roomFeature?: { exceptions: string[] },
+): string {
   const shown = amenities.slice(0, AMENITY_ANSWER_MAX).map((a) => `“${a}”`);
   const rest = amenities.length - shown.length;
   const list = shown.join(", ") + (rest > 0 ? (en ? ` and ${rest} more` : ` ve ${rest} olanak daha`) : "");
@@ -391,6 +397,11 @@ export function amenityAnswerText(amenities: string[], priceAsked: boolean, en: 
       ? " I don't have information on whether it is free or paid; I can ask the hotel for you."
       : " Ücretli olup olmadığına dair bilgim yok; isterseniz otele sorabilirim."
     : "";
+  if (roomFeature) {
+    const except = roomFeature.exceptions.slice(0, AMENITY_ANSWER_MAX).map((r) => `“${r}”`).join(", ");
+    if (en) return `Yes, the rooms have ${list}.${except ? ` Not available in: ${except}.` : ""}${priceNote}`;
+    return `Evet, odalarda ${list} bulunuyor.${except ? ` Şu odalarda bulunmuyor: ${except}.` : ""}${priceNote}`;
+  }
   if (en) return `Yes, the property has ${list}.${priceNote}`;
   return amenities.length === 1
     ? `Evet, tesiste ${list} bulunuyor.${priceNote}`
@@ -426,6 +437,7 @@ export function serverTurnText(
     reply?: "unknown" | "contact" | "askDates" | "rooms";
     amenities?: string[];
     amenityPriceAsked?: boolean;
+    roomFeature?: { exceptions: string[] };
     rooms?: string[];
     /** Misafirin sorusu — bilgi kartının soruya uyan cümlesi cevapta söylenir. */
     question?: string;
@@ -435,7 +447,7 @@ export function serverTurnText(
   const en = Boolean(language && language !== "tr");
   const amenityRun = turn.runs.length === 1 && turn.runs[0]!.toolName === "citeFact" ? turn.runs[0] : undefined;
   if (turn.amenities?.length && amenityRun && (amenityRun.output as { ok?: boolean } | null)?.ok !== false) {
-    return amenityAnswerText(turn.amenities, Boolean(turn.amenityPriceAsked), en);
+    return amenityAnswerText(turn.amenities, Boolean(turn.amenityPriceAsked), en, turn.roomFeature);
   }
   if (!turn.runs.length) {
     if (turn.reply === "rooms" && turn.rooms?.length) return roomListText(turn.rooms, en);

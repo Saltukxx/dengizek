@@ -774,3 +774,40 @@ describe("isMisleadingCardPointer", () => {
     expect(isMisleadingCardPointer("Havalimanına uzaklığınız ne kadar?", "Ayrıntılar kartta.", [konum])).toBe(false);
   });
 });
+
+describe("oda özellikleri ve metinde geçen olanaklar", () => {
+  const roomList = [
+    { slug: "balkonsuz", name: "Standart Balkonsuz Oda" },
+    { slug: "suit", name: "Suit Oda" },
+  ];
+  const catalog: AiFactCatalogEntry[] = [
+    { id: "spec.amenities", kind: "verified", hint: "otel olanakları", text: "Otel olanakları: Açık Havuz, Balkon, Minibar.", items: ["Açık Havuz", "Balkon", "Minibar"] },
+    { id: "statement.0", kind: "otel_ifadesi", hint: "otel ifadesi sahibi notu", text: "Spa: Misafirlerimiz fitness center hizmetimizi kullanabilir. Hamamda kese yapılır." },
+    { id: "room.balkonsuz.info", kind: "verified", hint: "oda", title: "Standart Balkonsuz Oda", text: "Standart Balkonsuz Oda: 2 yetişkin." },
+    { id: "room.balkonsuz.details", kind: "verified", hint: "oda açıklaması", title: "Standart Balkonsuz Oda", text: "Öne Çıkan Özellikler: Balkonsuzdur. Oda Donanımları: TV, Klima." },
+    { id: "room.suit.info", kind: "verified", hint: "oda", title: "Suit Oda", text: "Suit Oda: 4 yetişkin." },
+    { id: "room.suit.details", kind: "verified", hint: "oda açıklaması", title: "Suit Oda", text: "Geniş balkon, jakuzili banyo, minibar." },
+  ];
+  const plan = (message: string) =>
+    planServerTools({ message, messageEmbedding: null, hints: detectToolHints(message), inquiryIntent: "none", catalog, rooms: roomList, today: TODAY });
+
+  it("oda özelliği 'odalarda' cevaplanır, balkonsuz oda belirtilir", async () => {
+    const p = await plan("Balkon var mı?");
+    expect(p.amenities).toEqual(["Balkon"]);
+    expect(p.roomFeature).toEqual({ exceptions: ["Standart Balkonsuz Oda"] });
+    expect((await plan("Havuz var mı?")).roomFeature).toBeUndefined();
+  });
+
+  it("listede olmayan ama metinde geçen olanak: metnin kartı", async () => {
+    expect((await plan("Kese var mı?")).calls).toEqual([{ toolName: "citeFact", input: { factId: "statement.0" } }]);
+    // "spor salonu" ↔ "fitness center": "bilgim yok" denmez.
+    expect((await plan("Spor salonunuz var mı?")).calls).toEqual([{ toolName: "citeFact", input: { factId: "statement.0" } }]);
+    // Yalnız oda açıklamasında geçen: o odanın kartı.
+    expect((await plan("Jakuzi var mı?")).calls).toEqual([{ toolName: "citeFact", input: { factId: "room.suit.details" } }]);
+  });
+
+  it("adı geçen oda: donanım → açıklama kartı, kapasite → oda kartı", async () => {
+    expect((await plan("Suit Oda odasında neler var?")).calls).toEqual([{ toolName: "citeFact", input: { factId: "room.suit.details" } }]);
+    expect((await plan("Suit Oda kaç kişilik?")).calls).toEqual([{ toolName: "citeFact", input: { factId: "room.suit.info" } }]);
+  });
+});

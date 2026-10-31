@@ -43,7 +43,7 @@ const AMENITY_PROBES: Array<{ category: string; message: string; truth: RegExp; 
   { category: "olanak-havuz", message: "Havuz var mı?", truth: /havuz/ },
   { category: "olanak-havuz-en", message: "Is there a pool?", truth: /havuz/ },
   { category: "olanak-termal-havuz", message: "Termal havuz var mı?", truth: /termal havuz/ },
-  { category: "olanak-kapali-havuz-en", message: "Do you have an indoor pool?", truth: /kapali havuz/ },
+  { category: "olanak-kapali-havuz-en", message: "Do you have an indoor pool?", truth: /kapali havuz/, text: /kapali (\w+ ){0,2}havuz/ },
   { category: "olanak-cocuk-havuzu", message: "Çocuk havuzu var mı?", truth: /cocuk havuz/ },
   { category: "olanak-hamam", message: "Hamam var mı?", truth: /hamam/ },
   { category: "olanak-sauna", message: "Sauna var mı?", truth: /sauna/ },
@@ -57,6 +57,7 @@ const AMENITY_PROBES: Array<{ category: string; message: string; truth: RegExp; 
   { category: "olanak-jakuzi", message: "Jakuzi var mı?", truth: /jakuzi/ },
   { category: "olanak-klima", message: "Odalarda klima var mı?", truth: /klima/ },
   { category: "olanak-cocuk-kulubu", message: "Çocuk kulübü var mı?", truth: /club|kulub/ },
+  { category: "olanak-kese", message: "Kese var mı?", truth: /\bkese\b/ },
   { category: "olanak-yok-golf", message: "Golf sahası var mı?", truth: /golf/ },
   { category: "olanak-yok-casino", message: "Casino var mı?", truth: /casino/ },
 ];
@@ -85,8 +86,12 @@ async function casesFor(slug: string): Promise<{ cases: Case[]; catalog: AiFactC
       if (!truth.length) {
         if (got.length) return `listede yokken "evet": ${got.join(", ")}`;
         // Otelin metninde geçiyorsa model cevaplayabilir; geçmiyorsa sunucu "bilgim yok" demeli.
-        if (!(probe.text ?? probe.truth).test(normalizeText(texts)) && plan.reply !== "unknown") return `"bilgim yok" denmedi (${describePlan(plan)})`;
-        return null;
+        const term = probe.text ?? probe.truth;
+        if (!term.test(normalizeText(texts))) return plan.reply === "unknown" ? null : `"bilgim yok" denmedi (${describePlan(plan)})`;
+        // Listede yok ama otelin metninde geçiyor: o metni içeren kart gösterilmeli.
+        return cited(plan, catalog).some((e) => term.test(normalizeText(`${e.title ?? ""} ${e.text}`)))
+          ? null
+          : `metinde geçiyor, kart gösterilmedi (${describePlan(plan)})`;
       }
       const wrong = got.filter((g) => !truth.includes(g));
       const missing = truth.filter((t) => !got.includes(t));
@@ -131,10 +136,10 @@ async function casesFor(slug: string): Promise<{ cases: Case[]; catalog: AiFactC
     return cited(plan, catalog).some((e) => /evcil|hayvan/i.test(e.text)) ? null : `evcil hayvan kartı yok: ${describePlan(plan)}`;
   });
 
-  const airport = texts.match(/hava(?:alan|liman)\S*\s*(?:na|ne)?\s*(\d{1,3}(?:[.,]\d)?)\s*(?:km|kilomet)/i)?.[1];
+  const airport = texts.match(/hava(?:alan|liman)\p{L}*\W{0,3}(\d{1,3}(?:[.,]\d)?)\s*(?:km|kilomet)/iu)?.[1];
   if (airport) {
     add("havalimani", "Havalimanına uzaklığınız ne kadar?", (plan) =>
-      cited(plan, catalog).some((e) => new RegExp(`${airport.replace(".", "\\.")}\\s*(km|kilomet)`, "i").test(e.text)) ? null : `mesafe kartı yok: ${describePlan(plan)}`,
+      cited(plan, catalog).some((e) => new RegExp(`(^|[^\\d.,])${airport.replace(".", "\\.")}\\s*(km|kilomet)`, "i").test(e.text)) ? null : `mesafe kartı yok: ${describePlan(plan)}`,
     );
   }
 
@@ -150,6 +155,36 @@ async function casesFor(slug: string): Promise<{ cases: Case[]; catalog: AiFactC
       if (!evidence.test(texts)) return null;
       return cards.some((e) => evidence.test(e.text)) ? null : `ilgili metin bulunamadı: ${describePlan(plan)}`;
     });
+  }
+
+  // Oda özellikleri: "odalarda" denir; açıklamasında olmadığı yazan odalar
+  // (eşleştiriciden bağımsız basit kural) cevapta ayrıca belirtilir.
+  for (const [category, message, label, lacks] of [
+    ["oda-ozellik-balkon", "Balkon var mı?", /balkon/, /balkonsuz|balkon (yok|bulunmamakta)|without (a )?balcony/],
+    ["oda-ozellik-minibar", "Odalarda minibar var mı?", /minibar/, /minibar (yok|bulunmamakta)/],
+    ["oda-ozellik-klima", "Klima var mı?", /klima/, /klimasiz|klima (yok|bulunmamakta)/],
+  ] as const) {
+    const truth = items.filter((i) => label.test(normalizeText(i)));
+    if (!truth.length) continue;
+    const lacking = content.rooms
+      .filter((r) => lacks.test(normalizeText(`${r.name}\n${r.description ?? ""}`)))
+      .map((r) => r.name);
+    add(category, message, (plan) => {
+      if (!plan.roomFeature) return `oda özelliği olarak cevaplanmadı: ${describePlan(plan)}`;
+      const got = plan.roomFeature.exceptions;
+      const missing = lacking.filter((n) => !got.includes(n));
+      const wrong = got.filter((n) => !lacking.includes(n));
+      if (missing.length) return `bulunmayan oda belirtilmedi: ${missing.join(", ")}`;
+      if (wrong.length) return `yanlış istisna: ${wrong.join(", ")}`;
+      return null;
+    });
+  }
+  // Belirli bir odanın donanımı: oda açıklama kartı gösterilmeli.
+  const detailed = content.rooms.find((r) => r.description && /jakuzi|kuvet|kasa/i.test(normalizeText(r.description)));
+  if (detailed) {
+    add("oda-donanim", `${detailed.name} odasında neler var?`, (plan) =>
+      has(plan, `room.${detailed.slug}.details`) || has(plan, `room.${detailed.slug}.info`) ? null : `oda kartı yok: ${describePlan(plan)}`,
+    );
   }
 
   // Fiyat ve iletişim

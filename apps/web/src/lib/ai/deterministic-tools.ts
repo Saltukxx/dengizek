@@ -16,8 +16,9 @@ import type { RoomPriceQuery } from "@/lib/ai/price-engine";
 import type { AiFactCatalogEntry } from "@/lib/ai/types";
 import { normalizeText, stemMatch, suffixMatch, synonymsOf, tokens } from "@/lib/ai/text";
 import { addDays, parseGuests, parseStayDates } from "@/lib/ai/stay-query";
-import { asksAmenityPrice, asksKnownAmenity, canonicalAmenityText, matchAmenities, textsMentionAmenity } from "@/lib/ai/amenity-match";
+import { asksAmenityPrice, asksKnownAmenity, canonicalAmenityText, matchAmenities, textMentionsAmenity, textsMentionAmenity } from "@/lib/ai/amenity-match";
 import { pointsToCard } from "@/lib/ai/response-guard";
+import { isRoomFeature, roomsLackingFeature } from "@/lib/ai/room-features";
 
 export { extractStayDates } from "@/lib/ai/stay-query";
 
@@ -35,6 +36,23 @@ export function roomNamedInMessage(message: string, rooms: Array<{ slug: string;
     .filter((room) => room.name && text.includes(` ${room.name} `))
     .sort((a, b) => b.name.length - a.name.length);
   return named[0]?.slug;
+}
+
+const CAPACITY_QUESTION = /\b(kac kisilik|kac kisi|kapasite\w*|kac yetiskin|kac cocuk|how many (people|guests|adults)|sleeps|capacity)\b/;
+const ROOM_DETAIL_QUESTION =
+  /\b(neler var|ne var|ozellik\w*|donanim\w*|icinde|anlat\w*|nasil bir|detay\w*|banyo\w*|features|amenities|describe|tell me about|what'?s in)\b/;
+
+/**
+ * Mesajda adı geçen oda için hangi kart? Kapasite → room.X.info,
+ * donanım/özellik → room.X.details (yoksa info). Başka soru → undefined.
+ */
+function roomCardFor(slug: string, message: string, catalog: AiFactCatalogEntry[]): string | undefined {
+  const text = normalizeText(message);
+  const exists = (id: string) => catalog.some((e) => e.id === id);
+  if (CAPACITY_QUESTION.test(text) && exists(`room.${slug}.info`)) return `room.${slug}.info`;
+  if (!ROOM_DETAIL_QUESTION.test(text)) return undefined;
+  if (exists(`room.${slug}.details`)) return `room.${slug}.details`;
+  return exists(`room.${slug}.info`) ? `room.${slug}.info` : undefined;
 }
 
 export function matchRoomSlug(
@@ -426,6 +444,11 @@ export interface ServerPlan {
   amenities?: string[];
   /** Olanağın ücretli/ücretsiz olduğu da soruldu (liste bunu söylemez). */
   amenityPriceAsked?: boolean;
+  /**
+   * Bulunan olanakların hepsi oda özelliği (balkon, klima…): cevap "odalarda"
+   * der; exceptions = açıklamasında o özelliğin olmadığı yazan odalar.
+   */
+  roomFeature?: { exceptions: string[] };
   /** reply "rooms": otelin oda tipleri (oda kartlarının metni) — sunucu listeler. */
   rooms?: string[];
   /**
@@ -740,14 +763,22 @@ export async function planServerTools(args: {
       const amenitiesEntry = args.catalog.find((e) => e.id === "spec.amenities");
       const matches = matchAmenities(message, amenitiesEntry?.items ?? []);
       if (matches.length) {
+        const roomOnly = matches.every(isRoomFeature);
         return {
           calls: [{ toolName: "citeFact", input: { factId: "spec.amenities" } }],
           amenities: matches,
           ...(asksAmenityPrice(message) ? { amenityPriceAsked: true } : {}),
+          ...(roomOnly ? { roomFeature: { exceptions: [...new Set(matches.flatMap((m) => roomsLackingFeature(m, args.catalog)))] } } : {}),
         };
       }
-      const otherTexts = args.catalog.filter((e) => e.id !== "spec.amenities").map((e) => `${e.title ?? ""} ${e.text}`);
-      if (asksKnownAmenity(message) && !textsMentionAmenity(message, otherTexts)) return { calls: [], reply: "unknown" };
+      const others = args.catalog.filter((e) => e.id !== "spec.amenities");
+      const mentioning = others.filter((e) => textMentionsAmenity(message, `${e.title ?? ""} ${e.text}`));
+      if (asksKnownAmenity(message) && !mentioning.length) return { calls: [], reply: "unknown" };
+      // Listede yok ama otelin bir metninde geçiyor ("kese", "fitness center
+      // hizmetimiz"): o metnin kartı; cevap kartın ilgili cümlesinden kurulur.
+      // Otel geneli metin oda açıklamasından önce gelir.
+      const best = mentioning.find((e) => !e.id.startsWith("room.")) ?? mentioning[0];
+      if (best) return { calls: [{ toolName: "citeFact", input: { factId: best.id } }] };
     }
     // Giriş saati / evcil hayvan gibi bilinen bir konu otelin verisinde hiç yok.
     if (isMissingKnownTopic(message, args.catalog)) return { calls: [], reply: "unknown" };
@@ -755,12 +786,28 @@ export async function planServerTools(args: {
 
   // Katalogda karşılığı olmayan "… var mı?" sorusu: kart aranmaz, model de
   // "evet" uyduramaz.
-  if (!calls.length && !askDates && !priceWanted && isAvailabilityQuestion(message) && !mentionsCatalogTerm(message, args.catalog)) {
+  if (
+    !calls.length &&
+    !askDates &&
+    !priceWanted &&
+    isAvailabilityQuestion(message) &&
+    !mentionsCatalogTerm(message, args.catalog) &&
+    // "Wifi" ↔ "Wireless Internet", "spor salonu" ↔ "fitness center"
+    !textsMentionAmenity(message, args.catalog.map((e) => `${e.title ?? ""} ${e.text} ${(e.items ?? []).join(" ")}`))
+  ) {
     return { calls: [], reply: "unknown" };
   }
 
   // Bilgi: fiyatla aynı mesajda da sorulabilir ("Fiyat ve iptal koşulları?").
   if (!isFollowUp && !hasContactIntent(message) && (!priceWanted || hints.needsFactTool)) {
+    // Adı geçen odanın donanımı / kapasitesi: doğrudan o odanın kartı.
+    const namedRoom = roomNamedInMessage(message, args.rooms);
+    const roomCard = namedRoom ? roomCardFor(namedRoom, message, args.catalog) : undefined;
+    if (roomCard) {
+      calls.push({ toolName: "citeFact", input: { factId: roomCard } });
+      if (askDates) return { calls, reply: "askDates" };
+      return { calls };
+    }
     // Bilinen konu (giriş saati, pansiyon, havalimanı…): yalnız o konunun
     // kanıtını içeren kartlar aday. Anlam puanı yakın çıkan alakasız kart
     // ("Yemekler dahil mi?" → giriş saati kartı) böylece seçilemez; seçilen
@@ -783,7 +830,13 @@ export async function planServerTools(args: {
       // Oda kartı seçildi ama mesajda başka bir odanın tam adı geçiyor: o oda.
       const named = pick.factId.startsWith("room.") ? roomNamedInMessage(message, args.rooms) : undefined;
       const namedFact = named && args.catalog.find((e) => e.id === `room.${named}.info`);
-      calls.push({ toolName: "citeFact", input: { factId: namedFact && !pick.factId.startsWith(`room.${named}.`) ? namedFact.id : pick.factId } });
+      let factId = namedFact && !pick.factId.startsWith(`room.${named}.`) ? namedFact.id : pick.factId;
+      // Kapasite sorusu: açıklama değil, "N yetişkin" yazan oda kartı.
+      const detailsOf = factId.match(/^room\.([^.]+)\.details$/)?.[1];
+      if (detailsOf && CAPACITY_QUESTION.test(normalizeText(message)) && args.catalog.some((e) => e.id === `room.${detailsOf}.info`)) {
+        factId = `room.${detailsOf}.info`;
+      }
+      calls.push({ toolName: "citeFact", input: { factId } });
     }
   }
   if (askDates) return { calls, reply: "askDates" };

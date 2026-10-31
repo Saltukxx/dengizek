@@ -644,10 +644,10 @@ export function triggerInstruction(data: AuthoritativeContext): string | null {
   return triggerMap[data.triggerReason] ?? null;
 }
 
-function compactAmenityCard(output: unknown, amenities: string[]): unknown {
+function compactAmenityCard(output: unknown, amenities: string[], roomFeature: boolean): unknown {
   const result = output as { ok?: boolean; card?: { text?: string } } | null;
   if (!result?.ok || !result.card) return output;
-  return { ...result, card: { ...result.card, text: `Otel olanakları: ${amenities.join(", ")}.` } };
+  return { ...result, card: { ...result.card, text: `${roomFeature ? "Oda özellikleri" : "Otel olanakları"}: ${amenities.join(", ")}.` } };
 }
 
 export interface ServerTurn {
@@ -658,6 +658,8 @@ export interface ServerTurn {
   /** "X var mı?" sorusunda olanak listesinde bulunan olanaklar. */
   amenities?: string[];
   amenityPriceAsked?: boolean;
+  /** Olanaklar oda özelliği: "odalarda" + bulunmayan odalar. */
+  roomFeature?: { exceptions: string[] };
   /** Misafirin sorusu (kart cevabında soruya uyan cümle için). */
   question?: string;
   /** reply "rooms": oda tipleri listesi. */
@@ -715,7 +717,7 @@ export async function runServerTools(
       case "citeFact":
         output = await tools.citeFact.execute!(call.input, options);
         // Olanak sorusu: 45 maddelik liste yerine yalnız sorulan olanaklar.
-        if (plan.amenities?.length && call.input.factId === "spec.amenities") output = compactAmenityCard(output, plan.amenities);
+        if (plan.amenities?.length && call.input.factId === "spec.amenities") output = compactAmenityCard(output, plan.amenities, Boolean(plan.roomFeature));
         break;
       case "openInquiry":
         output = await tools.openInquiry.execute!(call.input, options);
@@ -750,6 +752,7 @@ export async function runServerTools(
     reply: plan.reply,
     amenities: plan.amenities,
     amenityPriceAsked: plan.amenityPriceAsked,
+    roomFeature: plan.roomFeature,
     rooms: plan.rooms,
     question: message,
   };

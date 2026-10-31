@@ -125,7 +125,11 @@ Sıra taban ölçüme göre güncellenir; aşağıdaki öncelik tahmindir.
 - Oda kartı (`room.<slug>.info`) kapasiteyi her zaman "N yetişkin (+ M çocuk)" biçiminde içersin.
 - "kaç kişilik / kaç kişi kalır / how many people" sorusu + oda adı → planlayıcıda doğrudan o odanın kartı (model yok).
 
-**1.3 Oda özellikleri ve olanak kaçakları**
+**1.3 Oda özellikleri ve olanak kaçakları** — ✅ 31 Ekim
+- Yapılan: oda açıklamaları `room.<slug>.details` kartı olarak kataloğa girdi (109 odanın 49'unda açıklama var). Balkon, klima, minibar gibi oda özellikleri "odalarda" diye cevaplanır; açıklamasında "balkonsuz" yazan odalar ayrıca söylenir. Adı geçen oda: donanım sorusu → açıklama kartı, kapasite → oda kartı. Listede olmayan ama otel metninde geçen olanak (kese, "fitness center hizmetimiz") → o metnin kartı. "Wifi" ↔ "Wireless Internet", "spor salonu" ↔ "fitness center" artık yanlışlıkla "bilgim yok" almıyor.
+- Ölçüm: planlayıcı offline 1.911 → 2.091 soru (oda özellikleri, oda donanımı, kese eklendi; "metinde geçiyorsa kart gösterilmeli" kontrolü sıkılaştırıldı). Sıkı kontrolle %93,8 → **%99,8**. Uçtan uca 15 otel %100.
+- Not: yeni oda kartlarının embedding'i otel yeniden yayınlanınca kaydedilir; o zamana kadar ilk soruda canlı hesaplanır.
+- Eski metin (referans):
 - "Balkon / klima / minibar var mı?" → otel olanak listesinden önce oda özelliklerine bakılır; cevap "şu odalarda var".
 - Olanak listesinde olmayan ama kaynak metinde geçen terimler (kese) için metin içi eşleşme kartı.
 
