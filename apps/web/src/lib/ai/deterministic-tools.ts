@@ -244,6 +244,38 @@ function bodyLineHits(message: string, entry: AiFactCatalogEntry): number {
   );
 }
 
+/** Sorulan ayrıntı: saat mi, sıcaklık mı? Değerin metindeki biçimi. */
+const ASKED_VALUE: Array<{ ask: RegExp; value: RegExp }> = [
+  { ask: /\b(kacta|saat kac|saatleri|ne zaman|acik mi|kaca kadar|what time|when|hours|open)\b/, value: /\d{1,2}[:.]\d{2}/ },
+  { ask: /\b(kac derece|derece|sicaklik\w*|isisi|temperature|how warm|degrees?)\b/, value: /\d{2}\s*(?:[-–]\s*\d{2}\s*)?(?:°|derece)/ },
+];
+/** Ayrıntı kelimeleri — konu terimi sayılmaz ("kaçta" → "saati"). */
+const VALUE_TERMS = new Set(["saati", "acik", "derece", "sicaklik"]);
+
+/**
+ * Ayrıntı sorusu ("Mini club kaçta açık?", "Termal havuz kaç derece?"):
+ * konu terimi ile sorulan değer (saat / derece) AYNI satırda geçiyor mu?
+ * "çıkış ısısı 55-60 derece" (kaynak) değil "havuzlarında 40-42 derece".
+ */
+export function askedValueOnLine(message: string, entry: AiFactCatalogEntry): boolean {
+  const text = normalizeText(message);
+  const asked = ASKED_VALUE.find((a) => a.ask.test(text));
+  if (!asked) return false;
+  const subject = fallbackTerms(canonicalAmenityText(message)).filter((t) => !VALUE_TERMS.has(t));
+  if (!subject.length) return false;
+  // Konu terimlerinden en az ikisi (tek terimse o) aynı satırda: "termal su
+  // kaynağı… 55-60 derece" tek terimle eşleşir, "termal… havuzlarında 40-42" iki.
+  const need = Math.min(2, subject.length);
+  // Değer ham satırda aranır ("09:00" normalize edilince iki noktasını kaybeder).
+  return entry.text
+    .split(/\n|(?<=[.!?])\s+(?=\D)/)
+    .some((line) => {
+      if (!asked.value.test(line)) return false;
+      const words = tokens(canonicalAmenityText(line));
+      return subject.filter((term) => words.some((w) => suffixMatch(term, w))).length >= need;
+    });
+}
+
 function fallbackScore(message: string, entry: AiFactCatalogEntry): number {
   const head = tokens(`${entry.id.replace(/[._]/g, " ")} ${entry.hint} ${entry.title ?? ""}`).filter((t) => !LEXICAL_STOPWORDS.has(t));
   const text = canonicalFactBody(entry);
@@ -265,6 +297,7 @@ function fallbackScore(message: string, entry: AiFactCatalogEntry): number {
     Math.max(0, hits - 2) * 0.05 +
     Math.min(headHits, 2) * 0.01 +
     Math.min(lineHits, 3) * 0.02 +
+    (askedValueOnLine(message, entry) ? 0.1 : 0) +
     (KIND_WEIGHT[entry.kind] ?? 0)
   );
 }
@@ -283,8 +316,9 @@ export interface FactPick {
 
 /** Konu kelimesi (4+ harf, soru kalıbı değil) fact metninde geçiyor mu? */
 function textHits(message: string, entry: AiFactCatalogEntry): number {
-  const terms = tokens(message).filter((t) => t.length >= 4 && !QUESTION_WORDS.has(t) && !LEXICAL_STOPWORDS.has(t));
-  const factTokens = tokens(`${entry.title ?? ""} ${entry.text}`).filter((t) => t.length >= 4);
+  // Olanak eş anlamlılarıyla: "çocuk kulübü" ↔ "Mini Club", "spor salonu" ↔ "Fitness".
+  const terms = tokens(canonicalAmenityText(message)).filter((t) => t.length >= 4 && !QUESTION_WORDS.has(t) && !LEXICAL_STOPWORDS.has(t));
+  const factTokens = tokens(canonicalAmenityText(`${entry.title ?? ""} ${entry.text}`)).filter((t) => t.length >= 4);
   return terms.filter((term) => factTokens.some((ft) => stemMatch(term, ft))).length;
 }
 
@@ -334,6 +368,7 @@ export async function pickFact(
           // Anlam puanları çoğu zaman 0.01 içinde: metinde aynı satırda geçen
           // konu terimleri (eş anlamlı dahil) doğru kartı öne geçirir.
           Math.min(bodyLineHits(message, entry), 2) * 0.05 +
+          (askedValueOnLine(message, entry) ? 0.05 : 0) +
           KIND_WEIGHT[entry.kind]
         : fallbackScore(message, entry);
     if (!best || score > best.score) best = { factId: entry.id, score, textHits: 0, semantic: semanticMode };

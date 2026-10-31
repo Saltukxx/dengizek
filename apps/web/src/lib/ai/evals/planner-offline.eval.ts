@@ -56,7 +56,7 @@ const AMENITY_PROBES: Array<{ category: string; message: string; truth: RegExp; 
   { category: "olanak-restoran", message: "Restoran var mı?", truth: /restaurant|restoran/ },
   { category: "olanak-jakuzi", message: "Jakuzi var mı?", truth: /jakuzi/ },
   { category: "olanak-klima", message: "Odalarda klima var mı?", truth: /klima/ },
-  { category: "olanak-cocuk-kulubu", message: "Çocuk kulübü var mı?", truth: /club|kulub/ },
+  { category: "olanak-cocuk-kulubu", message: "Çocuk kulübü var mı?", truth: /club|kulub/, text: /cocuk kulub|mini ?club|kids club/ },
   { category: "olanak-kese", message: "Kese var mı?", truth: /\bkese\b/ },
   { category: "olanak-yok-golf", message: "Golf sahası var mı?", truth: /golf/ },
   { category: "olanak-yok-casino", message: "Casino var mı?", truth: /casino/ },
@@ -154,7 +154,7 @@ async function casesFor(slug: string): Promise<{ cases: Case[]; catalog: AiFactC
       const cards = cited(plan, catalog);
       if (cards.some((e) => e.id === "spec.amenities")) return "olanak listesi gösterildi";
       if (!evidence.test(texts)) return null;
-      return cards.some((e) => evidence.test(e.text)) ? null : `ilgili metin bulunamadı: ${describePlan(plan)}`;
+      return cards.some((e) => evidence.test(`${e.title ?? ""} ${e.text}`)) ? null : `ilgili metin bulunamadı: ${describePlan(plan)}`;
     });
   }
 

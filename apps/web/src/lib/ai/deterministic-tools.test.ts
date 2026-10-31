@@ -4,6 +4,7 @@ vi.mock("@/lib/ai/llm", () => ({ getEmbeddingModel: () => null, EMBEDDING_PROVID
 
 import {
   isMisleadingCardPointer,
+  askedValueOnLine,
   cardMatchesAskedTopic,
   expandEllipticalFollowUp,
   splitCompoundQuestion,
@@ -876,5 +877,16 @@ describe("otelcinin eklediği cevap rehbere ulaşır", () => {
     ] as const) {
       expect((await run(message)).calls, message).toEqual([{ toolName: "citeFact", input: { factId } }]);
     }
+  });
+});
+
+describe("ayrıntı soruları: konu ve değer aynı satırda", () => {
+  const e = (text: string) => ({ id: "s", kind: "otel_ifadesi" as const, hint: "", text });
+  it("saat ve sıcaklık", () => {
+    expect(askedValueOnLine("Çocuk kulübü kaçta açık?", e("Çocuklara Özel: Mini Club 09:00 ile 20:30 saatleri arasında hizmet verir."))).toBe(true);
+    expect(askedValueOnLine("Çocuk kulübü kaçta açık?", e("Çay saati her gün 15:30'da. Mini club mevcuttur."))).toBe(false);
+    expect(askedValueOnLine("Termal havuz kaç derece?", e("Termal su kaynağının çıkış ısısı 55-60 derecedir."))).toBe(false);
+    expect(askedValueOnLine("Termal havuz kaç derece?", e("Termal hamam ve havuzlarında 40 - 42 derece."))).toBe(true);
+    expect(askedValueOnLine("Termal havuz var mı?", e("Termal havuz 40 derece."))).toBe(false);
   });
 });
