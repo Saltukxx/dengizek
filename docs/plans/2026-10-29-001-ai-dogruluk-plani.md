@@ -172,7 +172,9 @@ Bitti sayılır: aktarılan otellerde kritik alan doluluğu raporlanıyor; otelc
 
 ## Aşama 3 — Canlı geri bildirim
 
-**3.1 Misafir değerlendirmesi**
+**3.1 Misafir değerlendirmesi** — ✅ 31 Ekim
+- Yapılan: misafir sorusuna verilen her rehber cevabının altında 👍/👎 (tur anlatımında yok). Oy `/api/tour/feedback` ile soru, cevap ve konuyla kaydedilir (`ai_feedback`; iletişim bilgisi maskelenir, kimlik yok, dakikada 30 sınırı). Misafir fikrini değiştirebilir; aynı cevaba son oy sayılır. Otel panelinde ve yönetici analitiğinde faydalı oranı ve en çok 👎 alan cevaplar.
+- Eski metin (referans):
 - Her rehber cevabının altında 👍/👎 → `trackEvent("ai_feedback")`; panelde ve admin'de listelenir.
 
 **3.2 Gerçek sorulardan eval**

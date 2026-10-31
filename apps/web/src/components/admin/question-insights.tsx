@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import { Badge, Group, Loader, Paper, Progress, SimpleGrid, Stack, Text } from "@mantine/core";
 import { QUESTION_TOPIC_LABELS, type QuestionGroup, type QuestionInsights } from "@/lib/ai/question-log";
+import type { FeedbackSummary } from "@/lib/ai/feedback";
 
 type Data = Omit<QuestionInsights, "byHotel"> & {
   periodDays: number;
+  feedback?: FeedbackSummary;
   byHotel: Array<QuestionInsights["byHotel"][number] & { hotelName: string }>;
 };
 
@@ -64,6 +66,9 @@ export function QuestionInsightsPanel({ period, hotelId }: { period: string; hot
         Cevaplanma oranı: {data.answerRate == null ? "—" : `%${Math.round(data.answerRate * 100)}`}
         {data.byOutcome.length ? ` · ${data.byOutcome.map((o) => `${o.label} ${o.count}`).join(" · ")}` : ""}
         {data.byLanguage.length ? ` · Dil: ${data.byLanguage.map((l) => `${l.language} ${l.count}`).join(", ")}` : ""}
+        {data.feedback && data.feedback.up + data.feedback.down
+          ? ` · Misafir oyu: %${Math.round((data.feedback.positiveRate ?? 0) * 100)} faydalı (👍 ${data.feedback.up} · 👎 ${data.feedback.down})`
+          : ""}
       </Text>
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
         <div>
@@ -101,6 +106,30 @@ export function QuestionInsightsPanel({ period, hotelId }: { period: string; hot
             )}
           </Stack>
         </div>
+        {data.feedback?.topDown.length ? (
+          <div>
+            <Text size="sm" fw={500} mb={6}>
+              Faydalı bulunmayan cevaplar (👎)
+            </Text>
+            <Stack gap={6}>
+              {data.feedback.topDown.map((d) => (
+                <Group key={d.question} justify="space-between" wrap="nowrap" gap="sm" align="flex-start">
+                  <div style={{ minWidth: 0 }}>
+                    <Text size="sm" style={{ overflowWrap: "anywhere" }}>
+                      {d.question}
+                    </Text>
+                    <Text size="xs" c="dimmed" style={{ overflowWrap: "anywhere" }}>
+                      Rehber: {d.answer}
+                    </Text>
+                  </div>
+                  <Badge variant="outline" color="red" style={{ flexShrink: 0 }}>
+                    {d.count}×
+                  </Badge>
+                </Group>
+              ))}
+            </Stack>
+          </div>
+        ) : null}
         {!hotelId && (
           <div>
             <Text size="sm" fw={500} mb={6}>

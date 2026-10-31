@@ -177,3 +177,31 @@ describe("TourGuidePanel", () => {
     expect(stopListeningMock).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("cevap değerlendirmesi (👍/👎)", () => {
+  const messages: GuideMessage[] = [
+    { id: "a0", role: "assistant", content: "Hoş geldiniz! Lobiden başlıyoruz." },
+    { id: "u1", role: "user", content: "Giriş saati kaçta?" },
+    { id: "a1", role: "assistant", content: "Check-in saati: 14:00. Ayrıntılar kartta." },
+  ];
+
+  it("yalnız misafir sorusuna verilen cevapta görünür; oy soru ve cevapla gider", () => {
+    const onFeedback = vi.fn();
+    renderPanel({ messages, onFeedback });
+    // Tur anlatımında (a0) düğme yok, cevapta (a1) var.
+    expect(screen.getAllByRole("button", { name: "Faydalı" })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Faydalı değil" }));
+    expect(onFeedback).toHaveBeenCalledWith({ messageId: "a1", rating: "down", question: "Giriş saati kaçta?", answer: "Check-in saati: 14:00. Ayrıntılar kartta." });
+    expect(screen.getByText("Teşekkürler")).toBeTruthy();
+    // Aynı oy tekrar gönderilmez; fikir değişebilir.
+    fireEvent.click(screen.getByRole("button", { name: "Faydalı değil" }));
+    fireEvent.click(screen.getByRole("button", { name: "Faydalı" }));
+    expect(onFeedback).toHaveBeenCalledTimes(2);
+    expect(onFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ rating: "up" }));
+  });
+
+  it("onFeedback verilmezse düğme gösterilmez", () => {
+    renderPanel({ messages });
+    expect(screen.queryByRole("button", { name: "Faydalı" })).toBeNull();
+  });
+});

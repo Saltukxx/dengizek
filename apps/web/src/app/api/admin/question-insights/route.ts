@@ -9,6 +9,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { analyticsEventsTable, hotelsTable } from "@/lib/db/schema";
 import { QUESTION_EVENT, summarizeQuestions } from "@/lib/ai/question-log";
+import { FEEDBACK_EVENT, summarizeFeedback } from "@/lib/ai/feedback";
 
 export async function GET(req: Request) {
   const guard = await requireAdmin();
@@ -21,15 +22,21 @@ export async function GET(req: Request) {
   since.setDate(since.getDate() - periodDays);
 
   const db = getDb();
-  const filters = [eq(analyticsEventsTable.eventType, QUESTION_EVENT), gte(analyticsEventsTable.createdAt, since)];
+  const filters = [inArray(analyticsEventsTable.eventType, [QUESTION_EVENT, FEEDBACK_EVENT]), gte(analyticsEventsTable.createdAt, since)];
   if (hotelId) filters.push(eq(analyticsEventsTable.hotelId, hotelId));
 
   const events = await db
-    .select({ payload: analyticsEventsTable.payload, hotelSlug: analyticsEventsTable.hotelSlug, createdAt: analyticsEventsTable.createdAt })
+    .select({
+      eventType: analyticsEventsTable.eventType,
+      payload: analyticsEventsTable.payload,
+      hotelSlug: analyticsEventsTable.hotelSlug,
+      createdAt: analyticsEventsTable.createdAt,
+    })
     .from(analyticsEventsTable)
     .where(and(...filters));
 
-  const insights = summarizeQuestions(events);
+  const insights = summarizeQuestions(events.filter((e) => e.eventType === QUESTION_EVENT));
+  const feedback = summarizeFeedback(events.filter((e) => e.eventType === FEEDBACK_EVENT));
   const slugs = insights.byHotel.map((h) => h.hotelSlug);
   const names = slugs.length
     ? await db.select({ slug: hotelsTable.slug, name: hotelsTable.name }).from(hotelsTable).where(inArray(hotelsTable.slug, slugs))
@@ -40,6 +47,7 @@ export async function GET(req: Request) {
     ok: true,
     periodDays,
     ...insights,
+    feedback,
     byHotel: insights.byHotel.map((h) => ({ ...h, hotelName: nameOf.get(h.hotelSlug) ?? h.hotelSlug })),
   });
 }

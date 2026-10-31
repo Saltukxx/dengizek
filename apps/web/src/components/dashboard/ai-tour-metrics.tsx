@@ -39,6 +39,12 @@ interface AiMetricsData {
   readinessScore: number;
   readinessIssues: string[];
   unansweredQuestions?: UnansweredQuestionItem[];
+  feedback?: {
+    up: number;
+    down: number;
+    positiveRate: number | null;
+    topDown: Array<{ question: string; answer: string; count: number }>;
+  };
   questionInsights?: {
     total: number;
     answerRate: number | null;
@@ -226,6 +232,40 @@ export function AiTourMetrics() {
               </Group>
             ))}
           </Stack>
+        </Paper>
+      ) : null}
+
+      {data.feedback && data.feedback.up + data.feedback.down > 0 ? (
+        <Paper withBorder p="md" radius="md">
+          <Text size="sm" fw={500}>
+            Misafir değerlendirmesi (son 30 gün)
+          </Text>
+          <Text size="xs" c="dimmed" mt={4} mb="xs">
+            {data.feedback.up + data.feedback.down} oy · %{Math.round((data.feedback.positiveRate ?? 0) * 100)} faydalı buldu
+            (👍 {data.feedback.up} · 👎 {data.feedback.down})
+          </Text>
+          {data.feedback.topDown.length > 0 ? (
+            <Stack gap={8}>
+              <Text size="xs" fw={500}>
+                Faydalı bulunmayan cevaplar
+              </Text>
+              {data.feedback.topDown.map((d) => (
+                <Group key={d.question} justify="space-between" wrap="nowrap" gap="sm" align="flex-start">
+                  <div style={{ minWidth: 0 }}>
+                    <Text size="sm" style={{ overflowWrap: "anywhere" }}>
+                      {d.question}
+                    </Text>
+                    <Text size="xs" c="dimmed" style={{ overflowWrap: "anywhere" }}>
+                      Rehber: {d.answer}
+                    </Text>
+                  </div>
+                  <Badge variant="outline" color="red" style={{ flexShrink: 0 }}>
+                    {d.count}×
+                  </Badge>
+                </Group>
+              ))}
+            </Stack>
+          ) : null}
         </Paper>
       ) : null}
 

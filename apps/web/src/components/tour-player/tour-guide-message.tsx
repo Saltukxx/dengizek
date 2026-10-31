@@ -1,6 +1,7 @@
 "use client";
 
-import { Box, Loader, Stack, Text } from "@mantine/core";
+import { ActionIcon, Box, Group, Loader, Stack, Text } from "@mantine/core";
+import { IconThumbDown, IconThumbDownFilled, IconThumbUp, IconThumbUpFilled } from "@tabler/icons-react";
 import type { GuideMessage } from "@/lib/tour/use-tour-guide";
 import { detectLanguageHint } from "@/lib/ai/language-detect";
 import { guideStrings } from "./tour-guide-i18n";
@@ -11,12 +12,18 @@ interface TourGuideMessageProps {
   /** Sohbette tespit edilen dil (tr/en) — çerçeve metinleri buna uyar. */
   detectedLanguage?: string;
   personaInitials?: string;
+  /** Verilirse cevabın altında 👍/👎 gösterilir (yalnız misafir sorusuna verilen cevaplarda). */
+  onFeedback?: (rating: "up" | "down") => void;
+  /** Bu cevaba verilmiş oy. */
+  feedback?: "up" | "down";
 }
 
 export function TourGuideMessage({
   message,
   detectedLanguage,
   personaInitials = "?",
+  onFeedback,
+  feedback,
 }: TourGuideMessageProps) {
   const isUser = message.role === "user";
   const strings = guideStrings(detectedLanguage);
@@ -110,6 +117,37 @@ export function TourGuideMessage({
               }
             />
           )}
+          {!isUser && onFeedback && message.content.trim() ? (
+            <Group gap={2} mt={6} justify="flex-end" aria-live="polite">
+              {feedback ? (
+                <Text size="xs" mr={4} style={{ color: "var(--er-text-dim)" }}>
+                  {strings.feedbackThanks}
+                </Text>
+              ) : null}
+              <ActionIcon
+                variant="subtle"
+                size="sm"
+                color={feedback === "up" ? "teal" : "gray"}
+                aria-label={strings.helpful}
+                title={strings.helpful}
+                aria-pressed={feedback === "up"}
+                onClick={() => onFeedback("up")}
+              >
+                {feedback === "up" ? <IconThumbUpFilled size={14} /> : <IconThumbUp size={14} />}
+              </ActionIcon>
+              <ActionIcon
+                variant="subtle"
+                size="sm"
+                color={feedback === "down" ? "red" : "gray"}
+                aria-label={strings.notHelpful}
+                title={strings.notHelpful}
+                aria-pressed={feedback === "down"}
+                onClick={() => onFeedback("down")}
+              >
+                {feedback === "down" ? <IconThumbDownFilled size={14} /> : <IconThumbDown size={14} />}
+              </ActionIcon>
+            </Group>
+          ) : null}
         </Stack>
       </Box>
     </Box>

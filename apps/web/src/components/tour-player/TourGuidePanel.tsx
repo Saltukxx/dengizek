@@ -32,6 +32,8 @@ interface TourGuidePanelProps {
   onChipClick: (chip: string) => void;
   onStartAutoTour: () => void;
   onStopAutoTour: () => void;
+  /** Misafir bir cevabı değerlendirdi (👍/👎). question = cevaplanan misafir mesajı. */
+  onFeedback?: (input: { messageId: string; rating: "up" | "down"; question: string; answer: string }) => void;
 }
 
 /** Persona adından avatar baş harfleri — ilk iki kelimenin ilk harfleri. */
@@ -55,8 +57,10 @@ export function TourGuidePanel({
   onChipClick,
   onStartAutoTour,
   onStopAutoTour,
+  onFeedback,
 }: TourGuidePanelProps) {
   const [inputValue, setInputValue] = useState("");
+  const [ratings, setRatings] = useState<Record<string, "up" | "down">>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -181,14 +185,29 @@ export function TourGuidePanel({
               {strings.preparing}
             </Text>
           )}
-          {messages.map((msg) => (
-            <TourGuideMessage
-              key={msg.id}
-              message={msg}
-              detectedLanguage={detectedLanguage}
-              personaInitials={personaInitials(displayPersona)}
-            />
-          ))}
+          {messages.map((msg, i) => {
+            // Yalnız misafirin sorusuna verilen cevap değerlendirilir (tur anlatımı değil).
+            const previous = messages[i - 1];
+            const question = msg.role === "assistant" && !msg.isThinking && previous?.role === "user" ? previous.content : null;
+            return (
+              <TourGuideMessage
+                key={msg.id}
+                message={msg}
+                detectedLanguage={detectedLanguage}
+                personaInitials={personaInitials(displayPersona)}
+                feedback={ratings[msg.id]}
+                onFeedback={
+                  onFeedback && question
+                    ? (rating) => {
+                        if (ratings[msg.id] === rating) return;
+                        setRatings((r) => ({ ...r, [msg.id]: rating }));
+                        onFeedback({ messageId: msg.id, rating, question, answer: msg.content });
+                      }
+                    : undefined
+                }
+              />
+            );
+          })}
         </Stack>
       </ScrollArea>
 

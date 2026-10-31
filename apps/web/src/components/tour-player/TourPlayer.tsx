@@ -554,6 +554,14 @@ export function TourPlayer({
       onChipClick={handleChipClick}
       onStartAutoTour={startAutoTour}
       onStopAutoTour={stopAutoTour}
+      onFeedback={(input) => {
+        // Değerlendirme kaybolursa misafir deneyimi etkilenmez.
+        void fetch("/api/tour/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ hotelSlug: manifest.hotelSlug, tourId: manifest.tourId, ...input }),
+        }).catch(() => {});
+      }}
     />
   );
 

@@ -10,6 +10,7 @@ import { computeAiReadinessScore } from "@/lib/ai/readiness-score";
 import { UNANSWERED_EVENT, groupUnanswered, withAnswerStatus } from "@/lib/ai/unanswered";
 import { parseHotelContentSnapshot } from "@/lib/schemas/hotel-content-snapshot";
 import { QUESTION_EVENT, summarizeQuestions } from "@/lib/ai/question-log";
+import { FEEDBACK_EVENT, summarizeFeedback } from "@/lib/ai/feedback";
 import { getDb } from "@/lib/db";
 import { analyticsEventsTable, hotelsTable, roomsTable, tourStepsTable, toursTable } from "@/lib/db/schema";
 
@@ -158,6 +159,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
 
   // Misafirlerin rehbere sorduğu tüm sorular — en çok sorulanlar ve konular.
   const questionSummary = summarizeQuestions(events.filter((e) => e.eventType === QUESTION_EVENT), 10);
+  const feedback = summarizeFeedback(events.filter((e) => e.eventType === FEEDBACK_EVENT), 10);
   const questionInsights = {
     total: questionSummary.total,
     answerRate: questionSummary.answerRate,
@@ -211,6 +213,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
     readinessIssues: readiness.issues,
     unansweredQuestions,
     questionInsights,
+    feedback,
     byType,
   });
 }

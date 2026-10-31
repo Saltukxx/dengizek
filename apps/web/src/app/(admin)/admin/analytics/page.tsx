@@ -24,6 +24,7 @@ const eventLabels: Record<string, string> = {
   hotel_search: "Arama asistanı",
   ai_unanswered: "Rehberin cevapsız sorusu",
   ai_question: "Rehbere sorulan soru",
+  ai_feedback: "Misafir değerlendirmesi",
 };
 
 export default function AdminAnalyticsPage() {
