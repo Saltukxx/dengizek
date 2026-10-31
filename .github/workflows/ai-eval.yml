@@ -88,12 +88,16 @@ jobs:
           node -e '
             const fs = require("fs");
             const report = JSON.parse(fs.readFileSync("eval-results.json", "utf8"));
-            const total = report.numTotalTests ?? 0;
+            // Kota yüzünden atlanan fixture oranı düşürmez: payda geçen + kalan.
             const passed = report.numPassedTests ?? 0;
-            const rate = total > 0 ? passed / total : 0;
-            console.log(`AI eval: ${passed}/${total} fixture geçti (%${Math.round(rate * 100)})`);
-            if (total === 0) {
-              console.error("Hiç fixture çalışmadı — eval-results.json kontrol edin.");
+            const failed = report.numFailedTests ?? 0;
+            const skipped = report.numPendingTests ?? 0;
+            const decided = passed + failed;
+            const rate = decided > 0 ? passed / decided : 0;
+            console.log(`AI eval: ${passed}/${decided} fixture geçti (%${Math.round(rate * 100)})${skipped ? `, ${skipped} atlandı` : ""}`);
+            if (skipped) console.log(`::warning::${skipped} fixture model kotası yüzünden koşulamadı.`);
+            if (decided === 0) {
+              console.error("Hiç fixture değerlendirilemedi (kota ya da kurulum) — eval-results.json kontrol edin.");
               process.exit(1);
             }
             try {

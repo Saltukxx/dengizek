@@ -20,6 +20,7 @@ import {
   type AuthoritativeContext,
   type ChatRequest,
 } from "@/app/api/tour/chat/route";
+import { withQuotaRetry } from "./quota-retry";
 import { cardPointerReplacement, hasOnlyFramingSentences, serverTurnText } from "@/lib/ai/response-guard";
 import { windowConversationHistory } from "@/lib/ai/history-window";
 import type { Fixture } from "./fixtures";
@@ -175,6 +176,8 @@ export interface ToolUse {
   output?: unknown;
 }
 
+export { QuotaExhaustedError, withQuotaRetry } from "./quota-retry";
+
 export interface TurnResult {
   data: AuthoritativeContext;
   text: string;
@@ -222,7 +225,7 @@ export async function runTurn(fixture: Fixture): Promise<TurnResult> {
   const instruction = triggerInstruction(data);
   if (instruction) messages.push({ role: "user", content: instruction });
   const tools = buildTools(data, flags);
-  const result = await generateText({
+  const result = await withQuotaRetry(() => generateText({
     model: getChatModel()!,
     system: buildSystemPrompt(data),
     messages: messages as ModelMessage[],
@@ -231,7 +234,8 @@ export async function runTurn(fixture: Fixture): Promise<TurnResult> {
     stopWhen: stepCountIs(2),
     maxOutputTokens: 350,
     providerOptions: CHAT_PROVIDER_OPTIONS,
-  });
+    maxRetries: 0,
+  }));
   const modelTools: ToolUse[] = result.steps.flatMap((step) =>
     step.toolCalls.map((call) => ({
       toolName: call.toolName,

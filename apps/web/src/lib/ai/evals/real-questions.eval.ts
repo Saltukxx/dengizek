@@ -18,7 +18,7 @@ import { afterAll, describe, it, vi } from "vitest";
 import { isMisleadingCardPointer } from "@/lib/ai/deterministic-tools";
 import { normalizeText } from "@/lib/ai/text";
 import type { RealQuestionFixture } from "@/lib/ai/eval-candidates";
-import { judgeGrounding, runTurn, shownCards, type Verdict } from "./harness";
+import { QuotaExhaustedError, judgeGrounding, runTurn, shownCards, type Verdict } from "./harness";
 
 // Gerçek otellerin yerelde turu olmayabilir: tek adımlı tur taklit edilir.
 vi.mock("@/lib/mocks/hotels", async (importOriginal) => ({
@@ -73,8 +73,9 @@ describe(`Gerçek misafir soruları (${fixtures.length})`, () => {
       try {
         turn = await runTurn({ id: f.id, hotel: f.hotel, tour: "eval", message: f.question, expect: {} });
       } catch (error) {
-        // Otel yerelde yok ya da yayında değil.
-        results.push({ id: f.id, hotel: f.hotel, question: f.question, status: "atlandi", reason: String(error).slice(0, 120) });
+        // Kota bitti → bekliyor; otel yerelde yok ya da yayında değil → atlandı.
+        const status = error instanceof QuotaExhaustedError ? "bekliyor" : "atlandi";
+        results.push({ id: f.id, hotel: f.hotel, question: f.question, status, reason: String(error).slice(0, 120) });
         return;
       }
       const cards = shownCards(turn.tools);

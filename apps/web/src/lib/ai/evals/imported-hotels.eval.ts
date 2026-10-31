@@ -28,7 +28,7 @@ import { petsAllowedOf } from "@/lib/import/oteldenrezerve-text";
 import { todayIso } from "@/lib/price";
 import type { Fixture } from "./fixtures";
 import { isMisleadingCardPointer } from "@/lib/ai/deterministic-tools";
-import { judgeGrounding, runTurn, shownCards, type TurnResult, type Verdict } from "./harness";
+import { QuotaExhaustedError, judgeGrounding, runTurn, shownCards, type TurnResult, type Verdict } from "./harness";
 
 // Aktarılan otellerin sanal turu yok: tek adımlı bir tur taklit edilir.
 vi.mock("@/lib/mocks/hotels", async (importOriginal) => ({
@@ -293,7 +293,15 @@ describe.concurrent(`Aktarılan oteller AI doğruluğu (${slugs.length} otel, ${
     it(c.id, async () => {
       const started = Date.now();
       const fixture: Fixture = { id: c.id, hotel: c.hotel, tour: "eval", message: c.message, browserLocale: c.browserLocale, history: c.history, expect: {} };
-      const turn = await runTurn(fixture);
+      let turn: TurnResult;
+      try {
+        turn = await runTurn(fixture);
+      } catch (error) {
+        if (!(error instanceof QuotaExhaustedError)) throw error;
+        // Kota bitti: soru bu koşuda değerlendirilemedi — hata değil, bekliyor.
+        results.push({ id: c.id, category: c.category, hotel: c.hotel, message: c.message, ok: false, checkOk: false, pending: true, reason: error.message, modelSpoke: true, text: "", tools: [], durationMs: Date.now() - started });
+        return;
+      }
       const visible = visibleText(turn);
       const cards = shownCards(turn.tools);
       let reason = c.check(turn, visible);
