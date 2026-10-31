@@ -28,7 +28,8 @@
     "test:eval:planner": "dotenv -e .env.local -- vitest run --config vitest.eval.config.mts src/lib/ai/evals/planner-offline.eval.ts",
     "test:eval:search": "dotenv -e .env.local -- vitest run --config vitest.eval.config.mts src/lib/ai/evals/search-offline.eval.ts",
     "eval:candidates": "dotenv -e .env.local -- tsx scripts/eval-candidates.ts",
-    "test:eval:real": "dotenv -e .env.local -- vitest run --config vitest.eval.config.mts src/lib/ai/evals/real-questions.eval.ts"
+    "test:eval:real": "dotenv -e .env.local -- vitest run --config vitest.eval.config.mts src/lib/ai/evals/real-questions.eval.ts",
+    "test:eval:models": "dotenv -e .env.local -- vitest run --config vitest.eval.config.mts src/lib/ai/evals/model-compare.eval.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.83",

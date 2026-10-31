@@ -184,6 +184,8 @@ export interface TurnResult {
   tools: ToolUse[];
   reply?: "unknown" | "contact" | "askDates" | "rooms";
   modelSpoke: boolean;
+  /** Model çağrısının süresi (yalnız başarılı deneme; sunucu turunda yok). */
+  modelMs?: number;
   inputTokens: number;
   outputTokens: number;
 }
@@ -225,7 +227,11 @@ export async function runTurn(fixture: Fixture): Promise<TurnResult> {
   const instruction = triggerInstruction(data);
   if (instruction) messages.push({ role: "user", content: instruction });
   const tools = buildTools(data, flags);
-  const result = await withQuotaRetry(() => generateText({
+  // Gecikme yalnız başarılı denemeden ölçülür (kota beklemeleri hariç).
+  let modelMs = 0;
+  const result = await withQuotaRetry(async () => {
+    const t0 = Date.now();
+    const r = await generateText({
     model: getChatModel()!,
     system: buildSystemPrompt(data),
     messages: messages as ModelMessage[],
@@ -235,7 +241,10 @@ export async function runTurn(fixture: Fixture): Promise<TurnResult> {
     maxOutputTokens: 350,
     providerOptions: CHAT_PROVIDER_OPTIONS,
     maxRetries: 0,
-  }));
+    });
+    modelMs = Date.now() - t0;
+    return r;
+  });
   const modelTools: ToolUse[] = result.steps.flatMap((step) =>
     step.toolCalls.map((call) => ({
       toolName: call.toolName,
@@ -257,6 +266,7 @@ export async function runTurn(fixture: Fixture): Promise<TurnResult> {
     text,
     tools: [...serverTools, ...modelTools],
     modelSpoke: true,
+    modelMs,
     inputTokens: result.usage.inputTokens ?? 0,
     outputTokens: result.usage.outputTokens ?? 0,
   };

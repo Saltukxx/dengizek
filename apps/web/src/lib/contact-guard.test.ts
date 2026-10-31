@@ -58,3 +58,10 @@ describe("redactContactInfo", () => {
     expect(containsContactInfo(null)).toBe(false);
   });
 });
+
+describe("sondaki boşluk", () => {
+  it("yalnız sondaki boşluk/satır sonu iletişim bilgisi sayılmaz", () => {
+    expect(containsContactInfo("Hoş geldiniz! Nereden başlamak istersiniz?\n\n")).toBe(false);
+    expect(containsContactInfo("Bizi 0532 123 45 67'den arayın.\n")).toBe(true);
+  });
+});

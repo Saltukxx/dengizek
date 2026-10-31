@@ -16,12 +16,16 @@ export class QuotaExhaustedError extends Error {
 const MAX_QUOTA_RETRIES = 3;
 const MAX_QUOTA_WAIT_MS = 65_000;
 
-function quotaInfo(error: unknown): { quota: boolean; daily: boolean; waitMs: number } {
+function quotaInfo(error: unknown, attempt: number): { quota: boolean; daily: boolean; waitMs: number } {
+  const status = (error as { statusCode?: number } | null)?.statusCode;
   const text = `${String(error)} ${APICallError.isInstance(error) ? (error.responseBody ?? "") : ""}`;
-  const quota = (APICallError.isInstance(error) && error.statusCode === 429) || /quota|RESOURCE_EXHAUSTED|429/i.test(text);
-  const daily = /PerDay|per day|daily/i.test(text);
+  // Geçici yoğunluk (503 "high demand") da beklenip tekrar denenir.
+  const overloaded = status === 503 || /high demand|overloaded|UNAVAILABLE/i.test(text);
+  const quota = overloaded || status === 429 || /quota|RESOURCE_EXHAUSTED|429/i.test(text);
+  const daily = !overloaded && /PerDay|per day|daily/i.test(text);
   const seconds = Number(text.match(/retry(?:Delay)?[^0-9]{0,20}(\d+(?:\.\d+)?)\s*s/i)?.[1]);
-  return { quota, daily, waitMs: Number.isFinite(seconds) ? Math.ceil(seconds * 1000) + 500 : 20_000 };
+  const waitMs = Number.isFinite(seconds) ? Math.ceil(seconds * 1000) + 500 : overloaded ? 5_000 * 2 ** attempt : 20_000;
+  return { quota, daily, waitMs };
 }
 
 export async function withQuotaRetry<T>(call: () => Promise<T>, sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))): Promise<T> {
@@ -29,10 +33,10 @@ export async function withQuotaRetry<T>(call: () => Promise<T>, sleep = (ms: num
     try {
       return await call();
     } catch (error) {
-      const info = quotaInfo(error);
+      const info = quotaInfo(error, attempt);
       if (!info.quota) throw error;
       if (info.daily || attempt >= MAX_QUOTA_RETRIES || info.waitMs > MAX_QUOTA_WAIT_MS) {
-        throw new QuotaExhaustedError(info.daily ? "Günlük model kotası bitti" : "Model kotası: bekleme süresi aşıldı");
+        throw new QuotaExhaustedError(info.daily ? "Günlük model kotası bitti" : "Model kotası/yoğunluğu: tekrar denemeler tükendi");
       }
       await sleep(info.waitMs);
     }
