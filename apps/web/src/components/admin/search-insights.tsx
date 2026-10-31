@@ -6,7 +6,9 @@ import type { SearchInsights } from "@/lib/ai/search-log";
 
 /** Arama asistanı kayıtları — sözlüğe eklenecek kelimeler ve sonuçsuz aramalar. */
 export function SearchInsightsPanel() {
-  const [data, setData] = useState<(SearchInsights & { periodDays: number }) | null>(null);
+  const [data, setData] = useState<
+    (Omit<SearchInsights, "topHotels"> & { periodDays: number; topHotels: Array<SearchInsights["topHotels"][number] & { hotelName: string }> }) | null
+  >(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -43,7 +45,7 @@ export function SearchInsightsPanel() {
       <Text size="xs" c="dimmed" mb="sm">
         Sonuçsuz aramalar ve anlaşılmayan kelimeler, asistanın sözlüğüne eklenecek adaylardır.
       </Text>
-      <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
+      <SimpleGrid cols={{ base: 1, md: 2, lg: 4 }} spacing="md">
         <div>
           <Text size="sm" fw={500} mb={6}>
             Sonuç bulunamayan aramalar
@@ -73,6 +75,29 @@ export function SearchInsightsPanel() {
             En çok arananlar
           </Text>
           {list(data.top, "Henüz arama yok")}
+        </div>
+        <div>
+          <Text size="sm" fw={500} mb={6}>
+            En çok gösterilen oteller
+          </Text>
+          {data.topHotels?.length ? (
+            <Stack gap={6}>
+              {data.topHotels.map((h) => (
+                <Group key={h.hotelSlug} justify="space-between" wrap="nowrap" gap="sm">
+                  <Text size="sm" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                    {h.hotelName}
+                  </Text>
+                  <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
+                    {h.count}× · ilk sırada {h.first}
+                  </Text>
+                </Group>
+              ))}
+            </Stack>
+          ) : (
+            <Text size="sm" c="dimmed">
+              Henüz yok
+            </Text>
+          )}
         </div>
       </SimpleGrid>
     </Paper>

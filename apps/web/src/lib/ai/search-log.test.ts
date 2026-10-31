@@ -13,6 +13,7 @@ describe("arama kayıtları", () => {
     expect(payload.query).not.toContain("0532 123 45 67");
     expect(payload.results).toBe(0);
     expect(payload.unknown).toContain("manzaralı");
+    expect(payload.hotels).toEqual([]);
   });
 
   it("özet: sonuçsuz aramalar, anlaşılmayan kelimeler, en çok arananlar", () => {
@@ -32,5 +33,18 @@ describe("arama kayıtları", () => {
     expect(insights.top[0]).toMatchObject({ query: "sauna olan otel", count: 2 });
     expect(insights.noResults.map((g) => g.query)).toEqual(["Golf sahası", "Deniz manzaralı otel"]);
     expect(insights.unknownWords[0]).toEqual({ word: "manzarali", count: 2 });
+  });
+
+  it("özet: en çok gösterilen oteller ve ilk sırada çıkma", () => {
+    const at = new Date("2026-10-20T10:00:00Z");
+    const insights = summarizeSearches([
+      { payload: { query: "sauna", results: 2, unknown: [], hotels: ["a", "b"] }, createdAt: at },
+      { payload: { query: "termal", results: 2, unknown: [], hotels: ["b", "a"] }, createdAt: at },
+      { payload: { query: "spa", results: 1, unknown: [], hotels: ["b"] }, createdAt: at },
+    ]);
+    expect(insights.topHotels).toEqual([
+      { hotelSlug: "b", count: 3, first: 2 },
+      { hotelSlug: "a", count: 2, first: 1 },
+    ]);
   });
 });

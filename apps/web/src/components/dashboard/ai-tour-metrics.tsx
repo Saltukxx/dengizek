@@ -43,6 +43,12 @@ interface AiMetricsData {
     reason: "bilgi-yok" | "kartsiz";
     lastAskedAt: string;
   }>;
+  questionInsights?: {
+    total: number;
+    answerRate: number | null;
+    topQuestions: Array<{ question: string; count: number; unanswered: number; topic: string }>;
+    byTopic: Array<{ topic: string; label: string; count: number; unanswered: number }>;
+  };
 }
 
 function MetricCard({
@@ -192,6 +198,38 @@ export function AiTourMetrics() {
               ? ` · %${data.autoTour.completionRate} oran`
               : ""}
           </Text>
+        </Paper>
+      ) : null}
+
+      {data.questionInsights && data.questionInsights.total > 0 ? (
+        <Paper withBorder p="md" radius="md">
+          <Text size="sm" fw={500}>
+            Misafirlerin rehbere en çok sorduğu sorular (son 30 gün)
+          </Text>
+          <Text size="xs" c="dimmed" mt={4} mb="xs">
+            {data.questionInsights.total.toLocaleString("tr-TR")} soru
+            {data.questionInsights.answerRate != null
+              ? ` · %${Math.round(data.questionInsights.answerRate * 100)} doğrulanmış bilgiyle cevaplandı`
+              : ""}
+            {data.questionInsights.byTopic.length
+              ? ` · ${data.questionInsights.byTopic
+                  .slice(0, 5)
+                  .map((t) => `${t.label} ${t.count}`)
+                  .join(", ")}`
+              : ""}
+          </Text>
+          <Stack gap={6}>
+            {data.questionInsights.topQuestions.map((q) => (
+              <Group key={q.question} justify="space-between" wrap="nowrap" gap="sm">
+                <Text size="sm" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                  {q.question}
+                </Text>
+                <Badge variant="outline" style={{ flexShrink: 0 }}>
+                  {q.count}×
+                </Badge>
+              </Group>
+            ))}
+          </Stack>
         </Paper>
       ) : null}
 

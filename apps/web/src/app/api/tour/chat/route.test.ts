@@ -395,6 +395,30 @@ describe("POST /api/tour/chat", () => {
     expect(trackEventMock).not.toHaveBeenCalledWith("ai_unanswered", expect.anything(), expect.anything(), expect.anything());
   });
 
+  it("her soru analiz için kaydedilir: sunucu turu (bilgi yok) ve model turu (cevaplandı)", async () => {
+    await POST(makeRequest({ ...baseBody, messages: [{ role: "user", content: "Otelde golf sahası var mı?" }] }));
+    expect(trackEventMock).toHaveBeenCalledWith(
+      "ai_question",
+      expect.objectContaining({ question: "Otelde golf sahası var mı?", outcome: "bilgi-yok", source: "sunucu", topic: "diger" }),
+      null,
+      "aurelia-bay",
+    );
+
+    await POST(makeRequest({ ...baseBody, messages: [{ role: "user", content: "Hello, could you tell me a little about this place please?" }] }));
+    const call = streamTextMock.mock.calls[0][0] as { onFinish: (event: unknown) => void };
+    call.onFinish({
+      totalUsage: {},
+      text: "Here are the details.",
+      steps: [{ toolResults: [{ toolName: "citeFact", input: { factId: "spec.amenities" }, output: { ok: true } }] }],
+    });
+    expect(trackEventMock).toHaveBeenCalledWith(
+      "ai_question",
+      expect.objectContaining({ outcome: "cevaplandi", source: "model", factIds: ["spec.amenities"], answer: "Here are the details." }),
+      null,
+      "aurelia-bay",
+    );
+  });
+
   it("hız sınırı aşıldığında 429 ve Türkçe mesaj döner", async () => {
     const ip = "9.9.9.9";
     let last: Response | null = null;

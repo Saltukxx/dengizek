@@ -28,6 +28,7 @@ import { trackEvent } from "@/lib/analytics";
 import { checkAiBudget } from "@/lib/ai/budget";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { UNANSWERED_EVENT, unansweredPayload, type UnansweredReason } from "@/lib/ai/unanswered";
+import { QUESTION_EVENT, factIdsFromTools, outcomeFromTools, questionLogPayload, type QuestionLogInput } from "@/lib/ai/question-log";
 import { apiRateLimited, apiNotFound, apiServiceUnavailable } from "@/lib/api-response";
 import {
   convertToModelMessages,
@@ -866,9 +867,28 @@ export async function POST(req: Request) {
     const payload = data.lastUserMessage ? unansweredPayload(data.lastUserMessage, reason) : null;
     if (payload) void trackEvent(UNANSWERED_EVENT, { ...payload, tourId: data.tourId }, hotelId, data.hotelSlug);
   };
+  // Soru kaydı (analiz): misafirin her sorusu, cevabın sonucuyla birlikte.
+  const recordQuestion = (input: Omit<QuestionLogInput, "question" | "language" | "tourId">) => {
+    if (data.triggerReason !== "userMessage" || !data.lastUserMessage) return;
+    const payload = questionLogPayload({ ...input, question: data.lastUserMessage, language: language ?? null, tourId: data.tourId });
+    if (payload) void trackEvent(QUESTION_EVENT, { ...payload }, hotelId, data.hotelSlug);
+  };
   if (serverTurn && fixedText !== null) {
     const factFailed = serverTurn.runs.some((r) => r.toolName === "citeFact" && (r.output as { ok?: boolean } | null)?.ok === false);
     if (serverTurn.reply === "unknown" || factFailed) recordUnanswered("bilgi-yok");
+    recordQuestion({
+      answer: fixedText,
+      source: "sunucu",
+      outcome:
+        serverTurn.reply === "rooms"
+          ? "cevaplandi"
+          : outcomeFromTools(serverTurn.runs, {
+              unknownReply: serverTurn.reply === "unknown",
+              redirectReply: serverTurn.reply === "contact" || serverTurn.reply === "askDates",
+            }),
+      tools: serverTurn.runs.map((r) => r.toolName),
+      factIds: factIdsFromTools(serverTurn.runs),
+    });
     // Sunucu turu (kart, gezinme, "bilgim yok", iletişim): model çağrılmaz.
     return serverToolResponse(serverTurn.runs, fixedText);
   }
@@ -920,7 +940,7 @@ export async function POST(req: Request) {
       ),
     ],
     tools: allTools,
-    onFinish: ({ totalUsage, steps }) => {
+    onFinish: ({ totalUsage, steps, text }) => {
       // Model geçerli bir bilgi/fiyat kartı göstermeden cevapladıysa soru panelde
       // "kartsız" olarak listelenir (otel verisinde karşılığı yok ya da bulunamadı).
       if (data.triggerReason === "userMessage") {
@@ -930,6 +950,13 @@ export async function POST(req: Request) {
         );
         const failed = results.some((r) => r.toolName === "citeFact" && (r.output as { ok?: boolean } | null)?.ok === false);
         if (!grounded) recordUnanswered(failed ? "bilgi-yok" : "kartsiz");
+        recordQuestion({
+          answer: text ?? "",
+          source: "model",
+          outcome: outcomeFromTools(results),
+          tools: results.map((r) => r.toolName),
+          factIds: factIdsFromTools(results),
+        });
       }
       void trackEvent(
         "ai_usage",

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Loader, Paper, Select, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
 import { ANALYTICS_EVENT_LABELS } from "@/lib/schemas/analytics";
 import { SearchInsightsPanel } from "@/components/admin/search-insights";
+import { QuestionInsightsPanel } from "@/components/admin/question-insights";
 
 interface AdminAnalytics {
   totalEvents: number;
@@ -21,6 +22,7 @@ const eventLabels: Record<string, string> = {
   ...ANALYTICS_EVENT_LABELS,
   hotel_search: "Arama asistanı",
   ai_unanswered: "Rehberin cevapsız sorusu",
+  ai_question: "Rehbere sorulan soru",
 };
 
 export default function AdminAnalyticsPage() {
@@ -119,6 +121,7 @@ export default function AdminAnalyticsPage() {
           </Table>
         </Paper>
       )}
+      <QuestionInsightsPanel period={period} hotelId={hotelId} />
       <SearchInsightsPanel />
       {data.timeSeries.length > 0 && (
         <Paper withBorder radius="md" p="md">

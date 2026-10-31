@@ -8,6 +8,7 @@ import { requireHotelAccess } from "@/lib/auth/guards";
 import { computeFactEmbeddingFreshness } from "@/lib/ai/fact-store";
 import { computeAiReadinessScore } from "@/lib/ai/readiness-score";
 import { UNANSWERED_EVENT, groupUnanswered } from "@/lib/ai/unanswered";
+import { QUESTION_EVENT, summarizeQuestions } from "@/lib/ai/question-log";
 import { getDb } from "@/lib/db";
 import { analyticsEventsTable, roomsTable, tourStepsTable, toursTable } from "@/lib/db/schema";
 
@@ -132,6 +133,15 @@ export async function GET(_req: Request, { params }: RouteParams) {
   // Rehberin cevaplayamadığı sorular — otel sahibi eksik bilgiyi buradan görür.
   const unansweredQuestions = groupUnanswered(events.filter((e) => e.eventType === UNANSWERED_EVENT));
 
+  // Misafirlerin rehbere sorduğu tüm sorular — en çok sorulanlar ve konular.
+  const questionSummary = summarizeQuestions(events.filter((e) => e.eventType === QUESTION_EVENT), 10);
+  const questionInsights = {
+    total: questionSummary.total,
+    answerRate: questionSummary.answerRate,
+    topQuestions: questionSummary.topQuestions,
+    byTopic: questionSummary.byTopic,
+  };
+
   // RAG lexical fallback'e mi düşüyor? Yayındaki katalog vs. embedding tablosu.
   const embeddingFreshness = await computeFactEmbeddingFreshness(hotel.slug);
 
@@ -167,6 +177,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
     readinessScore: readiness.score,
     readinessIssues: readiness.issues,
     unansweredQuestions,
+    questionInsights,
     byType,
   });
 }
