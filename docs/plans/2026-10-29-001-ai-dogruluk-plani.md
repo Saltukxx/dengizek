@@ -177,7 +177,10 @@ Bitti sayılır: aktarılan otellerde kritik alan doluluğu raporlanıyor; otelc
 - Eski metin (referans):
 - Her rehber cevabının altında 👍/👎 → `trackEvent("ai_feedback")`; panelde ve admin'de listelenir.
 
-**3.2 Gerçek sorulardan eval**
+**3.2 Gerçek sorulardan eval** — ✅ 31 Ekim (araç hazır; haftalık çalıştırma elle)
+- `npm run eval:candidates` son 7 günün 👎 ve cevapsız sorularını otel bazında gruplayıp `.eval-cache/candidates-<tarih>.json`'a yazar (git'e girmez; veritabanını yalnız okur). Onaylanacaklar `"approve": true` (+ isteğe bağlı `expect.contains` / `expect.unknown`) yapılır; `npm run eval:candidates -- promote <dosya>` iletişim bilgisi kontrolünden geçirip `src/lib/ai/evals/real-questions.json`'a ekler; `npm run test:eval:real` koşar (yanıltıcı yönlendirme, beklenen ifade, "bilgim yok", hakem).
+- Set şu an boş: gerçek misafir trafiği yok. CI'da koşmaz (gerçek oteller seed veritabanında yok).
+- Eski metin (referans):
 - Haftalık: 👎 alan ve cevapsız kalan sorular eval aday listesine; elle onaylanıp kişisel veri temizlenerek fixture olur.
 
 ---
