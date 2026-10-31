@@ -133,7 +133,13 @@ Sıra taban ölçüme göre güncellenir; aşağıdaki öncelik tahmindir.
 - "Balkon / klima / minibar var mı?" → otel olanak listesinden önce oda özelliklerine bakılır; cevap "şu odalarda var".
 - Olanak listesinde olmayan ama kaynak metinde geçen terimler (kese) için metin içi eşleşme kartı.
 
-**1.4 Soru setini büyütme**
+**1.4 Soru setini büyütme** — ✅ 31 Ekim
+- Planlayıcı offline (API'siz) 2.091 → **3.086 soru, %99,8**. Yeni: yazım hatası ("giris saati kacta", "kopek getirebilirmiyim", "saunanız varmı"), İngilizce varyant, Almanca/Rusça (ölçüt: yanlış kart ya da yanlış "bilgim yok" asla — doğru kart ya da modele bırakma), iki soru tek mesajda, kısa takip ("peki çıkış?"), fiyat takibi ("Peki 3 kişi olursak?").
+- Bulunan ve düzeltilen: (1) iki soruda yalnız ilki cevaplanıyordu (4/35) → birleşik soru parçalanıp kartlar birleşir, cevap her kartın cümlesinden; kart koruması sorulan konulardan herhangi birini kabul eder. (2) "peki çıkış?" modele düşüyordu (0/38) → kısa takip önceki sorunun kalıbını devralır.
+- Uçtan uca 15 otel (gerçek model): 290 soru, **%99,65**; yeni kategorilerin hepsi geçti, yanıltıcı 0, uydurma 0. Koşunun bir kısmı Gemini embedding kotası dolduğu için embedding'siz (en kötü durum) çalıştı.
+- Arama asistanı: kural kalıbından bağımsız 21 doğal ifade eklendi ("afyonda saunası olan bir yer arıyorum", "köpeğimle kalabileceğim termal otel", "family room for 4 in afyon"). İlk ölçüm %85,7 → düzeltmelerle %100 (250 sorgu). Bulunan: ekli kısaltma ("afyonda") Afyonkarahisar'ı kapsamıyordu; "for 4" kişi sayısı sayılmıyordu.
+- Kapsam dışı (plan gereği): sunucu cevap metinleri TR/EN; Almanca/Rusça misafire sunucu turu İngilizce cevap verir, model turu kendi dilinde.
+- Eski metin (referans):
 - Çok turlu takip soruları, yazım hataları, İngilizce/Almanca/Rusça, bir mesajda iki soru — aktarılan otellerle.
 - Arama eval'ına gerçek misafir ifadelerine yakın, kural setinden bağımsız yazılmış sorgular (şu an %100 olması şüpheli).
 

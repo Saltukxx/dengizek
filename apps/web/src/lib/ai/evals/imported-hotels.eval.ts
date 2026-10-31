@@ -84,6 +84,8 @@ interface Case {
   message: string;
   browserLocale?: string;
   check: Check;
+  /** Önceki turlar (takip sorusu). */
+  history?: Fixture["history"];
 }
 
 const ABSENT = [
@@ -97,8 +99,8 @@ async function casesFor(slug: string): Promise<Case[]> {
   const source = catalog.map((f) => f.text).join("\n");
   const { specs } = content;
   const cases: Case[] = [];
-  const add = (category: string, message: string, check: Check, browserLocale?: string) =>
-    cases.push({ id: `${slug}:${category}`, category, hotel: slug, message, check, browserLocale });
+  const add = (category: string, message: string, check: Check, browserLocale?: string, history?: Fixture["history"]) =>
+    cases.push({ id: `${slug}:${category}`, category, hotel: slug, message, check, browserLocale, history });
 
   // Saatler
   for (const [category, label, time, en] of [
@@ -183,6 +185,33 @@ async function casesFor(slug: string): Promise<Case[]> {
     );
   }
 
+  // Sağlamlık (1.4): yazım hatası, başka dil, iki soru, kısa takip
+  const petsCheck: Check = (t, v) => {
+    const said = petsAllowedOf(v);
+    if (specs.petsAllowed == null) return said == null || t.reply === "unknown" ? null : "kaynakta yokken kural söylendi";
+    return said == null || said === specs.petsAllowed ? null : `yanlış kural: ${said ? "kabul" : "kabul edilmez"}`;
+  };
+  if (specs.checkInTime) {
+    const time = specs.checkInTime;
+    add("saglam-giris-yazim", "giris saati kacta", (_t, v) => (v.includes(time) ? null : `beklenen ${time} yok`));
+    add("saglam-giris-de", "Wann ist der Check-in?", (_t, v) => (v.includes(time) ? null : `beklenen ${time} yok`), "de-DE");
+    if (specs.petsAllowed != null) {
+      add("saglam-iki-soru", "Giriş saati kaçta ve köpek kabul ediyor musunuz?", (t, v) => {
+        if (!v.includes(time)) return `giriş saati (${time}) yok`;
+        const said = petsAllowedOf(v);
+        return said === specs.petsAllowed ? null : `evcil hayvan kuralı ${said == null ? "söylenmedi" : "yanlış"}`;
+      });
+    }
+  }
+  if (specs.checkOutTime && specs.checkInTime) {
+    const out = specs.checkOutTime;
+    add("saglam-takip-cikis", "peki çıkış?", (_t, v) => (v.includes(out) ? null : `beklenen ${out} yok`), undefined, [
+      { role: "user", parts: [{ type: "text", text: "Giriş saati kaçta?" }] },
+      { role: "assistant", parts: [{ type: "text", text: `Check-in saati: ${specs.checkInTime}.` }] },
+    ]);
+  }
+  add("saglam-evcil-ru", "Можно ли с собакой?", petsCheck, "ru-RU");
+
   // Serbest soru — model konuşabilir, hakem denetler
   if (/termal|havuz/i.test(source)) {
     add("serbest-termal", "Termal havuzlarınızı anlatır mısınız?", (_t, v) => (/havuz|termal/i.test(v) ? null : "havuz/termal bilgisi yok"));
@@ -263,7 +292,7 @@ describe.concurrent(`Aktarılan oteller AI doğruluğu (${slugs.length} otel, ${
   for (const c of cases) {
     it(c.id, async () => {
       const started = Date.now();
-      const fixture: Fixture = { id: c.id, hotel: c.hotel, tour: "eval", message: c.message, browserLocale: c.browserLocale, expect: {} };
+      const fixture: Fixture = { id: c.id, hotel: c.hotel, tour: "eval", message: c.message, browserLocale: c.browserLocale, history: c.history, expect: {} };
       const turn = await runTurn(fixture);
       const visible = visibleText(turn);
       const cards = shownCards(turn.tools);

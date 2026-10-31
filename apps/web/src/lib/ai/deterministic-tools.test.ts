@@ -4,6 +4,9 @@ vi.mock("@/lib/ai/llm", () => ({ getEmbeddingModel: () => null, EMBEDDING_PROVID
 
 import {
   isMisleadingCardPointer,
+  cardMatchesAskedTopic,
+  expandEllipticalFollowUp,
+  splitCompoundQuestion,
   extractPriceQuery,
   extractStayDates,
   hasNavigationIntent,
@@ -809,5 +812,48 @@ describe("oda özellikleri ve metinde geçen olanaklar", () => {
   it("adı geçen oda: donanım → açıklama kartı, kapasite → oda kartı", async () => {
     expect((await plan("Suit Oda odasında neler var?")).calls).toEqual([{ toolName: "citeFact", input: { factId: "room.suit.details" } }]);
     expect((await plan("Suit Oda kaç kişilik?")).calls).toEqual([{ toolName: "citeFact", input: { factId: "room.suit.info" } }]);
+  });
+});
+
+describe("birleşik soru ve kısa takip", () => {
+  it("birleşik soru parçalanır; tek kelimelik parça varsa tek soru kalır", () => {
+    expect(splitCompoundQuestion("Giriş saati kaçta ve köpek kabul ediyor musunuz?")).toEqual(["Giriş saati kaçta", "köpek kabul ediyor musunuz?"]);
+    expect(splitCompoundQuestion("Giriş saati kaçta? Havuz var mı?")).toEqual(["Giriş saati kaçta", "Havuz var mı?"]);
+    expect(splitCompoundQuestion("Kahvaltı ve akşam yemeği dahil mi?")).toEqual([]);
+    expect(splitCompoundQuestion("Merhaba, giriş saati kaçta?")).toEqual([]);
+  });
+
+  it("kısa takip önceki sorunun kalıbını devralır; fiyat takibine dokunmaz", () => {
+    const ctx = { previousUserTexts: ["Giriş saati kaçta?"] };
+    expect(expandEllipticalFollowUp("peki çıkış?", ctx)).toBe("peki cikis saati kacta");
+    expect(expandEllipticalFollowUp("Peki çıkış saati?", ctx)).toBeNull();
+    expect(expandEllipticalFollowUp("peki çıkış?", { previousUserTexts: [] })).toBeNull();
+    expect(expandEllipticalFollowUp("Peki 3 kişi?", ctx)).toBeNull();
+    expect(expandEllipticalFollowUp("peki suit?", { ...ctx, lastPriceQuery: { guestCount: 2 } })).toBeNull();
+  });
+
+  it("kart, sorulan konulardan birinin kanıtını içeriyorsa kabul", () => {
+    const q = "Giriş saati kaçta ve köpek kabul ediyor musunuz?";
+    expect(cardMatchesAskedTopic(q, { text: "Evcil hayvan kabul edilmez." })).toBe(true);
+    expect(cardMatchesAskedTopic(q, { text: "Giriş saati 14:00." })).toBe(true);
+    expect(cardMatchesAskedTopic(q, { text: "İptal 7 gün önce ücretsiz." })).toBe(false);
+    expect(cardMatchesAskedTopic("Termal havuz var mı?", { text: "x" })).toBeNull();
+  });
+
+  it("planlayıcı iki soruya iki kart verir", async () => {
+    const catalog: AiFactCatalogEntry[] = [
+      { id: "spec.check_in", kind: "verified", hint: "giriş saati check-in", text: "Check-in saati: 14:00" },
+      { id: "spec.check_out", kind: "verified", hint: "çıkış saati check-out", text: "Check-out saati: 12:00" },
+      { id: "policy.pets", kind: "policy", hint: "evcil hayvan", text: "Evcil hayvan kabul edilmez." },
+    ];
+    const run = (message: string, context?: { previousUserTexts: string[] }) =>
+      planServerTools({ message, messageEmbedding: null, hints: detectToolHints(message), inquiryIntent: "none", catalog, rooms, today: TODAY, context });
+    expect((await run("Giriş saati kaçta ve köpek kabul ediyor musunuz?")).calls.map((c) => c.input)).toEqual([
+      { factId: "spec.check_in" },
+      { factId: "policy.pets" },
+    ]);
+    expect((await run("peki çıkış?", { previousUserTexts: ["Giriş saati kaçta?"] })).calls).toEqual([
+      { toolName: "citeFact", input: { factId: "spec.check_out" } },
+    ]);
   });
 });

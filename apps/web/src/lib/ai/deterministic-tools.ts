@@ -17,7 +17,7 @@ import type { AiFactCatalogEntry } from "@/lib/ai/types";
 import { normalizeText, stemMatch, suffixMatch, synonymsOf, tokens } from "@/lib/ai/text";
 import { addDays, parseGuests, parseStayDates } from "@/lib/ai/stay-query";
 import { asksAmenityPrice, asksKnownAmenity, canonicalAmenityText, matchAmenities, textMentionsAmenity, textsMentionAmenity } from "@/lib/ai/amenity-match";
-import { pointsToCard } from "@/lib/ai/response-guard";
+import { detectToolHints, pointsToCard } from "@/lib/ai/response-guard";
 import { isRoomFeature, roomsLackingFeature } from "@/lib/ai/room-features";
 
 export { extractStayDates } from "@/lib/ai/stay-query";
@@ -656,6 +656,18 @@ export function knownTopicEvidence(message: string): RegExp | null {
   return KNOWN_TOPICS.find((t) => t.ask(text))?.evidence ?? null;
 }
 
+/**
+ * Kart, mesajda sorulan bilinen konulardan BİRİNİN kanıtını içeriyor mu?
+ * ("Giriş saati kaçta ve köpek kabul ediyor musunuz?" → giriş VEYA evcil
+ * hayvan kartı). Bilinen konu sorulmadıysa null — karar verilmez.
+ */
+export function cardMatchesAskedTopic(message: string, card: { title?: string; text: string }): boolean | null {
+  const text = normalizeText(message);
+  const asked = KNOWN_TOPICS.filter((t) => t.ask(text));
+  if (!asked.length) return null;
+  return asked.some((t) => t.evidence.test(`${card.title ?? ""} ${card.text}`));
+}
+
 export function isMissingKnownTopic(message: string, catalog: AiFactCatalogEntry[]): boolean {
   const evidence = knownTopicEvidence(message);
   if (!evidence) return false;
@@ -672,16 +684,74 @@ export function isMisleadingCardPointer(
   text: string,
   cards: Array<{ title?: string; text: string }>,
 ): boolean {
-  const evidence = knownTopicEvidence(question);
-  if (!evidence || !pointsToCard(text)) return false;
-  return !cards.some((card) => evidence.test(`${card.title ?? ""} ${card.text}`));
+  if (!knownTopicEvidence(question) || !pointsToCard(text)) return false;
+  return !cards.some((card) => cardMatchesAskedTopic(question, card));
 }
 
 // ---------------------------------------------------------------------------
 // Plan
 // ---------------------------------------------------------------------------
 
-export async function planServerTools(args: {
+type PlanArgs = Parameters<typeof planSingle>[0];
+
+/**
+ * Misafir mesajı için sunucu planı. İki sarmalayıcı adım:
+ * - Kısa takip ("peki çıkış?") önceki sorunun kalıbını devralır.
+ * - Birleşik soru ("Giriş saati kaçta ve köpek kabul ediyor musunuz?")
+ *   parçalara bölünür; her parça bilgi kartıyla cevaplanıyorsa kartlar birleşir.
+ */
+export async function planServerTools(args: PlanArgs): Promise<ServerPlan> {
+  const expanded = expandEllipticalFollowUp(args.message, args.context);
+  if (expanded) return planSingle({ ...args, message: expanded, hints: detectToolHints(expanded) });
+
+  const parts = args.hints.needsPriceTool ? [] : splitCompoundQuestion(args.message);
+  if (parts.length >= 2) {
+    const plans = await Promise.all(parts.map((part) => planSingle({ ...args, message: part, hints: detectToolHints(part) })));
+    const onlyCards = plans.every((p) => !p.reply && !p.amenities && p.calls.length && p.calls.every((c) => c.toolName === "citeFact"));
+    const ids = [...new Set(plans.flatMap((p) => p.calls.map((c) => (c.input as { factId: string }).factId)))];
+    if (onlyCards && ids.length >= 2) {
+      return { calls: ids.slice(0, MAX_COMPOUND_PARTS).map((factId) => ({ toolName: "citeFact" as const, input: { factId } })) };
+    }
+  }
+  return planSingle(args);
+}
+
+const MAX_COMPOUND_PARTS = 3;
+/** Soru kalıbı: takip sorusunda yoksa önceki sorudan devralınır. */
+const QUESTION_FRAME =
+  /\b(saat\w*|kacta|ne zaman|ne kadar|var mi|ucret\w*|kac derece|kabul\w*|izin\w*|what time|when|how much|how far|allowed|is there)\b/g;
+const ELLIPSIS_START = /^(peki|ya|ve|bir de|and|what about|how about|also)\b/;
+
+/**
+ * "peki çıkış?" — kısa, soru kalıbı yok, önceki mesajda kalıp var →
+ * "peki çıkış saati kaçta". Değilse null.
+ */
+export function expandEllipticalFollowUp(message: string, context?: ConversationContext): string | null {
+  const previous = context?.previousUserTexts[0];
+  if (!previous) return null;
+  // Fiyat konuşmasının devamı ("Peki 3 kişi olursak?") fiyat planına kalır.
+  if (context?.lastPriceQuery || /\d/.test(message)) return null;
+  const text = normalizeText(message).replace(/[?!.]/g, " ").trim();
+  if (!ELLIPSIS_START.test(text) || tokens(text).length > 4 || text.match(QUESTION_FRAME)) return null;
+  const frames = [...new Set(normalizeText(previous).match(QUESTION_FRAME) ?? [])];
+  return frames.length ? `${text} ${frames.join(" ")}` : null;
+}
+
+/**
+ * "A ve B?" / "A? B?" / "A, B?" — her parça kendi başına soru gibiyse
+ * (en az 2 kelime) parçalar; değilse boş. "Kahvaltı ve akşam yemeği dahil mi?"
+ * tek soru kalır (parçalardan biri tek kelime).
+ */
+export function splitCompoundQuestion(message: string): string[] {
+  const parts = message
+    .split(/\?\s+|\s*[,;]\s+|\s+(?:ve|ayrica|ayrıca|and|also)\s+(?=\S+\s+\S+)/i)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length < 2) return [];
+  return parts.every((p) => tokens(p).length >= 2) ? parts : [];
+}
+
+async function planSingle(args: {
   message: string;
   messageEmbedding: number[] | null | undefined;
   hints: { needsPriceTool: boolean; needsFactTool: boolean };

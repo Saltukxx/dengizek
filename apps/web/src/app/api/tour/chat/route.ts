@@ -43,8 +43,8 @@ import { CHAT_PROVIDER_OPTIONS, chatModelId, getChatModel } from "@/lib/ai/llm";
 import {
   analyzePriceMessage,
   extractConversationContext,
+  cardMatchesAskedTopic,
   isMisleadingCardPointer,
-  knownTopicEvidence,
   planServerTools,
   type PlannedToolCall,
   type ServerReply,
@@ -554,8 +554,7 @@ export function buildTools(data: AuthoritativeContext, toolFlags: ToolFlags) {
         // Yanıltıcı kart koruması: soru bilinen bir konudaysa (giriş saati,
         // evcil hayvan…) ve kart o konunun cevabını içermiyorsa kart
         // gösterilmez — misafir alakasız kartı cevap sanmasın.
-        const evidence = data.lastUserMessage ? knownTopicEvidence(data.lastUserMessage) : null;
-        if (result.ok && result.card && evidence && !evidence.test(`${result.card.title ?? ""} ${result.card.text}`)) {
+        if (result.ok && result.card && data.lastUserMessage && cardMatchesAskedTopic(data.lastUserMessage, result.card) === false) {
           return { ok: false as const, error: "Bu kart sorulan konunun bilgisini içermiyor; bu konuda bilgin yok." };
         }
         return result;

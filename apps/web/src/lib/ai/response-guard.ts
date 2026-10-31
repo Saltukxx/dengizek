@@ -473,6 +473,16 @@ export function serverTurnText(
     const sentence = cardAnswerSentence({ title: card.title, text: card.text }, turn.question);
     if (sentence) return `${/[.!?…]$/.test(sentence) ? sentence : `${sentence}.`} Ayrıntılar kartta.`;
   }
+  // Birden fazla bilgi kartı (iki soru tek mesajda): her kartın soruya uyan cümlesi.
+  if (!failed && !en && turn.question && turn.runs.length > 1 && turn.runs.every((r) => r.toolName === "citeFact")) {
+    const sentences = turn.runs.map((r) => {
+      const c = (r.output as { card?: { title?: string; text?: string } } | null)?.card;
+      return c?.text ? cardAnswerSentence({ title: c.title, text: c.text }, turn.question!) : null;
+    });
+    if (sentences.every(Boolean)) {
+      return `${sentences.map((x) => (/[.!?…]$/.test(x!) ? x : `${x}.`)).join(" ")} Ayrıntılar kartlarda.`;
+    }
+  }
   if (turn.runs.length === 1 || failed) {
     const run = failed ?? turn.runs[0]!;
     return serverToolCardText(run.toolName as Exclude<ServerToolName, "navigateTo">, language, run.output);

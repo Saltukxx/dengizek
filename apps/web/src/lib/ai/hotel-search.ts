@@ -329,7 +329,9 @@ export function parseSearchQuery(rawQuery: string, placeNames: string[]): Parsed
     const hits = placeNames.filter((place) => aliases.some((a) => placeMatch(a, place)));
     if (hits.length) {
       // Kısaltma ("afyon") → hem kısa hem uzun ad; ekli kelime ("denizlideki") → yer adı.
-      for (const name of PLACE_ALIASES[token] ? aliases : hits) if (!places.includes(name)) places.push(name);
+      // Ekli kısaltma ("afyonda" → afyon) da genişler.
+      const names = PLACE_ALIASES[token] ? aliases : hits.flatMap((hit) => PLACE_ALIASES[hit] ?? [hit]);
+      for (const name of names) if (!places.includes(name)) places.push(name);
       used.add(token);
     }
   }
@@ -338,7 +340,9 @@ export function parseSearchQuery(rawQuery: string, placeNames: string[]): Parsed
   if (pets) tokens(normalized).filter((t) => /^(evcil|hayvan|kopek|kedi|pet|dog|cat)/.test(t)).forEach((t) => used.add(t));
 
   const guestDetails = parseGuests(query);
-  const kisilik = normalized.match(/\b(\d{1,2}) ?kisilik\b/)?.[1];
+  // "4 kişilik", "for 4 (people)", "sleeps 4"
+  const kisilik =
+    normalized.match(/\b(\d{1,2}) ?kisilik\b/)?.[1] ?? normalized.match(/\b(?:rooms? for|for|sleeps) (\d{1,2})(?: (?:people|persons|guests|adults))?\b/)?.[1];
   const guests = kisilik ? Number(kisilik) : (guestDetails.guestCount ?? null);
   if (guests) tokens(normalized).filter((t) => /^\d+$/.test(t)).forEach((t) => used.add(t));
   const familyRoom = /\b(aile odasi|aile odali|family room)/.test(normalized);

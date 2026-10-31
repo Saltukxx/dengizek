@@ -186,3 +186,15 @@ describe("yanıltıcı kart koruması", () => {
     expect(out).toBe("Bu bilgiye sahip değilim, otele sorabilirim.");
   });
 });
+
+describe("birden fazla kart", () => {
+  it("her kartın soruya uyan cümlesi söylenir", () => {
+    const run = (text: string) => ({ toolName: "citeFact" as const, output: { ok: true, card: { text } } });
+    expect(
+      serverTurnText(
+        { runs: [run("Check-in saati: 14:00"), run("Evcil hayvan kabul edilmez.")], question: "Giriş saati kaçta ve köpek kabul ediyor musunuz?" },
+        "tr",
+      ),
+    ).toBe("Check-in saati: 14:00. Evcil hayvan kabul edilmez. Ayrıntılar kartlarda.");
+  });
+});

@@ -32,6 +32,12 @@ describe("otel arama asistanı", () => {
     expect(searchHotels("Afyon'da çocuk havuzu olan otel", INDEX).summary).toBe("Çocuk havuzu olan, Afyon bölgesinde 1 otel buldum.".replace("Afyon", "Afyonkarahisar"));
   });
 
+  it("ekli kısaltma ('afyonda') iki il adını da kapsar; 'for 4' kişi sayısıdır", () => {
+    expect(slugs("afyonda otel arıyorum").sort()).toEqual(["a", "b"]);
+    expect(slugs("family room for 5 in afyon")).toEqual(["a"]);
+    expect(slugs("family room for 6 in afyon")).toEqual([]);
+  });
+
   it("eş anlamlı ve -lı eki: spor salonu, hamamlı", () => {
     expect(slugs("spor salonu ve hamamı olan otel")).toEqual(["a"]);
     expect(slugs("hamamlı otel")).toEqual(["a"]);

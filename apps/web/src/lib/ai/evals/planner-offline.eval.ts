@@ -23,7 +23,7 @@ vi.mock("@/lib/ai/llm", async (original) => ({
 }));
 
 import { buildFactCatalog } from "@/lib/ai/fact-store";
-import { planServerTools, type ServerPlan } from "@/lib/ai/deterministic-tools";
+import { planServerTools, type ConversationContext, type ServerPlan } from "@/lib/ai/deterministic-tools";
 import { detectToolHints } from "@/lib/ai/response-guard";
 import { normalizeText } from "@/lib/ai/text";
 import { getHotelAiProfile } from "@/lib/db/ai-context";
@@ -63,7 +63,7 @@ const AMENITY_PROBES: Array<{ category: string; message: string; truth: RegExp; 
 ];
 
 type Check = (plan: ServerPlan) => string | null;
-interface Case { id: string; category: string; hotel: string; message: string; check: Check }
+interface Case { id: string; category: string; hotel: string; message: string; check: Check; context?: ConversationContext }
 
 const has = (plan: ServerPlan, factId: string) => plan.calls.some((c) => c.toolName === "citeFact" && c.input.factId === factId);
 const cited = (plan: ServerPlan, catalog: AiFactCatalogEntry[]) =>
@@ -77,7 +77,8 @@ async function casesFor(slug: string): Promise<{ cases: Case[]; catalog: AiFactC
   const items = catalog.find((e) => e.id === "spec.amenities")?.items ?? [];
   const texts = catalog.map((e) => `${e.title ?? ""} ${e.text}`).join("\n");
   const cases: Case[] = [];
-  const add = (category: string, message: string, check: Check) => cases.push({ id: `${slug}:${category}`, category, hotel: slug, message, check });
+  const add = (category: string, message: string, check: Check, context?: ConversationContext) =>
+    cases.push({ id: `${slug}:${category}`, category, hotel: slug, message, check, context });
 
   for (const probe of AMENITY_PROBES) {
     const truth = items.filter((label) => probe.truth.test(normalizeText(label)));
@@ -187,6 +188,82 @@ async function casesFor(slug: string): Promise<{ cases: Case[]; catalog: AiFactC
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Sağlamlık: yazım hatası, başka dil, iki soru, takip sorusu (1.4)
+  // strict: doğru kart şart · lenient (DE/RU): doğru kart ya da modele bırakma;
+  // yanlış kart ya da yanlış "bilgim yok" asla.
+  // ---------------------------------------------------------------------------
+  const cardCheck =
+    (known: boolean, pattern: RegExp, mode: "strict" | "lenient"): Check =>
+    (plan) => {
+      const cards = cited(plan, catalog);
+      if (!known) return plan.reply === "unknown" || (mode === "lenient" && !plan.calls.length && !plan.reply) ? null : `bilgi yokken: ${describePlan(plan)}`;
+      if (cards.some((e) => pattern.test(`${e.title ?? ""} ${e.text}`))) return null;
+      if (mode === "lenient" && !cards.length && !plan.reply && !plan.amenities) return null;
+      return `doğru kart yok: ${describePlan(plan)}`;
+    };
+  const IN = /(giri[şs]|check[\s-]?in|c\/in)[\s\S]{0,60}?\d{1,2}[:.]\d{2}/i;
+  const OUT = /(çıkı[şs]|cikis|check[\s-]?out|c\/out|ayrılış)[\s\S]{0,60}?\d{1,2}[:.]\d{2}/i;
+  const PETS = /evcil|hayvan/i;
+  for (const [category, message, known, pattern, mode] of [
+    ["saglam-giris-yazim", "giris saati kacta", timeIn, IN, "strict"],
+    ["saglam-giris-bitisik", "girişsaati kaçta?", timeIn, IN, "strict"],
+    ["saglam-giris-en-yazim", "wat time is checkin", timeIn, IN, "strict"],
+    ["saglam-cikis-en", "When do we have to check out?", timeOut, OUT, "strict"],
+    ["saglam-evcil-yazim", "kopek getirebilirmiyim", petsKnown, PETS, "strict"],
+    ["saglam-evcil-en", "Are pets allowed?", petsKnown, PETS, "strict"],
+    ["saglam-giris-de", "Wann ist der Check-in?", timeIn, IN, "lenient"],
+    ["saglam-evcil-de", "Sind Hunde erlaubt?", petsKnown, PETS, "lenient"],
+    ["saglam-giris-ru", "Во сколько заезд?", timeIn, IN, "lenient"],
+    ["saglam-evcil-ru", "Можно ли с собакой?", petsKnown, PETS, "lenient"],
+  ] as const) {
+    add(category, message, cardCheck(known, pattern, mode));
+  }
+  if (airport) {
+    const AIR = new RegExp(`(^|[^\\d.,])${airport.replace(".", "\\.")}\\s*(km|kilomet)`, "i");
+    add("saglam-havalimani-yazim", "havalimanina ne kadar uzaksiniz", cardCheck(true, AIR, "strict"));
+    add("saglam-havalimani-en", "How far is the airport?", cardCheck(true, AIR, "strict"));
+    add("saglam-havalimani-de", "Wie weit ist der Flughafen?", cardCheck(true, AIR, "lenient"));
+  }
+  // Olanak: yazım hatası ve başka dil (sauna listede varsa)
+  const saunaItems = items.filter((i) => /sauna/.test(normalizeText(i)));
+  if (saunaItems.length) {
+    const amenityCheck = (mode: "strict" | "lenient"): Check => (plan) => {
+      if (plan.amenities?.some((a) => saunaItems.includes(a))) return null;
+      if (mode === "lenient" && !plan.calls.length && !plan.reply) return null;
+      return `sauna bulunamadı: ${describePlan(plan)}`;
+    };
+    add("saglam-olanak-yazim", "saunanız varmı", amenityCheck("strict"));
+    add("saglam-olanak-yazim2", "sauna varmi", amenityCheck("strict"));
+    add("saglam-olanak-de", "Gibt es eine Sauna?", amenityCheck("lenient"));
+    add("saglam-olanak-ru", "Есть ли сауна?", amenityCheck("lenient"));
+  }
+  // İki soru tek mesajda: ikisinin de cevabı (kart ya da "bilgim yok") — en azından ilki.
+  if (timeIn && petsKnown) {
+    add("saglam-iki-soru", "Giriş saati kaçta ve köpek kabul ediyor musunuz?", (plan) => {
+      const cards = cited(plan, catalog);
+      const gotIn = cards.some((e) => IN.test(e.text));
+      const gotPets = cards.some((e) => PETS.test(e.text));
+      if (gotIn && gotPets) return null;
+      return `iki sorudan ${gotIn || gotPets ? "biri" : "hiçbiri"} cevaplandı: ${describePlan(plan)}`;
+    });
+  }
+  // Takip sorusu: önceki soru giriş saati, şimdi "Peki çıkış?"
+  if (timeOut) {
+    add("saglam-takip-cikis", "Peki çıkış saati?", cardCheck(true, OUT, "strict"), { previousUserTexts: ["Giriş saati kaçta?"] });
+    add("saglam-takip-cikis-kisa", "peki çıkış?", cardCheck(true, OUT, "strict"), { previousUserTexts: ["Giriş saati kaçta?"] });
+  }
+  // Fiyat takibi: önceki sorgu 10-13 Ağustos 2 kişi, şimdi kişi sayısı değişiyor.
+  add(
+    "saglam-takip-fiyat",
+    "Peki 3 kişi olursak?",
+    (plan) => {
+      const input = plan.calls.find((c) => c.toolName === "getRoomPrice")?.input as { checkIn?: string; guestCount?: number } | undefined;
+      return input?.checkIn === "2027-08-10" && input.guestCount === 3 ? null : `takip fiyatı yanlış: ${JSON.stringify(input ?? describePlan(plan))}`;
+    },
+    { previousUserTexts: ["10-13 Ağustos için 2 kişi fiyat ne kadar?"], lastPriceQuery: { checkIn: "2027-08-10", checkOut: "2027-08-13", guestCount: 2 } },
+  );
+
   // Fiyat ve iletişim
   add("fiyat-tarih", "10-13 Ağustos için 2 kişi fiyat ne kadar?", (plan) => {
     const call = plan.calls.find((c) => c.toolName === "getRoomPrice");
@@ -236,6 +313,7 @@ describe(`Planlayıcı doğruluğu (${hotels.length} otel, API'siz)`, () => {
           catalog: hotel.catalog,
           rooms: hotel.rooms,
           today: TODAY,
+          context: c.context,
         });
         const reason = c.check(plan);
         results.push({ id: c.id, category: c.category, message: c.message, ok: !reason, reason: reason ?? undefined });
