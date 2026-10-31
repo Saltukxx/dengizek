@@ -42,6 +42,8 @@ import { CHAT_PROVIDER_OPTIONS, chatModelId, getChatModel } from "@/lib/ai/llm";
 import {
   analyzePriceMessage,
   extractConversationContext,
+  isMisleadingCardPointer,
+  knownTopicEvidence,
   planServerTools,
   type PlannedToolCall,
   type ServerReply,
@@ -547,7 +549,15 @@ export function buildTools(data: AuthoritativeContext, toolFlags: ToolFlags) {
       }),
       execute: async ({ factId }) => {
         toolFlags.hadFactTool = true;
-        return citeFactById(hotelSlug, factId, factCatalog);
+        const result = await citeFactById(hotelSlug, factId, factCatalog);
+        // Yanıltıcı kart koruması: soru bilinen bir konudaysa (giriş saati,
+        // evcil hayvan…) ve kart o konunun cevabını içermiyorsa kart
+        // gösterilmez — misafir alakasız kartı cevap sanmasın.
+        const evidence = data.lastUserMessage ? knownTopicEvidence(data.lastUserMessage) : null;
+        if (result.ok && result.card && evidence && !evidence.test(`${result.card.title ?? ""} ${result.card.text}`)) {
+          return { ok: false as const, error: "Bu kart sorulan konunun bilgisini içermiyor; bu konuda bilgin yok." };
+        }
+        return result;
       },
     }),
   };
@@ -905,7 +915,9 @@ export async function POST(req: Request) {
     },
     experimental_transform: [
       createGuardStreamTransform(toolFlags, ({ originalLength }) => onGuardTriggered(originalLength)),
-      createCardPointerTransform(data.lastUserMessage, language),
+      createCardPointerTransform(data.lastUserMessage, language, (text, cards) =>
+        data.lastUserMessage ? isMisleadingCardPointer(data.lastUserMessage, text, cards) : false,
+      ),
     ],
     tools: allTools,
     onFinish: ({ totalUsage, steps }) => {

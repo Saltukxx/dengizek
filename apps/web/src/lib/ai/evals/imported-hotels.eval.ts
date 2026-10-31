@@ -147,8 +147,8 @@ async function casesFor(slug: string): Promise<Case[]> {
   }
 
   // Havalimanı mesafesi
-  const airport = source.match(/hava(?:alan|liman)\S*\s*(?:na|ne)?\s*(\d{1,3}(?:[.,]\d)?)\s*km/i)?.[1];
-  if (airport) add("havalimani", "Havalimanına uzaklığınız ne kadar?", (_t, v) => (v.includes(`${airport} km`) || v.includes(`${airport}km`) ? null : `beklenen ${airport} km yok`));
+  const airport = source.match(/hava(?:alan|liman)\p{L}*\W{0,3}(\d{1,3}(?:[.,]\d)?)\s*(?:km|kilomet)/iu)?.[1];
+  if (airport) add("havalimani", "Havalimanına uzaklığınız ne kadar?", (_t, v) => (new RegExp(`(^|[^\\d.,])${airport.replace(".", "[.,]")}\\s*(km|kilomet)`, "i").test(v) ? null : `beklenen ${airport} km yok`));
 
   // Fiyat
   add("fiyat-genel", "Gecelik fiyat ne kadar?", (t) => {

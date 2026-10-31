@@ -76,13 +76,48 @@ Bu aşama bitmeden hata düzeltmeye geçilmez; neyi düzelttiğimizi ölçemeyiz
 
 Bitti sayılır: iki ardışık koşu ±2 puan içinde, `bekliyor` = 0, gece iş akışı yeşil.
 
+### Taban (30 Ekim 2026, `7278596`)
+
+Uçtan uca, 15 aktarılan otel, 231 soru, rehber `gemini-3.1-flash-lite`, hakem `gemini-3.5-flash`:
+
+| Ölçüm | Sonuç |
+|---|---|
+| Doğruluk (kesin kontroller) | **%97,8** (226/231) |
+| Model konuştu | 1 / 231 tur — kalanı sunucu planlayıcısı |
+| Hakem bekliyor | 0 |
+| Yanıltıcı yönlendirme (model metni) | 0 |
+
+Hatalar: `havalimani` 2/6, `pansiyon` 14/15. 4 havalimanı hatasının hepsi aynı:
+"Havalimanına uzaklığınız?" → **sunucu turunda** giriş/çıkış saati kartı.
+Konum notu "otel ifadesi" türünde (−0,03), saat kartı doğrulanmış (+0,03); anlam puanları 0,01 içinde olduğu için sıra ters döndü.
+
+Sonuç — plan varsayımları düzeltildi:
+- Yanıltıcı kart model turlarına özgü değil; **asıl kaynak planlayıcının kart seçimi**. Koruma (1.1) `citeFact` aracında olduğundan sunucu turlarını da kapsıyor.
+- Model turları %15 değil, bu soru setinde ~%0,5. Aşama 4 (model kararı) önceliği düştü; doğruluk planlayıcı + veriyle belirleniyor.
+- Oda kapasitesi (1.2) bu ölçümde %100 — 26 Ekim düzeltmeleriyle kapanmış.
+
+Düzeltme sonrası (aynı 15 otel): **%100** (231/231), planlayıcı offline %99,8 (gerileme yok).
+
+### 56 otel (31 Ekim 2026)
+
+| Koşu | Doğruluk | Not |
+|---|---|---|
+| Havalimanı düzeltmesi sonrası | %99,3 (842/848) | 3 pansiyon sorusu → giriş saati kartı (aynı kalıp) |
+| + pansiyon konusu, konu kanıtına göre aday süzme | **%99,9** (838/839) | yanıltıcı 0, hakem uydurma 0, model turu 2 |
+
+- Bilinen konuda (giriş/çıkış, evcil hayvan, pansiyon, havalimanı) planlayıcı yalnız konunun kanıtını içeren kartlar arasından seçer; böyle bir kart varsa puan eşiği aranmaz.
+- Ölçüm aracındaki hata da düzeltildi: "Havalimanı16 km" → beklenen değer 6 okunuyordu, eski gevşek kontrol "16 km" içinde "6 km" bulduğu için gizleniyordu.
+- Kalan tek hata (`basaranlar-termal:pansiyon`): cevap doğru, ama kart metnindeki "kahvaltı kişi başı 600 TL" fiyat kontrolüne takılıyor. Otel verisinden gelen fiyat — karar bekliyor.
+- Son koşuda 134 test altyapı hatası verdi (839/846 sonuç kaydedildi); küçük tekrar koşu temiz. Büyük koşularda Gemini hız sınırı/zaman aşımı olası — eval'a istek aralığı eklenmeli.
+
 ---
 
 ## Aşama 1 — Bilinen hataları kapatma
 
 Sıra taban ölçüme göre güncellenir; aşağıdaki öncelik tahmindir.
 
-**1.1 Yanıltıcı kart koruması (öncelik 1)**
+**1.1 Yanıltıcı kart koruması (öncelik 1)** — ✅ 30 Ekim
+- Yapılan: `citeFact` bilinen konuda kanıtsız kartı döndürmez (sunucu + model turu); model yine karta yönlendirirse metin sabit "bilgim yok" ile değişir. Havalimanı `KNOWN_TOPICS`'e eklendi. Kart seçiminde konu terimlerinin (eş anlamlı dahil) kart metninde aynı satırda geçmesi puan alır.
 - Model `citeFact` ile kart gösterdiğinde: soru bilinen bir konuya (`KNOWN_TOPICS`) aitse ve kart o konunun kanıtını içermiyorsa → kart düşer, sabit "bu bilgi bende yok, otelden alabilirim" metni gider, soru `bilgi-yok` olarak cevapsızlara kaydedilir.
 - Yer: `createCardPointerTransform` / `onFinish` hattı (`route.ts`). Sunucu turunda zaten çözülmüş durum; bu model turları için.
 

@@ -597,9 +597,15 @@ export function cardPointerReplacement(
  * tamponlanır; blok bitince boş kart cümlesiyse kartın cümlesiyle değişir.
  * Kart gelmeden yazılan metin her zamanki gibi gerçek zamanlı akar.
  */
-export function createCardPointerTransform<TOOLS extends ToolSet>(question: string | undefined, language: string | undefined) {
+export function createCardPointerTransform<TOOLS extends ToolSet>(
+  question: string | undefined,
+  language: string | undefined,
+  /** Metin, gösterilen kartlarda olmayan bir cevaba mı işaret ediyor? (yanıltıcı yönlendirme) */
+  isMisleading?: (text: string, cards: Array<{ title?: string; text: string }>) => boolean,
+) {
   return () => {
     const cards: Array<{ title?: string; text: string }> = [];
+    let factAttempted = false;
     let buffering = false;
     let buffer = "";
     let blockId = "";
@@ -609,8 +615,9 @@ export function createCardPointerTransform<TOOLS extends ToolSet>(question: stri
         if (chunk.type === "tool-result" && chunk.toolName === "citeFact") {
           const card = (chunk.output as { card?: { title?: string; text?: string } } | undefined)?.card;
           if (card?.text) cards.push({ title: card.title, text: card.text });
+          factAttempted = true;
         }
-        if (chunk.type === "text-start" && cards.length && question) {
+        if (chunk.type === "text-start" && (cards.length || (factAttempted && isMisleading)) && question) {
           buffering = true;
           buffer = "";
           blockId = chunk.id;
@@ -622,7 +629,11 @@ export function createCardPointerTransform<TOOLS extends ToolSet>(question: stri
           return;
         }
         if (buffering && chunk.type === "text-end") {
-          const text = cardPointerReplacement(buffer, cards, question!, language) ?? buffer;
+          const text = isMisleading?.(buffer, cards)
+            ? language && language !== "tr"
+              ? UNKNOWN_TEXT.en
+              : UNKNOWN_TEXT.tr
+            : (cardPointerReplacement(buffer, cards, question!, language) ?? buffer);
           if (text) controller.enqueue({ type: "text-delta", id: blockId, text });
           buffering = false;
           controller.enqueue(chunk);

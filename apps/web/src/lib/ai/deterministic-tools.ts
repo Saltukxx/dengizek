@@ -196,15 +196,39 @@ function fallbackTerms(message: string): string[] {
  * Eşleşen terim başına 0.25 (en fazla 2); eşitlikte ipucu eşleşmesi ve
  * doğrulanmış bilgi öne geçer.
  */
-function fallbackScore(message: string, entry: AiFactCatalogEntry): number {
-  const head = tokens(`${entry.id.replace(/[._]/g, " ")} ${entry.hint} ${entry.title ?? ""}`).filter((t) => !LEXICAL_STOPWORDS.has(t));
+/** Kart metni, eş anlamlı eşleşmeye hazır: "Havalimanı16 km" → "havalimani 16 mesafe". */
+function canonicalFactBody(entry: AiFactCatalogEntry): string {
   // "Havalimanı16 km": bitişik sayı ayrılır; "37 km" / "25 kilometre" mesafe sayılır.
-  const text = canonicalAmenityText(
+  return canonicalAmenityText(
     entry.text
       .replace(/(\p{L})(\d)/gu, "$1 $2")
       .replace(/\d\s*(km|kilomet\w*)\b/giu, " mesafe ")
       .replace(/(\d)\s*°\s*C?\b/gu, "$1 derece "),
   );
+}
+
+/**
+ * Sorunun konu terimlerinden (eş anlamlılar dahil) kaçı kart metninin AYNI
+ * satırında geçiyor. "Havalimanına uzaklığınız?" → "Zafer Havaalanına 37 km"
+ * satırı 2 alır; "Check-out saati: 12:00" 0 alır.
+ */
+function bodyLineHits(message: string, entry: AiFactCatalogEntry): number {
+  const terms = fallbackTerms(canonicalAmenityText(message));
+  if (!terms.length) return 0;
+  return Math.max(
+    0,
+    ...canonicalFactBody(entry)
+      .split(/\n|(?<=[.!?])\s+/)
+      .map((line) => {
+        const words = tokens(line);
+        return terms.filter((term) => words.some((w) => suffixMatch(term, w))).length;
+      }),
+  );
+}
+
+function fallbackScore(message: string, entry: AiFactCatalogEntry): number {
+  const head = tokens(`${entry.id.replace(/[._]/g, " ")} ${entry.hint} ${entry.title ?? ""}`).filter((t) => !LEXICAL_STOPWORDS.has(t));
+  const text = canonicalFactBody(entry);
   const body = tokens(text).filter((t) => t.length >= 4);
   const terms = fallbackTerms(canonicalAmenityText(message));
   let hits = 0;
@@ -215,13 +239,7 @@ function fallbackScore(message: string, entry: AiFactCatalogEntry): number {
     if (inHead) headHits += 1;
   }
   // Terimler aynı satırda birlikte geçiyorsa öne geçer ("Havalimanı: 88 km").
-  const lineHits = Math.max(
-    0,
-    ...text.split(/\n|(?<=[.!?])\s+/).map((line) => {
-      const words = tokens(line);
-      return terms.filter((term) => words.some((w) => suffixMatch(term, w))).length;
-    }),
-  );
+  const lineHits = bodyLineHits(message, entry);
   // Kabul eşiği 2 terimle ölçülür; fazladan eşleşen her terim ("termal havuz"
   // + "derece") daha özel parçayı öne geçirir.
   return (
@@ -293,7 +311,12 @@ export async function pickFact(
     // Embedding yoksa: 2 terim eşleşmesi gerekir (tek terim eşiği geçmez).
     const score =
       semanticMode && embedding && messageEmbedding
-        ? cosineSimilarity(messageEmbedding, embedding) + lexical * 0.1 + KIND_WEIGHT[entry.kind]
+        ? cosineSimilarity(messageEmbedding, embedding) +
+          lexical * 0.1 +
+          // Anlam puanları çoğu zaman 0.01 içinde: metinde aynı satırda geçen
+          // konu terimleri (eş anlamlı dahil) doğru kartı öne geçirir.
+          Math.min(bodyLineHits(message, entry), 2) * 0.05 +
+          KIND_WEIGHT[entry.kind]
         : fallbackScore(message, entry);
     if (!best || score > best.score) best = { factId: entry.id, score, textHits: 0, semantic: semanticMode };
   }
@@ -589,6 +612,19 @@ const KNOWN_TOPICS: Array<{ ask: (text: string) => boolean; evidence: RegExp }> 
     ask: (t) => /\b(evcil|kopek|kopeg|kedi)|\b(pets?|dogs?|cats?)\b/.test(t),
     evidence: /evcil|hayvan|\bpets?\b/i,
   },
+  {
+    // "Yemekler dahil mi?", "Konseptiniz nedir?", "Is breakfast included?"
+    ask: (t) =>
+      /\b(pansiyon|konsept\w*|her ?sey dahil|all inclusive|half board|full board|meals? included)\b/.test(t) ||
+      (/\b(yemek\w*|kahvalti\w*|aksam yemeg\w*|breakfast|dinner|meals?)\b/.test(t) && /\b(dahil|included?)\b/.test(t)),
+    evidence:
+      /pansiyon|her\s?[şs]ey dahil|kahvalt|ak[şs]am yeme[ğg]|a[çc][ıi]k b[üu]fe|sadece oda|yeme\s?-?\s?i[çc]me|all[\s-]inclusive|half board|full board|breakfast|dinner/i,
+  },
+  {
+    // "Havalimanına uzaklığınız?" — saat kartı cevap sanılmasın.
+    ask: (t) => /\b(havaliman|havaalan|airport)/.test(t),
+    evidence: /hava\s?(?:liman|alan)|airport/i,
+  },
 ];
 
 /** Soru bilinen bir konuya aitse (giriş saati, evcil hayvan…) cevabın kanıt deseni. */
@@ -725,17 +761,24 @@ export async function planServerTools(args: {
 
   // Bilgi: fiyatla aynı mesajda da sorulabilir ("Fiyat ve iptal koşulları?").
   if (!isFollowUp && !hasContactIntent(message) && (!priceWanted || hints.needsFactTool)) {
-    const pick = await pickFact(message, args.messageEmbedding, args.catalog, args.storedFactEmbeddings);
+    // Bilinen konu (giriş saati, pansiyon, havalimanı…): yalnız o konunun
+    // kanıtını içeren kartlar aday. Anlam puanı yakın çıkan alakasız kart
+    // ("Yemekler dahil mi?" → giriş saati kartı) böylece seçilemez; seçilen
+    // kart cevabı içerdiğinden puan eşiği de aranmaz.
+    const evidence = knownTopicEvidence(message);
+    const topical = evidence ? args.catalog.filter((e) => evidence.test(`${e.title ?? ""} ${e.text}`)) : [];
+    const pick = await pickFact(message, args.messageEmbedding, topical.length ? topical : args.catalog, args.storedFactEmbeddings);
     // Kelime eşleşmesi modunda (embedding yok) puan ölçeği farklı: iki konu
     // terimi eşleşmesi (≥0.45) + ipucu ya da terimin kart metninde geçmesi.
     const accepted =
       pick &&
-      (!pick.semantic
-        ? pick.score >= FACT_MIN_SCORE_WITH_HINT && (hints.needsFactTool || pick.textHits > 0)
-        : hints.needsFactTool
-          ? pick.score >= FACT_MIN_SCORE_WITH_HINT
-          : pick.score >= FACT_MIN_SCORE_WITHOUT_HINT ||
-            (pick.score >= FACT_MIN_SCORE_WITH_TEXT_MATCH && pick.textHits > 0));
+      (topical.length > 0 ||
+        (!pick.semantic
+          ? pick.score >= FACT_MIN_SCORE_WITH_HINT && (hints.needsFactTool || pick.textHits > 0)
+          : hints.needsFactTool
+            ? pick.score >= FACT_MIN_SCORE_WITH_HINT
+            : pick.score >= FACT_MIN_SCORE_WITHOUT_HINT ||
+              (pick.score >= FACT_MIN_SCORE_WITH_TEXT_MATCH && pick.textHits > 0)));
     if (accepted) {
       // Oda kartı seçildi ama mesajda başka bir odanın tam adı geçiyor: o oda.
       const named = pick.factId.startsWith("room.") ? roomNamedInMessage(message, args.rooms) : undefined;

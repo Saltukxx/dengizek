@@ -759,4 +759,18 @@ describe("isMisleadingCardPointer", () => {
     expect(isMisleadingCardPointer("Termal havuzları anlatır mısınız?", "Detaylar aşağıda.", [policy])).toBe(false);
     expect(isMisleadingCardPointer("Giriş saati kaçta?", "Bu konuda otelden bilgi alabilirim.", [policy])).toBe(false);
   });
+
+  it("pansiyon sorusunda saat kartı yanıltıcı, konaklama kartı değil", () => {
+    expect(isMisleadingCardPointer("Yemekler dahil mi, konseptiniz nedir?", "Ayrıntılar kartta.", [checkIn])).toBe(true);
+    const konaklama = { title: "Konaklama", text: "Yarım Pansiyon Konsepti" };
+    expect(isMisleadingCardPointer("Yemekler dahil mi, konseptiniz nedir?", "Ayrıntılar kartta.", [konaklama])).toBe(false);
+    // Yemek sorusu ama pansiyon değil: bilinen konu sayılmaz.
+    expect(isMisleadingCardPointer("Restoranınız kaçta açılıyor?", "Ayrıntılar kartta.", [checkIn])).toBe(false);
+  });
+
+  it("havalimanı sorusunda saat kartı yanıltıcı, konum kartı değil", () => {
+    expect(isMisleadingCardPointer("Havalimanına uzaklığınız ne kadar?", "Ayrıntılar kartta.", [checkIn])).toBe(true);
+    const konum = { title: "Otel Konum", text: "Zafer Havaalanına 37 km" };
+    expect(isMisleadingCardPointer("Havalimanına uzaklığınız ne kadar?", "Ayrıntılar kartta.", [konum])).toBe(false);
+  });
 });
