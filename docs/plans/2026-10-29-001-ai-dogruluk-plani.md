@@ -151,11 +151,18 @@ Bitti sayılır: uçtan uca kesin kontroller ≥ %97, yanıltıcı yönlendirme 
 
 Rehber, elindeki veri kadar doğru olabilir. En büyük kaldıraç burada.
 
-**2.1 Cevapsız sorudan bilgiye**
+**2.1 Cevapsız sorudan bilgiye** — ✅ 31 Ekim
+- Yapılan: otel panelindeki cevapsız sorularda "Cevap ekle / Düzenle". Cevap taslaktaki otel ifadelerine "Soru? — Cevap" biçiminde yazılır (aynı sorunun eski cevabı değişir; iletişim bilgisi reddedilir; en fazla 50 ifade). Satırda durum rozeti: "Yayın bekliyor" / "Cevap yayında"; cevaplananlar listenin sonuna iner. Rehber yayından sonra bu kartı aynı soruda ve yazım farklı varyantlarında bulur (testle doğrulandı).
+- Sayaç: soru yayından sonra cevaplandığı için cevapsız olaylarına düşmez; otelci etkisini "son sorulma" tarihinin ilerlememesinden görür.
+- Eski metin (referans):
 - Otel panelindeki cevapsız sorular listesinde "Cevap ekle": otelcinin yazdığı cevap "Otel ifadesi" etiketli fact olarak kataloğa eklenir, embedding senkronlanır, bir sonraki yayınla rehber kullanır.
 - Aynı soru tekrar geldiğinde sayaç düşer — otelci etkisini görür.
 
-**2.2 Kritik alan eksikleri**
+**2.2 Kritik alan eksikleri** — ✅ 31 Ekim
+- Yapılan: hazırlık skoruna dört kritik kontrol (giriş/çıkış saati, evcil hayvan, yeme-içme konsepti, oda kapasitesi açıklamayla tutarlı mı). Bilgi yapısal alanda ya da otel metinlerinde olabilir — rehberle aynı kanıt desenleri. Otel panelinde uyarı olarak, yönetici analitiğinde otel başına "Kritik bilgi eksikleri" listesi.
+- Yerel veri: 62 otelin 22'sinde eksik (giriş/çıkış 19, evcil hayvan 13, yeme-içme 1, kapasite 1).
+- Not: aktarımda bilinmeyen oda kapasitesine varsayılan 2 yazılıyor; "eksik" ayırt edilemediği için yalnız açıklamayla çelişki işaretlenir.
+- Eski metin (referans):
 - Hazırlık skoruna (`readiness-score.ts`) eklenir: giriş/çıkış saati, evcil hayvan kuralı, oda kapasiteleri, yeme-içme konsepti.
 - Aktarım sonrası otel başına eksik alan raporu (admin).
 

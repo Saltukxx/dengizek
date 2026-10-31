@@ -857,3 +857,24 @@ describe("birleşik soru ve kısa takip", () => {
     ]);
   });
 });
+
+describe("otelcinin eklediği cevap rehbere ulaşır", () => {
+  it("cevapsız soruya eklenen otel ifadesi aynı soruda ve benzerlerinde kart olur", async () => {
+    const { answerFactText } = await import("@/lib/ai/unanswered");
+    const catalog: AiFactCatalogEntry[] = [
+      { id: "spec.amenities", kind: "verified", hint: "otel olanakları", text: "Otel olanakları: Açık Havuz, Sauna.", items: ["Açık Havuz", "Sauna"] },
+      { id: "statement.0", kind: "otel_ifadesi", hint: "otel ifadesi sahibi notu", text: answerFactText("Havalimanı transferi var mı?", "Evet, ücretli transfer hizmetimiz var.") },
+      { id: "statement.1", kind: "otel_ifadesi", hint: "otel ifadesi sahibi notu", text: answerFactText("Bebek yatağı veriyor musunuz?", "Talep üzerine ücretsiz bebek yatağı veriyoruz.") },
+    ];
+    const run = (message: string) =>
+      planServerTools({ message, messageEmbedding: null, hints: detectToolHints(message), inquiryIntent: "none", catalog, rooms, today: TODAY });
+    for (const [message, factId] of [
+      ["Havalimanı transferi var mı?", "statement.0"],
+      ["havalimanından transfer yapıyor musunuz", "statement.0"],
+      ["Bebek yatağı veriyor musunuz?", "statement.1"],
+      ["bebek yatagi var mi", "statement.1"],
+    ] as const) {
+      expect((await run(message)).calls, message).toEqual([{ toolName: "citeFact", input: { factId } }]);
+    }
+  });
+});

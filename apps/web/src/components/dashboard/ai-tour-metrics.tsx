@@ -14,6 +14,7 @@ import {
 } from "@mantine/core";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useMyHotel } from "./use-my-hotel";
+import { UnansweredQuestionRow, type UnansweredQuestionItem } from "./unanswered-question-row";
 
 interface AiMetricsData {
   tourStarts: number;
@@ -37,12 +38,7 @@ interface AiMetricsData {
   } | null;
   readinessScore: number;
   readinessIssues: string[];
-  unansweredQuestions?: Array<{
-    question: string;
-    count: number;
-    reason: "bilgi-yok" | "kartsiz";
-    lastAskedAt: string;
-  }>;
+  unansweredQuestions?: UnansweredQuestionItem[];
   questionInsights?: {
     total: number;
     answerRate: number | null;
@@ -238,24 +234,15 @@ export function AiTourMetrics() {
           Rehberin cevaplayamadığı sorular (son 30 gün)
         </Text>
         <Text size="xs" c="dimmed" mt={4} mb="xs">
-          Misafirlerin sorduğu ama otel bilgilerinizde karşılığı olmayan sorular. Cevabı yukarıdaki
-          “Otel ifadesi” ya da “Politika” alanına ekleyin; rehber bir sonraki yayından itibaren cevaplar.
+          Misafirlerin sorduğu ama otel bilgilerinizde karşılığı olmayan sorular. “Cevap ekle” ile
+          cevabınızı yazın; otel ifadelerinize eklenir ve tesis bilgileriniz yayınlandıktan sonra rehber bu
+          soruyu cevaplar.
         </Text>
         {data.unansweredQuestions && data.unansweredQuestions.length > 0 ? (
           <Stack gap={6}>
-            {data.unansweredQuestions.map((q) => (
-              <Group key={q.question} justify="space-between" wrap="nowrap" gap="sm">
-                <Text size="sm" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
-                  {q.question}
-                </Text>
-                <Group gap={6} wrap="nowrap">
-                  <Badge variant="light" color={q.reason === "bilgi-yok" ? "red" : "gray"}>
-                    {q.reason === "bilgi-yok" ? "Bilgi yok" : "Kartsız cevap"}
-                  </Badge>
-                  <Badge variant="outline">{q.count}×</Badge>
-                </Group>
-              </Group>
-            ))}
+            {data.unansweredQuestions.map((q) =>
+              hotel ? <UnansweredQuestionRow key={q.question} hotelId={hotel.id} item={q} onSaved={() => void reload()} /> : null,
+            )}
           </Stack>
         ) : (
           <Text size="sm" c="dimmed">

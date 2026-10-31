@@ -5,6 +5,7 @@ import { Loader, Paper, Select, SimpleGrid, Stack, Table, Text, Title } from "@m
 import { ANALYTICS_EVENT_LABELS } from "@/lib/schemas/analytics";
 import { SearchInsightsPanel } from "@/components/admin/search-insights";
 import { QuestionInsightsPanel } from "@/components/admin/question-insights";
+import { CriticalGapsPanel } from "@/components/admin/critical-gaps";
 
 interface AdminAnalytics {
   totalEvents: number;
@@ -123,6 +124,7 @@ export default function AdminAnalyticsPage() {
       )}
       <QuestionInsightsPanel period={period} hotelId={hotelId} />
       <SearchInsightsPanel />
+      <CriticalGapsPanel />
       {data.timeSeries.length > 0 && (
         <Paper withBorder radius="md" p="md">
           <Text fw={600} mb="sm">

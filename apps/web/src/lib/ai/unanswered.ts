@@ -42,6 +42,51 @@ export interface UnansweredGroup {
   count: number;
   reason: UnansweredReason;
   lastAskedAt: string;
+  /** Otelci cevap ekledi: taslakta (yayın bekliyor) ya da yayında. */
+  answer?: { status: "taslak" | "yayinda"; text: string };
+}
+
+// ---------------------------------------------------------------------------
+// Otelcinin cevabı → otel ifadesi (aiFacts)
+// ---------------------------------------------------------------------------
+
+export const ANSWER_MAX_CHARS = 240;
+const ANSWER_SEPARATOR = " — ";
+
+/**
+ * Otel ifadesi metni: "Kese var mı? — Evet, hamamda ücretli kese hizmeti var."
+ * Soru metni kartın konusunu taşır (rehber bu kartı bu soruda bulur), cevap
+ * otelcinin kendi cümlesidir.
+ */
+export function answerFactText(question: string, answer: string): string {
+  const q = question.replace(/\s+/g, " ").trim();
+  const a = answer.replace(/\s+/g, " ").trim();
+  return `${/[?？]$/.test(q) ? q : `${q}?`}${ANSWER_SEPARATOR}${a}`;
+}
+
+/** Bu ifade, verilen soru için eklenmiş bir cevap mı? Cevap kısmını döner. */
+export function answerFor(question: string, facts: string[]): string | null {
+  const key = groupingKey(question);
+  for (const fact of facts) {
+    const at = fact.indexOf(ANSWER_SEPARATOR);
+    if (at > 0 && groupingKey(fact.slice(0, at)) === key) return fact.slice(at + ANSWER_SEPARATOR.length);
+  }
+  return null;
+}
+
+/**
+ * Cevapsız sorulara otelcinin eklediği cevabı işler. Yayındaki cevap öncelikli;
+ * cevaplananlar listenin sonuna iner (önce cevap bekleyenler).
+ */
+export function withAnswerStatus(groups: UnansweredGroup[], draftFacts: string[], publishedFacts: string[]): UnansweredGroup[] {
+  return groups
+    .map((group) => {
+      const published = answerFor(group.question, publishedFacts);
+      if (published) return { ...group, answer: { status: "yayinda" as const, text: published } };
+      const draft = answerFor(group.question, draftFacts);
+      return draft ? { ...group, answer: { status: "taslak" as const, text: draft } } : group;
+    })
+    .sort((a, b) => Number(Boolean(a.answer)) - Number(Boolean(b.answer)));
 }
 
 /**

@@ -622,20 +622,26 @@ export function isAvailabilityQuestion(message: string): boolean {
  * gösteriyordu; sunucu doğrudan "bilgim yok" der. Bilgi otel metinlerinde
  * geçiyorsa (ör. "Giriş saati 14:00") kart seçimi normal çalışır.
  */
-const KNOWN_TOPICS: Array<{ ask: (text: string) => boolean; evidence: RegExp }> = [
+export type KnownTopicId = "checkIn" | "checkOut" | "pets" | "board" | "airport";
+
+const KNOWN_TOPICS: Array<{ id: KnownTopicId; ask: (text: string) => boolean; evidence: RegExp }> = [
   {
+    id: "checkIn",
     ask: (t) => /\b(giris|checkin|arrival)/.test(t) && /\b(saat|kacta|time|when)/.test(t),
     evidence: /(giri[şs]|check[\s-]?in|c\/in)[\s\S]{0,60}?\d{1,2}[:.]\d{2}/i,
   },
   {
+    id: "checkOut",
     ask: (t) => (/\b(cikis|cikmam|checkout|ayrilis)/.test(t) && /\b(saat|kacta|time|when)/.test(t)) || /\ben gec kacta\b/.test(t),
     evidence: /(çıkı[şs]|cikis|check[\s-]?out|c\/out|ayrılış)[\s\S]{0,60}?\d{1,2}[:.]\d{2}/i,
   },
   {
+    id: "pets",
     ask: (t) => /\b(evcil|kopek|kopeg|kedi)|\b(pets?|dogs?|cats?)\b/.test(t),
     evidence: /evcil|hayvan|\bpets?\b/i,
   },
   {
+    id: "board",
     // "Yemekler dahil mi?", "Konseptiniz nedir?", "Is breakfast included?"
     ask: (t) =>
       /\b(pansiyon|konsept\w*|her ?sey dahil|all inclusive|half board|full board|meals? included)\b/.test(t) ||
@@ -644,11 +650,18 @@ const KNOWN_TOPICS: Array<{ ask: (text: string) => boolean; evidence: RegExp }> 
       /pansiyon|her\s?[şs]ey dahil|kahvalt|ak[şs]am yeme[ğg]|a[çc][ıi]k b[üu]fe|sadece oda|yeme\s?-?\s?i[çc]me|all[\s-]inclusive|half board|full board|breakfast|dinner/i,
   },
   {
+    id: "airport",
     // "Havalimanına uzaklığınız?" — saat kartı cevap sanılmasın.
     ask: (t) => /\b(havaliman|havaalan|airport)/.test(t),
     evidence: /hava\s?(?:liman|alan)|airport/i,
   },
 ];
+
+/** Bilinen konunun cevabı bu metinlerde var mı? (hazırlık skoru: rehber bu konuyu cevaplayabilir mi) */
+export function textsCoverTopic(id: KnownTopicId, texts: string[]): boolean {
+  const topic = KNOWN_TOPICS.find((t) => t.id === id)!;
+  return texts.some((text) => topic.evidence.test(text));
+}
 
 /** Soru bilinen bir konuya aitse (giriş saati, evcil hayvan…) cevabın kanıt deseni. */
 export function knownTopicEvidence(message: string): RegExp | null {
