@@ -6,6 +6,7 @@ import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { inquiryFormSchema, type InquiryFormValues } from "@/lib/schemas/inquiry";
 import { trackEvent } from "@/lib/analytics-client";
+import { getVisitId } from "@/lib/visit-client";
 
 type RoomOption = { slug: string; name: string };
 
@@ -64,7 +65,9 @@ export function InquiryForm() {
       .then((j) => {
         if (j.ok) setCancellationSummary(j.summary);
       });
-    void trackEvent("inquiry_start", { hotelSlug: hotelFromQuery });
+    // Otel 3. argümanla bağlanır; payload'a yazılırsa olay otele bağlanmaz ve
+    // otel panelindeki huni "Talep başlangıcı"nı hiç saymaz.
+    void trackEvent("inquiry_start", {}, hotelFromQuery);
   }, [hotelFromQuery]);
 
   const onSubmit = handleSubmit(async (data) => {
@@ -75,6 +78,7 @@ export function InquiryForm() {
       tourId: data.tourId || tourFromQuery,
       stepKey: data.stepKey || stepFromQuery,
       source: data.source || sourceFromQuery,
+      visitId: getVisitId(),
     };
     const res = await fetch("/api/inquiry", {
       method: "POST",

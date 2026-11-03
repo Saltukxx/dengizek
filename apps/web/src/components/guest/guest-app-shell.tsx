@@ -81,7 +81,7 @@ export function GuestAppShell({
           { href: surface.home, label: "Kış Otelleri" },
           { href: surface.browse, label: "Oteller" },
           { href: "/otel-bul", label: "Otel Bul" },
-          { href: paths.inquiry, label: "Nasıl Çalışır?" },
+          { href: `${surface.home}#nasil-calisir`, label: "Nasıl Çalışır?" },
           { href: "/dashboard", label: "Otelini Ekle" },
         ]
       : [

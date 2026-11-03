@@ -78,14 +78,14 @@ export function PoliciesSection({ specs }: { specs: HotelSpecs }) {
               }}
             >
               <p
-                className="er-eyebrow"
+                className="er-label"
                 style={{
                   margin: "0 0 10px",
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
                   color: "var(--er-primary)",
-                  fontSize: 12,
+                  fontSize: 13,
                 }}
               >
                 <p.icon size={16} />

@@ -14,6 +14,7 @@ import { mediaAssetsTable, toursTable } from "@/lib/db/schema";
 import { tourManifestSchema } from "@/lib/schemas/tour-manifest";
 import { moderationDecisionSchema } from "@/lib/schemas/hotel-admin";
 import { logAudit } from "@/lib/audit";
+import { revalidateGuestHotel } from "@/lib/guest-cache";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -105,6 +106,8 @@ export async function POST(req: Request, { params }: RouteParams) {
     .where(and(eq(toursTable.id, tour.id), eq(toursTable.status, "incelemede"), eq(toursTable.submittedRevision, parsed.data.submittedRevision)))
     .returning();
   if (approved.length === 0) return NextResponse.json({ ok: false, code: "REVISION_CONFLICT" }, { status: 409 });
+  // Liste kartı ve otel sayfası yayındaki turu gösterir.
+  revalidateGuestHotel(tour.hotelSlug);
 
   // Yayınlanan manifestin referans verdiği medya varlıklarını "yayinlandi"
   // durumuna geçir (yalnızca "hazir" olanlar — isleniyor/hata'yı ezme).

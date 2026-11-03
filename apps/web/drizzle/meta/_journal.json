@@ -141,6 +141,20 @@
       "when": 1792200000000,
       "tag": "0019_gemini_embeddings",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793750400000,
+      "tag": "0020_analytics_visit_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793836800000,
+      "tag": "0021_inquiry_source_hotel_chat",
+      "breakpoints": true
     }
   ]
 }

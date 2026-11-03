@@ -23,6 +23,9 @@ async function assertNoSeriousViolations(page: Page, path: string) {
 }
 
 test.describe("WCAG 2.1 AA kalite kapısı", () => {
+  // Her test 5-6 sayfayı tarıyor; CI'da dev sunucusuyla varsayılan 30 sn yetmiyor.
+  test.describe.configure({ timeout: 180_000 });
+
   test("kritik misafir ve kış sayfalarında serious/critical ihlal yok", async ({ page }) => {
     for (const path of ["/", "/browse", "/kis", "/kis/oteller", "/inquiry"]) {
       await assertNoSeriousViolations(page, path);

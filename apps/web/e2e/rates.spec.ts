@@ -98,8 +98,9 @@ test.describe("Dönemsel fiyatlar", () => {
     await expect(page.getByText(/₺\s?6\.200/).first()).toBeVisible();
     await expect(page.getByText(/₺\s?5\.580/).first()).toBeVisible();
 
-    // Fiyat dönemleri tablosunda kış dönemi de listelenir
-    await expect(page.getByText("Kis 2026-27")).toBeVisible();
+    // Fiyat dönemleri tablosunda kış dönemi de listelenir. Tarih aralığıyla
+    // aranır: kış dönemi içindeyken ad, gecelik fiyatın yanında da görünür.
+    await expect(page.getByText(/^Kis 2026-27\s*1 Kasım 2026/)).toBeVisible();
   });
 
   test("misafir sayfası 'Bilmeniz Gerekenler' bölümünü gösterir", async ({ page }) => {

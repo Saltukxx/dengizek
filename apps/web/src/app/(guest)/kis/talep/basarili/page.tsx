@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { InquirySuccessPage } from "../../../inquiry/success/page";
+import { InquirySuccessPage } from "@/components/guest/inquiry-success";
 
 export const metadata: Metadata = {
   title: "Kış talebi alındı",

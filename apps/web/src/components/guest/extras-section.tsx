@@ -48,7 +48,7 @@ export function ExtrasSection({ extras }: { extras: Extra[] }) {
               />
             )}
             <div style={{ padding: "18px 20px 20px", display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
-              <p className="er-eyebrow" style={{ margin: 0, color: "var(--er-primary)", fontSize: 10 }}>
+              <p className="er-label" style={{ margin: 0, color: "var(--er-primary)" }}>
                 {extraCategoryLabels[extra.category as keyof typeof extraCategoryLabels] ?? extra.category}
               </p>
               <h3 style={{ margin: 0, color: "var(--er-text)", fontSize: 19, fontWeight: 700 }}>

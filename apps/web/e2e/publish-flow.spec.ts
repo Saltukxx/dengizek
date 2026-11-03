@@ -63,9 +63,11 @@ test.describe("Yayın akışı", () => {
     const hotelRes = await request.get(`/hotels/${SLUG}`);
     expect(hotelRes.status()).toBe(200);
 
-    const browseRes = await request.get("/browse");
+    // Adla aranır (çok otelde ilk sayfaya düşmeyebilir); sorgu başlıkta geri
+    // yazıldığı için ad değil kartın bağlantısı aranır.
+    const browseRes = await request.get("/browse?q=Aurelia%20Bay");
     expect(browseRes.status()).toBe(200);
-    expect(await browseRes.text()).toContain("Aurelia Bay");
+    expect(await browseRes.text()).toContain(`href="/hotels/${SLUG}"`);
 
     // Tur da oynatılabilir kalmalı (publishedManifest korunur)
     const tourRes = await request.get(`/tours/${SLUG}/demo-lobby`);

@@ -16,6 +16,9 @@ export interface GuideStrings {
   hereForYou: string;
   sourceTurkish: string;
   defaultPersona: string;
+  helpful: string;
+  notHelpful: string;
+  feedbackThanks: string;
 }
 
 const TR: GuideStrings = {
@@ -28,6 +31,9 @@ const TR: GuideStrings = {
   hereForYou: "Sizin için buradayım",
   sourceTurkish: "Kaynak: Türkçe",
   defaultPersona: "Yapay Zeka Rehberi",
+  helpful: "Faydalı",
+  notHelpful: "Faydalı değil",
+  feedbackThanks: "Teşekkürler",
 };
 
 const EN: GuideStrings = {
@@ -40,6 +46,9 @@ const EN: GuideStrings = {
   hereForYou: "I'm here for you",
   sourceTurkish: "Source: Turkish",
   defaultPersona: "AI Guide",
+  helpful: "Helpful",
+  notHelpful: "Not helpful",
+  feedbackThanks: "Thanks",
 };
 
 /** Tespit edilen sohbet diline göre panel metinleri — bilinmeyen dilde TR kalır. */

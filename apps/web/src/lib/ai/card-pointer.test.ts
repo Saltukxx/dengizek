@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TextStreamPart, ToolSet } from "ai";
+import { isMisleadingCardPointer } from "@/lib/ai/deterministic-tools";
 import { cardAnswerSentence, cardPointerReplacement, createCardPointerTransform, serverTurnText } from "@/lib/ai/response-guard";
 
 type Chunk = TextStreamPart<ToolSet>;
@@ -9,8 +10,13 @@ const amenities = {
   text: "Otel olanakları: Açık Havuz, Asansör, Çocuk Havuzu, Kapalı Termal Havuz, Kese, Hamam, Sauna, Otopark.",
 };
 
-async function run(question: string | undefined, chunks: Chunk[], language = "tr"): Promise<string> {
-  const ts = createCardPointerTransform(question, language)();
+async function run(
+  question: string | undefined,
+  chunks: Chunk[],
+  language = "tr",
+  misleading?: Parameters<typeof createCardPointerTransform>[2],
+): Promise<string> {
+  const ts = createCardPointerTransform(question, language, misleading)();
   const writer = ts.writable.getWriter();
   const out: Chunk[] = [];
   const reading = (async () => {
@@ -152,5 +158,43 @@ describe("oda listesi metni", () => {
     expect(serverTurnText({ runs: [], reply: "rooms", rooms }, "en")).toBe(
       "We have 2 room types: Aile Odası, Köşe Suit. Ask me about any of them for size, capacity or prices.",
     );
+  });
+});
+
+describe("yanıltıcı kart koruması", () => {
+  const q = "Giriş saati kaçta?";
+  const guard = (text: string, cards: Array<{ title?: string; text: string }>) => isMisleadingCardPointer(q, text, cards);
+  const failedCite = { type: "tool-result", toolCallId: "t1", toolName: "citeFact", input: {}, output: { ok: false, error: "x" } } as unknown as Chunk;
+
+  it("konuyu içermeyen karta yönlendirme sabit 'bilgim yok' metniyle değişir", async () => {
+    const out = await run(q, [citeResult(amenities.text), ...textBlock("Detayları aşağıda görebilirsiniz.")], "tr", guard);
+    expect(out).toMatch(/doğrulanmış bir bilgim yok/);
+  });
+
+  it("kart düşürüldüyse (citeFact başarısız) yönlendirme yine değişir", async () => {
+    const out = await run(q, [failedCite, ...textBlock("Bilgiyi kartta paylaştım.")], "en", guard);
+    expect(out).toMatch(/don't have verified information/);
+  });
+
+  it("kart konuyu içeriyorsa metin korunur", async () => {
+    const out = await run(q, [citeResult("Giriş saati 14:00, çıkış saati 12:00."), ...textBlock("Giriş saatimiz 14:00.")], "tr", guard);
+    expect(out).toBe("Giriş saatimiz 14:00.");
+  });
+
+  it("karta yönlendirmeyen dürüst cevap korunur", async () => {
+    const out = await run(q, [failedCite, ...textBlock("Bu bilgiye sahip değilim, otele sorabilirim.")], "tr", guard);
+    expect(out).toBe("Bu bilgiye sahip değilim, otele sorabilirim.");
+  });
+});
+
+describe("birden fazla kart", () => {
+  it("her kartın soruya uyan cümlesi söylenir", () => {
+    const run = (text: string) => ({ toolName: "citeFact" as const, output: { ok: true, card: { text } } });
+    expect(
+      serverTurnText(
+        { runs: [run("Check-in saati: 14:00"), run("Evcil hayvan kabul edilmez.")], question: "Giriş saati kaçta ve köpek kabul ediyor musunuz?" },
+        "tr",
+      ),
+    ).toBe("Check-in saati: 14:00. Evcil hayvan kabul edilmez. Ayrıntılar kartlarda.");
   });
 });

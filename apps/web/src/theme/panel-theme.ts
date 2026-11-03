@@ -4,7 +4,36 @@
 // ayrılır: aydınlık, yüksek kontrast, sans-serif, işlev odaklı.
 // ---------------------------------------------------------------------------
 
-import { createTheme, rem } from "@mantine/core";
+import { DEFAULT_THEME, createTheme, rem, type MantineColorsTuple } from "@mantine/core";
+
+// Mantine'in hazır renklerinde 6. ton (düğme, rozet, bağlantı yazısı) beyaz
+// zeminde WCAG AA'nın (4.5:1) altında kalıyor: indigo ~4.0, kırmızı ~3.3,
+// teal üstünde beyaz yazı ~2.5. Panelde kullanılan renklerin 6. ve 7.
+// (hover) tonları koyulaştırılır. Ölçüt en kötü zemin: tablo satırı hover
+// grisi (#f1f3f5) üstünde light varyantın renkli zemini; orada da ≥5:1.
+// Diğer tonlar Mantine'inkiyle aynı.
+const accessibleShades: Record<string, [string, string]> = {
+  indigo: ["#364fc7", "#2f44ad"],
+  blue: ["#1957ab", "#154a93"],
+  teal: ["#08654c", "#06523e"],
+  green: ["#1f6430", "#185126"],
+  red: ["#a51d1d", "#8a1818"],
+  orange: ["#9c330a", "#822a08"],
+  yellow: ["#7a5000", "#634100"],
+  violet: ["#5b37c8", "#4c2daa"],
+  grape: ["#8a2fa0", "#732786"],
+  cyan: ["#0a6475", "#085361"],
+};
+
+function withAccessibleShades(name: string): MantineColorsTuple {
+  const tuple = [...DEFAULT_THEME.colors[name]];
+  [tuple[6], tuple[7]] = accessibleShades[name];
+  return tuple as unknown as MantineColorsTuple;
+}
+
+const accessibleColors = Object.fromEntries(
+  Object.keys(accessibleShades).map((name) => [name, withAccessibleShades(name)]),
+);
 
 // Sakin, profesyonel indigo — durum renkleriyle (yeşil/sarı/kırmızı) çakışmaz
 const panelBrand = [
@@ -38,7 +67,7 @@ export const panelTheme = createTheme({
   primaryColor: "indigo",
   primaryShade: 6,
   defaultRadius: "md",
-  colors: { brand: [...panelBrand], gray: [...accessibleGray] },
+  colors: { ...accessibleColors, brand: [...panelBrand], gray: [...accessibleGray] },
   fontSizes: {
     xs: rem(12),
     sm: rem(14),

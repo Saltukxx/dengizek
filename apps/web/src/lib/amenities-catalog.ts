@@ -37,6 +37,7 @@ export const amenitiesCatalog: AmenityCategory[] = [
   {
     category: "Spa & Sağlık",
     items: [
+      { key: "termal-havuz", label: "Termal havuz" },
       { key: "spa-merkezi", label: "Spa merkezi" },
       { key: "hamam", label: "Hamam" },
       { key: "sauna", label: "Sauna" },
@@ -98,14 +99,84 @@ const labelByKey = new Map<string, string>(
   amenitiesCatalog.flatMap((c) => c.items.map((i) => [i.key, i.label] as const)),
 );
 
+/**
+ * Dışarıdan aktarılan tesisler olanakları serbest metinle tutar ("Türk Hamamı",
+ * "Termal Havuz"). Katalog etiketi ya da bilinen eş anlamlısı olan metin
+ * katalog anahtarına çevrilir; böylece filtreler ve gruplama iki kaynakta da
+ * aynı çalışır. Tanınmayan metin olduğu gibi kalır.
+ */
+const SYNONYMS: Record<string, string> = {
+  "türk hamamı": "hamam",
+  "spa": "spa-merkezi",
+  "spa & wellness": "spa-merkezi",
+  "spor salonu": "fitness",
+  "fitness center": "fitness",
+  "restaurant": "restoran",
+  "ana restaurant": "restoran",
+  "otopark": "otopark",
+  "kapalı otopark": "otopark",
+  "açık otopark": "otopark",
+  "jakuzi": "jakuzi",
+  "asansör": "asansor",
+  "çamaşırhane": "camasirhane",
+  "kasa": "kasa",
+};
+
+const keyByText = new Map<string, string>([
+  ...amenitiesCatalog.flatMap((c) =>
+    c.items.flatMap((i) => [
+      [i.key, i.key] as const,
+      [i.label.toLocaleLowerCase("tr-TR"), i.key] as const,
+    ]),
+  ),
+  ...Object.entries(SYNONYMS),
+]);
+
+/** Serbest metni ya da anahtarı katalog anahtarına çevirir; tanınmazsa olduğu gibi döner. */
+export function amenityKey(value: string): string {
+  return keyByText.get(value.trim().toLocaleLowerCase("tr-TR")) ?? value;
+}
+
+/** Olanak listesini anahtarlara çevirir, tekrarları atar (sıra korunur). */
+export function normalizeAmenities(values: readonly string[]): string[] {
+  return [...new Set(values.map(amenityKey))];
+}
+
+/**
+ * Misafirin otel seçerken gerçekten karşılaştırdığı olanaklar, önem sırasıyla.
+ * "Televizyon", "Wc" gibi her otelde olan oda donanımı öne çıkarılmaz.
+ */
+const HIGHLIGHT_PRIORITY = [
+  "termal-havuz",
+  "ozel-plaj",
+  "hamam",
+  "spa-merkezi",
+  "cocuk-havuzu",
+  "acik-havuz",
+  "kapali-havuz",
+  "her-sey-dahil",
+  "fitness",
+  "sauna",
+  "cocuk-kulubu",
+  "evcil-hayvan",
+  "havalimani-transferi",
+  "ucretsiz-wifi",
+];
+
+/** Öne çıkarılacak en fazla `limit` olanak anahtarı (önem sırasıyla). */
+export function highlightAmenityKeys(values: readonly string[], limit: number): string[] {
+  const keys = new Set(normalizeAmenities(values));
+  return HIGHLIGHT_PRIORITY.filter((k) => keys.has(k)).slice(0, limit);
+}
+
 /** Anahtar için Türkçe etiket — katalogda yoksa anahtarın kendisi döner. */
 export function amenityLabel(key: string): string {
-  return labelByKey.get(key) ?? key;
+  return labelByKey.get(amenityKey(key)) ?? key;
 }
 
 /** Seçili anahtarları katalog kategorilerine göre gruplar (özel anahtarlar "Diğer"e). */
 export function groupAmenities(keys: string[]): AmenityCategory[] {
-  const selected = new Set(keys);
+  const selected = new Set(normalizeAmenities(keys));
   const groups: AmenityCategory[] = [];
   for (const cat of amenitiesCatalog) {
     const items = cat.items.filter((i) => selected.has(i.key));

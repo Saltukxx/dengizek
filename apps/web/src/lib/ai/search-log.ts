@@ -14,6 +14,7 @@ import { groupingKey } from "@/lib/ai/text";
 
 export const SEARCH_EVENT = "hotel_search";
 const MAX_QUERY_CHARS = 200;
+const MAX_LOGGED_HOTELS = 10;
 
 export interface SearchLogPayload {
   query: string;
@@ -24,6 +25,8 @@ export interface SearchLogPayload {
   followUp: boolean;
   /** Kurallar yetmedi, model yorumu kullanıldı. */
   model: boolean;
+  /** Gösterilen oteller (slug, sırayla; tam sonuçlar önce, en fazla 10). */
+  hotels: string[];
 }
 
 export function searchLogPayload(query: string, response: SearchResponse & { interpretedByModel?: boolean }): SearchLogPayload {
@@ -35,6 +38,7 @@ export function searchLogPayload(query: string, response: SearchResponse & { int
     corrections: response.query.corrections.length,
     followUp: response.chain.length > 1,
     model: Boolean(response.interpretedByModel),
+    hotels: [...response.results, ...response.partial].slice(0, MAX_LOGGED_HOTELS).map((h) => h.slug),
   };
 }
 
@@ -54,6 +58,8 @@ export interface SearchInsights {
   unknownWords: Array<{ word: string; count: number }>;
   /** En çok aranan istekler. */
   top: SearchQueryGroup[];
+  /** Aramalarda en çok gösterilen oteller (first = ilk sırada çıkma sayısı). */
+  topHotels: Array<{ hotelSlug: string; count: number; first: number }>;
 }
 
 export function summarizeSearches(
@@ -62,6 +68,7 @@ export function summarizeSearches(
 ): SearchInsights {
   const groups = new Map<string, SearchQueryGroup>();
   const unknown = new Map<string, number>();
+  const shown = new Map<string, { count: number; first: number }>();
   let total = 0;
   for (const event of events) {
     const p = event.payload ?? {};
@@ -76,6 +83,13 @@ export function summarizeSearches(
       group.count += 1;
       if (at > group.lastAt) Object.assign(group, { lastAt: at, results, query: p.query });
     }
+    const slugs = (Array.isArray(p.hotels) ? p.hotels : []).filter((h): h is string => typeof h === "string");
+    slugs.forEach((slug, i) => {
+      const s = shown.get(slug) ?? { count: 0, first: 0 };
+      s.count += 1;
+      if (i === 0) s.first += 1;
+      shown.set(slug, s);
+    });
     for (const word of Array.isArray(p.unknown) ? p.unknown : []) {
       if (typeof word === "string") unknown.set(word, (unknown.get(word) ?? 0) + 1);
     }
@@ -87,5 +101,9 @@ export function summarizeSearches(
     noResults: all.filter((g) => g.results === 0).sort(byCount).slice(0, limit),
     unknownWords: [...unknown.entries()].map(([word, count]) => ({ word, count })).sort((a, b) => b.count - a.count).slice(0, limit),
     top: all.sort(byCount).slice(0, limit),
+    topHotels: [...shown.entries()]
+      .map(([hotelSlug, v]) => ({ hotelSlug, ...v }))
+      .sort((a, b) => b.count - a.count || b.first - a.first)
+      .slice(0, limit),
   };
 }

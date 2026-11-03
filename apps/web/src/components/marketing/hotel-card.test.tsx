@@ -27,19 +27,26 @@ const hotel = {
 describe("HotelCard", () => {
   afterEach(() => cleanup());
 
-  it("özel yüzey bağlantısını kartın bütün eylemlerinde korur", () => {
-    render(<HotelCard hotel={hotel} href="/kis/oteller/kar-zirvesi" actionLabel="Tesisi İncele" />);
+  it("kartı otel adıyla tek bağlantı yapar ve özel yüzey adresini korur", () => {
+    render(<HotelCard hotel={hotel} href="/kis/oteller/kar-zirvesi" />);
 
     const links = screen.getAllByRole("link");
-    expect(links).toHaveLength(3);
-    expect(links.every((link) => link.getAttribute("href") === "/kis/oteller/kar-zirvesi")).toBe(true);
-    expect(screen.getByRole("link", { name: "Tesisi İncele" })).toBeInTheDocument();
+    expect(links).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "Kar Zirvesi" })).toHaveAttribute("href", "/kis/oteller/kar-zirvesi");
+  });
+
+  it("video tur rozetini yalnız turu olan tesiste gösterir", () => {
+    const { rerender } = render(<HotelCard hotel={hotel} />);
+    expect(screen.queryByText("Video tur")).not.toBeInTheDocument();
+
+    rerender(<HotelCard hotel={hotel} hasTour />);
+    expect(screen.getByText("Video tur")).toBeInTheDocument();
   });
 
   it("sayısal olmayan fiyat etiketini gece ücreti gibi göstermez", () => {
     render(<HotelCard hotel={hotel} />);
 
-    expect(screen.getByText("Fiyat için talep gönderin")).toBeInTheDocument();
+    expect(screen.getByText("Fiyat talep üzerine")).toBeInTheDocument();
     expect(screen.queryByText("Talep üzerine")).not.toBeInTheDocument();
     expect(screen.queryByText("gecelik başlayan")).not.toBeInTheDocument();
   });
@@ -59,21 +66,21 @@ describe("HotelCard", () => {
         reviewAverage={4.75}
         reviewCount={18}
         starRating={5}
-        amenities={["spa-merkezi", "kapali-havuz", "sauna"]}
+        amenities={["Televizyon", "sauna", "Termal Havuz", "Türk Hamamı", "kapali-havuz"]}
       />,
     );
 
     expect(screen.getByTitle("18 yorum")).toHaveTextContent("4,75");
-    expect(screen.getByText("5 Yıldız")).toBeInTheDocument();
-    expect(screen.getByText("Spa merkezi")).toBeInTheDocument();
-    expect(screen.getByText("Kapalı havuz")).toBeInTheDocument();
-    expect(screen.queryByText("Sauna")).not.toBeInTheDocument();
+    expect(screen.getByText("Bursa · 5 yıldızlı")).toBeInTheDocument();
+    // Serbest metin olanaklar anahtara çevrilir; öncelikli ilk üçü tek satırda.
+    expect(screen.getByText("Termal havuz · Hamam · Kapalı havuz")).toBeInTheDocument();
+    expect(screen.queryByText(/Televizyon/)).not.toBeInTheDocument();
   });
 
   it("fiyat ve görsel yoksa kırık medya üretmeden talep yönlendirmesi gösterir", () => {
     render(<HotelCard hotel={{ ...hotel, imageUrl: "", priceLabel: undefined }} />);
 
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
-    expect(screen.getByText("Fiyat için talep gönderin")).toBeInTheDocument();
+    expect(screen.getByText("Fiyat talep üzerine")).toBeInTheDocument();
   });
 });

@@ -49,6 +49,7 @@ function hotel(overrides: Partial<BrowseHotelRow> & Pick<BrowseHotelRow, "slug" 
     minPriceMinor: 900_000,
     reviewAverage: 4.5,
     reviewCount: 10,
+    tourId: null,
     ...rest,
   };
 }

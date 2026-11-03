@@ -3,6 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/ai/llm", () => ({ getEmbeddingModel: () => null, EMBEDDING_PROVIDER_OPTIONS: {} }));
 
 import {
+  isMisleadingCardPointer,
+  askedValueOnLine,
+  cardMatchesAskedTopic,
+  expandEllipticalFollowUp,
+  splitCompoundQuestion,
   extractPriceQuery,
   extractStayDates,
   hasNavigationIntent,
@@ -734,5 +739,154 @@ describe("oda listesi sorusu", () => {
     const message = "Hangi odanın fiyatı en uygun?";
     const plan = await planServerTools({ message, messageEmbedding: null, hints: detectToolHints(message), inquiryIntent: "none", catalog, rooms, today: TODAY });
     expect(plan.reply).not.toBe("rooms");
+  });
+});
+
+describe("isMisleadingCardPointer", () => {
+  const policy = { title: "Politikalar", text: "İptal 7 gün öncesine kadar ücretsizdir." };
+  const checkIn = { title: "Giriş / çıkış", text: "Giriş saati 14:00, çıkış saati 12:00." };
+
+  it("giriş saati sorusu + cevabı içermeyen karta yönlendirme → yanıltıcı", () => {
+    expect(isMisleadingCardPointer("Giriş saati kaçta?", "Giriş saatleri hakkında bilgiyi aşağıda görebilirsiniz.", [policy])).toBe(true);
+    expect(isMisleadingCardPointer("What time is check-in?", "You can find the details below.", [policy])).toBe(true);
+  });
+
+  it("kart yokken karta yönlendirme de yanıltıcı", () => {
+    expect(isMisleadingCardPointer("Köpeğimi getirebilir miyim?", "Evcil hayvan politikamızı aşağıda paylaşıyorum.", [])).toBe(true);
+  });
+
+  it("kart cevabı içeriyorsa yanıltıcı değil", () => {
+    expect(isMisleadingCardPointer("Giriş saati kaçta?", "Bilgiyi kartta paylaştım.", [checkIn])).toBe(false);
+  });
+
+  it("bilinen konu değilse ya da karta yönlendirme yoksa karar verilmez", () => {
+    expect(isMisleadingCardPointer("Termal havuzları anlatır mısınız?", "Detaylar aşağıda.", [policy])).toBe(false);
+    expect(isMisleadingCardPointer("Giriş saati kaçta?", "Bu konuda otelden bilgi alabilirim.", [policy])).toBe(false);
+  });
+
+  it("pansiyon sorusunda saat kartı yanıltıcı, konaklama kartı değil", () => {
+    expect(isMisleadingCardPointer("Yemekler dahil mi, konseptiniz nedir?", "Ayrıntılar kartta.", [checkIn])).toBe(true);
+    const konaklama = { title: "Konaklama", text: "Yarım Pansiyon Konsepti" };
+    expect(isMisleadingCardPointer("Yemekler dahil mi, konseptiniz nedir?", "Ayrıntılar kartta.", [konaklama])).toBe(false);
+    // Yemek sorusu ama pansiyon değil: bilinen konu sayılmaz.
+    expect(isMisleadingCardPointer("Restoranınız kaçta açılıyor?", "Ayrıntılar kartta.", [checkIn])).toBe(false);
+  });
+
+  it("havalimanı sorusunda saat kartı yanıltıcı, konum kartı değil", () => {
+    expect(isMisleadingCardPointer("Havalimanına uzaklığınız ne kadar?", "Ayrıntılar kartta.", [checkIn])).toBe(true);
+    const konum = { title: "Otel Konum", text: "Zafer Havaalanına 37 km" };
+    expect(isMisleadingCardPointer("Havalimanına uzaklığınız ne kadar?", "Ayrıntılar kartta.", [konum])).toBe(false);
+  });
+});
+
+describe("oda özellikleri ve metinde geçen olanaklar", () => {
+  const roomList = [
+    { slug: "balkonsuz", name: "Standart Balkonsuz Oda" },
+    { slug: "suit", name: "Suit Oda" },
+  ];
+  const catalog: AiFactCatalogEntry[] = [
+    { id: "spec.amenities", kind: "verified", hint: "otel olanakları", text: "Otel olanakları: Açık Havuz, Balkon, Minibar.", items: ["Açık Havuz", "Balkon", "Minibar"] },
+    { id: "statement.0", kind: "otel_ifadesi", hint: "otel ifadesi sahibi notu", text: "Spa: Misafirlerimiz fitness center hizmetimizi kullanabilir. Hamamda kese yapılır." },
+    { id: "room.balkonsuz.info", kind: "verified", hint: "oda", title: "Standart Balkonsuz Oda", text: "Standart Balkonsuz Oda: 2 yetişkin." },
+    { id: "room.balkonsuz.details", kind: "verified", hint: "oda açıklaması", title: "Standart Balkonsuz Oda", text: "Öne Çıkan Özellikler: Balkonsuzdur. Oda Donanımları: TV, Klima." },
+    { id: "room.suit.info", kind: "verified", hint: "oda", title: "Suit Oda", text: "Suit Oda: 4 yetişkin." },
+    { id: "room.suit.details", kind: "verified", hint: "oda açıklaması", title: "Suit Oda", text: "Geniş balkon, jakuzili banyo, minibar." },
+  ];
+  const plan = (message: string) =>
+    planServerTools({ message, messageEmbedding: null, hints: detectToolHints(message), inquiryIntent: "none", catalog, rooms: roomList, today: TODAY });
+
+  it("oda özelliği 'odalarda' cevaplanır, balkonsuz oda belirtilir", async () => {
+    const p = await plan("Balkon var mı?");
+    expect(p.amenities).toEqual(["Balkon"]);
+    expect(p.roomFeature).toEqual({ exceptions: ["Standart Balkonsuz Oda"] });
+    expect((await plan("Havuz var mı?")).roomFeature).toBeUndefined();
+  });
+
+  it("listede olmayan ama metinde geçen olanak: metnin kartı", async () => {
+    expect((await plan("Kese var mı?")).calls).toEqual([{ toolName: "citeFact", input: { factId: "statement.0" } }]);
+    // "spor salonu" ↔ "fitness center": "bilgim yok" denmez.
+    expect((await plan("Spor salonunuz var mı?")).calls).toEqual([{ toolName: "citeFact", input: { factId: "statement.0" } }]);
+    // Yalnız oda açıklamasında geçen: o odanın kartı.
+    expect((await plan("Jakuzi var mı?")).calls).toEqual([{ toolName: "citeFact", input: { factId: "room.suit.details" } }]);
+  });
+
+  it("adı geçen oda: donanım → açıklama kartı, kapasite → oda kartı", async () => {
+    expect((await plan("Suit Oda odasında neler var?")).calls).toEqual([{ toolName: "citeFact", input: { factId: "room.suit.details" } }]);
+    expect((await plan("Suit Oda kaç kişilik?")).calls).toEqual([{ toolName: "citeFact", input: { factId: "room.suit.info" } }]);
+  });
+});
+
+describe("birleşik soru ve kısa takip", () => {
+  it("birleşik soru parçalanır; tek kelimelik parça varsa tek soru kalır", () => {
+    expect(splitCompoundQuestion("Giriş saati kaçta ve köpek kabul ediyor musunuz?")).toEqual(["Giriş saati kaçta", "köpek kabul ediyor musunuz?"]);
+    expect(splitCompoundQuestion("Giriş saati kaçta? Havuz var mı?")).toEqual(["Giriş saati kaçta", "Havuz var mı?"]);
+    expect(splitCompoundQuestion("Kahvaltı ve akşam yemeği dahil mi?")).toEqual([]);
+    expect(splitCompoundQuestion("Merhaba, giriş saati kaçta?")).toEqual([]);
+  });
+
+  it("kısa takip önceki sorunun kalıbını devralır; fiyat takibine dokunmaz", () => {
+    const ctx = { previousUserTexts: ["Giriş saati kaçta?"] };
+    expect(expandEllipticalFollowUp("peki çıkış?", ctx)).toBe("peki cikis saati kacta");
+    expect(expandEllipticalFollowUp("Peki çıkış saati?", ctx)).toBeNull();
+    expect(expandEllipticalFollowUp("peki çıkış?", { previousUserTexts: [] })).toBeNull();
+    expect(expandEllipticalFollowUp("Peki 3 kişi?", ctx)).toBeNull();
+    expect(expandEllipticalFollowUp("peki suit?", { ...ctx, lastPriceQuery: { guestCount: 2 } })).toBeNull();
+  });
+
+  it("kart, sorulan konulardan birinin kanıtını içeriyorsa kabul", () => {
+    const q = "Giriş saati kaçta ve köpek kabul ediyor musunuz?";
+    expect(cardMatchesAskedTopic(q, { text: "Evcil hayvan kabul edilmez." })).toBe(true);
+    expect(cardMatchesAskedTopic(q, { text: "Giriş saati 14:00." })).toBe(true);
+    expect(cardMatchesAskedTopic(q, { text: "İptal 7 gün önce ücretsiz." })).toBe(false);
+    expect(cardMatchesAskedTopic("Termal havuz var mı?", { text: "x" })).toBeNull();
+  });
+
+  it("planlayıcı iki soruya iki kart verir", async () => {
+    const catalog: AiFactCatalogEntry[] = [
+      { id: "spec.check_in", kind: "verified", hint: "giriş saati check-in", text: "Check-in saati: 14:00" },
+      { id: "spec.check_out", kind: "verified", hint: "çıkış saati check-out", text: "Check-out saati: 12:00" },
+      { id: "policy.pets", kind: "policy", hint: "evcil hayvan", text: "Evcil hayvan kabul edilmez." },
+    ];
+    const run = (message: string, context?: { previousUserTexts: string[] }) =>
+      planServerTools({ message, messageEmbedding: null, hints: detectToolHints(message), inquiryIntent: "none", catalog, rooms, today: TODAY, context });
+    expect((await run("Giriş saati kaçta ve köpek kabul ediyor musunuz?")).calls.map((c) => c.input)).toEqual([
+      { factId: "spec.check_in" },
+      { factId: "policy.pets" },
+    ]);
+    expect((await run("peki çıkış?", { previousUserTexts: ["Giriş saati kaçta?"] })).calls).toEqual([
+      { toolName: "citeFact", input: { factId: "spec.check_out" } },
+    ]);
+  });
+});
+
+describe("otelcinin eklediği cevap rehbere ulaşır", () => {
+  it("cevapsız soruya eklenen otel ifadesi aynı soruda ve benzerlerinde kart olur", async () => {
+    const { answerFactText } = await import("@/lib/ai/unanswered");
+    const catalog: AiFactCatalogEntry[] = [
+      { id: "spec.amenities", kind: "verified", hint: "otel olanakları", text: "Otel olanakları: Açık Havuz, Sauna.", items: ["Açık Havuz", "Sauna"] },
+      { id: "statement.0", kind: "otel_ifadesi", hint: "otel ifadesi sahibi notu", text: answerFactText("Havalimanı transferi var mı?", "Evet, ücretli transfer hizmetimiz var.") },
+      { id: "statement.1", kind: "otel_ifadesi", hint: "otel ifadesi sahibi notu", text: answerFactText("Bebek yatağı veriyor musunuz?", "Talep üzerine ücretsiz bebek yatağı veriyoruz.") },
+    ];
+    const run = (message: string) =>
+      planServerTools({ message, messageEmbedding: null, hints: detectToolHints(message), inquiryIntent: "none", catalog, rooms, today: TODAY });
+    for (const [message, factId] of [
+      ["Havalimanı transferi var mı?", "statement.0"],
+      ["havalimanından transfer yapıyor musunuz", "statement.0"],
+      ["Bebek yatağı veriyor musunuz?", "statement.1"],
+      ["bebek yatagi var mi", "statement.1"],
+    ] as const) {
+      expect((await run(message)).calls, message).toEqual([{ toolName: "citeFact", input: { factId } }]);
+    }
+  });
+});
+
+describe("ayrıntı soruları: konu ve değer aynı satırda", () => {
+  const e = (text: string) => ({ id: "s", kind: "otel_ifadesi" as const, hint: "", text });
+  it("saat ve sıcaklık", () => {
+    expect(askedValueOnLine("Çocuk kulübü kaçta açık?", e("Çocuklara Özel: Mini Club 09:00 ile 20:30 saatleri arasında hizmet verir."))).toBe(true);
+    expect(askedValueOnLine("Çocuk kulübü kaçta açık?", e("Çay saati her gün 15:30'da. Mini club mevcuttur."))).toBe(false);
+    expect(askedValueOnLine("Termal havuz kaç derece?", e("Termal su kaynağının çıkış ısısı 55-60 derecedir."))).toBe(false);
+    expect(askedValueOnLine("Termal havuz kaç derece?", e("Termal hamam ve havuzlarında 40 - 42 derece."))).toBe(true);
+    expect(askedValueOnLine("Termal havuz var mı?", e("Termal havuz 40 derece."))).toBe(false);
   });
 });

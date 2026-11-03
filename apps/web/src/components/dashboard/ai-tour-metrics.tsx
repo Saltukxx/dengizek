@@ -14,6 +14,7 @@ import {
 } from "@mantine/core";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useMyHotel } from "./use-my-hotel";
+import { UnansweredQuestionRow, type UnansweredQuestionItem } from "./unanswered-question-row";
 
 interface AiMetricsData {
   tourStarts: number;
@@ -37,12 +38,19 @@ interface AiMetricsData {
   } | null;
   readinessScore: number;
   readinessIssues: string[];
-  unansweredQuestions?: Array<{
-    question: string;
-    count: number;
-    reason: "bilgi-yok" | "kartsiz";
-    lastAskedAt: string;
-  }>;
+  unansweredQuestions?: UnansweredQuestionItem[];
+  feedback?: {
+    up: number;
+    down: number;
+    positiveRate: number | null;
+    topDown: Array<{ question: string; answer: string; count: number }>;
+  };
+  questionInsights?: {
+    total: number;
+    answerRate: number | null;
+    topQuestions: Array<{ question: string; count: number; unanswered: number; topic: string }>;
+    byTopic: Array<{ topic: string; label: string; count: number; unanswered: number }>;
+  };
 }
 
 function MetricCard({
@@ -195,29 +203,86 @@ export function AiTourMetrics() {
         </Paper>
       ) : null}
 
+      {data.questionInsights && data.questionInsights.total > 0 ? (
+        <Paper withBorder p="md" radius="md">
+          <Text size="sm" fw={500}>
+            Misafirlerin rehbere en çok sorduğu sorular (son 30 gün)
+          </Text>
+          <Text size="xs" c="dimmed" mt={4} mb="xs">
+            {data.questionInsights.total.toLocaleString("tr-TR")} soru
+            {data.questionInsights.answerRate != null
+              ? ` · %${Math.round(data.questionInsights.answerRate * 100)} doğrulanmış bilgiyle cevaplandı`
+              : ""}
+            {data.questionInsights.byTopic.length
+              ? ` · ${data.questionInsights.byTopic
+                  .slice(0, 5)
+                  .map((t) => `${t.label} ${t.count}`)
+                  .join(", ")}`
+              : ""}
+          </Text>
+          <Stack gap={6}>
+            {data.questionInsights.topQuestions.map((q) => (
+              <Group key={q.question} justify="space-between" wrap="nowrap" gap="sm">
+                <Text size="sm" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                  {q.question}
+                </Text>
+                <Badge variant="outline" style={{ flexShrink: 0 }}>
+                  {q.count}×
+                </Badge>
+              </Group>
+            ))}
+          </Stack>
+        </Paper>
+      ) : null}
+
+      {data.feedback && data.feedback.up + data.feedback.down > 0 ? (
+        <Paper withBorder p="md" radius="md">
+          <Text size="sm" fw={500}>
+            Misafir değerlendirmesi (son 30 gün)
+          </Text>
+          <Text size="xs" c="dimmed" mt={4} mb="xs">
+            {data.feedback.up + data.feedback.down} oy · %{Math.round((data.feedback.positiveRate ?? 0) * 100)} faydalı buldu
+            (👍 {data.feedback.up} · 👎 {data.feedback.down})
+          </Text>
+          {data.feedback.topDown.length > 0 ? (
+            <Stack gap={8}>
+              <Text size="xs" fw={500}>
+                Faydalı bulunmayan cevaplar
+              </Text>
+              {data.feedback.topDown.map((d) => (
+                <Group key={d.question} justify="space-between" wrap="nowrap" gap="sm" align="flex-start">
+                  <div style={{ minWidth: 0 }}>
+                    <Text size="sm" style={{ overflowWrap: "anywhere" }}>
+                      {d.question}
+                    </Text>
+                    <Text size="xs" c="dimmed" style={{ overflowWrap: "anywhere" }}>
+                      Rehber: {d.answer}
+                    </Text>
+                  </div>
+                  <Badge variant="outline" color="red" style={{ flexShrink: 0 }}>
+                    {d.count}×
+                  </Badge>
+                </Group>
+              ))}
+            </Stack>
+          ) : null}
+        </Paper>
+      ) : null}
+
       <Paper withBorder p="md" radius="md">
         <Text size="sm" fw={500}>
           Rehberin cevaplayamadığı sorular (son 30 gün)
         </Text>
         <Text size="xs" c="dimmed" mt={4} mb="xs">
-          Misafirlerin sorduğu ama otel bilgilerinizde karşılığı olmayan sorular. Cevabı yukarıdaki
-          “Otel ifadesi” ya da “Politika” alanına ekleyin; rehber bir sonraki yayından itibaren cevaplar.
+          Misafirlerin sorduğu ama otel bilgilerinizde karşılığı olmayan sorular. “Cevap ekle” ile
+          cevabınızı yazın; otel ifadelerinize eklenir ve tesis bilgileriniz yayınlandıktan sonra rehber bu
+          soruyu cevaplar.
         </Text>
         {data.unansweredQuestions && data.unansweredQuestions.length > 0 ? (
           <Stack gap={6}>
-            {data.unansweredQuestions.map((q) => (
-              <Group key={q.question} justify="space-between" wrap="nowrap" gap="sm">
-                <Text size="sm" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
-                  {q.question}
-                </Text>
-                <Group gap={6} wrap="nowrap">
-                  <Badge variant="light" color={q.reason === "bilgi-yok" ? "red" : "gray"}>
-                    {q.reason === "bilgi-yok" ? "Bilgi yok" : "Kartsız cevap"}
-                  </Badge>
-                  <Badge variant="outline">{q.count}×</Badge>
-                </Group>
-              </Group>
-            ))}
+            {data.unansweredQuestions.map((q) =>
+              hotel ? <UnansweredQuestionRow key={q.question} hotelId={hotel.id} item={q} onSaved={() => void reload()} /> : null,
+            )}
           </Stack>
         ) : (
           <Text size="sm" c="dimmed">

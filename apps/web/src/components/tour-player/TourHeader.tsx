@@ -6,13 +6,15 @@ type TourHeaderProps = {
   hotelSlug: string;
   backHref: string;
   surface?: "yaz" | "kis";
+  /** Talep bağlantısına tıklanınca (tur çıkış kaydı için). */
+  onInquiryClick?: () => void;
 };
 
 /**
  * Tur ekranının üst çubuğu — site başlığıyla aynı Elite Reserve dilinde:
  * solda marka + tesise dönüş, sağda talep eylemi.
  */
-export function TourHeader({ hotelName, hotelSlug, backHref, surface = "yaz" }: TourHeaderProps) {
+export function TourHeader({ hotelName, hotelSlug, backHref, surface = "yaz", onInquiryClick }: TourHeaderProps) {
   const isWinter = surface === "kis";
   return (
     <header
@@ -41,7 +43,11 @@ export function TourHeader({ hotelName, hotelSlug, backHref, surface = "yaz" }: 
           <IconArrowLeft size={16} />
           Turdan çık
         </Link>
-        <Link href={`${isWinter ? "/kis/talep" : "/inquiry"}?hotel=${hotelSlug}`} className="er-btn er-btn-cta">
+        <Link
+          href={`${isWinter ? "/kis/talep" : "/inquiry"}?hotel=${hotelSlug}`}
+          className="er-btn er-btn-cta"
+          onClick={onInquiryClick}
+        >
           <IconMessageCircle size={17} />
           Talep Gönder
         </Link>

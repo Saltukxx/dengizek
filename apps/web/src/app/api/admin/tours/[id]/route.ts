@@ -8,6 +8,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { tourStepsTable, toursTable } from "@/lib/db/schema";
 import { logAudit } from "@/lib/audit";
+import { revalidateGuestHotel } from "@/lib/guest-cache";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -29,6 +30,7 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
       and(eq(tourStepsTable.hotelSlug, tour.hotelSlug), eq(tourStepsTable.tourId, tour.tourId)),
     );
   await db.delete(toursTable).where(eq(toursTable.id, tour.id));
+  revalidateGuestHotel(tour.hotelSlug);
 
   await logAudit({
     actor: guard.user,

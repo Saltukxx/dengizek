@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupUnanswered, isQuestionLike, unansweredPayload } from "@/lib/ai/unanswered";
+import { answerFactText, answerFor, groupUnanswered, isQuestionLike, unansweredPayload, withAnswerStatus } from "@/lib/ai/unanswered";
 
 describe("cevapsız soru kaydı", () => {
   it.each(["Golf sahası var mı?", "termal havuz kaç derece", "Is there a shuttle", "Kahvaltı ne zaman"])("%s → soru", (m) => {
@@ -27,6 +27,32 @@ describe("cevapsız soru kaydı", () => {
     expect(groups).toEqual([
       { question: "Golf sahası var mı?", count: 3, reason: "bilgi-yok", lastAskedAt: "2026-10-23T10:00:00.000Z" },
       { question: "Havuz kaç derece?", count: 1, reason: "kartsiz", lastAskedAt: "2026-10-21T10:00:00.000Z" },
+    ]);
+  });
+});
+
+describe("otelcinin cevabı", () => {
+  it("ifade metni: soru + cevap; aynı soru (yazım farkıyla) bulunur", () => {
+    const fact = answerFactText("Kese var mı", "Evet, hamamda ücretli kese hizmeti var.");
+    expect(fact).toBe("Kese var mı? — Evet, hamamda ücretli kese hizmeti var.");
+    expect(answerFor("kese var mi?", ["Deniz manzarası eşsizdir.", fact])).toBe("Evet, hamamda ücretli kese hizmeti var.");
+    expect(answerFor("Sauna var mı?", [fact])).toBeNull();
+  });
+
+  it("durum: yayındaki cevap öncelikli, cevaplananlar sona", () => {
+    const at = "2026-10-30T10:00:00.000Z";
+    const groups = [
+      { question: "Kese var mı?", count: 5, reason: "bilgi-yok" as const, lastAskedAt: at },
+      { question: "Transfer var mı?", count: 3, reason: "bilgi-yok" as const, lastAskedAt: at },
+      { question: "Bebek yatağı var mı?", count: 1, reason: "kartsiz" as const, lastAskedAt: at },
+    ];
+    const draft = [answerFactText("Kese var mı?", "Evet."), answerFactText("Bebek yatağı var mı?", "Talep üzerine.")];
+    const published = [answerFactText("Kese var mı?", "Evet.")];
+    const out = withAnswerStatus(groups, draft, published);
+    expect(out.map((g) => [g.question, g.answer?.status ?? null])).toEqual([
+      ["Transfer var mı?", null],
+      ["Kese var mı?", "yayinda"],
+      ["Bebek yatağı var mı?", "taslak"],
     ]);
   });
 });

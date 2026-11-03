@@ -170,15 +170,15 @@ export default async function WinterHomePage() {
                 starRating={h.starRating}
                 amenities={h.amenities}
                 minPriceMinor={h.minPriceMinor}
+                hasTour={Boolean(h.tourId)}
                 href={`/kis/oteller/${h.slug}`}
-                actionLabel="Tesisi İncele"
               />
             ))}
           </div>
         )}
       </section>
 
-      <section className="er-winter-experience">
+      <section id="nasil-calisir" className="er-winter-experience">
         <div className="er-container">
           <div className="er-winter-experience-stage">
             <div className="er-winter-experience-head">

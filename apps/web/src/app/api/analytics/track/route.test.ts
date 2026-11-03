@@ -91,14 +91,17 @@ describe("analytics track API", () => {
     makeDb([{ id: "hotel-db" }]);
     const payload = { page: "kis-browse", season: "kis", resultCount: 3 };
 
-    const res = await POST(request({ eventType: "page_view", hotelSlug: "kar-zirvesi", payload }));
+    const visitId = "7d1f0c3e-2b4a-4c6d-9e8f-0a1b2c3d4e5f";
+    const res = await POST(request({ eventType: "page_view", hotelSlug: "kar-zirvesi", payload, visitId }));
 
     expect(res.status).toBe(200);
+    // Ziyaret kimliği olayın kendi sütununa aktarılır.
     expect(mocks.trackEvent).toHaveBeenCalledWith(
       "page_view",
       payload,
       "hotel-db",
       "kar-zirvesi",
+      visitId,
     );
   });
 
@@ -108,6 +111,13 @@ describe("analytics track API", () => {
     const res = await POST(request({ eventType: "hotel_view", hotelSlug: "olmayan" }));
 
     expect(res.status).toBe(200);
-    expect(mocks.trackEvent).toHaveBeenCalledWith("hotel_view", {}, null, "olmayan");
+    expect(mocks.trackEvent).toHaveBeenCalledWith("hotel_view", {}, null, "olmayan", undefined);
+  });
+
+  it("UUID biçiminde olmayan ziyaret kimliğini (ör. e-posta) reddeder", async () => {
+    makeDb([]);
+    const res = await POST(request({ eventType: "hotel_view", visitId: "ada@example.com" }));
+    expect(res.status).toBe(400);
+    expect(mocks.trackEvent).not.toHaveBeenCalled();
   });
 });

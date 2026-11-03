@@ -51,6 +51,7 @@ export const inquirySourceEnum = pgEnum("inquiry_source", [
   "web",
   "tour_ai",
   "tour_player",
+  "hotel_chat",
 ]);
 export const propertyTypeEnum = pgEnum("property_type", [
   "otel",
@@ -653,8 +654,12 @@ export const analyticsEventsTable = pgTable("analytics_events", {
   hotelSlug:  text("hotel_slug"),
   eventType:  text("event_type").notNull(),
   payload:    jsonb("payload").$type<Record<string, unknown>>().default({}).notNull(),
+  // Anonim ziyaret kimliği — tarayıcı sekmesi başına rastgele UUID (isim, IP,
+  // e-posta değil). Aynı ziyaretin soru, tur ve talep olaylarını birbirine bağlar.
+  visitId:    text("visit_id"),
   createdAt:  timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
+  visitCreatedIdx: index("analytics_visit_created_idx").on(table.visitId, table.createdAt),
   hotelEventIdx: index("analytics_hotel_event_idx").on(table.hotelId, table.eventType),
   createdAtIdx:  index("analytics_created_at_idx").on(table.createdAt),
   hotelCreatedIdx: index("analytics_hotel_created_idx").on(table.hotelId, table.createdAt),

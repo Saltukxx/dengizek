@@ -5,6 +5,8 @@
 // DB satırları bu şekle eşlenir.
 // ---------------------------------------------------------------------------
 
+import { cache } from "react";
+import { GUEST_HOTEL_LIST_TAG, guestCached, guestHotelTag } from "@/lib/guest-cache";
 import {
   getHotelBySlug as getMockHotelBySlug,
   getHotels as getMockHotels,
@@ -174,6 +176,8 @@ export interface BrowseHotelRow {
   /** Yayındaki yorumların ortalaması (1–5); yorum yoksa null */
   reviewAverage: number | null;
   reviewCount: number;
+  /** Yayında video turu varsa ilkinin kimliği; yoksa null. */
+  tourId: string | null;
 }
 
 export interface BrowseFilters {
@@ -201,11 +205,24 @@ export interface BrowseFilters {
 export async function getPublishedHotelsForBrowse(
   filters: BrowseFilters = {},
 ): Promise<BrowseHotelRow[]> {
+  // Serbest metin araması önbelleğe alınmaz: her farklı sorgu ayrı kayıt olurdu.
+  return filters.q?.trim() ? loadPublishedHotelsForBrowse(filters) : cachedBrowse(filters);
+}
+
+const cachedBrowse = guestCached(
+  "browse",
+  (filters: BrowseFilters) => loadPublishedHotelsForBrowse(filters),
+  () => [GUEST_HOTEL_LIST_TAG],
+);
+
+async function loadPublishedHotelsForBrowse(
+  filters: BrowseFilters,
+): Promise<BrowseHotelRow[]> {
   if (isDbAvailable()) {
     try {
       const { getDb } = await import("@/lib/db");
-      const { hotelsTable, reviewsTable, roomsTable } = await import("@/lib/db/schema");
-      const { and, avg, count, eq, min, or, sql } = await import("drizzle-orm");
+      const { hotelsTable, reviewsTable, roomsTable, toursTable } = await import("@/lib/db/schema");
+      const { and, asc, avg, count, eq, isNotNull, min, or, sql } = await import("drizzle-orm");
       const { guestVisibleHotelWhere } = await import("@/lib/hotel-visibility");
       const db = getDb();
 
@@ -232,7 +249,7 @@ export async function getPublishedHotelsForBrowse(
       // bu da alt sorgunun kendi tablosuna çözülüp korelasyonu sessizce bozar
       // (rooms.hotel_id = rooms.id → hep NULL). Ayrı GROUP BY sorguları +
       // JS'te birleştirme hem doğru hem okunabilir.
-      const [rows, priceRows, reviewRows] = await Promise.all([
+      const [rows, priceRows, reviewRows, tourRows] = await Promise.all([
         db
           .select({
             id: hotelsTable.id,
@@ -268,7 +285,18 @@ export async function getPublishedHotelsForBrowse(
           .from(reviewsTable)
           .where(eq(reviewsTable.status, "yayinda"))
           .groupBy(reviewsTable.hotelId),
+        // Misafire açık turlar: yalnızca yayımlanmış manifesti olanlar.
+        db
+          .select({ hotelSlug: toursTable.hotelSlug, tourId: toursTable.tourId })
+          .from(toursTable)
+          .where(isNotNull(toursTable.publishedManifest))
+          .orderBy(asc(toursTable.createdAt)),
       ]);
+
+      const tourByHotel = new Map<string, string>();
+      for (const t of tourRows) {
+        if (!tourByHotel.has(t.hotelSlug)) tourByHotel.set(t.hotelSlug, t.tourId);
+      }
 
       const minPriceByHotel = new Map(
         priceRows.map((r) => [r.hotelId, r.minPriceMinor == null ? null : Number(r.minPriceMinor)]),
@@ -288,8 +316,11 @@ export async function getPublishedHotelsForBrowse(
         const parsed = parseHotelContentSnapshot(row.publishedSnapshot);
         const snapshot = parsed.success ? parsed.data.hotel : {};
         const value = <T>(key: string, fallback: T) => key in snapshot ? snapshot[key] as T : fallback;
+        // Snapshot satırda taşınmaz: büyük ve liste kartı ondan türeyen alanları kullanır.
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { publishedSnapshot, ...base } = row;
         return {
-          ...row,
+          ...base,
           name: value("name", row.name),
           city: value("city", row.city),
           country: value("country", row.country),
@@ -307,6 +338,7 @@ export async function getPublishedHotelsForBrowse(
             : (minPriceByHotel.get(row.id) ?? null),
           reviewAverage: reviewsByHotel.get(row.id)?.average ?? null,
           reviewCount: reviewsByHotel.get(row.id)?.total ?? 0,
+          tourId: tourByHotel.get(row.slug) ?? null,
         };
       })
       // Sezon süzmesi eşlemeden SONRA yapılır: yayındaki değer snapshot'tan
@@ -345,12 +377,13 @@ export async function getPublishedHotelsForBrowse(
       minPriceMinor: null,
       reviewAverage: null,
       reviewCount: 0,
+      tourId: null,
     }))
     .filter((row) => matchesSeason(row.seasons, filters.season));
 }
 
 /** Yayında olan tek oteli döner (misafir /hotels/[slug]). */
-export async function getPublishedHotelBySlug(
+async function loadPublishedHotelBySlug(
   slug: string,
 ): Promise<HotelMock | undefined> {
   if (isDbAvailable()) {
@@ -483,7 +516,7 @@ export async function getHotelIdBySlug(slug: string): Promise<string | null> {
   }
 }
 
-export async function getPublishedHotelContent(
+async function loadPublishedHotelContent(
   slug: string,
 ): Promise<PublishedHotelContent> {
   if (!isDbAvailable()) return emptyContent;
@@ -757,7 +790,7 @@ export interface GuestRoomDetail {
 /**
  * Oda detayını döner: önce DB (yayında otel + aktif oda), yoksa mock.
  */
-export async function getPublishedRoom(
+async function loadPublishedRoom(
   hotelSlug: string,
   roomSlug: string,
 ): Promise<GuestRoomDetail | undefined> {
@@ -940,53 +973,60 @@ const emptyReviewSummary: GuestReviewSummary = {
 export async function getPublishedReviews(slug: string): Promise<GuestReviewSummary> {
   if (!isDbAvailable()) return emptyReviewSummary;
   try {
-    const { getDb } = await import("@/lib/db");
-    const { hotelsTable, reviewsTable } = await import("@/lib/db/schema");
-    const { and, desc, eq } = await import("drizzle-orm");
-    const { guestVisibleHotelBySlugWhere } = await import("@/lib/hotel-visibility");
-
-    const rows = await getDb()
-      .select({
-        id: reviewsTable.id,
-        rating: reviewsTable.rating,
-        title: reviewsTable.title,
-        body: reviewsTable.body,
-        guestName: reviewsTable.guestName,
-        stayDate: reviewsTable.stayDate,
-        source: reviewsTable.source,
-        reply: reviewsTable.reply,
-        createdAt: reviewsTable.createdAt,
-      })
-      .from(reviewsTable)
-      .innerJoin(hotelsTable, eq(hotelsTable.id, reviewsTable.hotelId))
-      .where(and(guestVisibleHotelBySlugWhere(slug), eq(reviewsTable.status, "yayinda")))
-      .orderBy(desc(reviewsTable.createdAt))
-      .limit(100);
-
-    if (rows.length === 0) return emptyReviewSummary;
-
-    const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    let total = 0;
-    for (const r of rows) {
-      total += r.rating;
-      distribution[r.rating] = (distribution[r.rating] ?? 0) + 1;
-    }
-
-    return {
-      reviews: rows.map((r) => ({
-        ...r,
-        stayDate: r.stayDate == null ? null : String(r.stayDate),
-        createdAt: r.createdAt.toISOString(),
-      })),
-      count: rows.length,
-      average: Math.round((total / rows.length) * 10) / 10,
-      distribution,
-    };
+    return await cachedReviews(slug);
   } catch (err) {
-    // Yorumlar ikincil içerik — hata otel sayfasını düşürmemeli.
+    // Yorumlar ikincil içerik — hata otel sayfasını düşürmemeli. Hata
+    // önbelleğe girmesin diye yakalama sarmalayıcının dışında.
     console.warn("[hotels-repo] Yorum sorgusu başarısız:", err);
     return emptyReviewSummary;
   }
+}
+
+const cachedReviews = guestCached("reviews", loadPublishedReviews, (slug) => [guestHotelTag(slug)]);
+
+async function loadPublishedReviews(slug: string): Promise<GuestReviewSummary> {
+  const { getDb } = await import("@/lib/db");
+  const { hotelsTable, reviewsTable } = await import("@/lib/db/schema");
+  const { and, desc, eq } = await import("drizzle-orm");
+  const { guestVisibleHotelBySlugWhere } = await import("@/lib/hotel-visibility");
+
+  const rows = await getDb()
+    .select({
+      id: reviewsTable.id,
+      rating: reviewsTable.rating,
+      title: reviewsTable.title,
+      body: reviewsTable.body,
+      guestName: reviewsTable.guestName,
+      stayDate: reviewsTable.stayDate,
+      source: reviewsTable.source,
+      reply: reviewsTable.reply,
+      createdAt: reviewsTable.createdAt,
+    })
+    .from(reviewsTable)
+    .innerJoin(hotelsTable, eq(hotelsTable.id, reviewsTable.hotelId))
+    .where(and(guestVisibleHotelBySlugWhere(slug), eq(reviewsTable.status, "yayinda")))
+    .orderBy(desc(reviewsTable.createdAt))
+    .limit(100);
+
+  if (rows.length === 0) return emptyReviewSummary;
+
+  const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  let total = 0;
+  for (const r of rows) {
+    total += r.rating;
+    distribution[r.rating] = (distribution[r.rating] ?? 0) + 1;
+  }
+
+  return {
+    reviews: rows.map((r) => ({
+      ...r,
+      stayDate: r.stayDate == null ? null : String(r.stayDate),
+      createdAt: r.createdAt.toISOString(),
+    })),
+    count: rows.length,
+    average: Math.round((total / rows.length) * 10) / 10,
+    distribution,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1007,39 +1047,45 @@ export interface PublishedTourSummary {
 export async function getPublishedTours(hotelSlug: string): Promise<PublishedTourSummary[]> {
   if (!isDbAvailable()) return [];
   try {
-    const { getDb } = await import("@/lib/db");
-    const { hotelsTable, toursTable } = await import("@/lib/db/schema");
-    const { and, eq, isNotNull, asc } = await import("drizzle-orm");
-    const { guestVisibleHotelBySlugWhere } = await import("@/lib/hotel-visibility");
-
-    const rows = await getDb()
-      .select({
-        tourId: toursTable.tourId,
-        title: toursTable.title,
-        publishedManifest: toursTable.publishedManifest,
-      })
-      .from(toursTable)
-      .innerJoin(hotelsTable, eq(hotelsTable.slug, toursTable.hotelSlug))
-      .where(
-        and(
-          guestVisibleHotelBySlugWhere(hotelSlug),
-          eq(toursTable.hotelSlug, hotelSlug),
-          isNotNull(toursTable.publishedManifest),
-        ),
-      )
-      .orderBy(asc(toursTable.createdAt));
-
-    return rows.map((r) => ({
-      tourId: r.tourId,
-      title: r.title,
-      roomSlug:
-        (r.publishedManifest as { roomSlug?: string } | null)?.roomSlug ?? null,
-    }));
+    return await cachedTours(hotelSlug);
   } catch (err) {
     // Tur listesi ikincil — otel sayfasını düşürmemeli.
     console.warn("[hotels-repo] Tur listesi sorgusu başarısız:", err);
     return [];
   }
+}
+
+const cachedTours = guestCached("tours", loadPublishedTours, (slug) => [guestHotelTag(slug)]);
+
+async function loadPublishedTours(hotelSlug: string): Promise<PublishedTourSummary[]> {
+  const { getDb } = await import("@/lib/db");
+  const { hotelsTable, toursTable } = await import("@/lib/db/schema");
+  const { and, eq, isNotNull, asc } = await import("drizzle-orm");
+  const { guestVisibleHotelBySlugWhere } = await import("@/lib/hotel-visibility");
+
+  const rows = await getDb()
+    .select({
+      tourId: toursTable.tourId,
+      title: toursTable.title,
+      publishedManifest: toursTable.publishedManifest,
+    })
+    .from(toursTable)
+    .innerJoin(hotelsTable, eq(hotelsTable.slug, toursTable.hotelSlug))
+    .where(
+      and(
+        guestVisibleHotelBySlugWhere(hotelSlug),
+        eq(toursTable.hotelSlug, hotelSlug),
+        isNotNull(toursTable.publishedManifest),
+      ),
+    )
+    .orderBy(asc(toursTable.createdAt));
+
+  return rows.map((r) => ({
+    tourId: r.tourId,
+    title: r.title,
+    roomSlug:
+      (r.publishedManifest as { roomSlug?: string } | null)?.roomSlug ?? null,
+  }));
 }
 
 /**
@@ -1052,3 +1098,19 @@ export function pickTourForRoom(
 ): PublishedTourSummary | undefined {
   return tours.find((t) => t.roomSlug === roomSlug) ?? tours.find((t) => t.roomSlug == null);
 }
+
+// ---------------------------------------------------------------------------
+// Önbellek iki katmanlı: React cache aynı istekte (generateMetadata + sayfa)
+// tek okuma yapar; guestCached istekler arası tutar, yayında yenilenir
+// (bkz. guest-cache.ts).
+// ---------------------------------------------------------------------------
+
+export const getPublishedHotelBySlug = cache(
+  guestCached("hotel", loadPublishedHotelBySlug, (slug) => [guestHotelTag(slug)]),
+);
+export const getPublishedHotelContent = cache(
+  guestCached("content", loadPublishedHotelContent, (slug) => [guestHotelTag(slug)]),
+);
+export const getPublishedRoom = cache(
+  guestCached("room", loadPublishedRoom, (hotelSlug) => [guestHotelTag(hotelSlug)]),
+);

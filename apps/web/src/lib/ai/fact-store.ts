@@ -14,6 +14,9 @@ import type { AiFactCard, AiFactCatalogEntry, AiFactQueryResult } from "@/lib/ai
 import { FACT_KIND_LABELS } from "@/lib/ai/types";
 import { chunkFactText } from "@/lib/ai/fact-chunks";
 
+/** Oda açıklama kartının en fazla uzunluğu (kart misafire gösterilir). */
+const ROOM_DETAILS_MAX_CHARS = 900;
+
 function slugifyId(value: string): string {
   return value.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
 }
@@ -137,6 +140,18 @@ async function buildFactCatalogUncached(
       title: room.name,
       text: `${room.name}: ${parts.join(", ")}.`,
     });
+    // Oda açıklaması (donanım, banyo, balkon…): "Hangi odada balkon var?"
+    // sorusunun cevabı burada. Fiyat notu ayrı kalır.
+    const details = room.description?.replace(/\s+\n/g, "\n").trim();
+    if (details && details.length > room.name.length + 10) {
+      entries.push({
+        id: `room.${room.slug}.details`,
+        kind: "verified",
+        hint: `${room.name} oda açıklaması donanım banyo`,
+        title: room.name,
+        text: details.slice(0, ROOM_DETAILS_MAX_CHARS),
+      });
+    }
     if (room.pricingNotes) {
       entries.push({
         id: `room.${room.slug}.pricing_notes`,

@@ -8,6 +8,8 @@ export const ANALYTICS_EVENT_TYPES = [
   "tour_auto_end",
   "tour_complete",
   "tour_step_view",
+  "tour_exit",
+  "hotel_chat_open",
   "ai_tool_price",
   "ai_tool_fact",
   "ai_guard_triggered",
@@ -39,6 +41,8 @@ export const ANALYTICS_EVENT_LABELS: Record<AnalyticsEventType, string> = {
   tour_auto_start: "Otomatik tur başlatma",
   tour_auto_end: "Otomatik tur bitişi",
   tour_complete: "Tur tamamlama",
+  tour_exit: "Turdan çıkış",
+  hotel_chat_open: "Otel sayfası sohbeti açıldı",
   inquiry_start: "Talep başlangıcı",
   inquiry_submit: "Talep gönderimi",
   ai_tool_price: "AI fiyat sorgusu",
@@ -46,6 +50,18 @@ export const ANALYTICS_EVENT_LABELS: Record<AnalyticsEventType, string> = {
   ai_guard_triggered: "AI güvenlik tetiklemesi",
   ai_completion_drift: "AI yanıt sapması",
   ai_usage: "AI kullanımı",
+};
+
+/**
+ * Panel ekranları için tüm etiketler — misafir tarafının gönderemediği, yalnız
+ * sunucunun yazdığı olaylar dahil.
+ */
+export const ALL_EVENT_LABELS: Record<string, string> = {
+  ...ANALYTICS_EVENT_LABELS,
+  hotel_search: "Arama asistanı",
+  ai_unanswered: "Rehberin cevapsız sorusu",
+  ai_question: "Rehbere sorulan soru",
+  ai_feedback: "Misafir değerlendirmesi",
 };
 
 /** Ziyaretçi hunisi — dönüşüm oranı bu adımlar üzerinden hesaplanır. */
@@ -69,9 +85,31 @@ export function analyticsFunnel(byType: Record<string, number>) {
 /** JSON serileştirilmiş payload üst sınırı (bayt). */
 export const ANALYTICS_MAX_PAYLOAD_BYTES = 4096;
 
+/**
+ * Anonim ziyaret kimliği: tarayıcı sekmesi başına rastgele UUID. Biçimi
+ * sıkı tutulur ki bu alana kimlik bilgisi (e-posta, isim) yazılamasın.
+ */
+export const visitIdSchema = z.string().uuid();
+
+/**
+ * Yolculuk analizi için gerekli olaylar — ziyaretçi analitik onayı vermese
+ * de gönderilir (ürün kararı: soru → tur → talep zinciri herkeste izlenir).
+ * Diğer olaylar onay kapısının arkasında kalır.
+ */
+export const JOURNEY_EVENT_TYPES: readonly AnalyticsEventType[] = [
+  "tour_start",
+  "tour_step_view",
+  "tour_exit",
+  "tour_complete",
+  "hotel_view",
+  "hotel_chat_open",
+  "inquiry_start",
+];
+
 export const analyticsTrackSchema = z.object({
   eventType: z.enum(ANALYTICS_EVENT_TYPES),
   hotelSlug: z.string().max(120).optional(),
+  visitId: visitIdSchema.optional(),
   payload: z
     .record(z.string(), z.unknown())
     .optional()

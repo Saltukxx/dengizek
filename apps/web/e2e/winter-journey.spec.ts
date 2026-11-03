@@ -20,7 +20,7 @@ test.describe("Kış misafir yolculuğu", () => {
       await page.getByRole("link", { name: /Kar Zirvesi/i }).first().click();
       await expect(page).toHaveURL(/\/kis\/oteller\/kar-zirvesi/);
       await expect(page.getByRole("heading", { name: /Kar Zirvesi/i }).first()).toBeVisible();
-      await page.getByRole("link", { name: "Sanal Turu Başlat" }).click();
+      await page.getByRole("link", { name: "Video turu başlat" }).click();
       await expect(page).toHaveURL(/\/tours\/kar-zirvesi\/kis-turu\?surface=kis/);
       await expect(page.locator(".er-tour-winter")).toBeVisible();
 
@@ -68,10 +68,13 @@ test.describe("Kış misafir yolculuğu", () => {
     // ayıklama verisi olarak akışa koyar.
     await page.goto("/kis/oteller");
     await expect(page.getByRole("link", { name: /Kar Zirvesi/i }).first()).toBeVisible();
+    await page.goto("/kis/oteller?q=Aurelia%20Bay");
     await expect(page.getByRole("link", { name: /Aurelia Bay/i })).toHaveCount(0);
     expect((await page.request.get("/kis/oteller/aurelia-bay")).status()).toBe(404);
-    await page.goto("/browse");
+    await page.goto("/browse?q=Aurelia%20Bay");
     await expect(page.getByRole("link", { name: /Aurelia Bay/i }).first()).toBeVisible();
+    // Adla aranır: listede çok otel varken ilk sayfa her oteli göstermeyebilir.
+    await page.goto("/browse?q=Kar%20Zirvesi");
     await expect(page.getByRole("link", { name: /Kar Zirvesi/i })).toHaveCount(0);
   });
 
@@ -96,10 +99,13 @@ test.describe("Kış misafir yolculuğu", () => {
       });
       expect(moderated.ok()).toBe(true);
 
-      const summer = await page.request.get("/browse");
-      expect(await summer.text()).toContain(name);
-      const winter = await page.request.get("/kis/oteller");
-      expect(await winter.text()).not.toContain(name);
+      // Adla aranır: listede çok otel varken yeni tesis ilk sayfaya düşmeyebilir.
+      // Ham HTML değil bağlantı: sorgu sayfa başlığında geri yazılır.
+      const search = `?q=${encodeURIComponent(name)}`;
+      await page.goto(`/browse${search}`);
+      await expect(page.getByRole("link", { name }).first()).toBeVisible();
+      await page.goto(`/kis/oteller${search}`);
+      await expect(page.getByRole("link", { name })).toHaveCount(0);
     } finally {
       if (sql && hotelId) await sql`delete from hotels where id = ${hotelId}`;
       if (sql) await sql.end();

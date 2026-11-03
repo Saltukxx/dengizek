@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------------------
-// Misafir olanaklar bölümü — kategorilere ayrılmış çipler + tesis özellikleri.
+// Misafir olanaklar bölümü — kategori başına tek satır metin.
+// Çok sayıda olanağı olan tesislerde çip yığını yerine taranabilir bir liste.
 // ---------------------------------------------------------------------------
 
-import { IconClock, IconDoor, IconStar } from "@tabler/icons-react";
 import { groupAmenities } from "@/lib/amenities-catalog";
 import type { HotelSpecs } from "@/lib/hotels-repo";
 
@@ -13,89 +13,31 @@ export function AmenitiesSection({
   amenities: string[];
   specs: HotelSpecs;
 }) {
-  const hasSpecs =
-    specs.starRating != null ||
-    specs.totalRooms != null ||
-    specs.checkInTime ||
-    specs.checkOutTime;
-  if (amenities.length === 0 && !hasSpecs) return null;
+  // Yıldız başlıkta, giriş/çıkış saatleri rezervasyon panelinde zaten var;
+  // burada yalnızca başka yerde görünmeyen oda sayısı kalır.
+  if (amenities.length === 0 && specs.totalRooms == null) return null;
 
   const groups = groupAmenities(amenities);
 
   return (
     <section className="er-detail-section">
-      <div style={{ marginBottom: 24 }}>
-        <h2
-          className="er-display er-h2"
-        >
-          Otel Özellikleri
-        </h2>
-        
-      </div>
-
-      {hasSpecs && (
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 28,
-            marginBottom: 40,
-            color: "var(--er-text-muted)",
-            fontSize: 15,
-          }}
-        >
-          {specs.starRating != null && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <IconStar size={18} color="var(--er-primary)" />
-              {specs.starRating} yıldız
-            </span>
-          )}
-          {specs.totalRooms != null && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <IconDoor size={18} color="var(--er-primary)" />
-              {specs.totalRooms} oda
-            </span>
-          )}
-          {(specs.checkInTime || specs.checkOutTime) && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <IconClock size={18} color="var(--er-primary)" />
-              {specs.checkInTime && `Giriş ${specs.checkInTime}`}
-              {specs.checkInTime && specs.checkOutTime && " · "}
-              {specs.checkOutTime && `Çıkış ${specs.checkOutTime}`}
-            </span>
-          )}
-        </div>
+      <h2 className="er-display er-h2">Olanaklar</h2>
+      {specs.totalRooms != null && (
+        <p className="er-muted" style={{ margin: "8px 0 0", fontSize: 15 }}>
+          {specs.totalRooms} odalı tesis
+        </p>
       )}
 
-      <div style={{ display: "grid", gap: 28 }}>
-        {groups.map((group) => (
-          <div key={group.category}>
-            <p
-              className="er-eyebrow"
-              style={{ margin: "0 0 12px", color: "var(--er-primary)", fontSize: 12 }}
-            >
-              {group.category}
-            </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-              {group.items.map((item) => (
-                <span
-                  key={item.key}
-                  style={{
-                    padding: "7px 16px",
-                    borderRadius: "var(--er-radius-pill)",
-                    border: "1px solid var(--er-line)",
-                    background: "var(--er-surface-2)",
-                    color: "var(--er-text-muted)",
-                    fontSize: 13,
-                  }}
-                >
-                  {item.label}
-                </span>
-              ))}
+      {groups.length > 0 && (
+        <dl className="er-amenity-list">
+          {groups.map((group) => (
+            <div key={group.category}>
+              <dt>{group.category}</dt>
+              <dd>{group.items.map((item) => item.label).join(", ")}</dd>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </dl>
+      )}
     </section>
   );
 }

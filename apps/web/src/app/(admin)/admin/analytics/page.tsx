@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Loader, Paper, Select, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
-import { ANALYTICS_EVENT_LABELS } from "@/lib/schemas/analytics";
+import { ALL_EVENT_LABELS } from "@/lib/schemas/analytics";
 import { SearchInsightsPanel } from "@/components/admin/search-insights";
+import { QuestionInsightsPanel } from "@/components/admin/question-insights";
+import { CriticalGapsPanel } from "@/components/admin/critical-gaps";
 
 interface AdminAnalytics {
   totalEvents: number;
@@ -16,12 +18,7 @@ interface AdminAnalytics {
   hotels: { id: string; name: string }[];
 }
 
-// Sunucunun yazdığı (misafir tarafının gönderemediği) olaylar da etiketlenir.
-const eventLabels: Record<string, string> = {
-  ...ANALYTICS_EVENT_LABELS,
-  hotel_search: "Arama asistanı",
-  ai_unanswered: "Rehberin cevapsız sorusu",
-};
+const eventLabels = ALL_EVENT_LABELS;
 
 export default function AdminAnalyticsPage() {
   const [data, setData] = useState<AdminAnalytics | null>(null);
@@ -119,7 +116,9 @@ export default function AdminAnalyticsPage() {
           </Table>
         </Paper>
       )}
+      <QuestionInsightsPanel period={period} hotelId={hotelId} />
       <SearchInsightsPanel />
+      <CriticalGapsPanel />
       {data.timeSeries.length > 0 && (
         <Paper withBorder radius="md" p="md">
           <Text fw={600} mb="sm">

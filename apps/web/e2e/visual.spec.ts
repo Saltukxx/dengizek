@@ -13,6 +13,10 @@ async function snapshot(page: Page, path: string, name: string, mobile = false) 
 }
 
 test.describe("Görsel regresyon", () => {
+  // Her test 4-8 sayfa çekiyor; CI'da dev sunucusu sayfaları ilk istekte
+  // derlediği için varsayılan 30 sn yetmiyor.
+  test.describe.configure({ timeout: 180_000 });
+
   test("misafir yaz ve kış yüzeyleri", async ({ page }) => {
     for (const [path, name] of [["/", "guest-home"], ["/browse", "guest-browse"], ["/kis", "winter-home"], ["/kis/oteller", "winter-browse"]] as const) {
       await snapshot(page, path, name);

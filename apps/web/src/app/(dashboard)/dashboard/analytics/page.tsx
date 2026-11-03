@@ -1,5 +1,6 @@
 import { Stack, Text, Title } from "@mantine/core";
 import { AnalyticsPanel } from "@/components/dashboard/analytics-panel";
+import { JourneyInsightsSection } from "@/components/dashboard/journey-insights-section";
 
 export default function DashboardAnalyticsPage() {
   return (
@@ -11,6 +12,7 @@ export default function DashboardAnalyticsPage() {
         </Text>
       </div>
       <AnalyticsPanel />
+      <JourneyInsightsSection />
     </Stack>
   );
 }

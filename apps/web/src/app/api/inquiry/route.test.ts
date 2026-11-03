@@ -198,9 +198,10 @@ describe("public inquiry API", () => {
     expect(JSON.stringify(insertedValues[0])).not.toContain('"accessToken":"portal-secret"');
     expect(mocks.trackEvent).toHaveBeenCalledWith(
       "inquiry_submit",
-      expect.objectContaining({ inquiryId: "inquiry-1", roomSlug: "dag-suiti" }),
+      expect.objectContaining({ inquiryId: "inquiry-1", roomSlug: "dag-suiti", source: "tour_player" }),
       "hotel-db",
       "kar-zirvesi",
+      undefined,
     );
     expect(mocks.notifyHotelMembers).toHaveBeenCalledWith(
       "hotel-db",

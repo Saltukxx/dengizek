@@ -50,11 +50,21 @@ describe("hasAnalyticsConsent — varsayılan reddet", () => {
 });
 
 describe("trackEvent onay kapısı", () => {
-  it("onaysızken istek göndermez", async () => {
+  it("onaysızken genel olayı göndermez", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}"));
+    const { trackEvent } = await import("@/lib/analytics-client");
+    await trackEvent("room_view", {}, "aurelia-bay");
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it("yolculuk olayını onaysız da ziyaret kimliğiyle gönderir", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}"));
     const { trackEvent } = await import("@/lib/analytics-client");
     await trackEvent("tour_step_view", {}, "aurelia-bay");
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(String((fetchSpy.mock.calls[0][1] as RequestInit).body));
+    expect(body.visitId).toMatch(/^[0-9a-f-]{36}$/);
     fetchSpy.mockRestore();
   });
 

@@ -31,7 +31,7 @@ vi.mock("@/components/guest/restaurants-section", () => ({ RestaurantsSection: (
 vi.mock("@/components/guest/rooms-section", () => ({ RoomsSection: () => null }));
 vi.mock("@/components/guest/reviews-section", () => ({ ReviewsSection: () => null }));
 
-import { generateHotelMetadata, HotelDetailPage } from "./page";
+import { generateHotelMetadata, HotelDetailPage } from "@/components/guest/hotel-detail-page";
 
 const hotel = {
   slug: "kar-zirvesi",
@@ -105,7 +105,7 @@ describe("otel detay sezon koruması", () => {
 
     expect(screen.getByRole("heading", { name: "Kar Zirvesi" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Oteller" })).toHaveAttribute("href", "/browse");
-    expect(screen.getByRole("link", { name: "Sanal Turu Başlat" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Video turu başlat" })).toHaveAttribute(
       "href",
       "/tours/kar-zirvesi/genel-tur",
     );
@@ -118,7 +118,7 @@ describe("otel detay sezon koruması", () => {
     }));
 
     expect(screen.getByRole("link", { name: "Oteller" })).toHaveAttribute("href", "/kis/oteller");
-    expect(screen.getByRole("link", { name: "Sanal Turu Başlat" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Video turu başlat" })).toHaveAttribute(
       "href",
       "/tours/kar-zirvesi/genel-tur?surface=kis",
     );

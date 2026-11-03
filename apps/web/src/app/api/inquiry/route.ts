@@ -128,9 +128,10 @@ export async function POST(req: Request) {
 
   void trackEvent(
     "inquiry_submit",
-    { inquiryId: inquiry.id, roomSlug, tourId: data.tourId, stepKey: data.stepKey },
+    { inquiryId: inquiry.id, roomSlug, tourId: data.tourId, stepKey: data.stepKey, source: data.source ?? "web" },
     hotelId,
     data.hotelSlug,
+    data.visitId,
   );
 
   if (hotelId) {

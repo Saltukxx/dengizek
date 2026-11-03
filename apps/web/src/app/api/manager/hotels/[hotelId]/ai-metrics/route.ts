@@ -7,9 +7,12 @@ import { and, eq, gte, inArray } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { computeFactEmbeddingFreshness } from "@/lib/ai/fact-store";
 import { computeAiReadinessScore } from "@/lib/ai/readiness-score";
-import { UNANSWERED_EVENT, groupUnanswered } from "@/lib/ai/unanswered";
+import { UNANSWERED_EVENT, groupUnanswered, withAnswerStatus } from "@/lib/ai/unanswered";
+import { parseHotelContentSnapshot } from "@/lib/schemas/hotel-content-snapshot";
+import { QUESTION_EVENT, summarizeQuestions } from "@/lib/ai/question-log";
+import { FEEDBACK_EVENT, summarizeFeedback } from "@/lib/ai/feedback";
 import { getDb } from "@/lib/db";
-import { analyticsEventsTable, roomsTable, tourStepsTable, toursTable } from "@/lib/db/schema";
+import { analyticsEventsTable, hotelsTable, roomsTable, tourStepsTable, toursTable } from "@/lib/db/schema";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -84,6 +87,10 @@ export async function GET(_req: Request, { params }: RouteParams) {
         name: roomsTable.name,
         priceOnRequest: roomsTable.priceOnRequest,
         priceMinor: roomsTable.priceMinor,
+        capacityAdults: roomsTable.capacityAdults,
+        capacityChildren: roomsTable.capacityChildren,
+        boardType: roomsTable.boardType,
+        description: roomsTable.description,
       })
       .from(roomsTable)
       .where(and(eq(roomsTable.hotelId, hotel.id), eq(roomsTable.isActive, true))),
@@ -130,7 +137,35 @@ export async function GET(_req: Request, { params }: RouteParams) {
     autoStarts > 0 ? Math.round((autoCompletes / autoStarts) * 1000) / 10 : null;
 
   // Rehberin cevaplayamadığı sorular — otel sahibi eksik bilgiyi buradan görür.
-  const unansweredQuestions = groupUnanswered(events.filter((e) => e.eventType === UNANSWERED_EVENT));
+  // Otelcinin eklediği cevaplar: taslakta mı, yayında mı?
+  const [factRow] = await db
+    .select({
+      aiFacts: hotelsTable.aiFacts,
+      publishedSnapshot: hotelsTable.publishedSnapshot,
+      checkInTime: hotelsTable.checkInTime,
+      checkOutTime: hotelsTable.checkOutTime,
+      petsAllowed: hotelsTable.petsAllowed,
+      childPolicy: hotelsTable.childPolicy,
+    })
+    .from(hotelsTable)
+    .where(eq(hotelsTable.id, hotel.id));
+  const snapshot = parseHotelContentSnapshot(factRow?.publishedSnapshot);
+  const publishedFacts = snapshot.success && Array.isArray(snapshot.data.hotel.aiFacts) ? (snapshot.data.hotel.aiFacts as string[]) : [];
+  const unansweredQuestions = withAnswerStatus(
+    groupUnanswered(events.filter((e) => e.eventType === UNANSWERED_EVENT)),
+    factRow?.aiFacts ?? [],
+    publishedFacts,
+  );
+
+  // Misafirlerin rehbere sorduğu tüm sorular — en çok sorulanlar ve konular.
+  const questionSummary = summarizeQuestions(events.filter((e) => e.eventType === QUESTION_EVENT), 10);
+  const feedback = summarizeFeedback(events.filter((e) => e.eventType === FEEDBACK_EVENT), 10);
+  const questionInsights = {
+    total: questionSummary.total,
+    answerRate: questionSummary.answerRate,
+    topQuestions: questionSummary.topQuestions,
+    byTopic: questionSummary.byTopic,
+  };
 
   // RAG lexical fallback'e mi düşüyor? Yayındaki katalog vs. embedding tablosu.
   const embeddingFreshness = await computeFactEmbeddingFreshness(hotel.slug);
@@ -141,6 +176,16 @@ export async function GET(_req: Request, { params }: RouteParams) {
     aiPolicies: hotel.aiPolicies,
     tourSteps: steps,
     rooms,
+    // Kritik alanlar taslaktan: otelci düzenledikçe uyarı kalkar.
+    critical: factRow
+      ? {
+          checkInTime: factRow.checkInTime,
+          checkOutTime: factRow.checkOutTime,
+          petsAllowed: factRow.petsAllowed,
+          texts: [...(factRow.aiFacts ?? []), ...(hotel.aiPolicies ?? []), hotel.cancellationPolicy ?? "", factRow.childPolicy ?? ""],
+          rooms,
+        }
+      : undefined,
   });
 
   return NextResponse.json({
@@ -167,6 +212,8 @@ export async function GET(_req: Request, { params }: RouteParams) {
     readinessScore: readiness.score,
     readinessIssues: readiness.issues,
     unansweredQuestions,
+    questionInsights,
+    feedback,
     byType,
   });
 }
