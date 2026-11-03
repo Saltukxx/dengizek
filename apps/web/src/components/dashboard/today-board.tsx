@@ -158,7 +158,7 @@ export function TodayBoard() {
                   <Button size="xs" color="teal" loading={busy === b.id} onClick={() => run(b.id, "check_in", "Giriş kaydedildi.")}>
                     Girişi kaydet
                   </Button>
-                  <Button size="xs" color="orange" variant="light" disabled={busy === b.id} onClick={() => run(b.id, "mark_no_show", "Gelmedi olarak işaretlendi.")}>
+                  <Button size="xs" color="orange" variant="white" disabled={busy === b.id} onClick={() => run(b.id, "mark_no_show", "Gelmedi olarak işaretlendi.")}>
                     Gelmedi
                   </Button>
                 </Group>
