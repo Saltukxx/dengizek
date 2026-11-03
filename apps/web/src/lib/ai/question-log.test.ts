@@ -49,6 +49,19 @@ describe("soru kaydı", () => {
     expect(outcomeFromTools([])).toBe("model");
     expect(factIdsFromTools([fact(true), fact(false)])).toEqual(["spec.check_in"]);
   });
+
+  it("kart gösterilse de cevap 'bilgim yok' diyorsa cevaplanmadı sayılır", () => {
+    const fact = { toolName: "citeFact", output: { ok: true } };
+    // Gerçek kayıt: havuz kartı gösterildi, saat kartta yoktu.
+    const answer =
+      "Havuzumuzun çalışma saatleri hakkında otelimizden sizin için bilgi alabilirim. Turumuza devam edebiliriz.";
+    expect(outcomeFromTools([fact], { answer })).toBe("bilgi-yok");
+    expect(outcomeFromTools([fact], { answer: "Bu konuda doğrulanmış bir bilgim yok." })).toBe("bilgi-yok");
+    expect(outcomeFromTools([fact], { answer: "I don't have verified information about that." })).toBe("bilgi-yok");
+    expect(outcomeFromTools([fact], { answer: "Giriş saati 14:00. Ayrıntılar kartta." })).toBe("cevaplandi");
+    expect(outcomeFromTools([fact], { answer: "Otelde sauna bulunmuyor." })).toBe("cevaplandi");
+    expect(outcomeFromTools([], { redirectReply: true, answer: "Otelin iletişim bilgilerini paylaşamıyorum." })).toBe("yonlendirme");
+  });
 });
 
 describe("soru özeti", () => {

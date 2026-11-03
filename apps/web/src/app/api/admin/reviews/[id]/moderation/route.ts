@@ -9,6 +9,7 @@ import { getDb } from "@/lib/db";
 import { reviewsTable } from "@/lib/db/schema";
 import { reviewModerationSchema } from "@/lib/schemas/hotel-panel";
 import { logAudit } from "@/lib/audit";
+import { revalidateGuestHotelById } from "@/lib/guest-cache";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -36,6 +37,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   if (!updated) {
     return NextResponse.json({ ok: false, error: "Yorum bulunamadı." }, { status: 404 });
   }
+  await revalidateGuestHotelById(updated.hotelId);
 
   await logAudit({
     actor: guard.user,

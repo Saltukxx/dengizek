@@ -7,8 +7,11 @@
 // listesi o olaydan beslenir. Bu kayıt onun üst kümesidir.
 //
 // Gizlilik: soru ve cevap metninde iletişim bilgisi maskelenir, uzunluk
-// sınırlanır. IP, oturum ya da misafir kimliği yazılmaz. Olay yalnız
-// sunucudan yazılır; misafir tarafı (/api/analytics/track) bu türü gönderemez.
+// sınırlanır. IP ya da misafir kimliği yazılmaz; yalnız anonim ziyaret
+// kimliği (olayın visit_id sütunu) aynı ziyaretin tur ve talep olaylarıyla
+// bağ kurar. Ham metin 90 gün sonra silinir (bkz. pruneAiConversationText).
+// Olay yalnız sunucudan yazılır; misafir tarafı (/api/analytics/track) bu
+// türü gönderemez.
 // ---------------------------------------------------------------------------
 
 import { redactContactInfo } from "@/lib/contact-guard";
@@ -17,7 +20,8 @@ import { isQuestionLike } from "@/lib/ai/unanswered";
 
 export const QUESTION_EVENT = "ai_question";
 const MAX_QUESTION_CHARS = 200;
-const MAX_ANSWER_CHARS = 300;
+/** Konuşma kaydında cevabın tamamı incelenebilsin — model çıktısı ~350 token ile sınırlı. */
+const MAX_ANSWER_CHARS = 2000;
 
 // ---------------------------------------------------------------------------
 // Konu sınıflandırması — sorunun metninden, cevaptan bağımsız
@@ -101,6 +105,32 @@ export interface QuestionLogPayload {
   factIds: string[];
   answer: string;
   tourId: string | null;
+  /** Sohbetin yapıldığı yer: video tur ya da otel sayfası. */
+  surface: ChatSurface;
+  /** Soru sorulduğunda izlenen tur adımı (otel sayfasında null). */
+  stepId: string | null;
+  /** İsteğin gelişinden cevabın tamamlanmasına kadar geçen süre. */
+  latencyMs: number | null;
+  /** Cevabı üreten model; sunucu kuralıyla cevaplandıysa null. */
+  model: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+}
+
+export type ChatSurface = "tur" | "otel-sayfasi";
+
+export const CHAT_SURFACE_LABELS: Record<ChatSurface, string> = {
+  tur: "Video tur",
+  "otel-sayfasi": "Otel sayfası",
+};
+
+/**
+ * Kaydın yüzeyi. surface alanından önceki kayıtlarda otel sayfası sohbeti
+ * yalnız tur kimliğinden ("_otel-sayfasi", bkz. hotel-page-chat) anlaşılır.
+ */
+export function questionSurface(payload: { surface?: unknown; tourId?: unknown }): ChatSurface {
+  if (payload.surface === "otel-sayfasi" || payload.surface === "tur") return payload.surface;
+  return payload.tourId === "_otel-sayfasi" ? "otel-sayfasi" : "tur";
 }
 
 export interface QuestionLogInput {
@@ -112,6 +142,12 @@ export interface QuestionLogInput {
   tools?: string[];
   factIds?: string[];
   tourId?: string | null;
+  surface?: ChatSurface;
+  stepId?: string | null;
+  latencyMs?: number | null;
+  model?: string | null;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
 }
 
 const clean = (value: string, max: number) => redactContactInfo(value.replace(/\s+/g, " ").trim()).slice(0, max);
@@ -133,16 +169,34 @@ export function questionLogPayload(input: QuestionLogInput): QuestionLogPayload 
     factIds: [...new Set(input.factIds ?? [])].slice(0, 5),
     answer: clean(input.answer, MAX_ANSWER_CHARS),
     tourId: input.tourId ?? null,
+    surface: input.surface ?? "tur",
+    stepId: input.stepId ?? null,
+    latencyMs: input.latencyMs ?? null,
+    model: input.model ?? null,
+    inputTokens: input.inputTokens ?? null,
+    outputTokens: input.outputTokens ?? null,
   };
+}
+
+/**
+ * Cevap "bilmiyorum" diyor mu? Model bir kart gösterip yine de "bu konuda
+ * otelden bilgi alabilirim" diyebilir (kart soruyu cevaplamıyor); araç
+ * sonucuna bakmak o zaman soruyu yanlışlıkla "cevaplandı" sayar.
+ */
+const NO_INFO_ANSWER =
+  /\b(bilgi(?:m|miz)? (?:yok|bulunmuyor|mevcut degil)|(?:otel\w*|tesis\w*) (?:sizin icin )?bilgi (?:alabilirim|alabiliriz|isteyebilirim)|i don t have (?:any )?(?:verified )?(?:information|details)|i can ask the hotel)\b/;
+
+export function answerSaysNoInfo(answer: string | null | undefined): boolean {
+  return Boolean(answer) && NO_INFO_ANSWER.test(normalizeText(answer!));
 }
 
 /** Araç sonuçlarından sonucu çıkarır (sunucu turu ve model turu için ortak). */
 export function outcomeFromTools(
   runs: Array<{ toolName: string; output: unknown }>,
-  opts: { unknownReply?: boolean; redirectReply?: boolean } = {},
+  opts: { unknownReply?: boolean; redirectReply?: boolean; answer?: string | null } = {},
 ): QuestionOutcome {
   const ok = (r: { output: unknown }) => (r.output as { ok?: boolean } | null)?.ok !== false;
-  if (opts.unknownReply) return "bilgi-yok";
+  if (opts.unknownReply || answerSaysNoInfo(opts.answer)) return "bilgi-yok";
   if (runs.some((r) => (r.toolName === "citeFact" || r.toolName === "getRoomPrice") && ok(r))) return "cevaplandi";
   if (runs.some((r) => r.toolName === "citeFact" && !ok(r))) return "bilgi-yok";
   if (opts.redirectReply || runs.some((r) => r.toolName === "navigateTo" || r.toolName === "openInquiry")) return "yonlendirme";

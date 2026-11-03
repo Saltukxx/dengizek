@@ -107,7 +107,8 @@ Düzeltme sonrası (aynı 15 otel): **%100** (231/231), planlayıcı offline %99
 
 - Bilinen konuda (giriş/çıkış, evcil hayvan, pansiyon, havalimanı) planlayıcı yalnız konunun kanıtını içeren kartlar arasından seçer; böyle bir kart varsa puan eşiği aranmaz.
 - Ölçüm aracındaki hata da düzeltildi: "Havalimanı16 km" → beklenen değer 6 okunuyordu, eski gevşek kontrol "16 km" içinde "6 km" bulduğu için gizleniyordu.
-- Kalan tek hata (`basaranlar-termal:pansiyon`): cevap doğru, ama kart metnindeki "kahvaltı kişi başı 600 TL" fiyat kontrolüne takılıyor. Otel verisinden gelen fiyat — karar bekliyor.
+- Kalan tek hata (`basaranlar-termal:pansiyon`): cevap doğru, ama kart metnindeki "kahvaltı kişi başı 600 TL" fiyat kontrolüne takılıyor. Otel verisinden gelen fiyat.
+  - **Karar (3 Kasım):** rehber kendi cümlesinde fiyat söylemez; kartın fiyat içeren cümlesi cevaba alıntılanmaz, cevap "Bilgiyi sizin için kartta paylaştım." olur. Fiyat kartta "Otel ifadesi" etiketiyle görünmeye devam eder. Gerekçe: fiyatın tek doğrulanmış kaynağı fiyat kartı; otel metnindeki tutar güncel olmayabilir. Planlayıcı offline: 3.086 soru, %100.
 - Son koşuda 134 test altyapı hatası verdi (839/846 sonuç kaydedildi); küçük tekrar koşu temiz. Büyük koşularda Gemini hız sınırı/zaman aşımı olası — eval'a istek aralığı eklenmeli.
 
 ---
@@ -172,6 +173,9 @@ Bitti sayılır: aktarılan otellerde kritik alan doluluğu raporlanıyor; otelc
 
 ## Aşama 3 — Canlı geri bildirim
 
+**Soru kaydı düzeltmesi** — ✅ 3 Kasım
+- Model bir kart gösterip yine de "bu konuda otelden bilgi alabilirim" dediğinde soru "Cevaplandı" sayılıyordu (yerel kayıtta: "Havuz kaçta açılıyor?"). Sonuç artık cevabın kendisine de bakar: cevap "bilgim yok / bilgi alabilirim" diyorsa `bilgi-yok`, soru cevapsızlar listesine de düşer.
+
 **3.1 Misafir değerlendirmesi** — ✅ 31 Ekim
 - Yapılan: misafir sorusuna verilen her rehber cevabının altında 👍/👎 (tur anlatımında yok). Oy `/api/tour/feedback` ile soru, cevap ve konuyla kaydedilir (`ai_feedback`; iletişim bilgisi maskelenir, kimlik yok, dakikada 30 sınırı). Misafir fikrini değiştirebilir; aynı cevaba son oy sayılır. Otel panelinde ve yönetici analitiğinde faydalı oranı ve en çok 👎 alan cevaplar.
 - Eski metin (referans):
@@ -186,6 +190,13 @@ Bitti sayılır: aktarılan otellerde kritik alan doluluğu raporlanıyor; otelc
 ---
 
 ## Aşama 4 — Model kararı
+
+**Karar (3 Kasım): rehber `gemini-3.1-flash-lite`'ta kalır.** Faturalandırma açılınca karşılaştırma (`npm run test:eval:models`) yeniden koşulur ve aşağıdaki kural uygulanır.
+- Ücretsiz katmanda 3.5 Flash günde ~20 istek: canlı rehberi taşıyamaz, doğruluk farkı ne olursa olsun geçiş mümkün değil.
+- Model, ölçülen soru setinde turların ~%0,5'inde konuşuyor (kalanı sunucu planlayıcısı); doğruluğu planlayıcı ve veri belirliyor.
+- 31 Ekim deneme koşusu (1 otel) karar için yetersizdi: Flash-Lite p50 ~7 sn. Gecikme kuralı (≤ 3 sn) mevcut model için de sağlanmıyor — faturalı katmanda ilk bakılacak konu.
+
+Eski metin (referans):
 
 - Model yalnız serbest turlarda konuşuyor (~%15). Bu turlarda 3.5 Flash denenir; aynı eval ile doğruluk ve gecikme karşılaştırılır (3.5 Flash-Lite ölçümünde ~11 sn gecikme görüldü — kabul edilemez).
 - Karar kuralı: doğruluk artışı ≥ 3 puan ve p50 gecikme ≤ 3 sn ise geçilir.

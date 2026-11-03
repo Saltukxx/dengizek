@@ -10,6 +10,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { hotelsTable } from "@/lib/db/schema";
 import { logAudit } from "@/lib/audit";
+import { revalidateGuestHotel } from "@/lib/guest-cache";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -56,6 +57,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     })
     .where(eq(hotelsTable.id, hotel.id))
     .returning();
+  revalidateGuestHotel(hotel.slug);
 
   await logAudit({
     actor: guard.user,

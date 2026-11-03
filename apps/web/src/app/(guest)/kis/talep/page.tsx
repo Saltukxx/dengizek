@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { InquiryPage } from "../../inquiry/page";
+import InquiryPage from "../../inquiry/page";
 
 export const metadata: Metadata = {
   title: "Kış rezervasyon talebi",

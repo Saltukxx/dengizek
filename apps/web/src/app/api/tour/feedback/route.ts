@@ -9,6 +9,7 @@ import { apiNotFound, apiRateLimited } from "@/lib/api-response";
 import { FEEDBACK_EVENT, feedbackPayload } from "@/lib/ai/feedback";
 import { getHotelIdBySlug } from "@/lib/hotels-repo";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
+import { visitIdSchema } from "@/lib/schemas/analytics";
 
 const bodySchema = z.object({
   hotelSlug: z.string().min(1).max(120),
@@ -17,6 +18,7 @@ const bodySchema = z.object({
   rating: z.enum(["up", "down"]),
   question: z.string().max(1000).default(""),
   answer: z.string().max(4000).default(""),
+  visitId: visitIdSchema.optional(),
 });
 
 export async function POST(req: Request) {
@@ -26,10 +28,10 @@ export async function POST(req: Request) {
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ ok: false, error: "Geçersiz istek" }, { status: 400 });
 
-  const { hotelSlug, ...input } = parsed.data;
+  const { hotelSlug, visitId, ...input } = parsed.data;
   const hotelId = await getHotelIdBySlug(hotelSlug);
   if (!hotelId) return apiNotFound("Tesis bulunamadı.");
 
-  await trackEvent(FEEDBACK_EVENT, { ...feedbackPayload(input) }, hotelId, hotelSlug);
+  await trackEvent(FEEDBACK_EVENT, { ...feedbackPayload(input) }, hotelId, hotelSlug, visitId);
   return NextResponse.json({ ok: true });
 }

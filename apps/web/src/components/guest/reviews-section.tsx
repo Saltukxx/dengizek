@@ -147,13 +147,13 @@ export function ReviewsSection({ summary }: { summary: GuestReviewSummary }) {
                 </div>
                 {r.source === "verified_guest" && (
                   <span
-                    className="er-eyebrow"
+                    className="er-label"
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 5,
                       color: "var(--er-primary)",
-                      fontSize: 10,
+                      fontSize: 12,
                       whiteSpace: "nowrap",
                     }}
                   >
@@ -188,8 +188,8 @@ export function ReviewsSection({ summary }: { summary: GuestReviewSummary }) {
                   }}
                 >
                   <p
-                    className="er-eyebrow"
-                    style={{ margin: "0 0 6px", color: "var(--er-primary)", fontSize: 10 }}
+                    className="er-label"
+                    style={{ margin: "0 0 6px", color: "var(--er-primary)", fontSize: 12 }}
                   >
                     Tesisin yanıtı
                   </p>

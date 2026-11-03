@@ -30,6 +30,7 @@ import {
   IconMessage,
   IconShieldCheck,
   IconChartBar,
+  IconRoute,
   IconStar,
   IconUsers,
 } from "@tabler/icons-react";
@@ -47,6 +48,7 @@ const links = [
   { href: "/admin/inquiries", label: "Talepler", icon: IconMessage },
   { href: "/admin/reviews", label: "Yorumlar", icon: IconStar },
   { href: "/admin/analytics", label: "Analitik", icon: IconChartBar },
+  { href: "/admin/yolculuk", label: "Yolculuk ve rehber", icon: IconRoute },
   { href: "/admin/audit", label: "Denetim kaydı", icon: IconClipboardList },
 ] as const;
 

@@ -61,6 +61,11 @@ describe("GuestAppShell — kış yüzeyi", () => {
       "href",
       "/kis",
     );
+    // "Nasıl Çalışır?" talep formuna değil, kış sayfasındaki anlatıma gider.
+    expect(screen.getAllByRole("link", { name: "Nasıl Çalışır?" })[0]).toHaveAttribute(
+      "href",
+      "/kis#nasil-calisir",
+    );
     expect(screen.getByRole("link", { name: "Kış Planı Oluştur" })).toHaveAttribute(
       "href",
       "/kis/talep",

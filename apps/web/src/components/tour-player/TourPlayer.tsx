@@ -55,6 +55,8 @@ import { TourVideoInteractionInfo } from "./tour-video-info-boxes";
 import { useTourPlayerMachine } from "./use-tour-player-machine";
 import { useVideoSource } from "./use-video-source";
 import { usePlaybackToken } from "./use-playback-token";
+import { getVisitId } from "@/lib/visit-client";
+import { useTourExit } from "./use-tour-exit";
 
 // Kapalı mobil çekmece yüksekliği — panel header'ı + metin girişi görünür kalır.
 const GUIDE_PEEK_HEIGHT = 210;
@@ -167,6 +169,15 @@ export function TourPlayer({
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(" ");
 
+  const visibleStepIds = new Set(visibleStepList.map((s) => s.stepId));
+  const { markExit } = useTourExit({
+    tourId: manifest.tourId,
+    hotelSlug: manifest.hotelSlug,
+    currentStepId: currentStep?.stepId ?? null,
+    stepsSeenCount: stepsSeen.filter((id) => visibleStepIds.has(id)).length,
+    totalSteps: visibleStepList.length,
+  });
+
   const {
     messages: guideMessages,
     isThinking: guideThinking,
@@ -194,6 +205,7 @@ export function TourPlayer({
       if (inquiryRoom) params.set("room", inquiryRoom);
       const step = currentStep?.stepId;
       if (step) params.set("step", step);
+      markExit("talep");
       router.push(`${inquiryPath}?${params.toString()}`);
     },
   });
@@ -507,7 +519,11 @@ export function TourPlayer({
             Rehberli turu tamamladınız. Beğendiyseniz tesise bir talep bırakın.
           </Text>
           <Group justify="center" gap="sm" mt={24}>
-            <Link href={`${inquiryPath}?hotel=${manifest.hotelSlug}`} className="er-btn er-btn-cta">
+            <Link
+              href={`${inquiryPath}?hotel=${manifest.hotelSlug}`}
+              className="er-btn er-btn-cta"
+              onClick={() => markExit("talep")}
+            >
               Rezervasyon Talebi
             </Link>
             <Link href={backHref} className="er-btn er-btn-ghost">
@@ -559,7 +575,7 @@ export function TourPlayer({
         void fetch("/api/tour/feedback", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ hotelSlug: manifest.hotelSlug, tourId: manifest.tourId, ...input }),
+          body: JSON.stringify({ hotelSlug: manifest.hotelSlug, tourId: manifest.tourId, visitId: getVisitId(), ...input }),
         }).catch(() => {});
       }}
     />
@@ -940,7 +956,10 @@ export function TourPlayer({
               <button type="button" onClick={() => setGuideExpanded(true)}>
                 <IconSparkles size={18} /> Rehbere Sor
               </button>
-              <Link href={`${inquiryPath}?hotel=${manifest.hotelSlug}&tour=${manifest.tourId}&source=tour_player`}>
+              <Link
+                href={`${inquiryPath}?hotel=${manifest.hotelSlug}&tour=${manifest.tourId}&source=tour_player`}
+                onClick={() => markExit("talep")}
+              >
                 <IconMessageCircle size={18} /> Talep Gönder
               </Link>
             </div>
@@ -962,6 +981,7 @@ export function TourPlayer({
         hotelSlug={manifest.hotelSlug}
         backHref={backHref}
         surface={surface}
+        onInquiryClick={() => markExit("talep")}
       />
       {resumeBanner}
 

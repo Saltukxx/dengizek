@@ -12,6 +12,7 @@ import {
 import { detectLanguageHint } from "@/lib/ai/language-detect";
 import { trackEvent } from "@/lib/analytics-client";
 import { readGuestSessionToken } from "@/lib/tour/use-guest-session";
+import { getVisitId } from "@/lib/visit-client";
 
 // ---------------------------------------------------------------------------
 // Tipler
@@ -67,6 +68,42 @@ function extractAllFactCards(parts: unknown[] | undefined): AiFactCard[] {
     }
   }
   return cards;
+}
+
+/**
+ * useChat mesajlarını panelin gösterdiği biçime çevirir: gizli tetik
+ * mesajları atılır, öneri çipleri ile fiyat/bilgi kartları araç
+ * çıktılarından okunur. Tur rehberi ve otel sayfası sohbeti ortak kullanır.
+ */
+export function toGuideMessages(
+  chatMessages: Array<{ id: string; role: string; parts?: unknown[] }>,
+  chipsSuppressed = false,
+): GuideMessage[] {
+  const textOf = (parts: unknown[] | undefined) =>
+    ((parts?.filter((p) => (p as { type?: string }).type === "text") ?? []) as { text: string }[])
+      .map((p) => p.text)
+      .join("");
+  return chatMessages
+    .filter((m) => textOf(m.parts) !== "[HIDDEN]")
+    .map((m) => {
+      const suggestNextToolPart = m.parts?.find((p) => (p as { type?: string }).type === "tool-suggestNext") as
+        | { input?: { chips?: string[] } }
+        | undefined;
+      const chips = suggestNextToolPart?.input?.chips;
+
+      const priceResult = extractToolOutput<AiPriceQueryResult>(m.parts, "getRoomPrice");
+      const priceCards = priceResult?.ok ? priceResult.cards : undefined;
+      const factCards = extractAllFactCards(m.parts);
+
+      return {
+        id: m.id,
+        role: m.role as "user" | "assistant",
+        content: textOf(m.parts),
+        chips: chipsSuppressed ? undefined : chips,
+        priceCards,
+        factCards: factCards.length > 0 ? factCards : undefined,
+      };
+    });
 }
 
 function visibleSteps(manifest: TourManifest) {
@@ -281,34 +318,7 @@ export function useTourGuide({
 
   const isLoading = status === "submitted" || status === "streaming";
 
-  const mappedChatMessages: GuideMessage[] = chatMessages
-    .filter((m) => {
-      const textParts = m.parts?.filter((p) => p.type === "text") as { text: string }[] | undefined;
-      const textContent = textParts?.map((p) => p.text).join("") || "";
-      return textContent !== "[HIDDEN]";
-    })
-    .map((m) => {
-      const textParts = m.parts?.filter((p) => p.type === "text") as { text: string }[] | undefined;
-      const textContent = textParts?.map((p) => p.text).join("") || "";
-
-      const suggestNextToolPart = m.parts?.find((p) => p.type === "tool-suggestNext") as
-        | { input?: { chips?: string[] } }
-        | undefined;
-      const chips = suggestNextToolPart?.input?.chips;
-
-      const priceResult = extractToolOutput<AiPriceQueryResult>(m.parts, "getRoomPrice");
-      const priceCards = priceResult?.ok ? priceResult.cards : undefined;
-      const factCards = extractAllFactCards(m.parts);
-
-      return {
-        id: m.id,
-        role: m.role as "user" | "assistant",
-        content: textContent,
-        chips: chipsSuppressed ? undefined : chips,
-        priceCards,
-        factCards: factCards.length > 0 ? factCards : undefined,
-      };
-    });
+  const mappedChatMessages = toGuideMessages(chatMessages, chipsSuppressed);
 
   const allMessages = [...mappedChatMessages, ...localMessages];
 
@@ -390,6 +400,7 @@ export function useTourGuide({
         // Yalnızca UX ipucu — dil tespiti belirsiz kaldığında kullanılır,
         // asla otoriter değil (bkz. detectLanguageHint).
         browserLocale: typeof navigator !== "undefined" ? navigator.language : undefined,
+        visitId: getVisitId(),
       };
 
       if (reason === "tourStart" && !tourStartTrackedRef.current) {

@@ -53,7 +53,7 @@ export function RestaurantsSection({ restaurants }: { restaurants: Restaurant[] 
             )}
             <div style={{ padding: "26px 28px 28px" }}>
               {restaurant.cuisine && (
-                <p className="er-eyebrow" style={{ margin: "0 0 10px", color: "var(--er-primary)", fontSize: 11 }}>
+                <p className="er-label" style={{ margin: "0 0 10px", color: "var(--er-primary)" }}>
                   {restaurant.cuisine}
                 </p>
               )}

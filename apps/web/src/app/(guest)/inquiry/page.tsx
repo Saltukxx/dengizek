@@ -8,7 +8,8 @@ export const metadata: Metadata = guestShareMeta({
   description: "Seçtiğiniz otele rezervasyon talebinizi iletin.",
 });
 
-export function InquiryPage() {
+// Kış talep rotası (kis/talep) bu sayfanın varsayılan dışa aktarımını kullanır.
+export default function InquiryPage() {
   return (
     <Suspense
       fallback={
@@ -28,4 +29,3 @@ export function InquiryPage() {
   );
 }
 
-export default InquiryPage;

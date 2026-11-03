@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Loader, Paper, Select, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
-import { ANALYTICS_EVENT_LABELS } from "@/lib/schemas/analytics";
+import { ALL_EVENT_LABELS } from "@/lib/schemas/analytics";
 import { SearchInsightsPanel } from "@/components/admin/search-insights";
 import { QuestionInsightsPanel } from "@/components/admin/question-insights";
 import { CriticalGapsPanel } from "@/components/admin/critical-gaps";
@@ -18,14 +18,7 @@ interface AdminAnalytics {
   hotels: { id: string; name: string }[];
 }
 
-// Sunucunun yazdığı (misafir tarafının gönderemediği) olaylar da etiketlenir.
-const eventLabels: Record<string, string> = {
-  ...ANALYTICS_EVENT_LABELS,
-  hotel_search: "Arama asistanı",
-  ai_unanswered: "Rehberin cevapsız sorusu",
-  ai_question: "Rehbere sorulan soru",
-  ai_feedback: "Misafir değerlendirmesi",
-};
+const eventLabels = ALL_EVENT_LABELS;
 
 export default function AdminAnalyticsPage() {
   const [data, setData] = useState<AdminAnalytics | null>(null);

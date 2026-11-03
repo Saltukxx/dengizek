@@ -39,6 +39,6 @@ export async function POST(req: Request) {
     hotelId = h?.id ?? null;
   }
 
-  await trackEvent(parsed.data.eventType, parsed.data.payload ?? {}, hotelId, hotelSlug);
+  await trackEvent(parsed.data.eventType, parsed.data.payload ?? {}, hotelId, hotelSlug, parsed.data.visitId);
   return apiOk({});
 }

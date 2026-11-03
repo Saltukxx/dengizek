@@ -118,7 +118,7 @@ export function RoomsSection({
             )}
             <div style={{ padding: "20px 22px 22px", display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
               {room.tagline && (
-                <p className="er-eyebrow" style={{ margin: 0, color: "var(--er-primary)", fontSize: 11 }}>
+                <p className="er-label" style={{ margin: 0, color: "var(--er-primary)" }}>
                   {room.tagline}
                 </p>
               )}

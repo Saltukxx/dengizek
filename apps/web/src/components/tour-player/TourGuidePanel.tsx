@@ -11,7 +11,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { IconMicrophone, IconMicrophoneOff, IconSend } from "@tabler/icons-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { GuideMessage } from "@/lib/tour/use-tour-guide";
 import { AutoTourButton } from "./auto-tour-button";
 import { guideStrings, speechLocaleFor } from "./tour-guide-i18n";
@@ -30,8 +30,15 @@ interface TourGuidePanelProps {
   detectedLanguage?: string;
   onSendMessage: (text: string) => void;
   onChipClick: (chip: string) => void;
-  onStartAutoTour: () => void;
-  onStopAutoTour: () => void;
+  /** Verilmezse otomatik tur düğmesi gösterilmez (ör. otel sayfası sohbeti). */
+  onStartAutoTour?: () => void;
+  onStopAutoTour?: () => void;
+  /** Henüz mesaj yokken gösterilecek içerik (varsayılan: "hazırlanıyor"). */
+  emptyState?: ReactNode;
+  /** Başlık alanının sağına eklenecek içerik (ör. kapat düğmesi). */
+  headerAction?: ReactNode;
+  /** Metin girişinin hemen üstünde gösterilecek içerik (ör. talep formu düğmesi). */
+  aboveInput?: ReactNode;
   /** Misafir bir cevabı değerlendirdi (👍/👎). question = cevaplanan misafir mesajı. */
   onFeedback?: (input: { messageId: string; rating: "up" | "down"; question: string; answer: string }) => void;
 }
@@ -58,6 +65,9 @@ export function TourGuidePanel({
   onStartAutoTour,
   onStopAutoTour,
   onFeedback,
+  emptyState,
+  headerAction,
+  aboveInput,
 }: TourGuidePanelProps) {
   const [inputValue, setInputValue] = useState("");
   const [ratings, setRatings] = useState<Record<string, "up" | "down">>({});
@@ -163,12 +173,17 @@ export function TourGuidePanel({
               )}
             </Stack>
           </Group>
-          <AutoTourButton
-            isAutoTour={isAutoTour}
-            onStart={onStartAutoTour}
-            onStop={onStopAutoTour}
-            disabled={isThinking}
-          />
+          <Group gap={6} wrap="nowrap">
+            {onStartAutoTour && onStopAutoTour && (
+              <AutoTourButton
+                isAutoTour={isAutoTour}
+                onStart={onStartAutoTour}
+                onStop={onStopAutoTour}
+                disabled={isThinking}
+              />
+            )}
+            {headerAction}
+          </Group>
         </Group>
       </Box>
 
@@ -181,9 +196,11 @@ export function TourGuidePanel({
       >
         <Stack gap={20} style={{ padding: "20px", minHeight: "100%", justifyContent: "flex-end" }}>
           {messages.length === 0 && !isThinking && (
-            <Text size="sm" ta="center" py="md" style={{ color: "var(--er-text-dim)" }}>
-              {strings.preparing}
-            </Text>
+            emptyState ?? (
+              <Text size="sm" ta="center" py="md" style={{ color: "var(--er-text-dim)" }}>
+                {strings.preparing}
+              </Text>
+            )
           )}
           {messages.map((msg, i) => {
             // Yalnız misafirin sorusuna verilen cevap değerlendirilir (tur anlatımı değil).
@@ -221,6 +238,15 @@ export function TourGuidePanel({
               onChipClick={onChipClick}
               disabled={isThinking}
             />
+          </Box>
+        </>
+      )}
+
+      {aboveInput && (
+        <>
+          <Divider color="var(--er-line)" />
+          <Box px={20} py={12} style={{ flexShrink: 0 }}>
+            {aboveInput}
           </Box>
         </>
       )}

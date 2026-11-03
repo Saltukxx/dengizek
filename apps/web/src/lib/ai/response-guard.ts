@@ -132,7 +132,7 @@ export type GuardFlags = { hadPriceTool: boolean; hadFactTool: boolean };
 
 /**
  * Bir adımda hangi tool'un ZORLA çağrılacağına karar verir (streamText'in
- * prepareStep'ine bağlanır — bkz. chat/route.ts). Fiyat ve fact ipucu aynı
+ * prepareStep'ine bağlanır — bkz. chat/chat-handler.ts). Fiyat ve fact ipucu aynı
  * anda gelirse fiyat önceliklidir: serbest metinde rakam üretmek daha yüksek
  * riskli bir hallucination sınıfı. Bir adımda yalnızca TEK tool zorlanabilir
  * (zorunlu araç seçimi tek fonksiyon seçer; bazı sağlayıcılar bunu uygulamaz —
@@ -232,6 +232,14 @@ export function serverToolFallbackText(toolName: ServerToolName, language: strin
   return language && language !== "tr" ? texts.en : texts.tr;
 }
 
+export interface ServerTextOptions {
+  /**
+   * Talep formu kendiliğinden açılmaz, misafire düğme gösterilir (otel
+   * sayfası sohbeti). Turda form doğrudan açılır.
+   */
+  inquiryButton?: boolean;
+}
+
 /**
  * Kart turları (fiyat / bilgi / talep) için modelsiz çerçeve cümlesi. Kart
  * bilgiyi zaten gösterir; model bu cümlede bilgi uydurabildiği (ör.
@@ -242,6 +250,7 @@ export function serverToolCardText(
   toolName: Exclude<ServerToolName, "navigateTo">,
   language: string | undefined,
   output: unknown,
+  opts: ServerTextOptions = {},
 ): string {
   const en = Boolean(language && language !== "tr");
   const result = (output ?? {}) as { ok?: boolean; blocked?: boolean; error?: string };
@@ -256,6 +265,11 @@ export function serverToolCardText(
     return en
       ? "Let's explore the tour a little more first; then I can open the request form."
       : "Turu biraz daha gezelim; ardından talep formunu açabilirim.";
+  }
+  if (toolName === "openInquiry" && opts.inquiryButton) {
+    return en
+      ? "You can open the request form with the button below."
+      : "Talep formunu aşağıdaki düğmeden açabilirsiniz.";
   }
   return serverToolFallbackText(toolName, language);
 }
@@ -443,6 +457,7 @@ export function serverTurnText(
     question?: string;
   },
   language: string | undefined,
+  opts: ServerTextOptions = {},
 ): string | null {
   const en = Boolean(language && language !== "tr");
   const amenityRun = turn.runs.length === 1 && turn.runs[0]!.toolName === "citeFact" ? turn.runs[0] : undefined;
@@ -485,7 +500,7 @@ export function serverTurnText(
   }
   if (turn.runs.length === 1 || failed) {
     const run = failed ?? turn.runs[0]!;
-    return serverToolCardText(run.toolName as Exclude<ServerToolName, "navigateTo">, language, run.output);
+    return serverToolCardText(run.toolName as Exclude<ServerToolName, "navigateTo">, language, run.output, opts);
   }
   return en ? MULTI_CARD_TEXT.en : MULTI_CARD_TEXT.tr;
 }
@@ -546,6 +561,14 @@ function clip(text: string): string {
  * "Otel olanakları: Kapalı Termal Havuz, Açık Termal Havuz.").
  */
 export function cardAnswerSentence(card: { title?: string; text: string }, question: string): string {
+  const sentence = bestCardSentence(card, question);
+  // Rehber kendi cümlesinde fiyat söylemez — fiyatın tek kaynağı fiyat kartı.
+  // Otel metnindeki tutar ("kahvaltı kişi başı 600 TL") güncel olmayabilir;
+  // kartta "Otel ifadesi" etiketiyle görünmeye devam eder.
+  return textContainsPriceLikeContent(sentence, { hadPriceTool: true }) ? "" : sentence;
+}
+
+function bestCardSentence(card: { title?: string; text: string }, question: string): string {
   // Her soru kelimesi eş anlamlılarıyla tek grup: bir kelime en fazla bir kez sayılır.
   const groups = tokens(question)
     .filter((t) => t.length >= 4 && !FRAME_WORDS.test(t))

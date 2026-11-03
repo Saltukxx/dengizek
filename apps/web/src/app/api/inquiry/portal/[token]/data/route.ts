@@ -10,6 +10,7 @@ import { getDb, isDbConfigured } from "@/lib/db";
 import { inquiriesTable } from "@/lib/db/schema";
 import { hashPortalToken } from "@/lib/inquiry-portal-token";
 import { anonymizeInquiry, exportInquiryPersonalData } from "@/lib/inquiry-privacy";
+import { revalidateGuestHotelById } from "@/lib/guest-cache";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
 import { apiNotFound, apiOk, apiRateLimited, apiServiceUnavailable } from "@/lib/api-response";
@@ -73,6 +74,8 @@ export async function POST(req: Request, { params }: RouteParams) {
   if (!inquiry || tokenUnavailable(inquiry)) return apiNotFound("Geçersiz bağlantı.");
 
   await anonymizeInquiry(getDb(), inquiry.id);
+  // Yayındaki yorumda eski isim önbellekte kalmasın.
+  await revalidateGuestHotelById(inquiry.hotelId);
 
   // Denetim izi: kişisel veri değil, yalnızca işlemin yapıldığı gerçeği.
   await logAudit({

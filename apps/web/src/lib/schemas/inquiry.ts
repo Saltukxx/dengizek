@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { validateStayDates } from "@/lib/stay-dates";
+import { visitIdSchema } from "@/lib/schemas/analytics";
 
-export const inquirySourceValues = ["web", "tour_ai", "tour_player"] as const;
+export const inquirySourceValues = ["web", "tour_ai", "tour_player", "hotel_chat"] as const;
 
 const optionalDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal(""));
 
@@ -22,6 +23,8 @@ export const inquiryFormSchema = z
     stepKey: z.string().max(120).optional(),
     source: z.enum(inquirySourceValues).optional(),
     locale: z.string().max(10).optional(),
+    /** Anonim ziyaret kimliği — talebi aynı ziyaretin sorularına bağlar; talebe yazılmaz. */
+    visitId: visitIdSchema.optional(),
   })
   .superRefine((data, ctx) => {
     const dates = validateStayDates(data.checkIn, data.checkOut);

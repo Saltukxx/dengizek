@@ -19,7 +19,7 @@ import {
   triggerInstruction,
   type AuthoritativeContext,
   type ChatRequest,
-} from "@/app/api/tour/chat/route";
+} from "@/app/api/tour/chat/chat-handler";
 import { withQuotaRetry } from "./quota-retry";
 import { cardPointerReplacement, hasOnlyFramingSentences, serverTurnText } from "@/lib/ai/response-guard";
 import { windowConversationHistory } from "@/lib/ai/history-window";

@@ -10,6 +10,7 @@ import { reviewsTable } from "@/lib/db/schema";
 import { reviewCreateSchema, reviewPatchSchema } from "@/lib/schemas/hotel-panel";
 import { assertBookingBelongsToHotel, assertInquiryBelongsToHotel } from "@/lib/tenant-integrity";
 import { logAudit } from "@/lib/audit";
+import { revalidateGuestHotel } from "@/lib/guest-cache";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -93,5 +94,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   if (!updated) {
     return NextResponse.json({ ok: false, error: "Yorum bulunamadı." }, { status: 404 });
   }
+  // Otelin cevabı yayındaki yorumun altında görünür.
+  if (updated.status === "yayinda") revalidateGuestHotel(guard.hotel.slug);
   return NextResponse.json({ ok: true, review: updated });
 }

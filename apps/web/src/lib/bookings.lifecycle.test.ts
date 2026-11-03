@@ -3,6 +3,7 @@ import { getTableName, type Table } from "drizzle-orm";
 
 const state = vi.hoisted(() => ({
   selectRows: new Map<string, unknown[][]>(),
+  updateReturning: new Map<string, unknown[][]>(),
   updates: [] as Array<{ table: string; values: Record<string, unknown> }>,
   inserts: [] as Array<{ table: string; values: Record<string, unknown> }>,
 }));
@@ -41,7 +42,10 @@ function makeTx() {
         state.updates.push({ table: tableName(table), values });
         return {
           where: () => ({
-            returning: async () => [{ id: `${tableName(table)}-updated`, ...values }],
+            returning: async () =>
+              state.updateReturning.get(tableName(table))?.shift() ?? [
+                { id: `${tableName(table)}-updated`, ...values },
+              ],
           }),
         };
       },
@@ -79,13 +83,26 @@ function queue(table: string, ...rows: unknown[][]) {
   state.selectRows.set(table, rows);
 }
 
-function inventoryRow(overrides: Record<string, unknown> = {}) {
-  return { allotment: 2, stopSell: false, cta: false, ctd: false, minStay: null, ...overrides };
+/**
+ * Onay reddedildiğinde envanter ve rezervasyon durumuna yazım yapılmamalı.
+ * (Panel revizyonu ve "yoksa aç" envanter satırları aynı transaction'da
+ * geri alınır; onlar burada sayılmaz.)
+ */
+function bookingWrites() {
+  return [
+    ...state.updates.filter((e) => e.table === "room_inventory" || e.table === "bookings"),
+    ...state.inserts.filter((e) => e.table === "booking_transitions"),
+  ];
+}
+
+function inventoryRow(date: string, overrides: Record<string, unknown> = {}) {
+  return { date, allotment: 2, stopSell: false, cta: false, ctd: false, minStay: null, ...overrides };
 }
 
 describe("rezervasyon yaşam döngüsü", () => {
   beforeEach(() => {
     state.selectRows.clear();
+    state.updateReturning.clear();
     state.updates.length = 0;
     state.inserts.length = 0;
   });
@@ -93,17 +110,21 @@ describe("rezervasyon yaşam döngüsü", () => {
   it("bekleyen rezervasyonu onaylarken her geceyi doğrular ve tam bir kez düşer", async () => {
     queue("bookings", [booking]);
     queue("rooms", [{ id: "room-1" }]);
-    queue(
-      "room_inventory",
-      [inventoryRow()],
-      [inventoryRow()],
-      [inventoryRow({ ctd: false })],
-    );
+    // Geceler + çıkış günü tek sorguda gelir; düşüm de tek UPDATE ile yapılır.
+    queue("room_inventory", [
+      inventoryRow("2026-12-10"),
+      inventoryRow("2026-12-11"),
+      inventoryRow("2026-12-12"),
+    ]);
+    state.updateReturning.set("room_inventory", [
+      [inventoryRow("2026-12-10"), inventoryRow("2026-12-11")],
+    ]);
 
     const result = await approveBooking("hotel-1", "booking-1", "approve-key");
 
     expect(result).toMatchObject({ status: "onaylandi" });
-    expect(state.updates.filter((entry) => entry.table === "room_inventory")).toHaveLength(2);
+    // İki gece tek UPDATE ile işlenir.
+    expect(state.updates.filter((entry) => entry.table === "room_inventory")).toHaveLength(1);
     expect(state.updates.filter((entry) => entry.table === "bookings")).toEqual([
       { table: "bookings", values: { status: "onaylandi", updatedAt: expect.any(Date) } },
     ]);
@@ -123,26 +144,28 @@ describe("rezervasyon yaşam döngüsü", () => {
   it("stop-sell gününde onayı hiçbir envanter veya durum yazımı yapmadan keser", async () => {
     queue("bookings", [booking]);
     queue("rooms", [{ id: "room-1" }]);
-    queue("room_inventory", [inventoryRow({ stopSell: true })]);
+    queue("room_inventory", [
+      inventoryRow("2026-12-10", { stopSell: true }),
+      inventoryRow("2026-12-11"),
+    ]);
 
     await expect(approveBooking("hotel-1", "booking-1")).rejects.toMatchObject({
       code: "inventory",
       message: expect.stringContaining("satış kapalı"),
     });
-    expect(state.updates).toEqual([]);
-    expect(state.inserts).toEqual([]);
+    expect(bookingWrites()).toEqual([]);
   });
 
   it("minimum konaklama şartını onay anında yeniden doğrular", async () => {
     queue("bookings", [{ ...booking, checkOut: "2026-12-11" }]);
     queue("rooms", [{ id: "room-1" }]);
-    queue("room_inventory", [inventoryRow({ minStay: 2 })]);
+    queue("room_inventory", [inventoryRow("2026-12-10", { minStay: 2 }), inventoryRow("2026-12-11")]);
 
     await expect(approveBooking("hotel-1", "booking-1")).rejects.toMatchObject({
       code: "inventory",
       message: "Minimum konaklama 2 gecedir.",
     });
-    expect(state.updates).toHaveLength(0);
+    expect(bookingWrites()).toEqual([]);
   });
 
   it("zaten onaylı rezervasyonu idempotent döndürür ve envanteri tekrar düşmez", async () => {
@@ -166,7 +189,8 @@ describe("rezervasyon yaşam döngüsü", () => {
     );
 
     expect(result).toMatchObject({ status: "iptal" });
-    expect(state.updates.filter((entry) => entry.table === "room_inventory")).toHaveLength(2);
+    // İki gece tek UPDATE ile işlenir.
+    expect(state.updates.filter((entry) => entry.table === "room_inventory")).toHaveLength(1);
     expect(state.inserts).toContainEqual({
       table: "booking_transitions",
       values: expect.objectContaining({
@@ -215,7 +239,8 @@ describe("rezervasyon yaşam döngüsü", () => {
     const result = await reopenBooking("hotel-1", "booking-1", "reopen-key");
 
     expect(result).toMatchObject({ status: "beklemede" });
-    expect(state.updates.filter((entry) => entry.table === "room_inventory")).toHaveLength(2);
+    // İki gece tek UPDATE ile işlenir.
+    expect(state.updates.filter((entry) => entry.table === "room_inventory")).toHaveLength(1);
     expect(state.inserts).toContainEqual({
       table: "booking_transitions",
       values: expect.objectContaining({

@@ -30,18 +30,15 @@ import type { Fixture } from "./fixtures";
 import { isMisleadingCardPointer } from "@/lib/ai/deterministic-tools";
 import { QuotaExhaustedError, judgeGrounding, runTurn, shownCards, type TurnResult, type Verdict } from "./harness";
 
-// Aktarılan otellerin sanal turu yok: tek adımlı bir tur taklit edilir.
-vi.mock("@/lib/mocks/hotels", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/mocks/hotels")>()),
-  getTourManifest: async (hotelSlug: string, tourId: string) => ({
-    tourId,
-    hotelSlug,
-    version: 1,
-    steps: [
-      { stepId: "s1", order: 0, kind: "lobby", title: "Genel bakış", requiresUserContinue: false, media: { mode: "clip", src: "/demo.mp4" } },
-    ],
-  }),
-}));
+// Aktarılan otellerin sanal turu yok: otel sayfası sohbetiyle aynı tek
+// adımlı tur kurulur — ölçülen kurgu canlıdakiyle birebir aynı kalsın.
+vi.mock("@/lib/mocks/hotels", async (importOriginal) => {
+  const { hotelPageManifest } = await import("@/lib/ai/hotel-page-chat");
+  return {
+    ...(await importOriginal<typeof import("@/lib/mocks/hotels")>()),
+    getTourManifest: async (hotelSlug: string, tourId: string) => ({ ...hotelPageManifest(hotelSlug), tourId }),
+  };
+});
 
 const HOTELS_FILE =
   process.env.EVAL_HOTELS_FILE ?? path.resolve(__dirname, "../../../../../../data/oteldenrezerve/termal-oteller/oteller.json");

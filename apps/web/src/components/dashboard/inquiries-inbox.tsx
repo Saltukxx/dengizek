@@ -32,7 +32,7 @@ interface InquiryRow {
   name: string;
   message: string;
   status: "yeni" | "ilgileniliyor" | "kapatildi";
-  source: "web" | "tour_ai" | "tour_player";
+  source: "web" | "tour_ai" | "tour_player" | "hotel_chat";
   checkIn: string | null;
   checkOut: string | null;
   adults: number | null;

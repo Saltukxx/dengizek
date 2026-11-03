@@ -11,6 +11,7 @@ import { getDb } from "@/lib/db";
 import { hotelsTable } from "@/lib/db/schema";
 import { moderationDecisionSchema } from "@/lib/schemas/hotel-admin";
 import { logAudit } from "@/lib/audit";
+import { revalidateGuestHotel } from "@/lib/guest-cache";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -70,6 +71,7 @@ export async function POST(req: Request, { params }: RouteParams) {
   if (!updated) return NextResponse.json({ ok: false, code: "REVISION_CONFLICT" }, { status: 409 });
 
   if (parsed.data.karar === "onayla") {
+    revalidateGuestHotel(hotel.slug);
     // publishedSnapshot değişti — misafir AI sohbetinin gördüğü aiPersona/
     // aiFacts/aiPolicies de bu snapshot'tan okunuyor (bkz. getHotelAiProfile).
     clearFactCatalogCache(hotel.slug);

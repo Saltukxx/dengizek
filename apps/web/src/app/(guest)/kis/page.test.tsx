@@ -8,11 +8,9 @@ vi.mock("@/lib/hotels-repo", () => ({
 }));
 vi.mock("@/components/guest/analytics-tracker", () => ({ ViewTracker: () => null }));
 vi.mock("@/components/marketing", () => ({
-  HotelCard: ({ hotel, href, actionLabel }: {
-    hotel: { name: string };
-    href: string;
-    actionLabel: string;
-  }) => <a href={href}>{hotel.name} — {actionLabel}</a>,
+  HotelCard: ({ hotel, href }: { hotel: { name: string }; href: string }) => (
+    <a href={href}>{hotel.name}</a>
+  ),
 }));
 
 import WinterHomePage from "./page";
@@ -44,7 +42,7 @@ describe("kış ana sayfası", () => {
 
     expect(mocks.getPublishedHotelsForBrowse).toHaveBeenCalledOnce();
     expect(mocks.getPublishedHotelsForBrowse).toHaveBeenCalledWith({ season: "kis" });
-    expect(screen.getByRole("link", { name: /Kar Zirvesi — Tesisi İncele/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Kar Zirvesi" })).toHaveAttribute(
       "href",
       "/kis/oteller/kar-zirvesi",
     );
@@ -67,7 +65,7 @@ describe("kış ana sayfası", () => {
 
     render(await WinterHomePage());
 
-    expect(screen.queryByText(/Tesisi İncele/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Kar Zirvesi" })).not.toBeInTheDocument();
     expect(screen.getByText(/Kış sezonu için henüz yayında tesis yok/)).toBeInTheDocument();
   });
 });
