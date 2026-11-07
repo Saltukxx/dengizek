@@ -9,7 +9,7 @@ import { resetPasswordSchema } from "@/lib/schemas/auth";
 import { hashResetToken } from "@/lib/password-reset";
 import { hashPassword } from "@/lib/auth/password";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
-import { apiFail, apiOk, apiRateLimited, apiServiceUnavailable } from "@/lib/api-response";
+import { apiFail, apiOk, apiRateLimited, apiServiceUnavailable, validationMessage } from "@/lib/api-response";
 import { logAudit } from "@/lib/audit";
 
 export async function POST(req: Request) {
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const parsed = resetPasswordSchema.safeParse(body);
   if (!parsed.success) {
-    return apiFail("Doğrulama başarısız", 400, { issues: parsed.error.flatten() });
+    return apiFail(validationMessage(parsed.error), 400, { issues: parsed.error.flatten() });
   }
 
   if (

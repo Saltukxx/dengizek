@@ -84,6 +84,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
       shortDescription: snapshotValue("shortDescription", hotel.shortDescription),
       suspendedAt: hotel.suspendedAt,
       suspensionNote: hotel.suspensionNote,
+      analyticsEnabled: hotel.analyticsEnabled,
     },
     members,
     tours,

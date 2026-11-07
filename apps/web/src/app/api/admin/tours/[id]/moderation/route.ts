@@ -7,6 +7,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
+import { validationMessage } from "@/lib/api-response";
 import { and, eq, inArray } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
@@ -27,7 +28,7 @@ export async function POST(req: Request, { params }: RouteParams) {
   const parsed = moderationDecisionSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
+      { ok: false, error: validationMessage(parsed.error), issues: parsed.error.flatten() },
       { status: 400 },
     );
   }

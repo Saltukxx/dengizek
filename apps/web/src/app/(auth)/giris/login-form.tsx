@@ -8,7 +8,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -33,10 +33,25 @@ const loginSchema = z.object({
 
 type LoginValues = z.infer<typeof loginSchema>;
 
+/** callbackUrl'i aynı kökenli bir yola çevirir; değilse null. */
+export function safeCallbackPath(raw: string | null, origin: string = typeof window === "undefined" ? "http://localhost" : window.location.origin): string | null {
+  if (!raw) return null;
+  try {
+    const url = new URL(raw, origin);
+    if (url.origin !== origin) return null;
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
+  // Yalnız aynı sitedeki adrese dönülür. Oturum koruması tam adres verir
+  // ("http://alan/dashboard"); başka alan adı ya da "//…" giriş sonrası dış
+  // siteye yönlendirme (oltalama) olurdu.
+  const callbackUrl = safeCallbackPath(searchParams.get("callbackUrl"));
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -57,10 +72,16 @@ export function LoginForm() {
     setSubmitting(false);
 
     if (result?.error) {
-      setFormError("E-posta veya şifre hatalı.");
+      setFormError(
+        result.code === "rate_limited"
+          ? "Çok fazla giriş denemesi yapıldı. Lütfen 10 dakika sonra tekrar deneyin."
+          : "E-posta veya şifre hatalı.",
+      );
       return;
     }
-    router.push(callbackUrl);
+    // Dönülecek sayfa yoksa role göre panel: yönetici /admin, otel /dashboard.
+    const session = callbackUrl ? null : await getSession();
+    router.push(callbackUrl ?? (session?.user?.role === "admin" ? "/admin" : "/dashboard"));
     router.refresh();
   }
 

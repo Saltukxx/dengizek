@@ -96,7 +96,8 @@ describe("PATCH /api/manager/hotels/[hotelId]", () => {
     expect(res.status).toBe(400);
     await expect(res.json()).resolves.toMatchObject({
       ok: false,
-      error: "Doğrulama başarısız",
+      // İlk alan hatası mesaja eklenir; panel yalnız bu metni gösterir.
+      error: expect.stringMatching(/^Doğrulama başarısız: .+/),
     });
   });
 

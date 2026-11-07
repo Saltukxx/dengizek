@@ -26,12 +26,31 @@ export interface RateLimitOptions {
   failClosed?: boolean;
 }
 
+/**
+ * İsteği yapan IP — hız sınırı ve kötüye kullanım anahtarı.
+ *
+ * GÜVENLİK: Bu değer yalnızca uygulamanın ÖNÜNDE güvenilir bir ters vekil
+ * (nginx) varsa ve istemci uygulamaya doğrudan erişemiyorsa güvenilirdir
+ * (bkz. deploy önizleme/üretim nginx; uygulama host portu yayınlamaz). nginx her istekte
+ * `X-Real-IP`'yi gerçek bağlanan adresle (`$remote_addr`) EZDİĞİ için önce o
+ * okunur; istemci kendi gönderse de nginx üzerine yazar.
+ *
+ * `X-Forwarded-For` istemci tarafından uydurulabilir: nginx gerçek adresi
+ * zincirin SONUNA eklediğinden ilk değil SON değer alınır — baştaki uydurma
+ * girdiler yok sayılır, böylece sahte başlıkla hız sınırı aşılamaz.
+ */
 export function requestIp(req: Request): string {
-  return (
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    req.headers.get("x-real-ip") ??
-    "unknown"
-  );
+  const realIp = req.headers.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
+
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const parts = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last) return last;
+  }
+
+  return "unknown";
 }
 
 function checkRateLimitMemory(key: string, options: RateLimitOptions): boolean {

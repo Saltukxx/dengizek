@@ -32,6 +32,7 @@ import {
 } from "@/lib/schemas/hotel-content";
 import { applyDiscount, formatPrice, type Currency } from "@/lib/price";
 import { PriceInput, type PriceValue } from "./price-input";
+import { usePanelConfirm } from "./panel-confirm";
 import { MediaPicker } from "./media-picker";
 import { useMyHotel } from "./use-my-hotel";
 import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
@@ -77,6 +78,7 @@ const emptyForm: ExtraForm = {
 
 export function ExtrasManager() {
   const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
+  const { confirm: confirmDelete, modal: confirmModal } = usePanelConfirm();
   const [extras, setExtras] = useState<ExtraRow[] | null>(null);
   const [editing, setEditing] = useState<{ id: string | null; form: ExtraForm } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -145,6 +147,7 @@ export function ExtrasManager() {
   }
 
   async function removeExtra(extra: ExtraRow) {
+    if (!(await confirmDelete({ title: "Hizmeti sil", message: `"${extra.name}" hizmetini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`, confirmLabel: "Sil" }))) return;
     if (!hotel) return;
     const res = await fetch(`/api/manager/hotels/${hotel.id}/extras/${extra.id}`, {
       method: "DELETE",
@@ -180,6 +183,7 @@ export function ExtrasManager() {
 
   return (
     <Stack gap="md">
+      {confirmModal}
       <Group justify="flex-end">
         <Button
           leftSection={<IconPlus size={16} />}
@@ -221,7 +225,7 @@ export function ExtrasManager() {
                         variant="subtle"
                         disabled={index === 0}
                         onClick={() => move(index, -1)}
-                      >
+                       aria-label="Yukarı taşı" title="Yukarı taşı">
                         <IconArrowUp size={15} />
                       </ActionIcon>
                     </Tooltip>
@@ -231,7 +235,7 @@ export function ExtrasManager() {
                         variant="subtle"
                         disabled={index === extras.length - 1}
                         onClick={() => move(index, 1)}
-                      >
+                       aria-label="Aşağı taşı" title="Aşağı taşı">
                         <IconArrowDown size={15} />
                       </ActionIcon>
                     </Tooltip>
@@ -309,12 +313,12 @@ export function ExtrasManager() {
                             },
                           })
                         }
-                      >
+                       aria-label="Düzenle" title="Düzenle">
                         <IconPencil size={15} />
                       </ActionIcon>
                     </Tooltip>
                     <Tooltip label="Sil">
-                      <ActionIcon color="red" variant="light" onClick={() => removeExtra(x)}>
+                      <ActionIcon color="red" variant="light" onClick={() => removeExtra(x)} aria-label="Sil" title="Sil">
                         <IconTrash size={15} />
                       </ActionIcon>
                     </Tooltip>
