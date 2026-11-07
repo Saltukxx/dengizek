@@ -4,6 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
+import { validationMessage } from "@/lib/api-response";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { roomRatesTable, roomsTable } from "@/lib/db/schema";
@@ -27,7 +28,7 @@ export async function POST(req: Request, { params }: RouteParams) {
   const parsed = seasonalRatesBulkActionSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
+      { ok: false, error: validationMessage(parsed.error), issues: parsed.error.flatten() },
       { status: 400 },
     );
   }
@@ -80,6 +81,8 @@ export async function POST(req: Request, { params }: RouteParams) {
             priceMinor: r.priceMinor, currency: r.currency as "TRY" | "EUR" | "USD",
             minStayNights: r.minStayNights, occupancyPrices: r.occupancyPrices ?? [],
             childAgePrices: r.childAgePrices ?? [],
+            // Toplu ekleme mevcut dönemlerin gün/süre koşullarını korur.
+            weekdays: r.weekdays, stayMinNights: r.stayMinNights, stayMaxNights: r.stayMaxNights,
           })), {
             name: period.name, startDate: period.startDate, endDate: period.endDate,
             priceMinor: period.priceMinor, currency: period.currency,

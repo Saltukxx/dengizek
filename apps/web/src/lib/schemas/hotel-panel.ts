@@ -5,6 +5,22 @@ import { redactContactInfo } from "@/lib/contact-guard";
 
 const uuid = z.string().uuid();
 
+/**
+ * PATCH şeması: bütün alanlar isteğe bağlı ve VARSAYILANSIZ. Zod'un
+ * `.partial()`'ı `.default()` değerlerini korur; gönderilmeyen alan
+ * varsayılanıyla doldurulup kayda yazılıyordu (ör. kampanyayı "Durdur"
+ * roomIds'i [] yapıp kampanyayı bütün odalara yayıyordu; varsayılan plan
+ * anahtarı planı "iade edilebilir"e çeviriyordu).
+ */
+function patchOf<S extends z.ZodRawShape>(schema: z.ZodObject<S>) {
+  const shape: Record<string, z.ZodType> = {};
+  for (const [key, field] of Object.entries(schema.shape)) {
+    const inner = field instanceof z.ZodDefault ? (field.removeDefault() as z.ZodType) : (field as z.ZodType);
+    shape[key] = inner.optional();
+  }
+  return z.object(shape) as unknown as z.ZodObject<{ [K in keyof S]: z.ZodOptional<S[K]> }>;
+}
+
 const imageUrl = z.string().min(1).refine(
   (v) => v.startsWith("/") || /^https?:\/\//.test(v),
   "Geçerli bir görsel adresi girin",
@@ -30,7 +46,7 @@ const availabilityNoteBaseSchema = z.object({
 });
 export const availabilityNoteSchema = availabilityNoteBaseSchema.refine((v) => !v.startDate || !v.endDate || v.endDate >= v.startDate, { message: "Bitiş tarihi başlangıçtan önce olamaz.", path: ["endDate"] });
 
-export const availabilityNotePatchSchema = availabilityNoteBaseSchema.partial().extend({
+export const availabilityNotePatchSchema = patchOf(availabilityNoteBaseSchema).extend({
   id: uuid,
 });
 
@@ -54,7 +70,7 @@ export const ratePlanSchema = z.object({
   cancellationRuleId: uuid.nullable().optional(),
 });
 
-export const ratePlanPatchSchema = ratePlanSchema.partial().extend({
+export const ratePlanPatchSchema = patchOf(ratePlanSchema).extend({
   id: uuid,
 });
 
@@ -86,22 +102,50 @@ export const ratePlanPriceSchema = ratePlanPriceBaseSchema
     { message: "Aynı kişi sayısı için birden fazla fiyat olamaz.", path: ["occupancyPrices"] },
   );
 
-export const ratePlanPricePatchSchema = ratePlanPriceBaseSchema.partial().extend({
+export const ratePlanPricePatchSchema = patchOf(ratePlanPriceBaseSchema).extend({
   id: uuid,
 });
 
+const stayPayTierSchema = z
+  .object({ stay: z.number().int().min(2).max(30), pay: z.number().int().min(1).max(29) })
+  .refine((t) => t.pay < t.stay, { message: "Ödenen gece kalınan geceden az olmalı.", path: ["pay"] });
+
 const promotionBaseSchema = z.object({
   name: z.string().min(1).max(120),
-  discountPercent: z.number().int().min(1).max(90),
+  /** Yüzde indirim; kal-öde kampanyasında boş bırakılır. */
+  discountPercent: z.number().int().min(1).max(90).nullable().optional(),
+  /** "X kal Y öde" basamakları; doluysa kampanya konaklamanın tamamına uygulanır. */
+  stayPayTiers: z.array(stayPayTierSchema).max(10).default([]),
+  freeNightRule: z.enum(["hafta_ici", "en_ucuz"]).nullable().optional(),
   validFrom: z.string().regex(datePattern).nullable().optional(),
   validTo: z.string().regex(datePattern).nullable().optional(),
   minNights: z.number().int().positive().nullable().optional(),
+  /** Konaklama en fazla bu kadar geceyse (ör. "2 ve 3 gece" → min 2, max 3). */
+  maxNights: z.number().int().positive().max(60).nullable().optional(),
+  /** Rezervasyon tarihi aralığı (erken rezervasyon / son rezervasyon). */
+  bookableFrom: z.string().regex(datePattern).nullable().optional(),
+  bookableTo: z.string().regex(datePattern).nullable().optional(),
+  /** Oda tipi başına gecelik kampanya kontenjanı. */
+  allotment: z.number().int().min(1).max(10_000).nullable().optional(),
   roomIds: z.array(uuid).default([]),
   isActive: z.boolean().default(true),
 });
-export const promotionSchema = promotionBaseSchema.refine((v) => !v.validFrom || !v.validTo || v.validTo >= v.validFrom, { message: "Bitiş tarihi başlangıçtan önce olamaz.", path: ["validTo"] });
+export const promotionSchema = promotionBaseSchema
+  .refine((v) => !v.validFrom || !v.validTo || v.validTo >= v.validFrom, { message: "Bitiş tarihi başlangıçtan önce olamaz.", path: ["validTo"] })
+  .refine((v) => v.minNights == null || v.maxNights == null || v.minNights <= v.maxNights, {
+    message: "En az gece en fazla geceden büyük olamaz.",
+    path: ["maxNights"],
+  })
+  .refine((v) => !v.bookableFrom || !v.bookableTo || v.bookableTo >= v.bookableFrom, {
+    message: "Son rezervasyon tarihi ilk rezervasyon tarihinden önce olamaz.",
+    path: ["bookableTo"],
+  })
+  .refine((v) => (v.discountPercent != null) !== (v.stayPayTiers.length > 0), {
+    message: "Kampanya ya yüzde indirim ya da kal-öde basamakları içermeli (ikisi birden değil).",
+    path: ["discountPercent"],
+  });
 
-export const promotionPatchSchema = promotionBaseSchema.partial().extend({
+export const promotionPatchSchema = patchOf(promotionBaseSchema).extend({
   id: uuid,
 });
 
@@ -165,6 +209,8 @@ export const bookingCreateSchema = z
     totalMinor: z.number().int().nonnegative().max(MAX_TOTAL_MINOR).nullable().optional(),
     currency: z.string().length(3).default("TRY"),
     notes: z.string().max(2000).optional(),
+    /** Uygulanan kampanya — kampanya kontenjanından düşer. */
+    promotionId: uuid.nullable().optional(),
   })
   .superRefine((data, ctx) => {
     const dates = validateStayDates(data.checkIn, data.checkOut);

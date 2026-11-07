@@ -44,6 +44,9 @@ export async function syncRoomRates(
       minStayNights: rate.minStayNights ?? null,
       occupancyPrices: rate.occupancyPrices ?? [],
       childAgePrices: rate.childAgePrices ?? [],
+      weekdays: rate.weekdays?.length ? rate.weekdays : null,
+      stayMinNights: rate.stayMinNights ?? null,
+      stayMaxNights: rate.stayMaxNights ?? null,
     };
     if (rate.id) {
       await db

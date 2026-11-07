@@ -53,6 +53,7 @@ import { OccupancyPricesEditor } from "./occupancy-prices-editor";
 import { ChildAgePricesEditor } from "./child-age-prices-editor";
 import { useMyHotel } from "./use-my-hotel";
 import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
+import { RateConditionsEditor, describeRateConditions } from "./rate-conditions-editor";
 
 interface ApiRate {
   id: string;
@@ -64,7 +65,10 @@ interface ApiRate {
   currency: string;
   minStayNights: number | null;
   occupancyPrices?: { guestCount: number; priceMinor: number }[];
-  childAgePrices?: { ageFrom: number; ageTo: number; mode: "ucretsiz" | "sabit" | "yuzde"; priceMinor?: number | null; percent?: number | null }[];
+  childAgePrices?: { ageFrom: number; ageTo: number; mode: "ucretsiz" | "sabit" | "yuzde"; priceMinor?: number | null; percent?: number | null; childOrder?: 1 | 2 | null }[];
+  weekdays?: number[] | null;
+  stayMinNights?: number | null;
+  stayMaxNights?: number | null;
 }
 
 interface ApiRoom {
@@ -87,6 +91,9 @@ interface Row {
   minStayNights: number | null;
   occupancyPrices: OccupancyPriceForm[];
   childAgePrices: ChildAgePriceForm[];
+  weekdays: number[];
+  stayMinNights: number | null;
+  stayMaxNights: number | null;
   selected: boolean;
   isNew: boolean;
 }
@@ -130,6 +137,9 @@ function rowsFromRooms(rooms: ApiRoom[]): Row[] {
       minStayNights: rate.minStayNights,
       occupancyPrices: occupancyFromApi(rate.occupancyPrices),
       childAgePrices: childAgePricesFromApi(rate.childAgePrices),
+      weekdays: rate.weekdays ?? [],
+      stayMinNights: rate.stayMinNights ?? null,
+      stayMaxNights: rate.stayMaxNights ?? null,
       selected: false,
       isNew: false,
     })),
@@ -147,6 +157,10 @@ function rowToPayload(row: Row) {
     minStayNights: row.minStayNights,
     occupancyPrices: occupancyToApi(row.occupancyPrices),
     childAgePrices: childAgePricesToApi(row.childAgePrices),
+    // Kaydet bütün dönemleri yeniden yazar: koşullar burada korunmalı.
+    weekdays: row.weekdays.length ? row.weekdays : null,
+    stayMinNights: row.stayMinNights,
+    stayMaxNights: row.stayMaxNights,
   };
 }
 
@@ -155,6 +169,9 @@ function validateRow(row: Row): string | null {
   if (!row.startDate || !row.endDate) return "Başlangıç ve bitiş tarihi gerekli.";
   if (row.startDate > row.endDate) return "Bitiş tarihi başlangıçtan önce olamaz.";
   if (row.priceMajor == null || row.priceMajor <= 0) return "Geçerli bir fiyat girin.";
+  if (row.stayMinNights != null && row.stayMaxNights != null && row.stayMinNights > row.stayMaxNights) {
+    return "Konaklama en az gece, en fazla geceden büyük olamaz.";
+  }
   const occErr = validateOccupancyForms(row.occupancyPrices);
   if (occErr) return occErr;
   return validateChildAgePrices(row.childAgePrices);
@@ -170,6 +187,7 @@ export function SeasonalPricesManager() {
   const [roomFilter, setRoomFilter] = useState<string | null>(null);
   const [occupancyRowKey, setOccupancyRowKey] = useState<string | null>(null);
   const [childRowKey, setChildRowKey] = useState<string | null>(null);
+  const [conditionRowKey, setConditionRowKey] = useState<string | null>(null);
   const lock = usePanelRevision();
   const setLockRevision = lock.setRevision;
 
@@ -208,6 +226,10 @@ export function SeasonalPricesManager() {
   const childEditingRow = useMemo(
     () => rows.find((r) => r.key === childRowKey) ?? null,
     [rows, childRowKey],
+  );
+  const conditionEditingRow = useMemo(
+    () => rows.find((r) => r.key === conditionRowKey) ?? null,
+    [rows, conditionRowKey],
   );
 
   const filteredRows = useMemo(
@@ -251,6 +273,9 @@ export function SeasonalPricesManager() {
         minStayNights: null,
         occupancyPrices: [],
         childAgePrices: [],
+        weekdays: [],
+        stayMinNights: null,
+        stayMaxNights: null,
         selected: false,
         isNew: true,
       },
@@ -499,6 +524,7 @@ export function SeasonalPricesManager() {
                 <Table.Th>Baz fiyat</Table.Th>
                 <Table.Th>Kişi fiyatları</Table.Th>
                 <Table.Th>Çocuk fiyatları</Table.Th>
+                <Table.Th>Koşullar</Table.Th>
                 <Table.Th>Para birimi</Table.Th>
                 <Table.Th>Min. gece</Table.Th>
               </Table.Tr>
@@ -506,7 +532,7 @@ export function SeasonalPricesManager() {
             <Table.Tbody>
               {filteredRows.length === 0 && (
                 <Table.Tr>
-                  <Table.Td colSpan={10}>
+                  <Table.Td colSpan={11}>
                     <Text c="dimmed" size="sm" py="md" ta="center">
                       Henüz dönemsel fiyat yok. &quot;Satır ekle&quot; veya &quot;Toplu dönem
                       uygula&quot; ile başlayın.
@@ -603,6 +629,16 @@ export function SeasonalPricesManager() {
                       </Text>
                       <Button size="compact-xs" variant="light" onClick={() => setChildRowKey(row.key)}>
                         Düzenle ({row.childAgePrices.length})
+                      </Button>
+                    </Stack>
+                  </Table.Td>
+                  <Table.Td>
+                    <Stack gap={4}>
+                      <Text size="xs" c="dimmed" lineClamp={2}>
+                        {describeRateConditions(row) || "Her gece"}
+                      </Text>
+                      <Button size="compact-xs" variant="light" onClick={() => setConditionRowKey(row.key)}>
+                        Düzenle
                       </Button>
                     </Stack>
                   </Table.Td>
@@ -783,6 +819,32 @@ export function SeasonalPricesManager() {
             />
             <Group justify="flex-end">
               <Button onClick={() => setChildRowKey(null)}>Tamam</Button>
+            </Group>
+          </Stack>
+        )}
+      </Modal>
+      <Modal
+        opened={conditionRowKey != null}
+        onClose={() => setConditionRowKey(null)}
+        title={
+          conditionEditingRow
+            ? `Koşullar — ${conditionEditingRow.roomName} / ${conditionEditingRow.name || "Yeni dönem"}`
+            : "Koşullar"
+        }
+        size="md"
+      >
+        {conditionEditingRow && (
+          <Stack gap="md">
+            <RateConditionsEditor
+              value={{
+                weekdays: conditionEditingRow.weekdays,
+                stayMinNights: conditionEditingRow.stayMinNights,
+                stayMaxNights: conditionEditingRow.stayMaxNights,
+              }}
+              onChange={(c) => patchRow(conditionEditingRow.key, c)}
+            />
+            <Group justify="flex-end">
+              <Button onClick={() => setConditionRowKey(null)}>Tamam</Button>
             </Group>
           </Stack>
         )}

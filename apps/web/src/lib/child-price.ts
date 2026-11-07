@@ -18,6 +18,8 @@ export interface ChildAgePrice {
   mode: ChildPriceMode;
   priceMinor?: number | null;
   percent?: number | null;
+  /** 1 → yalnız 1. çocuk, 2 → 2. ve sonraki; boş → her çocuk. */
+  childOrder?: 1 | 2 | null;
 }
 
 export interface ChildAgePriceForm {
@@ -26,6 +28,7 @@ export interface ChildAgePriceForm {
   mode: ChildPriceMode;
   priceMajor: number | null;
   percent: number | null;
+  childOrder?: 1 | 2 | null;
 }
 
 export function childAgePricesFromApi(list: ChildAgePrice[] | null | undefined): ChildAgePriceForm[] {
@@ -38,6 +41,7 @@ export function childAgePricesFromApi(list: ChildAgePrice[] | null | undefined):
       mode: p.mode,
       priceMajor: p.priceMinor != null ? toMajor(p.priceMinor) : null,
       percent: p.percent ?? null,
+      childOrder: p.childOrder ?? null,
     }));
 }
 
@@ -50,8 +54,9 @@ export function childAgePricesToApi(list: ChildAgePriceForm[]): ChildAgePrice[] 
       mode: p.mode,
       priceMinor: p.mode === "sabit" && p.priceMajor != null ? toMinor(p.priceMajor) : null,
       percent: p.mode === "yuzde" ? p.percent : null,
+      childOrder: p.childOrder ?? null,
     }))
-    .sort((a, b) => a.ageFrom - b.ageFrom);
+    .sort((a, b) => a.ageFrom - b.ageFrom || (a.childOrder ?? 0) - (b.childOrder ?? 0));
 }
 
 export function formatChildAgePriceSummary(
@@ -63,7 +68,8 @@ export function formatChildAgePriceSummary(
   if (bands.length === 0) return "";
   return bands
     .map((b) => {
-      const range = b.ageFrom === b.ageTo ? `${b.ageFrom} yaş` : `${b.ageFrom}-${b.ageTo} yaş`;
+      const ages = b.ageFrom === b.ageTo ? `${b.ageFrom} yaş` : `${b.ageFrom}-${b.ageTo} yaş`;
+      const range = b.childOrder === 1 ? `${ages} 1. çocuk` : b.childOrder === 2 ? `${ages} 2. çocuk` : ages;
       if (b.mode === "ucretsiz") return `${range} ücretsiz`;
       if (b.mode === "yuzde") return `${range} %${b.percent ?? 0}`;
       return `${range} ${formatPrice(b.priceMinor ?? 0, currency, false)}`;
@@ -79,10 +85,17 @@ export function validateChildAgePrices(list: ChildAgePriceForm[]): string | null
     if (p.mode === "sabit" && (p.priceMajor == null || p.priceMajor < 0)) return "Sabit tutar girin.";
     if (p.mode === "yuzde" && (p.percent == null || p.percent < 1 || p.percent > 100)) return "Yüzde 1-100 arasında olmalı.";
   }
-  const bands = list.filter((p) => p.ageFrom != null && p.ageTo != null).slice().sort((a, b) => (a.ageFrom as number) - (b.ageFrom as number));
-  for (let i = 1; i < bands.length; i++) {
-    if ((bands[i].ageFrom as number) <= (bands[i - 1].ageTo as number)) {
-      return "Yaş aralıkları çakışamaz.";
+  // Çakışma yalnız aynı çocuk sırasındaki bantlar arasında yasak
+  // (ör. "2-5 yaş 1. çocuk" ile "2-5 yaş 2. çocuk" birlikte girilebilir).
+  for (const order of [null, 1, 2] as const) {
+    const bands = list
+      .filter((p) => p.ageFrom != null && p.ageTo != null && (p.childOrder ?? null) === order)
+      .slice()
+      .sort((a, b) => (a.ageFrom as number) - (b.ageFrom as number));
+    for (let i = 1; i < bands.length; i++) {
+      if ((bands[i].ageFrom as number) <= (bands[i - 1].ageTo as number)) {
+        return "Aynı çocuk sırası için yaş aralıkları çakışamaz.";
+      }
     }
   }
   return null;

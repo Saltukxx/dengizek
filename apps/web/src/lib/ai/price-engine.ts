@@ -10,7 +10,7 @@
 // - Kapasiteyi aşan kişi sayısı ve yaşı bilinmeyen çocuklar kartta açıkça yazılır.
 // ---------------------------------------------------------------------------
 
-import { resolveGuestRoomPrice, type GuestRoomPricingInput } from "@/lib/guest-pricing";
+import { quoteStayNights, resolveGuestRoomPrice, type GuestRoomPricingInput } from "@/lib/guest-pricing";
 import { getPublishedHotelContent } from "@/lib/hotels-repo";
 import { formatDateRangeTr, formatPrice, todayIso, type RateLike } from "@/lib/price";
 import { eachStayNight, validateStayDates } from "@/lib/stay-dates";
@@ -54,6 +54,9 @@ function mapRates(rates: {
   minStayNights?: number | null;
   occupancyPrices?: { guestCount: number; priceMinor: number }[] | null;
   childAgePrices?: RateLike["childAgePrices"] | null;
+  weekdays?: number[] | null;
+  stayMinNights?: number | null;
+  stayMaxNights?: number | null;
 }[]): RateLike[] {
   return rates.map((r) => ({
     name: r.name,
@@ -64,6 +67,9 @@ function mapRates(rates: {
     minStayNights: r.minStayNights,
     occupancyPrices: r.occupancyPrices ?? undefined,
     childAgePrices: r.childAgePrices ?? undefined,
+    weekdays: r.weekdays ?? null,
+    stayMinNights: r.stayMinNights ?? null,
+    stayMaxNights: r.stayMaxNights ?? null,
   }));
 }
 
@@ -197,58 +203,56 @@ function buildStayTotalCard(
 ): AiPriceCard {
   const nights = eachStayNight(checkIn, checkOut);
   const base = buildPricingInput(content, room, query.guestCount, query.childAges);
-
-  let totalMinor = 0;
-  const currencies = new Set<string>();
-  let unpricedNight: string | null = null;
-  let minStay = room.minStayNights ?? 0;
-  const nightly: string[] = [];
-  let firstNightChildLine: string | null = null;
-
-  for (const date of nights) {
-    const resolved = resolveGuestRoomPrice({ ...base, date, nights: nights.length });
-    minStay = Math.max(minStay, resolved.minStayNights ?? 0);
-    if (isUnpriced(resolved)) {
-      unpricedNight ??= date;
-      continue;
-    }
-    totalMinor += resolved.priceMinor as number;
-    currencies.add(resolved.currency);
-    nightly.push(`${shortDateTr(date)}: ${formatGuestPrice(resolved)}`);
-    firstNightChildLine ??= formatChildBreakdownLine(resolved);
-  }
+  // Sitedeki fiyat hesaplayıcıyla aynı ortak hesap (dönem koşulları,
+  // çocuk sırası, kal-öde kampanyaları).
+  const quote = quoteStayNights(base, nights);
 
   const lines: AiPriceCard["lines"] = [
     { label: "Tarihler", value: formatDateRangeTr(checkIn, checkOut) },
     { label: "Gece sayısı", value: String(nights.length) },
     ...guestLine(query),
   ];
-  if (firstNightChildLine) lines.push({ label: "Çocuk fiyatları (gecelik)", value: firstNightChildLine });
+  const childLine = quote.firstNight ? formatChildBreakdownLine(quote.firstNight) : null;
+  if (childLine) lines.push({ label: "Çocuk fiyatları (ilk gece)", value: childLine });
 
   let priceOnRequest = false;
-  if (unpricedNight) {
+  if (quote.unpricedDate) {
     priceOnRequest = true;
     lines.push({ label: "Konaklama toplamı", value: "Talep üzerine" });
-    if (nightly.length) {
-      lines.push({ label: "Not", value: `${shortDateTr(unpricedNight)} gecesinin fiyatı otelden teyit edilmeli.` });
+    if (quote.unpricedDate !== nights[0]) {
+      lines.push({ label: "Not", value: `${shortDateTr(quote.unpricedDate)} gecesinin fiyatı otelden teyit edilmeli.` });
     }
-  } else if (currencies.size > 1) {
-    // Farklı para birimleri toplanamaz.
+  } else if (quote.mixedCurrency || quote.totalMinor == null) {
     priceOnRequest = true;
     lines.push({ label: "Konaklama toplamı", value: "Talep üzerine" });
     lines.push({ label: "Not", value: "Bu tarihlerde geceler farklı para birimlerinde fiyatlanıyor; toplam otelden teyit edilmeli." });
   } else {
-    const [currency] = [...currencies];
-    lines.push({ label: "Konaklama toplamı", value: formatPrice(totalMinor, currency ?? room.currency, false) });
-  }
-  if (nightly.length && nights.length <= 7) {
-    lines.push({ label: "Gecelik döküm", value: nightly.join(" · ") });
+    const total = formatPrice(quote.totalMinor, quote.currency, false);
+    lines.push({
+      label: "Konaklama toplamı",
+      value: quote.originalTotalMinor != null
+        ? `${total} (indirimli; normal ${formatPrice(quote.originalTotalMinor, quote.currency, false)})`
+        : total,
+    });
+    if (quote.stayPromotion) {
+      lines.push({ label: "Kampanya", value: `${quote.stayPromotion.name}: ${quote.stayPromotion.freeNights} gece ücretsiz` });
+    } else if (quote.discountLabel) {
+      lines.push({ label: "Kampanya", value: quote.discountLabel });
+    }
+    if (nights.length <= 7) {
+      lines.push({
+        label: "Gecelik döküm",
+        value: quote.nights
+          .map((n) => `${shortDateTr(n.date)}: ${n.free ? "ücretsiz" : formatPrice(n.priceMinor, quote.currency, false)}`)
+          .join(" · "),
+      });
+    }
   }
 
-  if (minStay && nights.length < minStay) {
+  if (quote.minStayNights && nights.length < quote.minStayNights) {
     lines.push({
       label: "Min. konaklama",
-      value: `Bu tarihlerde en az ${minStay} gece konaklama gerekiyor; ${nights.length} gecelik rezervasyon kabul edilmeyebilir.`,
+      value: `Bu tarihlerde en az ${quote.minStayNights} gece konaklama gerekiyor; ${nights.length} gecelik rezervasyon kabul edilmeyebilir.`,
     });
   }
   lines.push(...commonLines(room, query));

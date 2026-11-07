@@ -2,6 +2,7 @@
 // GET/POST/PATCH /api/manager/hotels/[hotelId]/bookings
 // ---------------------------------------------------------------------------
 
+import { checkPromotionForBooking } from "@/lib/promotion-allotment";
 import { NextResponse } from "next/server";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
@@ -20,7 +21,7 @@ import { bookingListWhere } from "@/lib/booking-filters";
 import { bookingForManager } from "@/lib/manager-privacy";
 import { logAudit } from "@/lib/audit";
 import { parsePagination, paginatedQuery } from "@/lib/pagination";
-import { apiFail, apiOk } from "@/lib/api-response";
+import { apiFail, apiOk, validationMessage } from "@/lib/api-response";
 import { assertRatePlanBelongsToHotel, assertRoomsBelongToHotel } from "@/lib/tenant-integrity";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
@@ -67,13 +68,16 @@ export async function POST(req: Request, { params }: RouteParams) {
   const body = await req.json().catch(() => null);
   const parsed = bookingCreateSchema.safeParse(body);
   if (!parsed.success) {
-    return apiFail("Doğrulama başarısız", 400, { issues: parsed.error.flatten() });
+    return apiFail(validationMessage(parsed.error), 400, { issues: parsed.error.flatten() });
   }
   const refsValid = await Promise.all([
     assertRoomsBelongToHotel(guard.hotel.id, [parsed.data.roomId]),
     assertRatePlanBelongsToHotel(guard.hotel.id, parsed.data.ratePlanId),
   ]);
   if (refsValid.some((ok) => !ok)) return apiFail("İlişkili kayıt bulunamadı.", 404);
+  // Kampanya bu otelin olmalı ve kontenjanı dolmamış olmalı.
+  const promoCheck = await checkPromotionForBooking(guard.hotel.id, parsed.data);
+  if (!promoCheck.ok) return apiFail(promoCheck.error, promoCheck.status);
 
   // Rezervasyon yalnız bu tesise gelmiş bir Otelsayfam talebinden açılır; misafir
   // bilgisi istemciden değil talep kaydından alınır.
@@ -113,7 +117,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   const body = await req.json().catch(() => null);
   const parsed = bookingPatchSchema.safeParse(body);
   if (!parsed.success) {
-    return apiFail("Doğrulama başarısız", 400, { issues: parsed.error.flatten() });
+    return apiFail(validationMessage(parsed.error), 400, { issues: parsed.error.flatten() });
   }
 
   const { id, action, idempotencyKey, ...fields } = parsed.data;

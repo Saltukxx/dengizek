@@ -1,0 +1,6936 @@
+{
+ "hotels": {
+  "akrones-termal-hotel": {
+   "deluxe-oda": [
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 1640000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1230000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1640000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 410000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 410000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 820000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar · Cuma-Cumartesi",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 1720000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1290000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1720000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 430000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 430000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 860000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      5,
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-30",
+     "priceMinor": 1640000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1230000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1640000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 410000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 410000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 820000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar · Cuma-Cumartesi",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-30",
+     "priceMinor": 1720000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1290000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1720000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 430000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 430000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 860000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      5,
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-21",
+     "priceMinor": 1760000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1320000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1760000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 440000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 440000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 880000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Ocak",
+     "startDate": "2027-01-03",
+     "endDate": "2027-01-22",
+     "priceMinor": 1900000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1425000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1900000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 475000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 475000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 950000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Ocak · Cuma-Cumartesi",
+     "startDate": "2027-01-03",
+     "endDate": "2027-01-22",
+     "priceMinor": 2000000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1500000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 2000000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 500000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 500000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 1000000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      5,
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sömestr",
+     "startDate": "2027-01-23",
+     "endDate": "2027-02-06",
+     "priceMinor": 2300000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1725000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 2300000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 575000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 575000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 1150000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ],
+   "deluxe-superior-oda": [
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 1700000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1275000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1700000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 2295000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 425000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 425000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 765000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar · Cuma-Cumartesi",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 1800000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1350000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1800000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 2430000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 450000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 450000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 810000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      5,
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-30",
+     "priceMinor": 1700000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1275000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1700000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 2295000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 425000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 425000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 765000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar · Cuma-Cumartesi",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-30",
+     "priceMinor": 1800000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1350000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1800000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 2430000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 450000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 450000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 810000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      5,
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-21",
+     "priceMinor": 1900000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1425000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1900000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 2565000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 475000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 475000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 855000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Ocak",
+     "startDate": "2027-01-03",
+     "endDate": "2027-01-22",
+     "priceMinor": 2000000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1500000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 2000000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 2700000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 500000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 500000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 900000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Ocak · Cuma-Cumartesi",
+     "startDate": "2027-01-03",
+     "endDate": "2027-01-22",
+     "priceMinor": 2100000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1575000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 2100000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 2835000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 525000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 525000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 945000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      5,
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sömestr",
+     "startDate": "2027-01-23",
+     "endDate": "2027-02-06",
+     "priceMinor": 2400000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1800000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 2400000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 3240000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 600000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 600000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 1080000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ],
+   "corner-suite-oda": [
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 2100000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1575000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 2100000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 525000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 525000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 1050000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar · Cuma-Cumartesi",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 2300000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1725000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 2300000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 575000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 575000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 1150000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      5,
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-30",
+     "priceMinor": 2100000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1575000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 2100000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 525000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 525000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 1050000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar · Cuma-Cumartesi",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-30",
+     "priceMinor": 2300000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1725000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 2300000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 575000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 575000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 1150000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      5,
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-21",
+     "priceMinor": 2300000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1725000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 2300000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 575000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 575000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 1150000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Ocak",
+     "startDate": "2027-01-03",
+     "endDate": "2027-01-22",
+     "priceMinor": 2470000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1852500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 2470000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 617500,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 617500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 1235000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Ocak · Cuma-Cumartesi",
+     "startDate": "2027-01-03",
+     "endDate": "2027-01-22",
+     "priceMinor": 2600000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1950000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 2600000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 650000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 650000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 1300000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      5,
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sömestr",
+     "startDate": "2027-01-23",
+     "endDate": "2027-02-06",
+     "priceMinor": 3000000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 2250000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 3000000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 5,
+       "mode": "sabit",
+       "priceMinor": 750000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 6,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 750000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 1500000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ],
+   "family-suite-oda": [
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 3280000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar · Cuma-Cumartesi",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 3440000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      5,
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-30",
+     "priceMinor": 3280000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar · Cuma-Cumartesi",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-30",
+     "priceMinor": 3440000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      5,
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-21",
+     "priceMinor": 3520000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Ocak",
+     "startDate": "2027-01-03",
+     "endDate": "2027-01-22",
+     "priceMinor": 3800000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Ocak · Cuma-Cumartesi",
+     "startDate": "2027-01-03",
+     "endDate": "2027-01-22",
+     "priceMinor": 4000000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      5,
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sömestr",
+     "startDate": "2027-01-23",
+     "endDate": "2027-02-06",
+     "priceMinor": 4600000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ],
+   "honeymoon-suite-oda": [
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 2900000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar · Cuma-Cumartesi",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 3100000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      5,
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-30",
+     "priceMinor": 2900000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar · Cuma-Cumartesi",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-30",
+     "priceMinor": 3100000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      5,
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-21",
+     "priceMinor": 3200000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Ocak",
+     "startDate": "2027-01-03",
+     "endDate": "2027-01-22",
+     "priceMinor": 3400000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Ocak · Cuma-Cumartesi",
+     "startDate": "2027-01-03",
+     "endDate": "2027-01-22",
+     "priceMinor": 3600000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      5,
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sömestr",
+     "startDate": "2027-01-23",
+     "endDate": "2027-02-06",
+     "priceMinor": 4100000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ]
+  },
+  "lycus-river-termal-hotel": {
+   "standart-oda": [
+    {
+     "name": "Kış dönemi",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-12",
+     "priceMinor": 678500,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 508900
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 678500
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 916000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "sabit",
+       "priceMinor": 169625,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 169625,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 237500,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kış dönemi · en az 3 gece",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-12",
+     "priceMinor": 621000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 465800
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 621000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 838400
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "sabit",
+       "priceMinor": 155250,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 155250,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 217400,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": 3,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-13",
+     "endDate": "2026-11-22",
+     "priceMinor": 805000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 603700
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 805000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1104000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "sabit",
+       "priceMinor": 201250,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 201250,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 299000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kasım ara tatili · en az 3 gece",
+     "startDate": "2026-11-13",
+     "endDate": "2026-11-22",
+     "priceMinor": 690000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 517500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 690000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 948800
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "sabit",
+       "priceMinor": 172500,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 172500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 258800,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": 3,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kış dönemi",
+     "startDate": "2026-11-23",
+     "endDate": "2027-01-21",
+     "priceMinor": 678500,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 508900
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 678500
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 916000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "sabit",
+       "priceMinor": 169625,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 169625,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 237500,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kış dönemi · en az 3 gece",
+     "startDate": "2026-11-23",
+     "endDate": "2027-01-21",
+     "priceMinor": 621000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 465800
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 621000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 838400
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "sabit",
+       "priceMinor": 155250,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 155250,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 217400,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": 3,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sömestr",
+     "startDate": "2027-01-22",
+     "endDate": "2027-02-07",
+     "priceMinor": 805000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 603700
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 805000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1104000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "sabit",
+       "priceMinor": 201250,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 201250,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 299000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sömestr · en az 3 gece",
+     "startDate": "2027-01-22",
+     "endDate": "2027-02-07",
+     "priceMinor": 690000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 517500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 690000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 948800
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "sabit",
+       "priceMinor": 172500,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 172500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 258800,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": 3,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kış dönemi",
+     "startDate": "2027-02-08",
+     "endDate": "2027-02-28",
+     "priceMinor": 678500,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 508900
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 678500
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 916000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "sabit",
+       "priceMinor": 169625,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 169625,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 237500,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kış dönemi · en az 3 gece",
+     "startDate": "2027-02-08",
+     "endDate": "2027-02-28",
+     "priceMinor": 621000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 465800
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 621000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 838400
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "sabit",
+       "priceMinor": 155250,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 155250,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 217400,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": 3,
+     "stayMaxNights": null
+    }
+   ]
+  },
+  "wyndham-afyonkarahisar-thermal-spa": {
+   "standart-oda": [
+    {
+     "name": "Kış dönemi",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 1630000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1222500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1630000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 2200500
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 2,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 3,
+       "ageTo": 11,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 3,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 570500,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 570500,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-21",
+     "priceMinor": 1800000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1350000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1800000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 2430000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 2,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 3,
+       "ageTo": 11,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 3,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 630000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 630000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kış dönemi",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-30",
+     "priceMinor": 1630000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1222500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1630000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 2200500
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 2,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 3,
+       "ageTo": 11,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 3,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 570500,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 570500,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ],
+   "deluxe-oda": [
+    {
+     "name": "Kış dönemi",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 1780000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1335000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1780000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 2403000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 2,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 3,
+       "ageTo": 11,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 3,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 445000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 623000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-21",
+     "priceMinor": 1950000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1462500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1950000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 2632500
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 2,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 3,
+       "ageTo": 11,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 3,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 487500,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 682500,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kış dönemi",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-30",
+     "priceMinor": 1780000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1335000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1780000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 2403000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 2,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 3,
+       "ageTo": 11,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 3,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 445000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 623000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ],
+   "corner-deluxe-oda": [
+    {
+     "name": "Kış dönemi",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 1930000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1930000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1930000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 2605500
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 2,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 3,
+       "ageTo": 11,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 3,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 482500,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 675500,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-21",
+     "priceMinor": 2100000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 2100000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 2100000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 2835000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 2,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 3,
+       "ageTo": 11,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 3,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 525000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 735000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kış dönemi",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-30",
+     "priceMinor": 1930000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1930000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1930000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 2605500
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 2,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 3,
+       "ageTo": 11,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 3,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 482500,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 675500,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ],
+   "executive-suite-oda": [
+    {
+     "name": "Kış dönemi",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 2180000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 11,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 534100,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-21",
+     "priceMinor": 2350000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 11,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 575750,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kış dönemi",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-30",
+     "priceMinor": 2180000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 11,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 534100,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ],
+   "executive-suite-jetted-tub": [
+    {
+     "name": "Kış dönemi",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 2430000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 11,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 595350,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-21",
+     "priceMinor": 2600000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 11,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 637000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kış dönemi",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-30",
+     "priceMinor": 2430000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 11,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 595350,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ]
+  },
+  "lidya-sardes-hotel-termal-spa": {
+   "ana-bina-standart-oda": [
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 850000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 637500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 850000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1275000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 212500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 425000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar · Cumartesi tek gece",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 1050000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 787500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1050000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1575000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 262500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 525000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-21",
+     "priceMinor": 1050000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 787500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1050000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1575000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 262500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 525000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-29",
+     "priceMinor": 850000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 637500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 850000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1275000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 212500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 425000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar · Cumartesi tek gece",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-29",
+     "priceMinor": 1050000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 787500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1050000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1575000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 262500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 525000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "2027",
+     "startDate": "2027-01-03",
+     "endDate": "2027-01-22",
+     "priceMinor": 930000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 697500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 930000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1395000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 232500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 465000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027 · Cumartesi tek gece",
+     "startDate": "2027-01-03",
+     "endDate": "2027-01-22",
+     "priceMinor": 1160000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 870000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1160000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1740000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "Sömestr",
+     "startDate": "2027-01-23",
+     "endDate": "2027-02-06",
+     "priceMinor": 1160000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 870000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1160000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1740000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027",
+     "startDate": "2027-02-07",
+     "endDate": "2027-03-05",
+     "priceMinor": 930000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 697500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 930000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1395000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 232500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 465000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027 · Cumartesi tek gece",
+     "startDate": "2027-02-07",
+     "endDate": "2027-03-05",
+     "priceMinor": 1160000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 870000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1160000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1740000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "Mart özel dönemi",
+     "startDate": "2027-03-06",
+     "endDate": "2027-03-13",
+     "priceMinor": 1160000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 870000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1160000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1740000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027",
+     "startDate": "2027-03-14",
+     "endDate": "2027-05-14",
+     "priceMinor": 930000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 697500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 930000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1395000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 232500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 465000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027 · Cumartesi tek gece",
+     "startDate": "2027-03-14",
+     "endDate": "2027-05-14",
+     "priceMinor": 1160000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 870000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1160000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1740000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "Mayıs özel dönemi",
+     "startDate": "2027-05-15",
+     "endDate": "2027-05-22",
+     "priceMinor": 1160000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 870000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1160000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1740000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027",
+     "startDate": "2027-05-23",
+     "endDate": "2027-10-31",
+     "priceMinor": 930000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 697500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 930000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1395000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 232500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 465000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027 · Cumartesi tek gece",
+     "startDate": "2027-05-23",
+     "endDate": "2027-10-31",
+     "priceMinor": 1160000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 870000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1160000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1740000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    }
+   ],
+   "bahce-standart-oda": [
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 850000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 637500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 850000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1275000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 212500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 425000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar · Cumartesi tek gece",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 1050000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 787500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1050000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1575000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 262500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 525000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-21",
+     "priceMinor": 1050000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 787500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1050000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1575000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 262500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 525000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-29",
+     "priceMinor": 850000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 637500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 850000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1275000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 212500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 425000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar · Cumartesi tek gece",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-29",
+     "priceMinor": 1050000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 787500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1050000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1575000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 262500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 525000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "2027",
+     "startDate": "2027-01-03",
+     "endDate": "2027-01-22",
+     "priceMinor": 930000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 697500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 930000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1395000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 232500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 465000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027 · Cumartesi tek gece",
+     "startDate": "2027-01-03",
+     "endDate": "2027-01-22",
+     "priceMinor": 1160000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 870000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1160000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1740000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "Sömestr",
+     "startDate": "2027-01-23",
+     "endDate": "2027-02-06",
+     "priceMinor": 1160000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 870000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1160000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1740000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027",
+     "startDate": "2027-02-07",
+     "endDate": "2027-03-05",
+     "priceMinor": 930000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 697500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 930000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1395000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 232500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 465000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027 · Cumartesi tek gece",
+     "startDate": "2027-02-07",
+     "endDate": "2027-03-05",
+     "priceMinor": 1160000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 870000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1160000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1740000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "Mart özel dönemi",
+     "startDate": "2027-03-06",
+     "endDate": "2027-03-13",
+     "priceMinor": 1160000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 870000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1160000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1740000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027",
+     "startDate": "2027-03-14",
+     "endDate": "2027-05-14",
+     "priceMinor": 930000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 697500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 930000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1395000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 232500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 465000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027 · Cumartesi tek gece",
+     "startDate": "2027-03-14",
+     "endDate": "2027-05-14",
+     "priceMinor": 1160000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 870000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1160000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1740000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "Mayıs özel dönemi",
+     "startDate": "2027-05-15",
+     "endDate": "2027-05-22",
+     "priceMinor": 1160000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 870000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1160000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1740000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027",
+     "startDate": "2027-05-23",
+     "endDate": "2027-10-31",
+     "priceMinor": 930000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 697500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 930000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1395000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 232500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 465000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027 · Cumartesi tek gece",
+     "startDate": "2027-05-23",
+     "endDate": "2027-10-31",
+     "priceMinor": 1160000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 870000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1160000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1740000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    }
+   ],
+   "dublex-bahce-oda-2-1": [
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 1275000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 4,
+       "priceMinor": 1700000
+      },
+      {
+       "guestCount": 5,
+       "priceMinor": 2125000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 212500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 425000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar · Cumartesi tek gece",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 1575000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 4,
+       "priceMinor": 2100000
+      },
+      {
+       "guestCount": 5,
+       "priceMinor": 2625000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 262500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 525000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-21",
+     "priceMinor": 1575000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 4,
+       "priceMinor": 2100000
+      },
+      {
+       "guestCount": 5,
+       "priceMinor": 2625000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 262500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 525000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-29",
+     "priceMinor": 1275000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 4,
+       "priceMinor": 1700000
+      },
+      {
+       "guestCount": 5,
+       "priceMinor": 2125000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 212500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 425000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar · Cumartesi tek gece",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-29",
+     "priceMinor": 1575000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 4,
+       "priceMinor": 2100000
+      },
+      {
+       "guestCount": 5,
+       "priceMinor": 2625000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 262500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 525000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "2027",
+     "startDate": "2027-01-03",
+     "endDate": "2027-01-22",
+     "priceMinor": 1395000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 4,
+       "priceMinor": 1860000
+      },
+      {
+       "guestCount": 5,
+       "priceMinor": 2325000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 232500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 465000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027 · Cumartesi tek gece",
+     "startDate": "2027-01-03",
+     "endDate": "2027-01-22",
+     "priceMinor": 1740000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 4,
+       "priceMinor": 2320000
+      },
+      {
+       "guestCount": 5,
+       "priceMinor": 2900000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "Sömestr",
+     "startDate": "2027-01-23",
+     "endDate": "2027-02-06",
+     "priceMinor": 1740000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 4,
+       "priceMinor": 2320000
+      },
+      {
+       "guestCount": 5,
+       "priceMinor": 2900000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027",
+     "startDate": "2027-02-07",
+     "endDate": "2027-03-05",
+     "priceMinor": 1395000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 4,
+       "priceMinor": 1860000
+      },
+      {
+       "guestCount": 5,
+       "priceMinor": 2325000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 232500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 465000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027 · Cumartesi tek gece",
+     "startDate": "2027-02-07",
+     "endDate": "2027-03-05",
+     "priceMinor": 1740000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 4,
+       "priceMinor": 2320000
+      },
+      {
+       "guestCount": 5,
+       "priceMinor": 2900000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "Mart özel dönemi",
+     "startDate": "2027-03-06",
+     "endDate": "2027-03-13",
+     "priceMinor": 1740000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 4,
+       "priceMinor": 2320000
+      },
+      {
+       "guestCount": 5,
+       "priceMinor": 2900000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027",
+     "startDate": "2027-03-14",
+     "endDate": "2027-05-14",
+     "priceMinor": 1395000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 4,
+       "priceMinor": 1860000
+      },
+      {
+       "guestCount": 5,
+       "priceMinor": 2325000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 232500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 465000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027 · Cumartesi tek gece",
+     "startDate": "2027-03-14",
+     "endDate": "2027-05-14",
+     "priceMinor": 1740000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 4,
+       "priceMinor": 2320000
+      },
+      {
+       "guestCount": 5,
+       "priceMinor": 2900000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "Mayıs özel dönemi",
+     "startDate": "2027-05-15",
+     "endDate": "2027-05-22",
+     "priceMinor": 1740000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 4,
+       "priceMinor": 2320000
+      },
+      {
+       "guestCount": 5,
+       "priceMinor": 2900000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027",
+     "startDate": "2027-05-23",
+     "endDate": "2027-10-31",
+     "priceMinor": 1395000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 4,
+       "priceMinor": 1860000
+      },
+      {
+       "guestCount": 5,
+       "priceMinor": 2325000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 232500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 465000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027 · Cumartesi tek gece",
+     "startDate": "2027-05-23",
+     "endDate": "2027-10-31",
+     "priceMinor": 1740000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 4,
+       "priceMinor": 2320000
+      },
+      {
+       "guestCount": 5,
+       "priceMinor": 2900000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 290000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 580000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    }
+   ],
+   "ana-bina-corner-oda": [
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 1000000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 750000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1000000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1500000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 250000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 500000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar · Cumartesi tek gece",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 1200000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 900000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1200000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1800000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 300000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 600000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-21",
+     "priceMinor": 1200000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 900000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1200000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1800000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 300000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 600000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-29",
+     "priceMinor": 1000000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 750000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1000000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1500000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 250000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 500000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar · Cumartesi tek gece",
+     "startDate": "2026-11-22",
+     "endDate": "2026-12-29",
+     "priceMinor": 1200000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 900000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1200000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1800000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 300000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 600000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "2027",
+     "startDate": "2027-01-03",
+     "endDate": "2027-01-22",
+     "priceMinor": 1100000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 825000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1100000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1650000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 275000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 550000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027 · Cumartesi tek gece",
+     "startDate": "2027-01-03",
+     "endDate": "2027-01-22",
+     "priceMinor": 1320000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 990000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1320000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1980000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 330000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 660000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "Sömestr",
+     "startDate": "2027-01-23",
+     "endDate": "2027-02-06",
+     "priceMinor": 1320000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 990000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1320000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1980000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 330000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 660000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027",
+     "startDate": "2027-02-07",
+     "endDate": "2027-03-05",
+     "priceMinor": 1100000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 825000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1100000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1650000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 275000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 550000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027 · Cumartesi tek gece",
+     "startDate": "2027-02-07",
+     "endDate": "2027-03-05",
+     "priceMinor": 1320000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 990000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1320000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1980000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 330000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 660000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "Mart özel dönemi",
+     "startDate": "2027-03-06",
+     "endDate": "2027-03-13",
+     "priceMinor": 1320000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 990000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1320000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1980000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 330000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 660000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027",
+     "startDate": "2027-03-14",
+     "endDate": "2027-05-14",
+     "priceMinor": 1100000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 825000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1100000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1650000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 275000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 550000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027 · Cumartesi tek gece",
+     "startDate": "2027-03-14",
+     "endDate": "2027-05-14",
+     "priceMinor": 1320000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 990000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1320000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1980000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 330000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 660000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    },
+    {
+     "name": "Mayıs özel dönemi",
+     "startDate": "2027-05-15",
+     "endDate": "2027-05-22",
+     "priceMinor": 1320000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 990000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1320000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1980000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 330000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 660000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027",
+     "startDate": "2027-05-23",
+     "endDate": "2027-10-31",
+     "priceMinor": 1100000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 825000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1100000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1650000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 275000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 550000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "2027 · Cumartesi tek gece",
+     "startDate": "2027-05-23",
+     "endDate": "2027-10-31",
+     "priceMinor": 1320000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 990000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1320000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1980000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 330000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 660000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": [
+      6
+     ],
+     "stayMinNights": null,
+     "stayMaxNights": 1
+    }
+   ]
+  },
+  "agaoglu-my-termal-hotel": {
+   "standart-otel-odasi": [
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-23",
+     "priceMinor": 750000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 562500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 750000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1125000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 8,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 0,
+       "ageTo": 8,
+       "mode": "sabit",
+       "priceMinor": 187500,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 9,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 187500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 375000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ],
+   "1-0-villa": [
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-23",
+     "priceMinor": 750000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 750000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 750000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1125000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 8,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 0,
+       "ageTo": 8,
+       "mode": "sabit",
+       "priceMinor": 187500,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 9,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 187500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 375000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ],
+   "1-1-villa": [
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-23",
+     "priceMinor": 750000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 750000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 750000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1125000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 8,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 0,
+       "ageTo": 8,
+       "mode": "sabit",
+       "priceMinor": 187500,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 9,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 187500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 375000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ],
+   "garden-oda": [
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-23",
+     "priceMinor": 800000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 800000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 800000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1200000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 8,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 0,
+       "ageTo": 8,
+       "mode": "sabit",
+       "priceMinor": 200000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 9,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 200000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 400000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ]
+  },
+  "orkis-palace-thermal-spa": {
+   "standart-oda": [
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 850000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 600000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 850000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1100000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 250000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-23",
+     "endDate": "2026-12-29",
+     "priceMinor": 850000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 600000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 850000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1100000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 250000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ],
+   "family-suite-oda": [
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 1900000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-23",
+     "endDate": "2026-12-29",
+     "priceMinor": 1900000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ],
+   "corner-senior-suite": [
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 1700000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-23",
+     "endDate": "2026-12-29",
+     "priceMinor": 1700000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ]
+  },
+  "big-thermal-spa-resort": {
+   "standart-oda": [
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 1000000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 750000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1000000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1350000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 11,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 250000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 350000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-22",
+     "priceMinor": 1200000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 900000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1200000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1620000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 11,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 300000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 420000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-23",
+     "endDate": "2026-12-29",
+     "priceMinor": 1000000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 750000
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1000000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 1350000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 11,
+       "mode": "ucretsiz",
+       "childOrder": 1
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 11,
+       "mode": "sabit",
+       "priceMinor": 250000,
+       "childOrder": 2
+      },
+      {
+       "ageFrom": 12,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 350000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ],
+   "aile-odasi": [
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 1750000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 4,
+       "priceMinor": 1850000
+      },
+      {
+       "guestCount": 5,
+       "priceMinor": 2250000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 100000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-22",
+     "priceMinor": 2100000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 4,
+       "priceMinor": 2220000
+      },
+      {
+       "guestCount": 5,
+       "priceMinor": 2700000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 120000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-23",
+     "endDate": "2026-12-29",
+     "priceMinor": 1750000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 4,
+       "priceMinor": 1850000
+      },
+      {
+       "guestCount": 5,
+       "priceMinor": 2250000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 1,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 2,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 100000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ],
+   "deluxe-suite": [
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 1750000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-22",
+     "priceMinor": 2100000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-23",
+     "endDate": "2026-12-29",
+     "priceMinor": 1750000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ],
+   "king-suite": [
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-05",
+     "endDate": "2026-11-13",
+     "priceMinor": 4000000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Kasım ara tatili",
+     "startDate": "2026-11-14",
+     "endDate": "2026-11-22",
+     "priceMinor": 4800000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    },
+    {
+     "name": "Sonbahar",
+     "startDate": "2026-11-23",
+     "endDate": "2026-12-29",
+     "priceMinor": 4000000,
+     "currency": "TRY",
+     "occupancyPrices": [],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 17,
+       "mode": "ucretsiz",
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ]
+  },
+  "orucoglu-thermal-hotel": {
+   "standart-balkonsuz-kuvetli-oda": [
+    {
+     "name": "Sömestr",
+     "startDate": "2027-01-23",
+     "endDate": "2027-02-05",
+     "priceMinor": 1750000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1487500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1750000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 2362500
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 437500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 612500,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ],
+   "standart-balkonsuz-dusakabinli-oda": [
+    {
+     "name": "Sömestr",
+     "startDate": "2027-01-23",
+     "endDate": "2027-02-05",
+     "priceMinor": 1770000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 1,
+       "priceMinor": 1504500
+      },
+      {
+       "guestCount": 2,
+       "priceMinor": 1770000
+      },
+      {
+       "guestCount": 3,
+       "priceMinor": 2389500
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 442500,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 619500,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ],
+   "aile-odasi": [
+    {
+     "name": "Sömestr",
+     "startDate": "2027-01-23",
+     "endDate": "2027-02-05",
+     "priceMinor": 2840000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 3,
+       "priceMinor": 3834000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 710000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 994000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ],
+   "kose-suit": [
+    {
+     "name": "Sömestr",
+     "startDate": "2027-01-23",
+     "endDate": "2027-02-05",
+     "priceMinor": 2840000,
+     "currency": "TRY",
+     "occupancyPrices": [
+      {
+       "guestCount": 3,
+       "priceMinor": 3834000
+      }
+     ],
+     "childAgePrices": [
+      {
+       "ageFrom": 0,
+       "ageTo": 6,
+       "mode": "ucretsiz",
+       "childOrder": null
+      },
+      {
+       "ageFrom": 7,
+       "ageTo": 12,
+       "mode": "sabit",
+       "priceMinor": 710000,
+       "childOrder": null
+      },
+      {
+       "ageFrom": 13,
+       "ageTo": 17,
+       "mode": "sabit",
+       "priceMinor": 994000,
+       "childOrder": null
+      }
+     ],
+     "weekdays": null,
+     "stayMinNights": null,
+     "stayMaxNights": null
+    }
+   ]
+  }
+ },
+ "promotions": {
+  "akrones-termal-hotel": [
+   {
+    "name": "Çok kal az öde",
+    "discountPercent": null,
+    "stayPayTiers": [
+     {
+      "stay": 4,
+      "pay": 3
+     },
+     {
+      "stay": 5,
+      "pay": 4
+     },
+     {
+      "stay": 6,
+      "pay": 5
+     },
+     {
+      "stay": 7,
+      "pay": 6
+     },
+     {
+      "stay": 8,
+      "pay": 6
+     }
+    ],
+    "freeNightRule": "hafta_ici",
+    "validFrom": "2026-11-05",
+    "validTo": "2026-11-13",
+    "minNights": null,
+    "bookableTo": null
+   },
+   {
+    "name": "Çok kal az öde",
+    "discountPercent": null,
+    "stayPayTiers": [
+     {
+      "stay": 4,
+      "pay": 3
+     },
+     {
+      "stay": 5,
+      "pay": 4
+     },
+     {
+      "stay": 6,
+      "pay": 5
+     },
+     {
+      "stay": 7,
+      "pay": 6
+     },
+     {
+      "stay": 8,
+      "pay": 6
+     }
+    ],
+    "freeNightRule": "hafta_ici",
+    "validFrom": "2026-11-22",
+    "validTo": "2026-12-30",
+    "minNights": null,
+    "bookableTo": null
+   },
+   {
+    "name": "Çok kal az öde",
+    "discountPercent": null,
+    "stayPayTiers": [
+     {
+      "stay": 4,
+      "pay": 3
+     },
+     {
+      "stay": 5,
+      "pay": 4
+     },
+     {
+      "stay": 6,
+      "pay": 5
+     },
+     {
+      "stay": 7,
+      "pay": 6
+     },
+     {
+      "stay": 8,
+      "pay": 6
+     }
+    ],
+    "freeNightRule": "hafta_ici",
+    "validFrom": "2027-01-03",
+    "validTo": "2027-01-22",
+    "minNights": null,
+    "bookableTo": null
+   }
+  ],
+  "lidya-sardes-hotel-termal-spa": [
+   {
+    "name": "Özel dönem · çok kal az öde",
+    "discountPercent": null,
+    "stayPayTiers": [
+     {
+      "stay": 5,
+      "pay": 4
+     },
+     {
+      "stay": 7,
+      "pay": 5
+     }
+    ],
+    "freeNightRule": "en_ucuz",
+    "validFrom": "2026-11-14",
+    "validTo": "2026-11-21",
+    "minNights": null,
+    "bookableTo": "2026-11-21"
+   },
+   {
+    "name": "Özel dönem · çok kal az öde",
+    "discountPercent": null,
+    "stayPayTiers": [
+     {
+      "stay": 5,
+      "pay": 4
+     },
+     {
+      "stay": 7,
+      "pay": 5
+     }
+    ],
+    "freeNightRule": "en_ucuz",
+    "validFrom": "2027-01-23",
+    "validTo": "2027-02-06",
+    "minNights": null,
+    "bookableTo": "2027-02-06"
+   },
+   {
+    "name": "Özel dönem · çok kal az öde",
+    "discountPercent": null,
+    "stayPayTiers": [
+     {
+      "stay": 5,
+      "pay": 4
+     },
+     {
+      "stay": 7,
+      "pay": 5
+     }
+    ],
+    "freeNightRule": "en_ucuz",
+    "validFrom": "2027-03-06",
+    "validTo": "2027-03-13",
+    "minNights": null,
+    "bookableTo": "2027-03-13"
+   },
+   {
+    "name": "Özel dönem · çok kal az öde",
+    "discountPercent": null,
+    "stayPayTiers": [
+     {
+      "stay": 5,
+      "pay": 4
+     },
+     {
+      "stay": 7,
+      "pay": 5
+     }
+    ],
+    "freeNightRule": "en_ucuz",
+    "validFrom": "2027-05-15",
+    "validTo": "2027-05-22",
+    "minNights": null,
+    "bookableTo": "2027-05-19"
+   }
+  ],
+  "lycus-river-termal-hotel": []
+ }
+}
