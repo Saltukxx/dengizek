@@ -1,6 +1,7 @@
 "use client";
 
-import { JOURNEY_EVENT_TYPES, type AnalyticsTrackInput } from "@/lib/schemas/analytics";
+import { JOURNEY_EVENT_TYPES } from "@/lib/analytics-events";
+import type { AnalyticsTrackInput } from "@/lib/schemas/analytics";
 import { hasAnalyticsConsent } from "@/lib/consent";
 import { getVisitId } from "@/lib/visit-client";
 

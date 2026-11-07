@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Badge, Group, Loader, Paper, Progress, SimpleGrid, Stack, Text } from "@mantine/core";
-import { QUESTION_TOPIC_LABELS, type QuestionGroup, type QuestionInsights } from "@/lib/ai/question-log";
+import { Loader, SimpleGrid } from "@mantine/core";
+import { QUESTION_TOPIC_LABELS, type QuestionInsights } from "@/lib/ai/question-log";
 import type { FeedbackSummary } from "@/lib/ai/feedback";
+import { PanelCard, RankedBars, RankedList, StatChips, SubHead } from "@/components/admin/analytics-charts";
 
 type Data = Omit<QuestionInsights, "byHotel"> & {
   periodDays: number;
@@ -31,131 +32,85 @@ export function QuestionInsightsPanel({ period, hotelId }: { period: string; hot
   if (failed) return null;
   if (!data) return <Loader size="sm" />;
 
-  const questions = (items: QuestionGroup[], empty: string, showMissed = false) =>
-    items.length ? (
-      <Stack gap={6}>
-        {items.map((item) => (
-          <Group key={item.question} justify="space-between" wrap="nowrap" gap="sm">
-            <div style={{ minWidth: 0 }}>
-              <Text size="sm" style={{ overflowWrap: "anywhere" }}>
-                {item.question}
-              </Text>
-              <Text size="xs" c="dimmed">
-                {QUESTION_TOPIC_LABELS[item.topic]}
-                {item.hotels > 1 ? ` · ${item.hotels} otel` : ""}
-              </Text>
-            </div>
-            <Badge variant="outline" color={showMissed ? "orange" : undefined} style={{ flexShrink: 0 }}>
-              {showMissed ? item.unanswered : item.count}×
-            </Badge>
-          </Group>
-        ))}
-      </Stack>
-    ) : (
-      <Text size="sm" c="dimmed">
-        {empty}
-      </Text>
-    );
+  const chips: { label: string; value: string; accent?: boolean }[] = [
+    { label: "Toplam soru", value: data.total.toLocaleString("tr-TR") },
+    { label: "Cevaplanma oranı", value: data.answerRate == null ? "—" : `%${Math.round(data.answerRate * 100)}`, accent: true },
+  ];
+  if (data.feedback && data.feedback.up + data.feedback.down > 0) {
+    chips.push({
+      label: `Faydalı oy (${data.feedback.up}/${data.feedback.up + data.feedback.down})`,
+      value: `%${Math.round((data.feedback.positiveRate ?? 0) * 100)}`,
+    });
+  }
 
   return (
-    <Paper withBorder radius="md" p="md">
-      <Text fw={600}>
-        Rehbere sorulan sorular (son {data.periodDays} gün · {data.total.toLocaleString("tr-TR")} soru)
-      </Text>
-      <Text size="xs" c="dimmed" mb="sm">
-        Cevaplanma oranı: {data.answerRate == null ? "—" : `%${Math.round(data.answerRate * 100)}`}
-        {data.byOutcome.length ? ` · ${data.byOutcome.map((o) => `${o.label} ${o.count}`).join(" · ")}` : ""}
-        {data.byLanguage.length ? ` · Dil: ${data.byLanguage.map((l) => `${l.language} ${l.count}`).join(", ")}` : ""}
-        {data.feedback && data.feedback.up + data.feedback.down
-          ? ` · Misafir oyu: %${Math.round((data.feedback.positiveRate ?? 0) * 100)} faydalı (👍 ${data.feedback.up} · 👎 ${data.feedback.down})`
-          : ""}
-      </Text>
-      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+    <PanelCard title={`Rehbere sorulan sorular · son ${data.periodDays} gün`}>
+      <StatChips items={chips} />
+
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl" mt="lg">
         <div>
-          <Text size="sm" fw={500} mb={6}>
-            En çok sorulanlar
-          </Text>
-          {questions(data.topQuestions, "Henüz soru yok")}
+          <SubHead>En çok sorulanlar</SubHead>
+          <RankedList
+            empty="Henüz soru yok."
+            items={data.topQuestions.map((q) => ({
+              key: q.question,
+              primary: q.question,
+              secondary: `${QUESTION_TOPIC_LABELS[q.topic]}${q.hotels > 1 ? ` · ${q.hotels} otel` : ""}`,
+              value: `${q.count}×`,
+            }))}
+          />
         </div>
         <div>
-          <Text size="sm" fw={500} mb={6}>
-            En çok cevapsız kalanlar
-          </Text>
-          {questions(data.topUnanswered, "Yok", true)}
+          <SubHead>En çok cevapsız kalanlar</SubHead>
+          <RankedList
+            tone="orange"
+            empty="Cevapsız soru yok."
+            items={data.topUnanswered.map((q) => ({
+              key: q.question,
+              primary: q.question,
+              secondary: QUESTION_TOPIC_LABELS[q.topic],
+              value: `${q.unanswered}×`,
+            }))}
+          />
         </div>
         <div>
-          <Text size="sm" fw={500} mb={6}>
-            Konular
-          </Text>
-          <Stack gap={8}>
-            {data.byTopic.map((t) => (
-              <div key={t.topic}>
-                <Group justify="space-between" gap="xs">
-                  <Text size="sm">{t.label}</Text>
-                  <Text size="xs" c="dimmed">
-                    {t.count} · cevapsız {pct(t.unanswered, t.count)}
-                  </Text>
-                </Group>
-                <Progress value={(t.count / data.total) * 100} size="sm" />
-              </div>
-            ))}
-            {!data.byTopic.length && (
-              <Text size="sm" c="dimmed">
-                Yok
-              </Text>
-            )}
-          </Stack>
+          <SubHead>Konular</SubHead>
+          <RankedBars
+            emptyLabel="Konu verisi yok."
+            items={data.byTopic.map((t) => ({ label: t.label, value: t.count }))}
+          />
         </div>
         {data.feedback?.topDown.length ? (
           <div>
-            <Text size="sm" fw={500} mb={6}>
-              Faydalı bulunmayan cevaplar (👎)
-            </Text>
-            <Stack gap={6}>
-              {data.feedback.topDown.map((d) => (
-                <Group key={d.question} justify="space-between" wrap="nowrap" gap="sm" align="flex-start">
-                  <div style={{ minWidth: 0 }}>
-                    <Text size="sm" style={{ overflowWrap: "anywhere" }}>
-                      {d.question}
-                    </Text>
-                    <Text size="xs" c="dimmed" style={{ overflowWrap: "anywhere" }}>
-                      Rehber: {d.answer}
-                    </Text>
-                  </div>
-                  <Badge variant="outline" color="red" style={{ flexShrink: 0 }}>
-                    {d.count}×
-                  </Badge>
-                </Group>
-              ))}
-            </Stack>
+            <SubHead>Faydalı bulunmayan cevaplar</SubHead>
+            <RankedList
+              numbered={false}
+              tone="red"
+              items={data.feedback.topDown.map((d) => ({
+                key: d.question,
+                primary: d.question,
+                secondary: `Rehber: ${d.answer}`,
+                value: `${d.count}×`,
+              }))}
+            />
           </div>
         ) : null}
         {!hotelId && (
           <div>
-            <Text size="sm" fw={500} mb={6}>
-              En çok soru alan oteller
-            </Text>
-            {data.byHotel.length ? (
-              <Stack gap={6}>
-                {data.byHotel.map((h) => (
-                  <Group key={h.hotelSlug} justify="space-between" wrap="nowrap" gap="sm">
-                    <Text size="sm" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
-                      {h.hotelName}
-                    </Text>
-                    <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
-                      {h.count} soru · cevapsız {pct(h.unanswered, h.count)}
-                    </Text>
-                  </Group>
-                ))}
-              </Stack>
-            ) : (
-              <Text size="sm" c="dimmed">
-                Yok
-              </Text>
-            )}
+            <SubHead>En çok soru alan oteller</SubHead>
+            <RankedList
+              numbered={false}
+              empty="Veri yok."
+              items={data.byHotel.map((h) => ({
+                key: h.hotelSlug,
+                primary: h.hotelName,
+                secondary: `cevapsız ${pct(h.unanswered, h.count)}`,
+                value: h.count,
+              }))}
+            />
           </div>
         )}
       </SimpleGrid>
-    </Paper>
+    </PanelCard>
   );
 }

@@ -1,14 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Badge, Group, Loader, Paper, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Badge, Group, Loader, SimpleGrid, Text } from "@mantine/core";
 import type { SearchInsights } from "@/lib/ai/search-log";
+import { PanelCard, RankedList, StatChips, SubHead } from "@/components/admin/analytics-charts";
+
+type Data =
+  | (Omit<SearchInsights, "topHotels"> & {
+      periodDays: number;
+      topHotels: Array<SearchInsights["topHotels"][number] & { hotelName: string }>;
+    })
+  | null;
 
 /** Arama asistanı kayıtları — sözlüğe eklenecek kelimeler ve sonuçsuz aramalar. */
 export function SearchInsightsPanel() {
-  const [data, setData] = useState<
-    (Omit<SearchInsights, "topHotels"> & { periodDays: number; topHotels: Array<SearchInsights["topHotels"][number] & { hotelName: string }> }) | null
-  >(null);
+  const [data, setData] = useState<Data>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -21,85 +27,64 @@ export function SearchInsightsPanel() {
   if (failed) return null;
   if (!data) return <Loader size="sm" />;
 
-  const list = (items: Array<{ query: string; count: number }>, empty: string) =>
-    items.length ? (
-      <Stack gap={6}>
-        {items.map((item) => (
-          <Group key={item.query} justify="space-between" wrap="nowrap" gap="sm">
-            <Text size="sm" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
-              {item.query}
-            </Text>
-            <Badge variant="outline">{item.count}×</Badge>
-          </Group>
-        ))}
-      </Stack>
-    ) : (
-      <Text size="sm" c="dimmed">
-        {empty}
-      </Text>
-    );
-
   return (
-    <Paper withBorder radius="md" p="md">
-      <Text fw={600}>Arama asistanı (son {data.periodDays} gün · {data.total.toLocaleString("tr-TR")} arama)</Text>
-      <Text size="xs" c="dimmed" mb="sm">
-        Sonuçsuz aramalar ve anlaşılmayan kelimeler, asistanın sözlüğüne eklenecek adaylardır.
-      </Text>
-      <SimpleGrid cols={{ base: 1, md: 2, lg: 4 }} spacing="md">
+    <PanelCard
+      title={`Arama asistanı · son ${data.periodDays} gün`}
+      subtitle="Sonuçsuz aramalar ve anlaşılmayan kelimeler, asistanın sözlüğüne eklenecek adaylardır."
+    >
+      <StatChips
+        items={[
+          { label: "Toplam arama", value: data.total.toLocaleString("tr-TR") },
+          { label: "Sonuçsuz arama", value: data.noResults.length.toLocaleString("tr-TR"), accent: data.noResults.length > 0 },
+        ]}
+      />
+
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl" mt="lg">
         <div>
-          <Text size="sm" fw={500} mb={6}>
-            Sonuç bulunamayan aramalar
-          </Text>
-          {list(data.noResults, "Yok")}
+          <SubHead>Sonuç bulunamayan aramalar</SubHead>
+          <RankedList
+            tone="orange"
+            empty="Hepsi sonuç verdi."
+            items={data.noResults.map((q) => ({ key: q.query, primary: q.query, value: `${q.count}×` }))}
+          />
         </div>
         <div>
-          <Text size="sm" fw={500} mb={6}>
-            Anlaşılmayan kelimeler
-          </Text>
+          <SubHead>En çok arananlar</SubHead>
+          <RankedList
+            empty="Henüz arama yok."
+            items={data.top.map((q) => ({ key: q.query, primary: q.query, value: `${q.count}×` }))}
+          />
+        </div>
+        <div>
+          <SubHead>Anlaşılmayan kelimeler</SubHead>
           {data.unknownWords.length ? (
             <Group gap={6}>
               {data.unknownWords.map((w) => (
-                <Badge key={w.word} variant="light" color="orange">
+                <Badge key={w.word} variant="light" color="orange" radius="sm">
                   {w.word} · {w.count}
                 </Badge>
               ))}
             </Group>
           ) : (
             <Text size="sm" c="dimmed">
-              Yok
+              Yok.
             </Text>
           )}
         </div>
         <div>
-          <Text size="sm" fw={500} mb={6}>
-            En çok arananlar
-          </Text>
-          {list(data.top, "Henüz arama yok")}
-        </div>
-        <div>
-          <Text size="sm" fw={500} mb={6}>
-            En çok gösterilen oteller
-          </Text>
-          {data.topHotels?.length ? (
-            <Stack gap={6}>
-              {data.topHotels.map((h) => (
-                <Group key={h.hotelSlug} justify="space-between" wrap="nowrap" gap="sm">
-                  <Text size="sm" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
-                    {h.hotelName}
-                  </Text>
-                  <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
-                    {h.count}× · ilk sırada {h.first}
-                  </Text>
-                </Group>
-              ))}
-            </Stack>
-          ) : (
-            <Text size="sm" c="dimmed">
-              Henüz yok
-            </Text>
-          )}
+          <SubHead>En çok gösterilen oteller</SubHead>
+          <RankedList
+            numbered={false}
+            empty="Henüz yok."
+            items={(data.topHotels ?? []).map((h) => ({
+              key: h.hotelSlug,
+              primary: h.hotelName,
+              secondary: `ilk sırada ${h.first}×`,
+              value: `${h.count}×`,
+            }))}
+          />
         </div>
       </SimpleGrid>
-    </Paper>
+    </PanelCard>
   );
 }

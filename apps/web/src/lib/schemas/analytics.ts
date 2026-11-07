@@ -1,27 +1,8 @@
 import { z } from "zod";
+import { ANALYTICS_EVENT_TYPES, type AnalyticsEventType } from "@/lib/analytics-events";
 
-export const ANALYTICS_EVENT_TYPES = [
-  "page_view",
-  "tour_start",
-  "tour_step",
-  "tour_auto_start",
-  "tour_auto_end",
-  "tour_complete",
-  "tour_step_view",
-  "tour_exit",
-  "hotel_chat_open",
-  "ai_tool_price",
-  "ai_tool_fact",
-  "ai_guard_triggered",
-  "ai_completion_drift",
-  "ai_usage",
-  "inquiry_start",
-  "inquiry_submit",
-  "room_view",
-  "hotel_view",
-] as const;
-
-export type AnalyticsEventType = (typeof ANALYTICS_EVENT_TYPES)[number];
+// Olay listeleri zod'suz modülde: tarayıcı paketine (analytics-client) zod girmesin.
+export { ANALYTICS_EVENT_TYPES, JOURNEY_EVENT_TYPES, type AnalyticsEventType } from "@/lib/analytics-events";
 
 /**
  * Panel/admin ekranlarında gösterilen Türkçe etiketler.
@@ -43,6 +24,7 @@ export const ANALYTICS_EVENT_LABELS: Record<AnalyticsEventType, string> = {
   tour_complete: "Tur tamamlama",
   tour_exit: "Turdan çıkış",
   hotel_chat_open: "Otel sayfası sohbeti açıldı",
+  hotel_contact_click: "Otel iletişim düğmesi (Ara / WhatsApp)",
   inquiry_start: "Talep başlangıcı",
   inquiry_submit: "Talep gönderimi",
   ai_tool_price: "AI fiyat sorgusu",
@@ -91,20 +73,7 @@ export const ANALYTICS_MAX_PAYLOAD_BYTES = 4096;
  */
 export const visitIdSchema = z.string().uuid();
 
-/**
- * Yolculuk analizi için gerekli olaylar — ziyaretçi analitik onayı vermese
- * de gönderilir (ürün kararı: soru → tur → talep zinciri herkeste izlenir).
- * Diğer olaylar onay kapısının arkasında kalır.
- */
-export const JOURNEY_EVENT_TYPES: readonly AnalyticsEventType[] = [
-  "tour_start",
-  "tour_step_view",
-  "tour_exit",
-  "tour_complete",
-  "hotel_view",
-  "hotel_chat_open",
-  "inquiry_start",
-];
+
 
 export const analyticsTrackSchema = z.object({
   eventType: z.enum(ANALYTICS_EVENT_TYPES),

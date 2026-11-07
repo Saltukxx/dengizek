@@ -15,6 +15,7 @@ import {
   Group,
   NavLink,
   Menu,
+  ScrollArea,
   Text,
   Title,
   Tooltip,
@@ -205,11 +206,16 @@ export function DashboardShell({
       </AppShell.Header>
 
       <AppShell.Navbar p="sm">
-        <AppShell.Section grow>
+        <AppShell.Section grow component={ScrollArea} type="auto" scrollbarSize={6}>
           <Text size="xs" c="dimmed" mb={6} px="xs" tt="uppercase" fw={700} lts="0.06em">
             Menü
           </Text>
           {links.map((l) => {
+            // Analitik yalnız admin erişimi açtığı tesise görünür
+            // (yayın durumundan bağımsız).
+            if (l.href === "/dashboard/analytics" && !hotel?.analyticsEnabled) {
+              return null;
+            }
             const active =
               path === l.href || (l.href !== "/dashboard" && path?.startsWith(l.href));
             return (

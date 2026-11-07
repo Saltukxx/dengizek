@@ -15,6 +15,7 @@ import {
   Modal,
   Paper,
   Stack,
+  Switch,
   Table,
   Text,
   Textarea,
@@ -53,6 +54,7 @@ interface HotelDetail {
   hasUnpublishedChanges: boolean;
   suspendedAt: string | null;
   suspensionNote: string | null;
+  analyticsEnabled: boolean;
 }
 
 interface PreviewDiff {
@@ -176,6 +178,26 @@ export function HotelDetailPanel({ hotelId }: { hotelId: string }) {
     }
   }
 
+  async function setAnalyticsAccess(enabled: boolean) {
+    setBusy(true);
+    const res = await fetch(`/api/admin/hotels/${resolvedHotelId}/analytics-access`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    });
+    const json = await res.json();
+    setBusy(false);
+    if (json.ok) {
+      notifications.show({
+        color: enabled ? "green" : "gray",
+        message: enabled ? "Analitik erişimi açıldı." : "Analitik erişimi kapatıldı.",
+      });
+      void reload();
+    } else {
+      notifications.show({ color: "red", message: json.error ?? "İşlem başarısız oldu." });
+    }
+  }
+
   return (
     <Stack gap="lg">
       <Group justify="space-between">
@@ -284,6 +306,25 @@ export function HotelDetailPanel({ hotelId }: { hotelId: string }) {
           </Text>
           {hotel.shortDescription && <Text size="sm">{hotel.shortDescription}</Text>}
         </Stack>
+      </Paper>
+
+      <Paper withBorder p="md" radius="md">
+        <Group justify="space-between" wrap="nowrap" align="flex-start">
+          <div>
+            <Text fw={600}>Analitik erişimi</Text>
+            <Text size="sm" c="dimmed">
+              Açıkken tesis yöneticisi analitik sayfasını görür. Yayın
+              durumundan bağımsızdır; otel yayında olsa bile kapalıysa görünmez.
+            </Text>
+          </div>
+          <Switch
+            checked={hotel.analyticsEnabled}
+            disabled={busy}
+            onChange={(e) => void setAnalyticsAccess(e.currentTarget.checked)}
+            aria-label="Analitik erişimi"
+            label={hotel.analyticsEnabled ? "Açık" : "Kapalı"}
+          />
+        </Group>
       </Paper>
 
       {preview && (

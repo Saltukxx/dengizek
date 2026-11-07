@@ -5,7 +5,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { requireHotelAccess } from "@/lib/auth/guards";
+import { requireHotelAccess, requireAnalyticsAccess } from "@/lib/auth/guards";
 import { loadJourneyInsights, periodFromUrl } from "@/lib/journey-data";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
@@ -14,6 +14,10 @@ export async function GET(req: Request, { params }: RouteParams) {
   const { hotelId } = await params;
   const guard = await requireHotelAccess(hotelId);
   if (guard.response) return guard.response;
+
+  // Analitik erişimi admin tarafından açılmalı (yayın durumundan bağımsız).
+  const gate = requireAnalyticsAccess(guard.hotel);
+  if (gate) return gate;
 
   const { periodDays, since } = periodFromUrl(new URL(req.url));
   return NextResponse.json({ ok: true, periodDays, ...(await loadJourneyInsights(since, guard.hotel.id)) });

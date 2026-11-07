@@ -4,7 +4,7 @@
 
 import { NextResponse } from "next/server";
 import { and, eq, gte, inArray } from "drizzle-orm";
-import { requireHotelAccess } from "@/lib/auth/guards";
+import { requireHotelAccess, requireAnalyticsAccess } from "@/lib/auth/guards";
 import { computeFactEmbeddingFreshness } from "@/lib/ai/fact-store";
 import { computeAiReadinessScore } from "@/lib/ai/readiness-score";
 import { UNANSWERED_EVENT, groupUnanswered, withAnswerStatus } from "@/lib/ai/unanswered";
@@ -43,6 +43,10 @@ export async function GET(_req: Request, { params }: RouteParams) {
   const { hotelId } = await params;
   const guard = await requireHotelAccess(hotelId);
   if (guard.response) return guard.response;
+
+  // Analitik erişimi admin tarafından açılmalı (yayın durumundan bağımsız).
+  const gate = requireAnalyticsAccess(guard.hotel);
+  if (gate) return gate;
 
   const since = new Date();
   since.setDate(since.getDate() - 30);

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { trackEvent } from "@/lib/analytics";
-import { apiFail, apiOk, apiRateLimited, apiServiceUnavailable } from "@/lib/api-response";
+import { apiFail, apiOk, apiRateLimited, apiServiceUnavailable, validationMessage } from "@/lib/api-response";
 import { getDb, isDbConfigured } from "@/lib/db";
 import { hotelsTable } from "@/lib/db/schema";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const parsed = analyticsTrackSchema.safeParse(body);
   if (!parsed.success) {
-    return apiFail("Doğrulama başarısız", 400, { issues: parsed.error.flatten() });
+    return apiFail(validationMessage(parsed.error), 400, { issues: parsed.error.flatten() });
   }
 
   if (!isDbConfigured()) {
