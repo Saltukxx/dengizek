@@ -192,3 +192,29 @@ describe("otel arama asistanı", () => {
     expect(res.summary).toContain("Denize sıfır olan 1 otel");
   });
 });
+
+describe("otel adıyla arama", () => {
+  const NAMED: SearchIndexHotel[] = [
+    ...INDEX,
+    hotel({ slug: "o", name: "Oruçoğlu Thermal Hotel", city: "Afyonkarahisar", amenities: ["Çocuk Havuzu"] }),
+    hotel({ slug: "k", name: "Kar Zirvesi", city: "Bursa", amenities: ["Spa"] }),
+  ];
+  const named = (q: string) => searchHotels(q, NAMED);
+
+  it("adın başıyla eşleşir; Türkçe harf farkı önemsizdir", () => {
+    expect(named("oruç").results.map((r) => r.slug)).toEqual(["o"]);
+    expect(named("ORUCOGLU").results.map((r) => r.slug)).toEqual(["o"]);
+    expect(named("oruç").summary).toBe("“oruç” adıyla eşleşen 1 otel buldum.");
+    expect(named("kar zirvesi").results.map((r) => r.slug)).toEqual(["k"]);
+  });
+
+  it("ad + ölçüt: ad sonuçları daraltır, ölçüt yine uygulanır", () => {
+    expect(named("Oruçoğlu çocuk havuzu").results.map((r) => r.slug)).toEqual(["o"]);
+    expect(named("Kar Zirvesi çocuk havuzu").results).toEqual([]);
+  });
+
+  it("genel kelimeler ad sayılmaz; normal arama bozulmaz", () => {
+    expect(named("otel").results).toEqual([]);
+    expect(named("Afyon'da çocuk havuzu olan otel").results.map((r) => r.slug).sort()).toEqual(["a", "o"]);
+  });
+});

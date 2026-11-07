@@ -35,6 +35,8 @@ export interface SearchIndexHotel {
   texts: string[];
   /** Metinden çıkarılan en yakın havalimanı mesafesi (km). */
   airportKm: number | null;
+  /** Tatil sezonları ("yaz" | "kis" | "termal") — sonuç bağlantısı otelin vitrinine gider. */
+  seasons?: string[];
 }
 
 type Board = "kahvalti-dahil" | "yarim-pansiyon" | "tam-pansiyon" | "hersey-dahil";
@@ -498,16 +500,57 @@ const PARTIAL_LIMIT = 6;
  * onlarla birleşir; değilse yeni arama başlar. Dönen `chain` bir sonraki
  * takip için bağlamdır.
  */
+/** Ad aramasında yok sayılan genel kelimeler ("Akrones Termal Otel" → "akrones"). */
+const NAME_STOPWORDS = new Set([
+  "otel", "oteli", "otelde", "hotel", "hotels", "termal", "thermal", "spa", "resort", "tesis", "tesisi",
+  "the", "and", "ve", "ile", "var", "olan", "nerede", "hangi",
+]);
+/** Ad eşleşmesi bundan fazla otel bulursa ayırt edici değildir (ör. "otel"). */
+const NAME_MATCH_LIMIT = 10;
+
+/**
+ * Otel adıyla arama: sorgudaki her anlamlı kelime adın bir kelimesinin başıyla
+ * eşleşir ("oruç" → "Oruçoğlu Thermal Hotel"). Eşleşme yoksa boş dizi.
+ */
+export function matchHotelsByName<T extends { name: string }>(query: string, index: T[]): T[] {
+  const terms = tokens(normalizeText(query.replace(/[’'`]/g, " "))).filter((t) => t.length >= 3 && !NAME_STOPWORDS.has(t));
+  if (!terms.length) return [];
+  const hits = index.filter((hotel) => {
+    const words = tokens(normalizeText(hotel.name));
+    return terms.every((term) => words.some((word) => word.startsWith(term)));
+  });
+  return hits.length <= NAME_MATCH_LIMIT ? hits : [];
+}
+
 export function searchHotels(
   query: string,
-  index: SearchIndexHotel[],
+  fullIndex: SearchIndexHotel[],
   context: string[] = [],
   /** Önceden yorumlanmış istek (ör. model yorumu eklenmiş) — verilirse ayrıştırma atlanır. */
   parsedOverride?: ParsedSearch,
 ): SearchResponse {
-  const placeNames = [...new Set(index.flatMap(hotelPlaces))];
+  const placeNames = [...new Set(fullIndex.flatMap(hotelPlaces))];
   const chain = context.length && isFollowUp(query) ? [...context, query] : [query];
-  const parsed = parsedOverride ?? chain.map((q) => parseSearchQuery(q, placeNames)).reduce((acc, next) => mergeSearches(acc, next));
+  let parsed = parsedOverride ?? chain.map((q) => parseSearchQuery(q, placeNames)).reduce((acc, next) => mergeSearches(acc, next));
+  let index = fullIndex;
+
+  // Otel adı: tanınmayan kelimeler bir otelin adıysa ("oruç") arama o otellerle
+  // sınırlanır; ad dışında ölçüt yoksa sonuç doğrudan bu otellerdir.
+  const byName = parsed.unknown.length ? matchHotelsByName(parsed.unknown.join(" "), fullIndex) : [];
+  if (byName.length) {
+    index = byName;
+    parsed = { ...parsed, unknown: [] };
+    if (!criteriaCount(parsed)) {
+      const results = byName.map((hotel) => ({ ...evaluate(hotel, parsed), matched: [hotel.name] }));
+      return {
+        query: parsed,
+        chain,
+        results,
+        partial: [],
+        summary: `“${query.trim()}” adıyla eşleşen ${results.length} otel buldum.`,
+      };
+    }
+  }
   const total = criteriaCount(parsed);
   const unknownNote =
     (parsed.corrections.length ? ` (${parsed.corrections.map((c) => `“${c.from}” → “${c.to}”`).join(", ")} olarak anladım.)` : "") +

@@ -158,6 +158,26 @@ async function casesFor(slug: string): Promise<{ cases: Case[]; catalog: AiFactC
     });
   }
 
+  // Saat soruları (Kasım 2026: "Kahvaltı saat kaçta?" → check-out kartı
+  // gösteriliyordu). Cevap metinde varsa o satırın kartı; yoksa HİÇBİR kart
+  // gösterilmez — alakasız saat kartı misafiri yanıltır.
+  for (const [category, message, subject] of [
+    ["kahvalti-saat", "Kahvaltı saat kaçta?", "kahvalt"],
+    ["aksam-yemegi-saat", "Akşam yemeği kaçta?", "ak[şs]am yeme"],
+    ["havuz-saat", "Havuz kaçta açılıyor?", "havuz"],
+    ["hamam-saat", "Hamam kaçta açık?", "hamam"],
+  ] as const) {
+    // Konu ve saat aynı satırda (aradaki uzaklık sınırsız).
+    const evidence = new RegExp(`${subject}[^\\n]*?\\d{1,2}[:.]\\d{2}|\\d{1,2}[:.]\\d{2}[^\\n]*?${subject}`, "i");
+    add(category, message, (plan) => {
+      const cards = cited(plan, catalog);
+      if (cards.some((e) => e.id === "spec.amenities")) return "olanak listesi gösterildi";
+      if (!evidence.test(texts)) return cards.length ? `bilgi yokken kart: ${describePlan(plan)}` : null;
+      if (!cards.length) return null; // modele kaldı — yanlış kart göstermekten iyi
+      return cards.some((e) => evidence.test(`${e.title ?? ""} ${e.text}`)) ? null : `yanlış kart: ${describePlan(plan)}`;
+    });
+  }
+
   // Oda özellikleri: "odalarda" denir; açıklamasında olmadığı yazan odalar
   // (eşleştiriciden bağımsız basit kural) cevapta ayrıca belirtilir.
   for (const [category, message, label, lacks] of [

@@ -247,8 +247,13 @@ function bodyLineHits(message: string, entry: AiFactCatalogEntry): number {
 /** Sorulan ayrıntı: saat mi, sıcaklık mı? Değerin metindeki biçimi. */
 const ASKED_VALUE: Array<{ ask: RegExp; value: RegExp }> = [
   { ask: /\b(kacta|saat kac|saatleri|ne zaman|acik mi|kaca kadar|what time|when|hours|open)\b/, value: /\d{1,2}[:.]\d{2}/ },
-  { ask: /\b(kac derece|derece|sicaklik\w*|isisi|temperature|how warm|degrees?)\b/, value: /\d{2}\s*(?:[-–]\s*\d{2}\s*)?(?:°|derece)/ },
+  { ask: /\b(kac derece|derece|sicaklik\w*|isisi|temperature|how warm|degrees?)\b/, value: /\d{2}\s*(?:[-–]\s*\d{2}\s*)?(?:°|derece)/i },
 ];
+/** Soru belirli bir değer (saat / derece) mi soruyor? */
+function asksValue(message: string): boolean {
+  const text = normalizeText(message);
+  return ASKED_VALUE.some((a) => a.ask.test(text));
+}
 /** Ayrıntı kelimeleri — konu terimi sayılmaz ("kaçta" → "saati"). */
 const VALUE_TERMS = new Set(["saati", "acik", "derece", "sicaklik"]);
 
@@ -300,6 +305,65 @@ function fallbackScore(message: string, entry: AiFactCatalogEntry): number {
     (askedValueOnLine(message, entry) ? 0.1 : 0) +
     (KIND_WEIGHT[entry.kind] ?? 0)
   );
+}
+
+/**
+ * Ayrıntı sorusunun kalıp kelimeleri — sorulan şeyin KENDİSİ değil
+ * ("Kahvaltı saat kaçta?" → konu "kahvaltı"; "saat", "kaçta" değil).
+ */
+const ATTRIBUTE_FILLER = new Set([
+  "saat", "saati", "saatleri", "kacta", "acik", "aciliyor", "acilis", "kapanis", "kapaniyor",
+  "derece", "sicaklik", "sicakligi", "zaman", "kadar", "nerede", "nereye", "ucret", "ucreti",
+  "ucretli", "fiyat", "fiyati", "time", "hours", "open", "when", "where", "temperature",
+  "degrees", "warm", "cost", "much",
+]);
+
+/**
+ * Ayrıntı sorusunun konu terimleri, kalıp kelimeleri hariç. Pansiyon eş
+ * anlamlıları bilinçli olarak eklenmez: "kahvaltı" ↔ "yemek" genişlemesi
+ * kahvaltı saatine akşam yemeği satırını cevap sayardı. Olanak eş anlamlıları
+ * ("çocuk kulübü" ↔ "mini club") canonicalAmenityText ile korunur.
+ */
+export function attributeSubjectTerms(message: string): string[] {
+  return [
+    ...new Set(
+      tokens(canonicalAmenityText(message)).filter(
+        (t) =>
+          t.length >= 4 &&
+          !QUESTION_WORDS.has(t) &&
+          !LEXICAL_STOPWORDS.has(t) &&
+          !VALUE_TERMS.has(t) &&
+          !ATTRIBUTE_FILLER.has(t),
+      ),
+    ),
+  ];
+}
+
+/**
+ * Sorulan değer (saat / derece) konu terimleriyle AYNI satırda mı?
+ * "07:00 - 10:00 | Sabah Kahvaltısı" → kahvaltı saati sorusunun cevabı.
+ */
+function subjectValueOnLine(message: string, terms: string[], entry: AiFactCatalogEntry, minTerms = 2): boolean {
+  const text = normalizeText(message);
+  const asked = ASKED_VALUE.find((a) => a.ask.test(text));
+  if (!asked || !terms.length) return false;
+  return entry.text
+    .split(/\n|(?<=[.!?])\s+(?=\D)/)
+    .some((line) => {
+      if (!asked.value.test(line)) return false;
+      const words = tokens(canonicalAmenityText(line));
+      // İki kelimelik konu ("akşam yemeği") iki kelimesiyle birlikte geçmeli:
+      // "havuzlar akşam 22:00'a kadar açık" akşam yemeği saati değildir.
+      const need = Math.min(minTerms, terms.length);
+      return terms.filter((term) => words.some((w) => suffixMatch(term, w))).length >= need;
+    });
+}
+
+/** Konu terimlerinden biri (ya da `all` ise hepsi) kartın başlığında ya da metninde geçiyor mu? */
+function subjectInEntry(terms: string[], entry: AiFactCatalogEntry, all = false): boolean {
+  const words = tokens(`${canonicalAmenityText(entry.title ?? "")} ${canonicalFactBody(entry)} ${canonicalAmenityText((entry.items ?? []).join(" "))}`);
+  const has = (term: string) => words.some((w) => suffixMatch(term, w));
+  return all ? terms.every(has) : terms.some(has);
 }
 
 const ATTRIBUTE_QUESTION =
@@ -765,6 +829,14 @@ export async function planServerTools(args: PlanArgs): Promise<ServerPlan> {
 }
 
 const MAX_COMPOUND_PARTS = 3;
+
+const PROMOTION_QUESTION =
+  /\b(kampanya\w*|indirim\w*|firsat\w*|promosyon\w*|erken rezervasyon\w*|kal\s*\d*\s*ode|aksiyon\w*|discount\w*|promotion\w*|deals?|offers?|special offers?)\b/;
+
+/** "Kampanyanız var mı?", "indirim var mı", "erken rezervasyon fırsatı" — tarihsiz kampanya sorusu. */
+export function isPromotionQuestion(message: string): boolean {
+  return PROMOTION_QUESTION.test(normalizeText(message));
+}
 /** Soru kalıbı: takip sorusunda yoksa önceki sorudan devralınır. */
 const QUESTION_FRAME =
   /\b(saat\w*|kacta|ne zaman|ne kadar|var mi|ucret\w*|kac derece|kabul\w*|izin\w*|what time|when|how much|how far|allowed|is there)\b/g;
@@ -824,6 +896,17 @@ async function planSingle(args: {
   const context = args.context ?? { previousUserTexts: [] };
   const navigation = hasNavigationIntent(message);
 
+  // Kampanya sorusu tarih/gece içermiyorsa kampanyaların kendisi anlatılır
+  // (koşullar, dönemler, son rezervasyon). Rezervasyon niyetinden önce
+  // bakılır: "erken rezervasyon indirimi var mı?" talep formu açmaz. Tarih
+  // verilmişse kampanyalı toplam fiyat getRoomPrice ile hesaplanır.
+  if (isPromotionQuestion(message) && args.catalog.some((e) => e.id === "promotions")) {
+    const promoAnalysis = analyzePriceMessage(message, args.rooms, args.today);
+    if (!hasStayDetails(promoAnalysis.query) && !promoAnalysis.nights) {
+      return { calls: [{ toolName: "citeFact", input: { factId: "promotions" } }] };
+    }
+  }
+
   // Yalnız anlam benzerliğine dayanan niyet, fiyat veya gezinme isteğini ezmez:
   // "Odaları görebilir miyim?" rezervasyon cümlelerine benzeyebilir.
   const wantsInquiry =
@@ -848,6 +931,7 @@ async function planSingle(args: {
 
   // Fiyat: açık fiyat sorusu ya da fiyat konuşmasının devamı ("Peki 3 kişi olursak?").
   const analysis = analyzePriceMessage(message, args.rooms, args.today);
+
   const priceDetails = analysis.query;
   const isFollowUp =
     !hints.needsPriceTool &&
@@ -932,19 +1016,63 @@ async function planSingle(args: {
     // kart cevabı içerdiğinden puan eşiği de aranmaz.
     const evidence = knownTopicEvidence(message);
     const topical = evidence ? args.catalog.filter((e) => evidence.test(`${e.title ?? ""} ${e.text}`)) : [];
-    const pick = await pickFact(message, args.messageEmbedding, topical.length ? topical : args.catalog, args.storedFactEmbeddings);
+    // Ayrıntı sorusu ("Kahvaltı saat kaçta?"): sorulan konu kartta geçmeli.
+    // Anlam puanı "saat" benzerliğiyle alakasız saat kartını ("Check-out
+    // saati: 12:00") eşiğin üstüne taşıyabiliyor; misafir cevap aldığını sanar.
+    const detailSubject =
+      !topical.length && ATTRIBUTE_QUESTION.test(normalizeText(message)) ? attributeSubjectTerms(message) : [];
+    const subjectNowhere =
+      !args.catalog.some((e) => subjectInEntry(detailSubject, e)) &&
+      !textsMentionAmenity(message, args.catalog.map((e) => `${e.title ?? ""} ${e.text} ${(e.items ?? []).join(" ")}`));
+    // Saat/derece soruldu, konu geçiyor ("Kahvaltı dahil") ama hiçbir kartta
+    // konuyla aynı satırda değer yok: model "aşağıda bulabilirsiniz" deyip
+    // alakasız kart gösteriyordu.
+    const valueNowhere =
+      asksValue(message) && !args.catalog.some((e) => subjectValueOnLine(message, detailSubject, e, 1));
+    if (detailSubject.length && !calls.length && !askDates && (subjectNowhere || valueNowhere)) {
+      return { calls: [], reply: "unknown" };
+    }
+    // Ayrıntı sorusunda adaylar konuyu içeren kartlardır; yoksa tüm katalog.
+    const subjectCards = detailSubject.length ? args.catalog.filter((e) => subjectInEntry(detailSubject, e)) : [];
+    // Saat/derece sorusunda önce cevabı satırında taşıyan kartlar aday olur.
+    const valueCards = asksValue(message) ? subjectCards.filter((e) => subjectValueOnLine(message, detailSubject, e)) : [];
+    const candidates = topical.length
+      ? topical
+      : valueCards.length
+        ? valueCards
+        : subjectCards.length
+          ? subjectCards
+          : args.catalog;
+    const pick = await pickFact(message, args.messageEmbedding, candidates, args.storedFactEmbeddings);
+    const pickedEntry = pick ? args.catalog.find((e) => e.id === pick.factId) : undefined;
+    // Konu ve sorulan değer kartın AYNI satırında ("07:00 - 10:00 | Sabah
+    // Kahvaltısı"): puan eşiği aranmaz, cevap kartın içinde.
+    const valueOnLine = Boolean(pickedEntry && subjectCards.length && subjectValueOnLine(message, detailSubject, pickedEntry));
     // Kelime eşleşmesi modunda (embedding yok) puan ölçeği farklı: iki konu
     // terimi eşleşmesi (≥0.45) + ipucu ya da terimin kart metninde geçmesi.
     const accepted =
       pick &&
       (topical.length > 0 ||
+        valueOnLine ||
         (!pick.semantic
           ? pick.score >= FACT_MIN_SCORE_WITH_HINT && (hints.needsFactTool || pick.textHits > 0)
           : hints.needsFactTool
             ? pick.score >= FACT_MIN_SCORE_WITH_HINT
             : pick.score >= FACT_MIN_SCORE_WITHOUT_HINT ||
               (pick.score >= FACT_MIN_SCORE_WITH_TEXT_MATCH && pick.textHits > 0)));
-    if (accepted) {
+    // Konu kartta yok ya da saat/derece soruldu ama kartta o satırda değer
+    // yok ("Kahvaltı saat kaçta?" → "kahvaltı dahil" yazan oda kartı).
+    const subjectMissing =
+      Boolean(pick) &&
+      detailSubject.length > 0 &&
+      (!subjectInEntry(detailSubject, pickedEntry!) ||
+        (asksValue(message) &&
+          !valueOnLine &&
+          // Zayıf kanıt: değer konunun bir kelimesiyle aynı satırda VE kart
+          // konunun tüm kelimelerini içeriyor ("38-40 derece … Termal" +
+          // kartta "havuz"). "Havuzlar akşam 22:00'a kadar" akşam yemeği değil.
+          !(subjectValueOnLine(message, detailSubject, pickedEntry!, 1) && subjectInEntry(detailSubject, pickedEntry!, true))));
+    if (accepted && !subjectMissing) {
       // Oda kartı seçildi ama mesajda başka bir odanın tam adı geçiyor: o oda.
       const named = pick.factId.startsWith("room.") ? roomNamedInMessage(message, args.rooms) : undefined;
       const namedFact = named && args.catalog.find((e) => e.id === `room.${named}.info`);

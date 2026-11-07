@@ -22,6 +22,8 @@ vi.mock("ai", async () => ({
   // Gerçek SDK'daki gibi bir stop koşulu nesnesi döndürmesi yeterli —
   // testler streamText'e GEÇİLEN argümanları doğruluyor.
   stepCountIs: (n: number) => ({ __stopAfter: n }),
+  // Model sarmalayıcısı (yedek model, geciken isteği tekrarlama) bu testlerin konusu değil.
+  wrapLanguageModel: ({ model }: { model: unknown }) => model,
 }));
 
 vi.mock("@ai-sdk/google", () => ({
@@ -349,7 +351,8 @@ describe("POST /api/tour/chat", () => {
     await POST(
       makeRequest({
         ...baseBody,
-        messages: [{ role: "user", content: "Merhaba, havuz nerede?" }],
+        // Bilgi sorusu değil: sunucu turu olmadan model konuşur.
+        messages: [{ role: "user", content: "Merhaba, bize biraz bu tesisten bahseder misiniz?" }],
       }),
     );
     const call = streamTextMock.mock.calls[0][0] as { system: string };
@@ -478,6 +481,21 @@ describe("POST /api/tour/chat", () => {
       "aurelia-bay",
       null,
     );
+  });
+
+  it("'Kendin dene' sohbeti ziyaretçi başına 3 soruda durur", async () => {
+    const ip = "8.8.8.1";
+    const demoBody = { ...baseBody, demo: true, visitId: "11111111-1111-4111-8111-111111111111" };
+    const statuses: number[] = [];
+    for (let i = 0; i < 4; i++) statuses.push((await POST(makeRequest(demoBody, ip))).status);
+    expect(statuses.slice(0, 3)).not.toContain(429);
+    expect(statuses[3]).toBe(429);
+    // Aynı IP'deki başka ziyaretçi (ortak ağ) kendi hakkını kullanabilir.
+    const other = await POST(makeRequest({ ...demoBody, visitId: "22222222-2222-4222-8222-222222222222" }, ip));
+    expect(other.status).not.toBe(429);
+    // Demo bayrağı olmayan normal sohbet bu sınırdan etkilenmez.
+    const normal = await POST(makeRequest(baseBody, ip));
+    expect(normal.status).not.toBe(429);
   });
 
   it("hız sınırı aşıldığında 429 ve Türkçe mesaj döner", async () => {

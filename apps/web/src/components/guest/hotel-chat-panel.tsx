@@ -19,7 +19,14 @@ export interface HotelChatPanelProps {
   inquiryPath: string;
   /** Otelin verisinden üretilen hazır sorular (bkz. hotelChatStarters). */
   starterQuestions: string[];
-  onClose: () => void;
+  /** Verilmezse panelde kapatma düğmesi gösterilmez (sayfaya gömülü kullanım). */
+  onClose?: () => void;
+  /** "Kendin dene" sohbeti: sunucu tarafında demo sınırı uygulanır. */
+  demo?: boolean;
+  /** Bu kadar sorudan sonra yeni soru gönderilmez, otel sayfasına yönlendirilir. */
+  questionLimit?: number;
+  /** Sınır dolunca gösterilen "sohbete devam" bağlantısı. */
+  continueHref?: string;
 }
 
 /**
@@ -32,8 +39,16 @@ export default function HotelChatPanel({
   inquiryPath,
   starterQuestions,
   onClose,
+  demo = false,
+  questionLimit,
+  continueHref,
 }: HotelChatPanelProps) {
-  const { messages, isThinking, detectedLanguage, inquiryOffer, sendMessage } = useHotelChat({ hotelSlug });
+  const { messages, isThinking, detectedLanguage, inquiryOffer, sendMessage: send, questionCount } = useHotelChat({
+    hotelSlug,
+    demo,
+  });
+  const limitReached = questionLimit !== undefined && questionCount >= questionLimit;
+  const sendMessage = (text: string) => (limitReached ? Promise.resolve() : send(text));
 
   const inquiryHref = (() => {
     const params = new URLSearchParams({ hotel: hotelSlug, source: "hotel_chat" });
@@ -52,9 +67,18 @@ export default function HotelChatPanel({
       detectedLanguage={detectedLanguage}
       onSendMessage={(text) => void sendMessage(text)}
       onChipClick={(chip) => void sendMessage(chip)}
-      headerAction={<CloseButton onClick={onClose} aria-label="Sohbeti kapat" />}
+      headerAction={onClose ? <CloseButton onClick={onClose} aria-label="Sohbeti kapat" /> : undefined}
       aboveInput={
-        inquiryOffer && !isThinking ? (
+        limitReached && !isThinking ? (
+          <Text size="sm" style={{ color: "var(--er-text-muted)" }}>
+            Deneme hakkınız doldu.{" "}
+            {continueHref ? (
+              <Link href={continueHref} style={{ color: "var(--er-primary)", fontWeight: 600 }}>
+                Sohbete {hotelName} sayfasında devam edin →
+              </Link>
+            ) : null}
+          </Text>
+        ) : inquiryOffer && !isThinking ? (
           <Link href={inquiryHref} className="er-btn er-btn-cta er-btn-block" style={{ minHeight: 40 }}>
             Talep formunu aç
           </Link>

@@ -379,8 +379,15 @@ export function useTourGuide({
     }
   }, [chatMessages, manifest, onOpenInquiry, showInquiryBlockedMessage]);
 
+  const inFlightRef = useRef(false);
+  // Bekleyen tetik yalnız argümanlarıyla saklanır; gönderilirken güncel
+  // trigger (güncel stepsSeen / adım) kullanılır.
+  const pendingTriggerRef = useRef<[TriggerReason, string | undefined, string | undefined] | null>(null);
+  const triggerRef = useRef<((reason: TriggerReason, userMessage?: string, stepIdOverride?: string) => Promise<void>) | null>(null);
+  const tourStartSentRef = useRef(false);
+
   const trigger = useCallback(
-    async (reason: TriggerReason, userMessage?: string, stepIdOverride?: string) => {
+    async (reason: TriggerReason, userMessage?: string, stepIdOverride?: string): Promise<void> => {
       if (reason !== "userMessage" && !isAutoTourRef.current && nudgeCountRef.current >= maxNudges)
         return;
 
@@ -412,16 +419,36 @@ export function useTourGuide({
         );
       }
 
-      if (reason === "userMessage" && userMessage) {
-        lastUserMessageRef.current = userMessage;
-        await chatSendMessage({ text: userMessage }, { body });
-      } else {
-        await chatSendMessage({ text: "[HIDDEN]" }, { body });
-        setNudgeCount((n) => n + 1);
+      // Aynı anda tek istek: AI SDK eşzamanlı ikinci isteği desteklemez
+      // (önceki yanıtın durumu silinir, "reading 'state'" hatası ve çift
+      // mesaj). Yanıt sürerken gelen otomatik tetik bekletilir; yalnız en
+      // sonuncusu, istek bitince gönderilir (adım değişimi arka arkaya
+      // stepEnd + stepStart üretir, eskisini anlatmanın anlamı yok).
+      if (inFlightRef.current) {
+        if (reason !== "userMessage") pendingTriggerRef.current = [reason, userMessage, stepIdOverride];
+        return;
+      }
+      inFlightRef.current = true;
+      try {
+        if (reason === "userMessage" && userMessage) {
+          lastUserMessageRef.current = userMessage;
+          await chatSendMessage({ text: userMessage }, { body });
+        } else {
+          await chatSendMessage({ text: "[HIDDEN]" }, { body });
+          setNudgeCount((n) => n + 1);
+        }
+      } finally {
+        inFlightRef.current = false;
+        const next = pendingTriggerRef.current;
+        pendingTriggerRef.current = null;
+        if (next && isMountedRef.current) void triggerRef.current?.(...next);
       }
     },
     [chatSendMessage, currentStep?.stepId, getCompletionMeta, manifest, maxNudges, stepsSeen],
   );
+  useEffect(() => {
+    triggerRef.current = trigger;
+  }, [trigger]);
 
   const CHIP_REJECTION_LIMIT = 2;
 
@@ -505,7 +532,11 @@ export function useTourGuide({
   );
 
   useEffect(() => {
-    void trigger("tourStart");
+    // StrictMode etkiyi iki kez çalıştırır; karşılama yalnız bir kez istenir.
+    if (!tourStartSentRef.current) {
+      tourStartSentRef.current = true;
+      void trigger("tourStart");
+    }
     resetIdleTimer();
 
     return () => {

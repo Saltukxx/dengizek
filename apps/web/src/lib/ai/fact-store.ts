@@ -13,6 +13,8 @@ import { boardTypeLabels } from "@/lib/schemas/hotel-content";
 import type { AiFactCard, AiFactCatalogEntry, AiFactQueryResult } from "@/lib/ai/types";
 import { FACT_KIND_LABELS } from "@/lib/ai/types";
 import { chunkFactText } from "@/lib/ai/fact-chunks";
+import { groupedPromotionDisplays } from "@/lib/promotion-display";
+import { todayIso } from "@/lib/price";
 
 /** Oda açıklama kartının en fazla uzunluğu (kart misafire gösterilir). */
 const ROOM_DETAILS_MAX_CHARS = 900;
@@ -183,6 +185,33 @@ async function buildFactCatalogUncached(
       hint: `${extra.name} ek hizmet`,
       title: extra.name,
       text: `Ek hizmet: ${extra.name}${extra.unitLabel ? ` (${extra.unitLabel})` : ""}.`,
+    });
+  }
+
+  // Kampanyalar: otel sayfasındaki kampanya bölümüyle aynı anlatım. Kampanya
+  // yoksa bu da açıkça yazılır — rehber kampanya uydurmasın.
+  {
+    const today = todayIso();
+    const roomNames = Object.fromEntries(content.rooms.map((room) => [room.id, room.name]));
+    const cards = groupedPromotionDisplays(content.promotions, today, roomNames);
+    entries.push({
+      id: "promotions",
+      kind: "verified",
+      hint: "kampanya indirim fırsat promosyon erken rezervasyon kal öde",
+      title: "Kampanyalar",
+      text: cards.length
+        ? `Evet, şu an ${cards.length === 1 ? "bir" : cards.length} kampanya var: ${cards.map((c) => `${c.name} (${c.headline})`).join(", ")}. ${cards
+            .map((c) => {
+              const periods = c.periods
+                .filter((x) => x.label || x.bookableTo)
+                .map((x) => [x.label, x.bookableTo ? `son rezervasyon ${x.bookableTo}` : null].filter(Boolean).join(", "))
+                .join("; ");
+              return [`${c.name}: ${c.conditions.join("; ")}`, periods ? `Dönem: ${periods}` : null, c.limited ? "Kontenjanla sınırlı" : null]
+                .filter(Boolean)
+                .join(". ");
+            })
+            .join(" · ")}. Kampanyalar birleştirilmez; uygun tarih ve gece sayısında fiyata kendiliğinden uygulanır.`
+        : "Şu an yayında bir kampanya yok.",
     });
   }
 

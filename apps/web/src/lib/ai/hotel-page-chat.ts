@@ -17,6 +17,9 @@ import type { TourManifest } from "@/lib/schemas/tour-manifest";
 export const HOTEL_PAGE_TOUR_ID = "_otel-sayfasi";
 export const HOTEL_PAGE_STEP_ID = "s1";
 
+/** "Kendin dene" (pazarlama sayfası) sohbetinde ziyaretçi başına saatlik soru hakkı. */
+export const DEMO_QUESTION_LIMIT = 3;
+
 export function isHotelPageChat(tourId: string): boolean {
   return tourId === HOTEL_PAGE_TOUR_ID;
 }

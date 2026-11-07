@@ -14,6 +14,9 @@ const TURKISH_STOPWORDS = new Set([
   "var", "yok", "ne", "nerede", "nasıl", "hangi", "kim", "kaça", "kaç",
   "merhaba", "teşekkür", "teşekkürler", "evet", "hayır", "lütfen", "misiniz",
   "musunuz", "istiyorum", "otel", "oda", "saat", "kadar", "nedir",
+  // Türkçe'ye özgü harf taşımayan sık soru kelimeleri ("Check-out saati kaçta?").
+  "saati", "saatleri", "kaçta", "zaman", "açık", "fiyat", "fiyatı", "fiyatlar",
+  "havuz", "havuzu", "odalar", "giriş", "çıkış", "ücret", "ücretli", "ücretsiz",
 ]);
 
 const ENGLISH_STOPWORDS = new Set([

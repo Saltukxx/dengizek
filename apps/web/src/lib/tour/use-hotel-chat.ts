@@ -10,6 +10,8 @@ import { getVisitId } from "@/lib/visit-client";
 
 interface UseHotelChatOptions {
   hotelSlug: string;
+  /** Pazarlama sayfasındaki "Kendin dene" sohbeti — sunucu ayrı, sıkı bir sınır uygular. */
+  demo?: boolean;
 }
 
 /** Rehberin önerdiği talep formu — misafir isterse açar (otomatik yönlendirme yok). */
@@ -22,7 +24,7 @@ export interface InquiryOffer {
  * Tur rehberinden farkı: yalnız misafir yazdığında istek gider; açılış
  * anlatımı, boşta dürtme ve otomatik tur yoktur.
  */
-export function useHotelChat({ hotelSlug }: UseHotelChatOptions) {
+export function useHotelChat({ hotelSlug, demo = false }: UseHotelChatOptions) {
   const [errorMessages, setErrorMessages] = useState<GuideMessage[]>([]);
   const [detectedLanguage, setDetectedLanguage] = useState<string | undefined>(undefined);
 
@@ -78,15 +80,18 @@ export function useHotelChat({ hotelSlug }: UseHotelChatOptions) {
             isAutoTour: false,
             browserLocale: typeof navigator !== "undefined" ? navigator.language : undefined,
             visitId: getVisitId(),
+            ...(demo ? { demo: true } : {}),
           },
         },
       );
     },
-    [chatSendMessage, hotelSlug, isThinking],
+    [chatSendMessage, demo, hotelSlug, isThinking],
   );
 
   return {
     messages: [...toGuideMessages(chatMessages), ...errorMessages],
+    /** Misafirin gönderdiği soru sayısı (demo sınırı için). */
+    questionCount: chatMessages.filter((m) => m.role === "user").length,
     isThinking,
     detectedLanguage,
     inquiryOffer,

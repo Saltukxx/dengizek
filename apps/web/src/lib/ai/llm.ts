@@ -11,6 +11,7 @@
 
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { APICallError, wrapLanguageModel, type EmbeddingModel, type LanguageModel } from "ai";
+import { hedgeAfterMs, hedgedStream } from "./hedged-stream";
 
 /**
  * Ekim 2026 ölçümü (aynı prompt, 3 deneme): 3.1 Flash-Lite ~1 sn, 3.5
@@ -82,8 +83,10 @@ export function getChatModel(): LanguageModel | null {
   if (!provider) return null;
   const primary = provider.languageModel(chatModelId());
   const fallbackId = fallbackModelId();
-  if (!fallbackId) return primary;
-  const fallback = provider.languageModel(fallbackId);
+  const fallback = fallbackId ? provider.languageModel(fallbackId) : null;
+  // Akışta ana model geç yanıt verirse istek bir kez tekrarlanır (bkz. hedged-stream).
+  const hedgeMs = hedgeAfterMs();
+  if (!fallback && !hedgeMs) return primary;
 
   return wrapLanguageModel({
     model: primary,
@@ -93,16 +96,18 @@ export function getChatModel(): LanguageModel | null {
         try {
           return await doGenerate();
         } catch (error) {
-          if (!shouldFallBack(error)) throw error;
+          if (!fallback || !shouldFallBack(error)) throw error;
           console.warn(`[llm] ${chatModelId()} başarısız, ${fallbackId} deneniyor:`, (error as Error).message);
           return fallback.doGenerate(params);
         }
       },
       wrapStream: async ({ doStream, params }) => {
         try {
-          return await doStream();
+          return await hedgedStream(doStream, hedgeMs, () =>
+            console.warn(`[llm] ${chatModelId()} ${hedgeMs} ms içinde yanıt vermedi, istek tekrarlandı`),
+          );
         } catch (error) {
-          if (!shouldFallBack(error)) throw error;
+          if (!fallback || !shouldFallBack(error)) throw error;
           console.warn(`[llm] ${chatModelId()} başarısız, ${fallbackId} deneniyor:`, (error as Error).message);
           return fallback.doStream(params);
         }

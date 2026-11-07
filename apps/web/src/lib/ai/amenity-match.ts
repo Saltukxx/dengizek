@@ -56,7 +56,8 @@ const CANONICAL: Array<[RegExp, string]> = [
   [/\b(safe box|safety box|in ?room safe|kasa\w*)\b/g, "kasa"],
   [/\b(minibar|mini bar)\b/g, "minibar"],
   // Çocuk
-  [/\b(kids'? club|kids club|mini ?club|junior club|cocuk kulub\w*)\b/g, "cocuk kulubu"],
+  // "klüb" yaygın yazımı da dahil ("Çocuk klübü").
+  [/\b(kids'? club|kids club|mini ?club|junior club|cocuk k(?:u)?lub\w*)\b/g, "cocuk kulubu"],
   [/\b(playground|play area|oyun alan\w*)\b/g, "oyun alani"],
   [/\b(animation|entertainment|animasyon\w*)\b/g, "animasyon"],
   [/\b(kids|children|childrens|cocuklar\w*)\b/g, "cocuk"],

@@ -198,3 +198,13 @@ describe("birden fazla kart", () => {
     ).toBe("Check-in saati: 14:00. Evcil hayvan kabul edilmez. Ayrıntılar kartlarda.");
   });
 });
+
+describe("değer sorusunda cevap cümlesi", () => {
+  it("'saat' kelimesi yüzünden başka saat satırını seçmez", () => {
+    const card = {
+      title: "Yeme - İçme",
+      text: "Sabah kahvaltısı ve akşam yemeği ana restoranda açık büfe olarak servis edilir.\n07:00 - 10:00 | Sabah Kahvaltısı (Açık Büfe)\n16:00 - 17:00 | Çay Saati / Break Ara İkramlar\n19:00 - 21:30 | Akşam Yemeği (Açık Büfe)",
+    };
+    expect(cardAnswerSentence(card, "Kahvaltı saat kaçta?")).toBe("07:00 - 10:00 | Sabah Kahvaltısı (Açık Büfe)");
+  });
+});

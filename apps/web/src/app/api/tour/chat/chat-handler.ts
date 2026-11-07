@@ -24,7 +24,10 @@ import {
 import type { AiFactCatalogEntry } from "@/lib/ai/types";
 import type { CompletionState } from "@/lib/ai/completion-engine";
 import { getHotelIdBySlug, getPublishedHotelBySlug, getPublishedHotelContent } from "@/lib/hotels-repo";
-import { hotelPageManifest, isHotelPageChat } from "@/lib/ai/hotel-page-chat";
+import { DEMO_QUESTION_LIMIT, hotelPageManifest, isHotelPageChat } from "@/lib/ai/hotel-page-chat";
+
+/** "Kendin dene": aynı IP'den saatlik toplam demo sorusu (ortak IP'li ağlar için). */
+const DEMO_IP_HOURLY_LIMIT = 20;
 import { visitIdSchema } from "@/lib/schemas/analytics";
 import { trackEvent } from "@/lib/analytics";
 import { checkAiBudget } from "@/lib/ai/budget";
@@ -148,6 +151,8 @@ export const requestSchema = z.object({
   // Anonim ziyaret kimliği — soru kaydını aynı ziyaretin tur ve talep
   // olaylarına bağlar (bkz. @/lib/visit-client). Yetki/karar için kullanılmaz.
   visitId: visitIdSchema.optional(),
+  // Pazarlama sayfasındaki "Kendin dene" sohbeti — ayrı, sıkı IP sınırı.
+  demo: z.boolean().optional(),
 });
 
 export type ChatRequest = z.infer<typeof requestSchema>;
@@ -808,6 +813,24 @@ export async function POST(req: Request) {
     (parsed.data.triggerReason !== "userMessage" || parsed.data.isAutoTour)
   ) {
     return NextResponse.json({ ok: false, error: "Geçersiz istek" }, { status: 400 });
+  }
+
+  // "Kendin dene" (genel sınıra ek olarak): ziyaretçi başına saatte
+  // DEMO_QUESTION_LIMIT soru; ziyaret kimliği istemcide üretildiğinden
+  // maliyeti asıl IP kovası sınırlar (ortak IP'li ofisler için daha geniş).
+  if (parsed.data.demo) {
+    const ip = requestIp(req);
+    const hour = 60 * 60 * 1000;
+    const visitorOk = await checkRateLimit(`${ip}:${parsed.data.visitId ?? "-"}`, {
+      name: "chat-demo-visitor",
+      windowMs: hour,
+      limit: DEMO_QUESTION_LIMIT,
+      failClosed: true,
+    });
+    const ipOk =
+      visitorOk &&
+      (await checkRateLimit(ip, { name: "chat-demo-ip", windowMs: hour, limit: DEMO_IP_HOURLY_LIMIT, failClosed: true }));
+    if (!visitorOk || !ipOk) return apiRateLimited();
   }
 
   // IP limitine ek otel-kapsamlı kova: dağıtık IP'lerle (NAT, rotasyon) tek

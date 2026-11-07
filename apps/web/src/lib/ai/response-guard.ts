@@ -363,9 +363,18 @@ function priceTurnText(result: AiPriceQueryResult | null, en: boolean): string {
         ? " Child rates depend on age — tell me the children's ages and I'll add them."
         : " Çocuk ücreti yaşa göre değişiyor; çocukların yaşlarını yazarsanız ekleyeyim."
       : "";
+  // Kampanya uygulandıysa misafire açıkça söylenir (kart satırı: "Kampanya").
+  const campaigns = [
+    ...new Set(result.cards.flatMap((c) => c.lines.filter((l) => l.label === "Kampanya").map((l) => l.value.split(":")[0]!.trim()))),
+  ];
+  const campaignNote = campaigns.length
+    ? en
+      ? ` Campaign applied: ${campaigns.join(", ")} — the card shows the discounted total.`
+      : ` Kampanya uygulandı: ${campaigns.join(", ")}; kartta indirimli toplam yazıyor.`
+    : "";
   return en
-    ? `Prices for ${subject} are on the card. ${tail}${ageNote}`
-    : `${subject.charAt(0).toLocaleUpperCase("tr-TR")}${subject.slice(1)} için fiyatlar kartta. ${tail}${ageNote}`;
+    ? `Prices for ${subject} are on the card.${campaignNote} ${tail}${ageNote}`
+    : `${subject.charAt(0).toLocaleUpperCase("tr-TR")}${subject.slice(1)} için fiyatlar kartta.${campaignNote} ${tail}${ageNote}`;
 }
 
 const ASK_DATES_TEXT = {
@@ -568,10 +577,20 @@ export function cardAnswerSentence(card: { title?: string; text: string }, quest
   return textContainsPriceLikeContent(sentence, { hadPriceTool: true }) ? "" : sentence;
 }
 
+/**
+ * Değer sorusu (saat / derece): "saat" kelimesi konu sayılmaz ("Kahvaltı saat
+ * kaçta?" → "Çay Saati" satırı değil), değeri taşıyan konu satırı öne geçer.
+ */
+const VALUE_QUESTIONS: Array<{ ask: RegExp; frame: RegExp; value: RegExp }> = [
+  { ask: /\b(kacta|saat kac|saatleri|ne zaman|kaca kadar|what time|hours)\b/, frame: /^(saat|kacta|zaman)/, value: /\d{1,2}[:.]\d{2}/ },
+  { ask: /\b(kac derece|derece|sicaklik\w*|temperature|how warm)\b/, frame: /^(derece|sicaklik)/, value: /\d{2}\s*(?:[-–]\s*\d{2}\s*)?(?:°|derece)/i },
+];
+
 function bestCardSentence(card: { title?: string; text: string }, question: string): string {
+  const valueAsk = VALUE_QUESTIONS.find((v) => v.ask.test(normalizeText(question)));
   // Her soru kelimesi eş anlamlılarıyla tek grup: bir kelime en fazla bir kez sayılır.
   const groups = tokens(question)
-    .filter((t) => t.length >= 4 && !FRAME_WORDS.test(t))
+    .filter((t) => t.length >= 4 && !FRAME_WORDS.test(t) && !(valueAsk && valueAsk.frame.test(t)))
     .map((t) => [t, ...(synonymsOf(t) ?? [])]);
   const hits = (value: string) => {
     const words = tokens(value);
@@ -593,7 +612,12 @@ function bestCardSentence(card: { title?: string; text: string }, question: stri
   });
   const score = (value: string) => {
     const words = tokens(value);
-    return groups.reduce((sum, group, i) => (group.some((term) => words.some((w) => sameRoot(term, w))) ? sum + groupWeight[i]! : sum), 0);
+    const subject = groups.reduce((sum, group, i) => (group.some((term) => words.some((w) => sameRoot(term, w))) ? sum + groupWeight[i]! : sum), 0);
+    if (!(subject > 0 && valueAsk?.value.test(value))) return subject;
+    // Konu + sorulan değer aynı cümlede: cevabın kendisi. Sorudaki kelimenin
+    // kendisi eş anlamlısından öne geçer ("kahvaltı" satırı, "yemek" değil).
+    const literal = groups.filter((group) => words.some((w) => sameRoot(group[0]!, w))).length;
+    return subject + 1 + literal * 0.01;
   };
   const best = sentences.reduce((a, b) => (score(b) > score(a) ? b : a), sentences[0]!);
 
