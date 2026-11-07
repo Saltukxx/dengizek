@@ -27,7 +27,7 @@ test.describe("WCAG 2.1 AA kalite kapısı", () => {
   test.describe.configure({ timeout: 180_000 });
 
   test("kritik misafir ve kış sayfalarında serious/critical ihlal yok", async ({ page }) => {
-    for (const path of ["/", "/browse", "/kis", "/kis/oteller", "/inquiry"]) {
+    for (const path of ["/", "/browse", "/kis", "/kis/oteller", "/termal", "/termal/oteller", "/inquiry"]) {
       await assertNoSeriousViolations(page, path);
     }
   });

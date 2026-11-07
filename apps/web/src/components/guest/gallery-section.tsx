@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element */
+import Image from "next/image";
 
 interface GalleryImage {
   url: string;
@@ -10,10 +10,12 @@ const PREVIEW_COUNT = 8;
 
 function Thumb({ img, index }: { img: GalleryImage; index: number }) {
   return (
-    <img
+    <Image
       src={img.url}
       alt={img.caption ?? `Galeri ${index + 1}`}
-      loading="lazy"
+      width={480}
+      height={360}
+      sizes="(max-width: 768px) 50vw, 260px"
       className="er-gallery-thumb"
     />
   );

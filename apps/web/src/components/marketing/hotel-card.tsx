@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { IconPlayerPlayFilled } from "@tabler/icons-react";
+import { IconPlayerPlayFilled, IconRosetteDiscount } from "@tabler/icons-react";
 import type { HotelMock } from "@/lib/mocks/hotels";
 import { amenityLabel, highlightAmenityKeys } from "@/lib/amenities-catalog";
 import { formatPrice } from "@/lib/price";
@@ -8,6 +8,8 @@ import { formatPrice } from "@/lib/price";
 type HotelCardProps = {
   hotel: HotelMock;
   href?: string;
+  /** Kartın ekranda kapladığı genişlik (next/image). Mobil rayda ~%82. */
+  sizes?: string;
   /** Yayındaki yorumların ortalaması (1–5) — yorum yoksa gösterilmez. */
   reviewAverage?: number | null;
   reviewCount?: number;
@@ -20,6 +22,8 @@ type HotelCardProps = {
   currency?: string;
   /** Yayında video turu olan tesislerde görselin üzerinde rozet çıkar. */
   hasTour?: boolean;
+  /** Geçerli kampanya ("4 kal 3 öde", "%15 indirim") — görselin üzerinde gösterilir. */
+  promotionBadge?: string | null;
 };
 
 function highlightAmenities(values: string[]): string[] {
@@ -33,6 +37,7 @@ function highlightAmenities(values: string[]): string[] {
 export function HotelCard({
   hotel,
   href = `/hotels/${hotel.slug}`,
+  sizes = "(max-width: 768px) 82vw, (max-width: 1280px) 50vw, 420px",
   reviewAverage,
   reviewCount = 0,
   starRating,
@@ -40,6 +45,7 @@ export function HotelCard({
   minPriceMinor,
   currency = "TRY",
   hasTour = false,
+  promotionBadge = null,
 }: HotelCardProps) {
   const hasReviews = reviewAverage != null && reviewCount > 0;
   const priceAmount =
@@ -59,7 +65,7 @@ export function HotelCard({
             src={hotel.imageUrl}
             alt=""
             fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 420px"
+            sizes={sizes}
             style={{ objectFit: "cover" }}
           />
         ) : null}
@@ -67,6 +73,15 @@ export function HotelCard({
           <span className="er-tour-badge">
             <IconPlayerPlayFilled size={12} aria-hidden />
             Video tur
+          </span>
+        ) : null}
+        {promotionBadge ? (
+          <span className="er-promo-badge">
+            <IconRosetteDiscount size={14} aria-hidden />
+            <span>
+              <span className="er-visually-hidden">Kampanya: </span>
+              {promotionBadge}
+            </span>
           </span>
         ) : null}
       </div>

@@ -45,6 +45,16 @@ describe("matchesSeason", () => {
     expect(matchesSeason(["yaz"], "kis")).toBe(false);
   });
 
+  it("termal vitrini yalnızca termal seçilmiş tesisleri kabul eder; termal tesis yazda görünmez", async () => {
+    const { matchesSeason } = await import("@/lib/hotels-repo");
+    expect(matchesSeason(["termal"], "termal")).toBe(true);
+    expect(matchesSeason([], "termal")).toBe(false);
+    expect(matchesSeason(["kis"], "termal")).toBe(false);
+    expect(matchesSeason(["termal"], "yaz")).toBe(false);
+    expect(matchesSeason(["termal"], "kis")).toBe(false);
+    expect(matchesSeason(["kis", "termal"], "kis")).toBe(true);
+  });
+
   it("iki sezonlu tesis her iki listede de görünür", async () => {
     const { matchesSeason } = await import("@/lib/hotels-repo");
     expect(matchesSeason(["yaz", "kis"], "yaz")).toBe(true);

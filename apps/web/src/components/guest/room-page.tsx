@@ -1,9 +1,10 @@
-/* eslint-disable @next/next/no-img-element */
+import Image from "next/image";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   IconBed,
+  IconChevronRight,
   IconEye,
   IconRulerMeasure,
   IconUsers,
@@ -13,6 +14,7 @@ import { getPublishedHotelContent, getPublishedRoom, getPublishedTours, matchesS
 import { amenityLabel } from "@/lib/amenities-catalog";
 import { guestShareMeta } from "@/lib/guest-seo";
 import { guestPaths, type GuestSurface } from "@/lib/guest-surface";
+import { PageBanner } from "@/components/guest/page-banner";
 import { resolveGuestRoomPrice } from "@/lib/guest-pricing";
 import {
   applyDiscount,
@@ -34,9 +36,9 @@ export async function generateRoomMetadata(
   const { slug, roomSlug } = await params;
   const r = await getPublishedRoom(slug, roomSlug);
   if (!r) return { title: "Oda" };
-  if (surface === "kis") {
+  if (surface !== "yaz") {
     const content = await getPublishedHotelContent(slug);
-    if (!matchesSeason(content.specs.seasons, "kis")) return { title: "Oda" };
+    if (!matchesSeason(content.specs.seasons, surface)) return { title: "Oda" };
   }
   return guestShareMeta({
     title: `${r.room.name} — ${r.hotel.name}`,
@@ -49,9 +51,9 @@ export async function RoomPage({ params, surface = "yaz" }: RoomPageProps) {
   const { slug, roomSlug } = await params;
   const data = await getPublishedRoom(slug, roomSlug);
   if (!data) notFound();
-  if (surface === "kis") {
+  if (surface !== "yaz") {
     const content = await getPublishedHotelContent(slug);
-    if (!matchesSeason(content.specs.seasons, "kis")) notFound();
+    if (!matchesSeason(content.specs.seasons, surface)) notFound();
   }
   const { hotel, room, promotions, ratePlanPrices } = data;
   const paths = guestPaths(surface);
@@ -96,38 +98,39 @@ export async function RoomPage({ params, surface = "yaz" }: RoomPageProps) {
       : null;
 
   return (
-    <div className="er-container" style={{ paddingBlock: "clamp(32px, 5vw, 64px)" }}>
+    <>
+      <PageBanner
+        overlap
+        before={
+          <nav aria-label="Sayfa yolu" className="pb-crumbs">
+            <Link href={paths.browse}>Oteller</Link>
+            <IconChevronRight size={13} aria-hidden />
+            <Link href={paths.hotel(hotel.slug)}>{hotel.name}</Link>
+            <IconChevronRight size={13} aria-hidden />
+            <span>{room.name}</span>
+          </nav>
+        }
+        eyebrow={room.tagline || undefined}
+        title={room.name}
+      >
+        {features.length > 0 && (
+          <div className="pb-meta">
+            {features.map((f) => (
+              <span key={f.label} className="pb-meta-item">
+                <f.icon size={16} aria-hidden />
+                {f.label}
+              </span>
+            ))}
+          </div>
+        )}
+      </PageBanner>
+    <div className="er-container" style={{ paddingBottom: "clamp(32px, 5vw, 64px)" }}>
       {/* Oda görüntüleme olayı — panel analitiğinde oda bazlı ilgi */}
       <ViewTracker
         eventType="room_view"
         hotelSlug={slug}
         payload={{ roomSlug, hasTour: Boolean(roomTour) }}
       />
-
-      {/* Breadcrumb */}
-      <nav
-        style={{
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          fontFamily: "var(--er-font-sans)",
-          fontSize: 12,
-          fontWeight: 600,
-          letterSpacing: "0.14em",
-          textTransform: "uppercase",
-          marginBottom: 32,
-        }}
-      >
-        <Link href={paths.browse} style={{ color: "var(--er-text-dim)", textDecoration: "none" }}>
-          Keşfet
-        </Link>
-        <span style={{ color: "var(--er-line-strong)" }}>/</span>
-        <Link href={paths.hotel(hotel.slug)} style={{ color: "var(--er-text-dim)", textDecoration: "none" }}>
-          {hotel.name}
-        </Link>
-        <span style={{ color: "var(--er-line-strong)" }}>/</span>
-        <span style={{ color: "var(--er-primary)" }}>{room.name}</span>
-      </nav>
 
       {/* Hero image */}
       <div
@@ -140,11 +143,15 @@ export async function RoomPage({ params, surface = "yaz" }: RoomPageProps) {
           marginBottom: "clamp(28px, 4vw, 48px)",
           border: "1px solid var(--er-line)",
         }}
+        className="pb-lift"
       >
-        <img
+        <Image
           src={room.imageUrl || hotel.imageUrl}
           alt={room.name}
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+          fill
+          priority
+          sizes="(max-width: 1280px) 100vw, 1200px"
+          style={{ objectFit: "cover" }}
         />
         {/* Gradient overlay */}
         <div
@@ -160,27 +167,6 @@ export async function RoomPage({ params, surface = "yaz" }: RoomPageProps) {
       <div className="er-room-layout">
         {/* Left: copy */}
         <div>
-          {/* Tagline badge */}
-          <p
-            style={{
-              margin: "0 0 14px",
-              fontFamily: "var(--er-font-sans)",
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: "0.22em",
-              textTransform: "uppercase",
-              color: "var(--er-primary)",
-            }}
-          >
-            {room.tagline}
-          </p>
-
-          <h1 className="er-display er-h1" style={{ margin: "0 0 20px" }}>
-            {room.name}
-          </h1>
-
-          
-
           <p
             style={{
               margin: 0,
@@ -193,38 +179,6 @@ export async function RoomPage({ params, surface = "yaz" }: RoomPageProps) {
           >
             {room.description}
           </p>
-
-          {features.length > 0 && (
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 18,
-                marginTop: 28,
-                color: "var(--er-text-muted)",
-                fontFamily: "var(--er-font-sans)",
-                fontSize: 14,
-              }}
-            >
-              {features.map((f) => (
-                <span
-                  key={f.label}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "8px 16px",
-                    borderRadius: "var(--er-radius-pill)",
-                    border: "1px solid var(--er-line)",
-                    background: "var(--er-surface-2)",
-                  }}
-                >
-                  <f.icon size={16} color="var(--er-primary)" />
-                  {f.label}
-                </span>
-              ))}
-            </div>
-          )}
 
           {room.amenities.length > 0 && (
             <div style={{ marginTop: 28 }}>
@@ -469,5 +423,6 @@ export async function RoomPage({ params, surface = "yaz" }: RoomPageProps) {
         </div>
       </div>
     </div>
+    </>
   );
 }

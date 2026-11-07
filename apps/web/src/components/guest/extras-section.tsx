@@ -1,8 +1,8 @@
-/* eslint-disable @next/next/no-img-element */
 // ---------------------------------------------------------------------------
 // Misafir ekstra hizmetler bölümü — transfer, spa, romantik paketler...
 // ---------------------------------------------------------------------------
 
+import Image from "next/image";
 import type { Extra } from "@/lib/db/schema";
 import { extraCategoryLabels } from "@/lib/schemas/hotel-content";
 import { formatPrice } from "@/lib/price";
@@ -41,9 +41,12 @@ export function ExtrasSection({ extras }: { extras: Extra[] }) {
             }}
           >
             {extra.imageUrl && (
-              <img
+              <Image
                 src={extra.imageUrl}
                 alt={extra.name}
+                width={640}
+                height={320}
+                sizes="(max-width: 768px) 100vw, 360px"
                 style={{ width: "100%", height: 160, objectFit: "cover" }}
               />
             )}

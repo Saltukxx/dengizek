@@ -1,8 +1,8 @@
-/* eslint-disable @next/next/no-img-element */
 // ---------------------------------------------------------------------------
 // Misafir restoran bölümü — menü akordeonu (native details, sunucu bileşeni).
 // ---------------------------------------------------------------------------
 
+import Image from "next/image";
 import { IconClock, IconMapPin, IconToolsKitchen2 } from "@tabler/icons-react";
 import type { Restaurant } from "@/lib/db/schema";
 import { formatPrice } from "@/lib/price";
@@ -36,11 +36,13 @@ export function RestaurantsSection({ restaurants }: { restaurants: Restaurant[] 
             style={{ borderRadius: "var(--er-radius-md)", overflow: "hidden", border: "1px solid var(--er-line)", background: "var(--er-surface)", boxShadow: "var(--er-shadow-sm)" }}
           >
             {restaurant.imageUrl && (
-              <div style={{ position: "relative", maxHeight: 280, overflow: "hidden" }}>
-                <img
+              <div style={{ position: "relative", height: 280, overflow: "hidden" }}>
+                <Image
                   src={restaurant.imageUrl}
                   alt={restaurant.name}
-                  style={{ width: "100%", height: 280, objectFit: "cover" }}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 720px"
+                  style={{ objectFit: "cover" }}
                 />
                 <span
                   style={{

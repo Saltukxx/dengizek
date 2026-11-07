@@ -1,10 +1,13 @@
 // ---------------------------------------------------------------------------
-// Misafir olanaklar bölümü — kategori başına tek satır metin.
-// Çok sayıda olanağı olan tesislerde çip yığını yerine taranabilir bir liste.
+// Misafir olanaklar bölümü — kategori başına etiketler; kalabalık grupta
+// ilk birkaçı görünür, kalanı "Tümünü gör" ile açılır.
 // ---------------------------------------------------------------------------
 
 import { groupAmenities } from "@/lib/amenities-catalog";
 import type { HotelSpecs } from "@/lib/hotels-repo";
+
+/** Bir grupta önce gösterilen olanak sayısı; kalanı "Tümünü gör" altında. */
+const GROUP_PREVIEW = 8;
 
 export function AmenitiesSection({
   amenities,
@@ -30,12 +33,32 @@ export function AmenitiesSection({
 
       {groups.length > 0 && (
         <dl className="er-amenity-list">
-          {groups.map((group) => (
-            <div key={group.category}>
-              <dt>{group.category}</dt>
-              <dd>{group.items.map((item) => item.label).join(", ")}</dd>
-            </div>
-          ))}
+          {groups.map((group) => {
+            const shown = group.items.slice(0, GROUP_PREVIEW);
+            const rest = group.items.slice(GROUP_PREVIEW);
+            return (
+              <div key={group.category}>
+                <dt>{group.category}</dt>
+                <dd>
+                  <ul className="er-amenity-chips">
+                    {shown.map((item) => (
+                      <li key={item.label}>{item.label}</li>
+                    ))}
+                  </ul>
+                  {rest.length > 0 && (
+                    <details className="er-amenity-more">
+                      <summary>Tümünü gör (+{rest.length})</summary>
+                      <ul className="er-amenity-chips">
+                        {rest.map((item) => (
+                          <li key={item.label}>{item.label}</li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                </dd>
+              </div>
+            );
+          })}
         </dl>
       )}
     </section>

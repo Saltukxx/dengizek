@@ -38,11 +38,11 @@ test.describe("Oda içerik yönetimi", () => {
     const card = page.locator("div", { hasText: roomName }).filter({
       has: page.locator(`text=/${roomSlug}`),
     });
-    await card
-      .first()
-      .getByRole("button")
-      .last()
-      .click();
+    await card.first().getByRole("button", { name: "Sil" }).last().click();
+    // Silme onay ister; onaylanınca kayıt kalkar.
+    const confirm = page.getByRole("dialog", { name: "Odayı sil" });
+    await expect(confirm).toBeVisible();
+    await confirm.getByRole("button", { name: "Sil", exact: true }).click();
     await expect(page.getByText("Oda silindi.")).toBeVisible({ timeout: 20_000 });
   });
 

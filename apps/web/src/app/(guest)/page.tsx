@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { IconArrowRight, IconPlayerPlayFilled } from "@tabler/icons-react";
-import { Hero, HotelCard } from "@/components/marketing";
+import { IconArrowRight } from "@tabler/icons-react";
+import { HotelCard } from "@/components/marketing";
 import { AssistantSearchBox } from "@/components/guest/assistant-search-box";
-import { getPublishedHotelsForBrowse, type BrowseHotelRow } from "@/lib/hotels-repo";
+import { OwnerBand } from "@/components/guest/owner-band";
+import { ShowcaseIntro } from "@/components/marketing/showcase/showcase-intro";
+import { getPublishedHotelContent, getPublishedHotelsForBrowse, type BrowseHotelRow } from "@/lib/hotels-repo";
 import { amenityLabel, normalizeAmenities } from "@/lib/amenities-catalog";
 import { guestShareMeta } from "@/lib/guest-seo";
+import { topCities } from "@/lib/guest-city-groups";
+import { SHOWCASE_CONFIGS } from "@/lib/marketing/showcase-config";
+import { getShowcaseDemoDialog } from "@/lib/marketing/showcase-demo";
 
 export const metadata: Metadata = guestShareMeta({
   title: "Otele gitmeden önce içini gezin",
@@ -29,20 +34,6 @@ const CATEGORY_CANDIDATES = [
 ] as const;
 const MIN_CATEGORY_COUNT = 3;
 
-/**
- * Aynı ilin iki yazımı ("Afyon" / "Afyonkarahisar") tek satırda toplanır.
- * Bağlantı kısa yazımı arar; liste araması "içerir" ile çalıştığı için iki
- * yazımı da bulur.
- */
-const CITY_ALIASES: Record<string, { label: string; query: string }> = {
-  afyon: { label: "Afyonkarahisar", query: "Afyon" },
-  afyonkarahisar: { label: "Afyonkarahisar", query: "Afyon" },
-};
-
-/** Yayında hiç otel yoksa hero boş kalmasın diye kullanılan yedek görsel. */
-const FALLBACK_HERO_IMAGE =
-  "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1600&q=80";
-
 function topCategories(hotels: BrowseHotelRow[]) {
   const counts = new Map<string, number>();
   for (const h of hotels) {
@@ -53,48 +44,40 @@ function topCategories(hotels: BrowseHotelRow[]) {
     .slice(0, 4);
 }
 
-function topCities(hotels: BrowseHotelRow[]) {
-  const byCity = new Map<string, { label: string; query: string; count: number }>();
-  for (const h of hotels) {
-    const city = h.city?.trim();
-    if (!city) continue;
-    const alias = CITY_ALIASES[city.toLocaleLowerCase("tr-TR")];
-    const label = alias?.label ?? city;
-    const entry = byCity.get(label) ?? { label, query: alias?.query ?? city, count: 0 };
-    entry.count += 1;
-    byCity.set(label, entry);
-  }
-  return [...byCity.values()].sort((a, b) => b.count - a.count).slice(0, 6);
-}
-
 export default async function HomePage() {
   const published = await getPublishedHotelsForBrowse({ season: "yaz" });
   const withTour = published.filter((h) => h.tourId);
 
   // Öne çıkanlar: turu olan oteller önce, kalan yer diğer otellerle dolar.
   const featured = [...withTour, ...published.filter((h) => !h.tourId)].slice(0, 3);
-  const showcase = withTour.find((h) => h.imageUrl) ?? published.find((h) => h.imageUrl);
-  const heroImage = showcase?.imageUrl ?? FALLBACK_HERO_IMAGE;
-
   const categories = topCategories(published);
   const cities = topCities(published);
+  const provinceCount = topCities(published, Number.MAX_SAFE_INTEGER).length;
+
+  // Sahne ve "Kendin dene" aynı gerçek otel bilgisini kullanır.
+  const dialog = await getShowcaseDemoDialog("yaz", published);
+  const demoContent = dialog ? await getPublishedHotelContent(dialog.hotelSlug) : null;
 
   return (
-    <>
-      <Hero
-        title="Otele gitmeden önce içini gezin"
-        description="Lobiden odaya, havuzdan restorana: oteli video turla kendi hızınızda dolaşın, merak ettiğinizi tur sırasında rehbere sorun."
-        bgImage={heroImage}
-        imageCredit={showcase ? { label: showcase.name, href: `/hotels/${showcase.slug}` } : undefined}
-      >
-        <div className="er-hero-assistant">
-          <AssistantSearchBox />
-        </div>
-        <p className="er-hero-hint">
-          Ya da <Link href="/browse">tüm otellere göz atın</Link>.
-        </p>
-      </Hero>
-
+    <div className="tm-home" data-surface="yaz">
+      <ShowcaseIntro
+        config={SHOWCASE_CONFIGS.yaz}
+        dialog={dialog}
+        demoContent={demoContent}
+        hotelCount={published.length}
+        provinceCount={provinceCount}
+        heroSearch={
+          <>
+            <div className="tm-hero-assistant">
+              <AssistantSearchBox surface="yaz" />
+            </div>
+            <p className="tm-hero-hint">
+              Ya da <Link href="/browse">tüm otellere göz atın</Link>.
+            </p>
+          </>
+        }
+        afterHero={
+          <>
       {/* ── Öne çıkan oteller ────────────────────────────────────────────── */}
       <section className="er-container er-section">
         <div className="er-section-head">
@@ -123,7 +106,7 @@ export default async function HomePage() {
             </p>
           </div>
         ) : (
-          <div className="er-card-grid">
+          <div className="er-card-grid mobile-rail">
             {featured.map((h) => (
               <HotelCard
                 key={h.slug}
@@ -144,11 +127,15 @@ export default async function HomePage() {
                 amenities={h.amenities}
                 minPriceMinor={h.minPriceMinor}
                 hasTour={Boolean(h.tourId)}
+                promotionBadge={h.promotionBadge}
               />
             ))}
           </div>
         )}
       </section>
+          </>
+        }
+      />
 
       {/* ── Kısayollar: olanak ve şehir ──────────────────────────────────── */}
       {(categories.length > 0 || cities.length > 0) && (
@@ -186,62 +173,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* ── Video tur nedir ──────────────────────────────────────────────── */}
-      {showcase && (
-        <section className="er-tour-story">
-          <div className="er-container er-tour-story-stage">
-            <div>
-              <h2 className="er-display er-h2">Fotoğrafta görünmeyeni videoda görün</h2>
-              <dl className="er-tour-story-list">
-                <div>
-                  <dt>Odalar</dt>
-                  <dd>Odanın ölçüsünü, manzarasını ve ayrıntılarını videoda görün.</dd>
-                </div>
-                <div>
-                  <dt>Tesis</dt>
-                  <dd>Lobiden havuza ve restorana; her durakta yolu siz seçin.</dd>
-                </div>
-                <div>
-                  <dt>Rehber</dt>
-                  <dd>Tur sırasında tesisin doğrulanmış bilgileri üzerinden yanıt alın.</dd>
-                </div>
-              </dl>
-            </div>
-
-            <Link
-              href={
-                showcase.tourId ? `/tours/${showcase.slug}/${showcase.tourId}` : `/hotels/${showcase.slug}`
-              }
-              className="er-tour-story-preview"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={heroImage} alt="" />
-              <span className="er-tour-story-play" aria-hidden>
-                <IconPlayerPlayFilled size={22} />
-              </span>
-              <span className="er-tour-story-caption">
-                {showcase.tourId ? `${showcase.name} turunu başlat` : `${showcase.name} sayfasını aç`}
-              </span>
-            </Link>
-          </div>
-        </section>
-      )}
-
-      {/* ── Otel sahiplerine ─────────────────────────────────────────────── */}
-      <section className="er-owner-band">
-        <div className="er-container">
-          <div>
-            <h2 className="er-display er-h2">Otelinizi video turla tanıtın</h2>
-            <p>
-              Misafirleriniz odayı rezervasyondan önce gezsin. Turu biz kuralım, siz sadece kapıları
-              açın.
-            </p>
-          </div>
-          <Link href="/inquiry" className="er-btn er-btn-cta">
-            Talep gönderin
-          </Link>
-        </div>
-      </section>
-    </>
+      <OwnerBand />
+    </div>
   );
 }

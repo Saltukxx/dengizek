@@ -38,12 +38,13 @@ export const boardTypeLabels: Record<(typeof boardTypes)[number], string> = {
  * sahil otelleri, termal tesisler, şehir otelleri). Boş dizi "belirtilmedi"
  * demektir — misafir yüzeyinde bu oteller sezon filtresine takılmaz.
  */
-export const hotelSeasons = ["yaz", "kis"] as const;
+export const hotelSeasons = ["yaz", "kis", "termal"] as const;
 export type HotelSeason = (typeof hotelSeasons)[number];
 
 export const hotelSeasonLabels: Record<HotelSeason, string> = {
   yaz: "Yaz tatili",
   kis: "Kış tatili",
+  termal: "Termal tatil",
 };
 
 export const paymentMethods = ["nakit", "kredi-karti", "havale", "online"] as const;
@@ -90,6 +91,8 @@ export const childAgePriceSchema = z
     mode: z.enum(["ucretsiz", "sabit", "yuzde"]).default("ucretsiz"),
     priceMinor: z.number().int().nonnegative().max(1_000_000_000).nullable().optional(),
     percent: z.number().int().min(1).max(100).nullable().optional(),
+    /** 1 → yalnız 1. çocuk, 2 → 2. ve sonraki; boş → her çocuk (en büyük çocuk 1. çocuktur). */
+    childOrder: z.union([z.literal(1), z.literal(2)]).nullable().optional(),
   })
   .refine((v) => v.ageFrom <= v.ageTo, {
     message: "Bitiş yaşı başlangıçtan küçük olamaz.",
@@ -105,18 +108,27 @@ export const childAgePriceSchema = z
   });
 
 function noOverlappingAgeRanges(
-  v: { childAgePrices?: { ageFrom: number; ageTo: number }[] | null },
+  v: { childAgePrices?: { ageFrom: number; ageTo: number; childOrder?: number | null }[] | null },
   ctx: z.RefinementCtx,
 ) {
-  const bands = (v.childAgePrices ?? []).slice().sort((a, b) => a.ageFrom - b.ageFrom);
-  for (let i = 1; i < bands.length; i++) {
-    if (bands[i].ageFrom <= bands[i - 1].ageTo) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Yaş aralıkları çakışamaz.",
-        path: ["childAgePrices"],
-      });
-      break;
+  // Aynı yaş aralığı "1. çocuk" ve "2. çocuk" için ayrı fiyatlanabilir;
+  // çakışma yalnız aynı çocuk sırasındaki bantlar arasında yasaktır.
+  const groups = new Map<string, { ageFrom: number; ageTo: number }[]>();
+  for (const band of v.childAgePrices ?? []) {
+    const key = String(band.childOrder ?? "hepsi");
+    groups.set(key, [...(groups.get(key) ?? []), band]);
+  }
+  for (const list of groups.values()) {
+    const bands = list.slice().sort((a, b) => a.ageFrom - b.ageFrom);
+    for (let i = 1; i < bands.length; i++) {
+      if (bands[i].ageFrom <= bands[i - 1].ageTo) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Aynı çocuk sırası için yaş aralıkları çakışamaz.",
+          path: ["childAgePrices"],
+        });
+        return;
+      }
     }
   }
 }
@@ -210,6 +222,11 @@ const roomRateFieldsSchema = z.object({
   minStayNights: z.number().int().min(1).max(30).nullable().optional(),
   occupancyPrices: z.array(occupancyPriceSchema).max(15).optional().default([]),
   childAgePrices: z.array(childAgePriceSchema).max(10, "En fazla 10 yaş aralığı").optional().default([]),
+  /** Yalnız bu geceler (0 Pazar … 6 Cumartesi); boş → her gece. */
+  weekdays: z.array(z.number().int().min(0).max(6)).max(7).nullable().optional(),
+  /** Yalnız konaklama süresi bu aralıktaysa (ör. tek gece: en fazla 1). */
+  stayMinNights: z.number().int().min(1).max(60).nullable().optional(),
+  stayMaxNights: z.number().int().min(1).max(60).nullable().optional(),
 });
 
 const roomRateDateRefine = {
@@ -233,12 +250,14 @@ function uniqueOccupancyGuestCounts(
 
 export const roomRateSchema = roomRateFieldsSchema
   .superRefine(uniqueOccupancyGuestCounts)
+  .refine((v) => v.stayMinNights == null || v.stayMaxNights == null || v.stayMinNights <= v.stayMaxNights, { message: "En az gece en fazla geceden büyük olamaz.", path: ["stayMaxNights"] })
   .superRefine(noOverlappingAgeRanges)
   .refine((v) => v.startDate <= v.endDate, roomRateDateRefine);
 
 export const roomRateInsertSchema = roomRateFieldsSchema
   .omit({ id: true })
   .superRefine(uniqueOccupancyGuestCounts)
+  .refine((v) => v.stayMinNights == null || v.stayMaxNights == null || v.stayMinNights <= v.stayMaxNights, { message: "En az gece en fazla geceden büyük olamaz.", path: ["stayMaxNights"] })
   .superRefine(noOverlappingAgeRanges)
   .refine((v) => v.startDate <= v.endDate, roomRateDateRefine);
 
@@ -378,6 +397,8 @@ export const hotelSpecsSchema = z.object({
   // İletişim / konum
   address: z.string().max(500).optional(),
   phone: z.string().max(40).optional(),
+  publicPhone: z.string().max(40).optional(),
+  whatsappPhone: z.string().max(40).optional(),
   contactEmail: z.string().email("Geçerli bir e-posta girin").optional().or(z.literal("")),
   airportDistanceKm: z.number().int().min(0).max(500).nullable().optional(),
   latitude: z.string().max(30).optional().or(z.literal("")),

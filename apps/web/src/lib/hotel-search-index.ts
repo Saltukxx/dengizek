@@ -37,6 +37,7 @@ async function buildIndex(): Promise<SearchIndexHotel[]> {
         })),
         texts,
         airportKm: content.specs.airportDistanceKm ?? airportDistanceFromTexts(texts),
+        seasons: hotel.seasons,
       };
     }),
   );

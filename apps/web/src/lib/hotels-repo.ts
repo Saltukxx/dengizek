@@ -5,6 +5,8 @@
 // DB satırları bu şekle eşlenir.
 // ---------------------------------------------------------------------------
 
+import { bestPromotionBadge } from "@/lib/promotion-display";
+import { todayIso as todayIsoStatic } from "@/lib/price";
 import { cache } from "react";
 import { GUEST_HOTEL_LIST_TAG, guestCached, guestHotelTag } from "@/lib/guest-cache";
 import {
@@ -81,6 +83,7 @@ function snapshotPromotions(snapshot: HotelContentSnapshot): GuestPromotion[] {
   return (snapshot.promotions as unknown as Promotion[])
     .filter((item) => item.isActive)
     .map((item) => ({
+      id: item.id,
       name: item.name,
       discountPercent: item.discountPercent,
       validFrom: item.validFrom ? String(item.validFrom) : null,
@@ -88,7 +91,32 @@ function snapshotPromotions(snapshot: HotelContentSnapshot): GuestPromotion[] {
       minNights: item.minNights,
       roomIds: item.roomIds,
       isActive: item.isActive,
+      stayPayTiers: (item.stayPayTiers as { stay: number; pay: number }[] | undefined) ?? [],
+      freeNightRule: (item.freeNightRule as "hafta_ici" | "en_ucuz" | null | undefined) ?? null,
+      maxNights: item.maxNights ?? null,
+      bookableFrom: item.bookableFrom ? String(item.bookableFrom) : null,
+      bookableTo: item.bookableTo ? String(item.bookableTo) : null,
+      allotment: item.allotment ?? null,
     }));
+}
+
+/**
+ * Kontenjanlı kampanyalara dolmuş geceleri ekler (canlı rezervasyonlardan).
+ * Sorgu hatası fiyatı bozmaz: kontenjan bilgisi olmadan devam edilir.
+ */
+async function withPromotionSoldOut(hotelId: string | null | undefined, promotions: GuestPromotion[]): Promise<GuestPromotion[]> {
+  const limited = promotions.filter((p) => p.allotment != null && p.id);
+  if (!hotelId || !limited.length) return promotions;
+  try {
+    const { loadPromotionUsage, soldOutNights } = await import("@/lib/promotion-allotment");
+    const { todayIso } = await import("@/lib/price");
+    const usage = await loadPromotionUsage(hotelId, limited.map((p) => p.id as string), todayIso());
+    return promotions.map((p) =>
+      p.allotment != null && p.id ? { ...p, soldOut: soldOutNights({ id: p.id, allotment: p.allotment, roomIds: p.roomIds }, usage) } : p,
+    );
+  } catch {
+    return promotions;
+  }
 }
 
 function snapshotRatePlanPrices(snapshot: HotelContentSnapshot): GuestRatePlanPrice[] {
@@ -113,6 +141,24 @@ function snapshotRatePlanPrices(snapshot: HotelContentSnapshot): GuestRatePlanPr
  * fiyatı. Liste kartındaki "gecelik başlayan" değeri, detay sayfasındaki
  * fiyatla aynı motordan geçsin diye ham priceMinor yerine bu kullanılır.
  */
+function snapshotRoomCapacities(snapshot: HotelContentSnapshot): NonNullable<BrowseHotelRow["roomCapacities"]> {
+  return (snapshot.rooms as unknown as Room[])
+    .filter((room) => room.isActive !== false)
+    .map((room) => ({
+      capacityAdults: room.capacityAdults == null ? null : Number(room.capacityAdults),
+      capacityChildren: room.capacityChildren == null ? null : Number(room.capacityChildren),
+    }));
+}
+
+function snapshotClosedRanges(snapshot: HotelContentSnapshot): NonNullable<BrowseHotelRow["closedRanges"]> {
+  return snapshot.availabilityNotes
+    .filter((note) => Boolean(note.isBlackout) && note.startDate != null)
+    .map((note) => ({
+      startDate: String(note.startDate),
+      endDate: note.endDate == null ? null : String(note.endDate),
+    }));
+}
+
 function snapshotMinPriceMinor(snapshot: HotelContentSnapshot): number | null {
   const rooms = snapshot.rooms as unknown as Room[];
   const rates = snapshot.roomRates as unknown as RoomRate[];
@@ -125,7 +171,9 @@ function snapshotMinPriceMinor(snapshot: HotelContentSnapshot): number | null {
 
   let min: number | null = null;
   for (const room of rooms) {
-    if (room.isActive === false || room.priceOnRequest === true) continue;
+    // "Talep üzerine" oda bugün bir dönem fiyatına düşüyorsa fiyatlıdır;
+    // karar aşağıda fiyat motorunda (priced.priceOnRequest).
+    if (room.isActive === false) continue;
     const priced = resolveGuestRoomPrice({
       room: {
         id: room.id,
@@ -147,14 +195,14 @@ function snapshotMinPriceMinor(snapshot: HotelContentSnapshot): number | null {
 }
 
 /**
- * Kış vitrini yalnızca açıkça "kis" seçilmiş tesisleri kabul eder. Sezonu
- * girilmemiş eski tesisler filtresiz yaz yüzeyinde görünmeye devam eder.
+ * Kış ve termal vitrinleri yalnızca o sezonu açıkça seçmiş tesisleri kabul
+ * eder. Sezonu girilmemiş eski tesisler yaz yüzeyinde görünmeye devam eder.
  */
 export function matchesSeason(seasons: string[] | null | undefined, season?: string): boolean {
   if (!season) return true;
   const list = seasons ?? [];
-  if (season === "kis") return list.includes("kis");
-  return list.length === 0 || list.includes(season);
+  if (season === "yaz") return list.length === 0 || list.includes("yaz");
+  return list.includes(season);
 }
 
 /** Yayında olan otelleri döner (misafir /browse). */
@@ -170,7 +218,7 @@ export interface BrowseHotelRow {
   starRating: number | null;
   amenities: string[];
   petsAllowed: boolean | null;
-  /** Tatil sezonu kategorileri ("yaz"|"kis"); boş = belirtilmedi. */
+  /** Tatil sezonu kategorileri ("yaz"|"kis"|"termal"); boş = belirtilmedi. */
   seasons: string[];
   minPriceMinor: number | null;
   /** Yayındaki yorumların ortalaması (1–5); yorum yoksa null */
@@ -178,14 +226,20 @@ export interface BrowseHotelRow {
   reviewCount: number;
   /** Yayında video turu varsa ilkinin kimliği; yoksa null. */
   tourId: string | null;
+  /** Aktif odaların kapasiteleri — kişi sayısına göre süzme için. Boş = bilinmiyor. */
+  roomCapacities?: { capacityAdults: number | null; capacityChildren: number | null }[];
+  /** Otelin kapalı (satışa kapalı) dönemleri — tarih aramasında elenir. */
+  closedRanges?: { startDate: string | null; endDate: string | null }[];
+  /** Kartta gösterilen en cömert kampanya ("4 kal 3 öde", "%15 indirim"); yoksa null. */
+  promotionBadge?: string | null;
 }
 
 export interface BrowseFilters {
   /** Serbest metin — ad/şehir/ülke üzerinde arar. */
   q?: string;
   /**
-   * Tatil sezonu ("yaz" | "kis"). Kış filtresi yalnızca açıkça "kis"
-   * seçilmiş tesisleri kabul eder.
+   * Tatil sezonu ("yaz" | "kis" | "termal"). Kış ve termal filtreleri
+   * yalnızca o sezonu açıkça seçmiş tesisleri kabul eder.
    */
   season?: string;
 }
@@ -339,6 +393,9 @@ async function loadPublishedHotelsForBrowse(
           reviewAverage: reviewsByHotel.get(row.id)?.average ?? null,
           reviewCount: reviewsByHotel.get(row.id)?.total ?? 0,
           tourId: tourByHotel.get(row.slug) ?? null,
+          roomCapacities: parsed.success ? snapshotRoomCapacities(parsed.data) : [],
+          closedRanges: parsed.success ? snapshotClosedRanges(parsed.data) : [],
+          promotionBadge: parsed.success ? bestPromotionBadge(snapshotPromotions(parsed.data), todayIsoStatic()) : null,
         };
       })
       // Sezon süzmesi eşlemeden SONRA yapılır: yayındaki değer snapshot'tan
@@ -419,10 +476,13 @@ export interface HotelSpecs {
   cancellationPolicy: string | null;
   childPolicy: string | null;
   petsAllowed: boolean | null;
-  /** Tatil sezonu kategorileri ("yaz"|"kis"); boş = belirtilmedi. */
+  /** Tatil sezonu kategorileri ("yaz"|"kis"|"termal"); boş = belirtilmedi. */
   seasons: string[];
   paymentMethods: string[];
-  // Tesisin telefonu ve e-postası bilerek yok: misafir yüzüne hiç taşınmaz.
+  // Tesisin iç telefonu ve e-postası bilerek yok: misafir yüzüne hiç taşınmaz.
+  // Misafire yalnız otelin bu amaçla girdiği numaralar gösterilir.
+  publicPhone?: string | null;
+  whatsappPhone?: string | null;
   address: string | null;
   airportDistanceKm: number | null;
   blackoutText: string | null;
@@ -463,6 +523,8 @@ const emptySpecs: HotelSpecs = {
   petsAllowed: null,
   seasons: [],
   paymentMethods: [],
+  publicPhone: null,
+  whatsappPhone: null,
   address: null,
   airportDistanceKm: null,
   blackoutText: null,
@@ -566,6 +628,8 @@ async function loadPublishedHotelContent(
           petsAllowed: (hotel.petsAllowed as boolean | null) ?? null,
           seasons: (hotel.seasons as string[] | undefined) ?? [],
           paymentMethods: (hotel.paymentMethods as string[] | undefined) ?? [],
+          publicPhone: (hotel.publicPhone as string | null) ?? null,
+          whatsappPhone: (hotel.whatsappPhone as string | null) ?? null,
           address: (hotel.address as string | null) ?? null,
           airportDistanceKm: (hotel.airportDistanceKm as number | null) ?? null,
           blackoutText: (hotel.blackoutText as string | null) ?? null,
@@ -574,7 +638,7 @@ async function loadPublishedHotelContent(
         latitude: (hotel.latitude as string | null) ?? null,
         longitude: (hotel.longitude as string | null) ?? null,
         availabilityNotes: snapshot.availabilityNotes.map((item) => ({ label: String(item.label), startDate: item.startDate == null ? null : String(item.startDate), endDate: item.endDate == null ? null : String(item.endDate), isBlackout: Boolean(item.isBlackout) })),
-        promotions: snapshotPromotions(snapshot),
+        promotions: await withPromotionSoldOut(hotel.id as string | undefined, snapshotPromotions(snapshot)),
         ratePlanPrices: snapshotRatePlanPrices(snapshot),
       };
     }
@@ -595,6 +659,8 @@ async function loadPublishedHotelContent(
         petsAllowed: hotelsTable.petsAllowed,
         seasons: hotelsTable.seasons,
         paymentMethods: hotelsTable.paymentMethods,
+        publicPhone: hotelsTable.publicPhone,
+        whatsappPhone: hotelsTable.whatsappPhone,
         address: hotelsTable.address,
         airportDistanceKm: hotelsTable.airportDistanceKm,
         blackoutText: hotelsTable.blackoutText,
@@ -707,6 +773,8 @@ async function loadPublishedHotelContent(
         petsAllowed: hotel.petsAllowed,
         seasons: hotel.seasons ?? [],
         paymentMethods: hotel.paymentMethods,
+        publicPhone: hotel.publicPhone,
+        whatsappPhone: hotel.whatsappPhone,
         address: hotel.address,
         airportDistanceKm: hotel.airportDistanceKm,
         blackoutText: hotel.blackoutText,
@@ -714,7 +782,8 @@ async function loadPublishedHotelContent(
       latitude: hotel.latitude,
       longitude: hotel.longitude,
       availabilityNotes,
-      promotions: promotions.map((p: Promotion) => ({
+      promotions: await withPromotionSoldOut(hotel.id, promotions.map((p: Promotion) => ({
+        id: p.id,
         name: p.name,
         discountPercent: p.discountPercent,
         validFrom: p.validFrom ? String(p.validFrom) : null,
@@ -722,7 +791,13 @@ async function loadPublishedHotelContent(
         minNights: p.minNights,
         roomIds: p.roomIds,
         isActive: p.isActive,
-      })),
+        stayPayTiers: p.stayPayTiers ?? [],
+        freeNightRule: p.freeNightRule ?? null,
+        maxNights: p.maxNights ?? null,
+        bookableFrom: p.bookableFrom ? String(p.bookableFrom) : null,
+        bookableTo: p.bookableTo ? String(p.bookableTo) : null,
+        allotment: p.allotment ?? null,
+      }))),
       ratePlanPrices: ratePlanPrices.map((p) => ({
         roomId: p.roomId,
         name: p.name,
@@ -754,6 +829,9 @@ export interface GuestRoomRate {
   minStayNights: number | null;
   occupancyPrices?: { guestCount: number; priceMinor: number }[];
   childAgePrices?: ChildAgePrice[];
+  weekdays?: number[] | null;
+  stayMinNights?: number | null;
+  stayMaxNights?: number | null;
 }
 
 export interface GuestRoomDetail {

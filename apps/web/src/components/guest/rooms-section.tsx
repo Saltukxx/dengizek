@@ -1,8 +1,8 @@
-/* eslint-disable @next/next/no-img-element */
 // ---------------------------------------------------------------------------
 // Misafir oda bölümü — panelde tanımlanan odaları lüks kart ızgarasında gösterir.
 // ---------------------------------------------------------------------------
 
+import Image from "next/image";
 import Link from "next/link";
 import { IconBed, IconRulerMeasure, IconUsers } from "@tabler/icons-react";
 import type { GuestSurface } from "@/lib/guest-surface";
@@ -83,10 +83,12 @@ export function RoomsSection({
           >
             {room.imageUrl && (
               <div style={{ position: "relative", aspectRatio: "16/10", overflow: "hidden" }}>
-                <img
+                <Image
                   src={room.imageUrl}
                   alt={room.name}
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 420px"
+                  style={{ objectFit: "cover" }}
                 />
                 <span
                   style={{
