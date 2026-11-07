@@ -1,5 +1,6 @@
 "use client";
 
+import { guestPaths, guestSurfaceFromPath } from "@/lib/guest-surface";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
@@ -7,6 +8,8 @@ import { useEffect, useState } from "react";
 import { inquiryFormSchema, type InquiryFormValues } from "@/lib/schemas/inquiry";
 import { trackEvent } from "@/lib/analytics-client";
 import { getVisitId } from "@/lib/visit-client";
+import { PageBanner } from "@/components/guest/page-banner";
+import { parseStaySearch } from "@/lib/stay-search";
 
 type RoomOption = { slug: string; name: string };
 
@@ -14,12 +17,14 @@ export function InquiryForm() {
   const search = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const isWinter = pathname.startsWith("/kis/");
+  const surfacePaths = guestPaths(guestSurfaceFromPath(pathname));
   const hotelFromQuery = search.get("hotel") ?? undefined;
   const roomFromQuery = search.get("room") ?? undefined;
   const tourFromQuery = search.get("tour") ?? undefined;
   const stepFromQuery = search.get("step") ?? undefined;
   const sourceFromQuery = search.get("source") ?? "web";
+  // Fiyat hesaplayıcı / termal arama: tarih ve kişi bilgisi hazır gelir.
+  const stay = parseStaySearch(search);
 
   const [rooms, setRooms] = useState<RoomOption[]>([]);
   const [hotelName, setHotelName] = useState<string | null>(null);
@@ -36,17 +41,18 @@ export function InquiryForm() {
     defaultValues: {
       name: "",
       email: "",
-      message: "",
+      // Çocuk yaşları formda ayrı alan değil; otel fiyatı yaşa göre verdiği için mesaja yazılır.
+      message: stay.childAges.length ? `Çocuk yaşları: ${stay.childAges.join(", ")}.` : "",
       marketingConsent: false,
       hotelSlug: hotelFromQuery,
       roomSlug: roomFromQuery,
       tourId: tourFromQuery,
       stepKey: stepFromQuery,
       source: sourceFromQuery as InquiryFormValues["source"],
-      checkIn: "",
-      checkOut: "",
-      adults: 2,
-      children: 0,
+      checkIn: stay.checkIn ?? "",
+      checkOut: stay.checkOut ?? "",
+      adults: stay.adults,
+      children: stay.childAges.length,
     },
   });
 
@@ -97,28 +103,19 @@ export function InquiryForm() {
     const emailStatus = ["queued", "sent", "unavailable"].includes(json.emailStatus)
       ? json.emailStatus
       : "unavailable";
-    router.push(`${isWinter ? "/kis/talep/basarili" : "/inquiry/success"}?emailStatus=${emailStatus}`);
+    router.push(`${surfacePaths.inquirySuccess}?emailStatus=${emailStatus}`);
   });
 
   return (
-    <div
-      style={{
-        maxWidth: 560,
-        margin: "0 auto",
-        padding: "clamp(32px, 5vw, 64px) clamp(24px, 5vw, 48px)",
-      }}
-    >
-      <div style={{ marginBottom: "clamp(28px, 4vw, 48px)" }}>
-        <p className="er-eyebrow" style={{ marginBottom: 10, color: "var(--er-primary)" }}>
-          Rezervasyon
-        </p>
-        <h1 className="er-display er-h1" style={{ marginBottom: 12 }}>
-          Talep Gönder
-        </h1>
-        <p style={{ margin: 0, color: "var(--er-text-muted)", fontSize: 15, lineHeight: 1.6 }}>
-          Talebiniz otele iletilecek; yanıtı e-postanıza gelen bağlantıdaki Otelsayfam portalından alırsınız. Müsaitlik bilgilendiricidir; kesin onay otelden gelir.
-        </p>
-      </div>
+    <>
+      <PageBanner
+        overlap
+        eyebrow="Rezervasyon"
+        title="Talep Gönder"
+        lede="Talebiniz otele iletilecek; yanıtı e-postanıza gelen bağlantıdaki Otelsayfam portalından alırsınız. Müsaitlik bilgilendiricidir; kesin onay otelden gelir."
+      />
+    <div className="er-container" style={{ paddingBottom: "clamp(32px, 5vw, 64px)" }}>
+    <div className="pb-lift pb-form-card">
 
       {hotelFromQuery && (
         <div
@@ -273,5 +270,7 @@ export function InquiryForm() {
         </div>
       </form>
     </div>
+    </div>
+    </>
   );
 }

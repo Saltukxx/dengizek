@@ -21,8 +21,7 @@ import {
   apiNotFound,
   apiOk,
   apiRateLimited,
-  apiServiceUnavailable,
-} from "@/lib/api-response";
+  apiServiceUnavailable, validationMessage } from "@/lib/api-response";
 
 type RouteParams = { params: Promise<{ token: string }> };
 
@@ -105,7 +104,7 @@ export async function POST(req: Request, { params }: RouteParams) {
   const body = await req.json().catch(() => null);
   const parsed = guestReviewSchema.safeParse(body);
   if (!parsed.success) {
-    return apiFail("Doğrulama başarısız", 400, { issues: parsed.error.flatten() });
+    return apiFail(validationMessage(parsed.error), 400, { issues: parsed.error.flatten() });
   }
 
   if (await findExistingReview(inquiry.id)) {

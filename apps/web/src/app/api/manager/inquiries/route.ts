@@ -32,7 +32,12 @@ export async function GET(req: Request) {
   const isValidSource = (v: string): v is (typeof inquirySourceEnum.enumValues)[number] =>
     (inquirySourceEnum.enumValues as readonly string[]).includes(v);
 
-  const filters: SQL[] = [eq(inquiriesTable.hotelId, guard.hotel.id)];
+  // Moderasyon: tesis yalnız admin'in onayladığı talepleri görür. Onay
+  // bekleyen/reddedilen talepler yönetici panelinde hiç listelenmez.
+  const filters: SQL[] = [
+    eq(inquiriesTable.hotelId, guard.hotel.id),
+    eq(inquiriesTable.approvalStatus, "onaylandi"),
+  ];
   if (durum && isValidStatus(durum)) filters.push(eq(inquiriesTable.status, durum));
   if (kaynak && isValidSource(kaynak)) filters.push(eq(inquiriesTable.source, kaynak));
   // Misafir adı veya mesaj içinde arama — iletişim bilgisi aranmaz.

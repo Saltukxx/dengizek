@@ -7,6 +7,7 @@
 import {
   AppShell,
   Avatar,
+  Badge,
   Box,
   Burger,
   Button,
@@ -28,6 +29,7 @@ import {
   IconLayoutDashboard,
   IconLogout,
   IconMessage,
+  IconMessageCheck,
   IconShieldCheck,
   IconChartBar,
   IconRoute,
@@ -37,12 +39,13 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 
 const links = [
   { href: "/admin", label: "Genel bakış", icon: IconLayoutDashboard },
   { href: "/admin/hotels", label: "Oteller", icon: IconBuilding },
   { href: "/admin/moderation", label: "İnceleme kuyruğu", icon: IconChecklist },
+  { href: "/admin/mesaj-onay", label: "Mesaj onayı", icon: IconMessageCheck },
   { href: "/admin/users", label: "Kullanıcılar", icon: IconUsers },
   { href: "/admin/bookings", label: "Rezervasyonlar", icon: IconCalendarEvent },
   { href: "/admin/inquiries", label: "Talepler", icon: IconMessage },
@@ -61,6 +64,20 @@ export function AdminShell({
 }) {
   const path = usePathname();
   const [opened, { toggle, close }] = useDisclosure();
+  const [pendingReview, setPendingReview] = useState<number>(0);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/admin/message-review")
+      .then((r) => r.json())
+      .then((j) => {
+        if (alive && j?.ok) setPendingReview(j.count ?? 0);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [path]);
 
   const initials = (userName ?? "?")
     .split(" ")
@@ -143,6 +160,13 @@ export function AdminShell({
                 label={l.label}
                 onClick={close}
                 leftSection={<l.icon size={18} stroke={1.7} />}
+                rightSection={
+                  l.href === "/admin/mesaj-onay" && pendingReview > 0 ? (
+                    <Badge size="sm" circle color="red" variant="filled">
+                      {pendingReview}
+                    </Badge>
+                  ) : undefined
+                }
                 active={active}
                 variant="light"
                 color="dark"

@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   requestIp: vi.fn(),
   trackEvent: vi.fn(),
   notifyHotelMembers: vi.fn(),
+  notifyAdmins: vi.fn(),
   sendEmail: vi.fn(),
   isDbConfigured: vi.fn(),
   getDb: vi.fn(),
@@ -18,7 +19,10 @@ vi.mock("@/lib/rate-limit", () => ({
   requestIp: mocks.requestIp,
 }));
 vi.mock("@/lib/analytics", () => ({ trackEvent: mocks.trackEvent }));
-vi.mock("@/lib/notifications", () => ({ notifyHotelMembers: mocks.notifyHotelMembers }));
+vi.mock("@/lib/notifications", () => ({
+  notifyHotelMembers: mocks.notifyHotelMembers,
+  notifyAdmins: mocks.notifyAdmins,
+}));
 vi.mock("@/lib/email", () => ({ sendEmail: mocks.sendEmail }));
 vi.mock("@/lib/db", () => ({
   isDbConfigured: mocks.isDbConfigured,
@@ -203,9 +207,10 @@ describe("public inquiry API", () => {
       "kar-zirvesi",
       undefined,
     );
-    expect(mocks.notifyHotelMembers).toHaveBeenCalledWith(
-      "hotel-db",
-      expect.objectContaining({ type: "talep", link: "/dashboard/inquiries" }),
+    // Moderasyon: talep otele DEĞİL önce admin'e düşer.
+    expect(mocks.notifyHotelMembers).not.toHaveBeenCalled();
+    expect(mocks.notifyAdmins).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "moderasyon", link: "/admin/mesaj-onay" }),
     );
     expect(mocks.sendEmail).toHaveBeenCalledWith({
       to: "ada@example.com",
@@ -257,7 +262,9 @@ describe("public inquiry API", () => {
 
     expect(res.status).toBe(200);
     expect(insertedValues[0]).toMatchObject({ hotelId: null, roomId: null, roomSlug: null });
+    // Otele hiç bildirim gitmez; talep (tesis seçilmemiş olsa da) admin'e düşer.
     expect(mocks.notifyHotelMembers).not.toHaveBeenCalled();
+    expect(mocks.notifyAdmins).toHaveBeenCalled();
   });
 
   it("ad ve mesajdaki iletişim bilgisini tesise gitmeden maskeler", async () => {
@@ -279,7 +286,7 @@ describe("public inquiry API", () => {
     expect(stored.message).not.toContain("example.org");
     expect(stored.message).toContain("10.12.2026");
     // Bildirim gövdesi de maskelenmiş metinden üretilir.
-    expect(JSON.stringify(mocks.notifyHotelMembers.mock.calls)).not.toContain("0532");
+    expect(JSON.stringify(mocks.notifyAdmins.mock.calls)).not.toContain("0532");
     // Misafirin e-postası platformda kalır (portal bağlantısı oraya gider).
     expect(stored.email).toBe("ada@example.com");
   });

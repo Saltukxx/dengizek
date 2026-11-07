@@ -10,6 +10,8 @@ import {
   Button,
   Drawer,
   Group,
+  Modal,
+  NumberInput,
   Paper,
   ScrollArea,
   Select,
@@ -49,6 +51,7 @@ interface MessageRow {
   senderRole: "guest" | "hotel" | "system";
   senderName: string | null;
   body: string;
+  approvalStatus?: "bekliyor" | "onaylandi" | "reddedildi";
   createdAt: string;
 }
 
@@ -69,6 +72,10 @@ export function InquiriesInbox() {
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [reply, setReply] = useState("");
   const [roomSlugToId, setRoomSlugToId] = useState<Record<string, string>>({});
+  const [roomOptions, setRoomOptions] = useState<{ value: string; label: string }[]>([]);
+  const [promotionOptions, setPromotionOptions] = useState<{ value: string; label: string; roomIds: string[] }[]>([]);
+  // Rezervasyona dönüştürme penceresi: oda, uygulanan kampanya, toplam.
+  const [converting, setConverting] = useState<{ inquiry: InquiryRow; roomId: string | null; promotionId: string | null; totalMajor: number | null; busy: boolean } | null>(null);
 
   const reload = useCallback(async () => {
     if (!hotel) return;
@@ -97,6 +104,7 @@ export function InquiriesInbox() {
         map[r.slug] = r.id;
       }
       setRoomSlugToId(map);
+      setRoomOptions((roomsJson.rooms as { id: string; name: string }[]).map((r) => ({ value: r.id, label: r.name })));
     }
   }, [hotel, durum, kaynak, q, sayfa]);
 
@@ -177,12 +185,29 @@ export function InquiriesInbox() {
     }
   }
 
-  async function convertToBooking(q: InquiryRow) {
+  async function openConvert(q: InquiryRow) {
     if (!hotel) return;
     if (!q.checkIn || !q.checkOut) {
       notifications.show({ color: "yellow", message: "Talepte giriş/çıkış tarihi gerekli." });
       return;
     }
+    setConverting({ inquiry: q, roomId: q.roomSlug ? roomSlugToId[q.roomSlug] ?? null : null, promotionId: null, totalMajor: null, busy: false });
+    // Aktif kampanyalar — kontenjanlı kampanya seçilirse kontenjandan düşer.
+    const res = await fetch(`/api/manager/hotels/${hotel.id}/promotions`);
+    const json = await res.json().catch(() => ({}));
+    if (json.ok) {
+      setPromotionOptions(
+        (json.promotions as { id: string; name: string; isActive: boolean; roomIds: string[]; allotment: number | null }[])
+          .filter((p) => p.isActive)
+          .map((p) => ({ value: p.id, label: p.allotment ? `${p.name} (kontenjan ${p.allotment}/gece)` : p.name, roomIds: p.roomIds })),
+      );
+    }
+  }
+
+  async function convertToBooking() {
+    if (!hotel || !converting) return;
+    const { inquiry: q, roomId, promotionId, totalMajor } = converting;
+    setConverting({ ...converting, busy: true });
     const res = await fetch(`/api/manager/hotels/${hotel.id}/bookings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -192,15 +217,19 @@ export function InquiriesInbox() {
         checkOut: q.checkOut,
         adults: q.adults ?? 2,
         children: q.children ?? 0,
-        roomId: q.roomSlug ? roomSlugToId[q.roomSlug] ?? null : null,
+        roomId,
+        promotionId,
+        totalMinor: totalMajor != null ? Math.round(totalMajor * 100) : null,
         notes: q.message.slice(0, 2000),
       }),
     });
     const json = await res.json();
     if (json.ok) {
       notifications.show({ color: "green", message: "Rezervasyon oluşturuldu." });
+      setConverting(null);
       await setStatus(q.id, "ilgileniliyor");
     } else {
+      setConverting((c) => c && { ...c, busy: false });
       notifications.show({ color: "red", message: json.error ?? "Dönüştürülemedi." });
     }
   }
@@ -331,7 +360,7 @@ export function InquiriesInbox() {
                         variant="light"
                         color="teal"
                         leftSection={<IconCalendarPlus size={14} />}
-                        onClick={() => convertToBooking(q)}
+                        onClick={() => void openConvert(q)}
                       >
                         Rezervasyona dönüştür
                       </Button>
@@ -383,10 +412,22 @@ export function InquiriesInbox() {
           </Group>
           {messages.map((m) => (
             <Paper key={m.id} p="sm" radius="md" bg={m.senderRole === "hotel" ? "indigo.0" : "gray.0"}>
-              <Text size="xs" c="dimmed">
-                {m.senderRole === "guest" ? "Misafir" : m.senderName ?? "Tesis"} —{" "}
-                {new Date(m.createdAt).toLocaleString("tr-TR")}
-              </Text>
+              <Group justify="space-between" wrap="nowrap" gap="xs">
+                <Text size="xs" c="dimmed">
+                  {m.senderRole === "guest" ? "Misafir" : m.senderName ?? "Tesis"} —{" "}
+                  {new Date(m.createdAt).toLocaleString("tr-TR")}
+                </Text>
+                {m.approvalStatus === "bekliyor" && (
+                  <Badge size="xs" color="yellow" variant="light">
+                    Onay bekliyor
+                  </Badge>
+                )}
+                {m.approvalStatus === "reddedildi" && (
+                  <Badge size="xs" color="red" variant="light">
+                    Reddedildi
+                  </Badge>
+                )}
+              </Group>
               <Text size="sm">{m.body}</Text>
             </Paper>
           ))}
@@ -395,6 +436,52 @@ export function InquiriesInbox() {
         </Stack>
       </Drawer>
       {confirmModal}
+      <Modal opened={converting != null} onClose={() => setConverting(null)} title="Rezervasyona dönüştür">
+        {converting && (
+          <Stack gap="sm">
+            <Text size="sm">
+              {converting.inquiry.name} · {converting.inquiry.checkIn} → {converting.inquiry.checkOut} ·{" "}
+              {converting.inquiry.adults ?? 2} yetişkin{converting.inquiry.children ? `, ${converting.inquiry.children} çocuk` : ""}
+            </Text>
+            <Select
+              label="Oda"
+              placeholder="Oda seçin"
+              data={roomOptions}
+              value={converting.roomId}
+              onChange={(v) => setConverting({ ...converting, roomId: v, promotionId: null })}
+              clearable
+            />
+            <Select
+              label="Uygulanan kampanya"
+              description="Kontenjanlı kampanyada bu rezervasyon kontenjandan düşer."
+              placeholder="Kampanya yok"
+              data={promotionOptions
+                .filter((p) => !p.roomIds.length || (converting.roomId != null && p.roomIds.includes(converting.roomId)))
+                .map(({ value, label }) => ({ value, label }))}
+              value={converting.promotionId}
+              onChange={(v) => setConverting({ ...converting, promotionId: v })}
+              clearable
+            />
+            <NumberInput
+              label="Toplam tutar (₺, isteğe bağlı)"
+              min={0}
+              decimalScale={2}
+              thousandSeparator="."
+              decimalSeparator=","
+              value={converting.totalMajor ?? ""}
+              onChange={(v) => setConverting({ ...converting, totalMajor: typeof v === "number" ? v : null })}
+            />
+            <Group justify="flex-end">
+              <Button variant="default" onClick={() => setConverting(null)}>
+                Vazgeç
+              </Button>
+              <Button loading={converting.busy} onClick={() => void convertToBooking()}>
+                Rezervasyon oluştur
+              </Button>
+            </Group>
+          </Stack>
+        )}
+      </Modal>
     </Stack>
   );
 }
