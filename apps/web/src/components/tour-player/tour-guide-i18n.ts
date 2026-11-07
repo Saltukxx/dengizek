@@ -13,6 +13,19 @@ export interface GuideStrings {
   send: string;
   voiceStart: string;
   voiceStop: string;
+  voiceReplyOn: string;
+  voiceReplyOff: string;
+  callStart: string;
+  callEnd: string;
+  callListening: string;
+  callThinking: string;
+  callSpeaking: string;
+  callPaused: string;
+  callDoneTalking: string;
+  callInterrupt: string;
+  callListenAgain: string;
+  callMicDenied: string;
+  callFiller: string;
   hereForYou: string;
   sourceTurkish: string;
   defaultPersona: string;
@@ -28,6 +41,19 @@ const TR: GuideStrings = {
   send: "Gönder",
   voiceStart: "Sesli giriş",
   voiceStop: "Sesli girişi durdur",
+  voiceReplyOn: "Sesli yanıtı aç",
+  voiceReplyOff: "Sesli yanıtı kapat",
+  callStart: "Sesli sohbet",
+  callEnd: "Bitir",
+  callListening: "Dinliyorum…",
+  callThinking: "Düşünüyor…",
+  callSpeaking: "Konuşuyor…",
+  callPaused: "Sizi duyamadım.",
+  callDoneTalking: "Bitirdim",
+  callInterrupt: "Sözünü kes",
+  callListenAgain: "Tekrar dinle",
+  callMicDenied: "Mikrofon izni verilmedi. Tarayıcı ayarlarından izin verip tekrar deneyin.",
+  callFiller: "Bir saniye, bakıyorum.",
   hereForYou: "Sizin için buradayım",
   sourceTurkish: "Kaynak: Türkçe",
   defaultPersona: "Yapay Zeka Rehberi",
@@ -43,6 +69,19 @@ const EN: GuideStrings = {
   send: "Send",
   voiceStart: "Voice input",
   voiceStop: "Stop voice input",
+  voiceReplyOn: "Turn on spoken replies",
+  voiceReplyOff: "Turn off spoken replies",
+  callStart: "Voice chat",
+  callEnd: "End",
+  callListening: "Listening…",
+  callThinking: "Thinking…",
+  callSpeaking: "Speaking…",
+  callPaused: "I couldn't hear you.",
+  callDoneTalking: "Done",
+  callInterrupt: "Interrupt",
+  callListenAgain: "Listen again",
+  callMicDenied: "Microphone access was denied. Allow it in your browser settings and try again.",
+  callFiller: "One moment, let me check.",
   hereForYou: "I'm here for you",
   sourceTurkish: "Source: Turkish",
   defaultPersona: "AI Guide",

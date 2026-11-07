@@ -24,5 +24,16 @@ services:
       timeout: 5s
       retries: 5
 
+  # Sesli yanıt (isteğe bağlı): docker compose --profile voice up -d piper
+  # ve apps/web/.env.local'a PIPER_URL=http://localhost:5050 ekleyin.
+  piper:
+    profiles: ["voice"]
+    build:
+      context: ./deploy/piper
+    container_name: dengizek-piper
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5050:5000"
+
 volumes:
   dengizek_pg_data:

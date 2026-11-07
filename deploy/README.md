@@ -39,6 +39,19 @@ docker compose -f docker-compose.prod.yml --env-file .env.production up -d
 docker compose -f docker-compose.prod.yml --env-file .env.production run --rm app npm run db:push
 ```
 
+**0022–0025 için `db:push`'tan ÖNCE:** 0024 (talep moderasyonu) mevcut
+talep ve mesajları "onaylandı" sayan bir `UPDATE` içerir; `db:push` bunu
+çalıştırmaz. Sütunlar yalnız `db:push` ile eklenirse eski talepler "bekliyor"
+durumuna düşer ve otel panellerinden kaybolur. Dosyalar tekrar çalıştırılabilir
+(`IF NOT EXISTS`), bu yüzden önce SQL'leri uygulayın, sonra `db:push`:
+
+```bash
+for f in apps/web/drizzle/002{2,3,4,5}_*.sql; do
+  sed 's/--> statement-breakpoint//' "$f" \
+    | docker exec -i dengizek-pg-prod psql -U postgres -d dengizek -v ON_ERROR_STOP=1
+done
+```
+
 `pgvector` extension'ı image'da hazır gelir ama DB içinde etkinleştirilmesi
 gerekir (kök `docker-compose.yml`'deki not aynen geçerli):
 
@@ -72,6 +85,20 @@ token tavanlarıyla sınırlıdır (bkz. `apps/web/.env.example`).
 ```bash
 docker compose -f docker-compose.prod.yml --env-file .env.production run --rm app npm run db:backfill-embeddings
 ```
+
+## 4c. Sesli yanıt (Piper)
+
+Rehberin cevaplarını Türkçe okuyan `piper` servisi compose ile birlikte
+kalkar (`deploy/piper/Dockerfile`, ses: `tr_TR-dfki-medium`). Ek ayar
+gerekmez; uygulama `PIPER_URL=http://piper:5000` ile bağlanır. Servis
+kapalıysa misafir yine sesli yanıt alır, ama tarayıcının kendi sesiyle.
+
+- Kaynak: ~200 MB RAM; 8 saniyelik cevap ~0,3 sn'de üretilir. Compose'da
+  512 MB / 1,5 çekirdek sınırı var.
+- Kontrol: `docker exec dengizek-app wget -qO- http://piper:5000/info`
+- Kapatmak için: `.env.production`'a `PIPER_URL=` (boş) yazın.
+- Lisans: piper-tts GPL-3.0 — ayrı imaj/süreç olarak çalışır, uygulama
+  koduna karışmaz. Devirde alıcıya belirtin.
 
 ## 5. Cron kurulumu
 
@@ -113,3 +140,49 @@ docker compose -f docker-compose.prod.yml --env-file .env.production up -d app
   eklenmedi.
 - Bunny Stream / R2 / Resend / Google Gemini hesapları: barındırmadan bağımsız, ayrı
   ayrı açılmalı — bkz. `apps/web/.env.example`.
+
+
+## Önizleme sunucusu (64.226.108.21:8080)
+
+Başka projelerle paylaşılan bir sunucuda, onlardan bağımsız bir önizleme
+kurulumu: `/opt/otelsayfam`, kendi Postgres'i (`otelsayfam-pg`), kendi
+uygulaması (`otelsayfam-app`), önünde ters vekil (`otelsayfam-nginx`), yalnızca
+**8080** portu. Sunucudaki diğer kapsayıcılara, portlara ve ayarlara dokunulmaz.
+
+Dışarıya yalnız nginx bakar; uygulama host portu yayınlamaz. nginx `X-Real-IP`'yi
+gerçek bağlanan adresle ezer, böylece istemci sahte `X-Forwarded-For` ile hız
+sınırını aşamaz (bkz. `src/lib/rate-limit.ts`). TLS henüz yok (madde: HTTPS).
+
+**Dağıtım (her güncellemede):**
+
+```bash
+deploy/preview/deploy.sh
+```
+
+Betik kodu `rsync` ile eşitler, sunucuda **1 CPU / 3.5 GB** sınırlı bir
+kapsayıcıda derler (paylaşılan sunucu yavaşlamasın), çalışma imajını
+(`deploy/preview/Dockerfile.runtime`) kurar, uygulamayı yeniden başlatır ve
+sayfaları kontrol eder. Farklı sunucu için `DEPLOY_HOST`, `DEPLOY_DIR`,
+`APP_URL` verilebilir.
+
+**İlk kurulum (bir kere, elle):**
+
+1. `/opt/otelsayfam/.env` → `POSTGRES_PASSWORD=<rastgele>`
+2. `/opt/otelsayfam/.env.production` → `DATABASE_URL` (host `postgres`),
+   `AUTH_SECRET`, `CRON_SECRET`, `NEXT_PUBLIC_APP_URL`, `AUTH_TRUST_HOST=true`,
+   `AUTH_URL`, `GEMINI_API_KEY`; e-posta için `RESEND_API_KEY` + `EMAIL_FROM`.
+   Gizli değerleri `openssl rand` ile üretin; dosyalar `chmod 600`.
+3. Veritabanı: `docker compose up -d postgres`, `CREATE EXTENSION vector`,
+   ardından `pg_restore` ile bir yedeği yükleyin (ya da `drizzle-kit push` +
+   seed).
+4. Fotoğraflar: `apps/web/public/uploads` → `/opt/otelsayfam/src/apps/web/public/uploads`
+   (betik bu klasörü eşitlemez ve silmez).
+5. `deploy/preview/deploy.sh`
+
+Sesli yanıt: betik `deploy/piper`'ı da eşitleyip `otelsayfam-piper` imajını
+kurar (ilk seferde ses modelini indirir) ve servisin yanıt verdiğini kontrol
+eder. Servis 512 MB / 1 çekirdekle sınırlı, port açmaz.
+
+Notlar: Docker'ın yayınladığı port ufw kurallarını atlar; 8080 ayrıca
+açılmadan erişilebilir. Panelden yüklenen fotoğraflar çalışma imajının
+içindedir; kapsayıcı yeniden kurulunca kaybolur (önizleme için kabul edildi).

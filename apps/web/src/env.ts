@@ -82,6 +82,10 @@ export function validateEnv(env: NodeJS.ProcessEnv = process.env): EnvValidation
       warnings.push("GEMINI_API_KEY yok — AI tur sohbeti 503 döner");
     }
 
+    if (!env.PIPER_URL) {
+      warnings.push("PIPER_URL yok — sesli yanıt tarayıcının kendi sesiyle okunur");
+    }
+
     // Bunny yapılandırılmışken imzalama anahtarı yoksa videolar herkese açık
     // kalır (hotlink + delivery maliyeti). Hata değil çünkü kademeli açılışa
     // izin veriyoruz, ama production'da görünür bir uyarı olmalı.

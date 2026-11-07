@@ -8,6 +8,13 @@ vi.mock("./use-speech-input", () => ({
   useSpeechInput: (...args: unknown[]) => useSpeechInputMock(...args),
 }));
 
+const useSpeechOutputMock = vi.fn();
+vi.mock("./use-speech-output", () => ({
+  useSpeechOutput: (...args: unknown[]) => useSpeechOutputMock(...args),
+}));
+const toggleSpeechMock = vi.fn();
+const stopSpeechMock = vi.fn();
+
 const startListeningMock = vi.fn();
 const stopListeningMock = vi.fn();
 
@@ -45,6 +52,19 @@ beforeEach(() => {
   });
   startListeningMock.mockReset();
   stopListeningMock.mockReset();
+  useSpeechOutputMock.mockReset().mockReturnValue({
+    isSupported: false,
+    enabled: false,
+    isSpeaking: false,
+    drainCount: 0,
+    isBusy: () => false,
+    enable: vi.fn(),
+    toggle: toggleSpeechMock,
+    stop: stopSpeechMock,
+    say: vi.fn(),
+  });
+  toggleSpeechMock.mockReset();
+  stopSpeechMock.mockReset();
 });
 
 describe("TourGuidePanel", () => {
@@ -175,6 +195,106 @@ describe("TourGuidePanel", () => {
     const micButton = screen.getByLabelText("Sesli girişi durdur");
     fireEvent.click(micButton);
     expect(stopListeningMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("sesli yanıt düğmesi", () => {
+  const speechState = (enabled: boolean) => ({
+    isSupported: true,
+    enabled,
+    isSpeaking: false,
+    drainCount: 0,
+    isBusy: () => false,
+    enable: vi.fn(),
+    toggle: toggleSpeechMock,
+    stop: stopSpeechMock,
+    say: vi.fn(),
+  });
+
+  it("desteklenmiyorsa düğme gösterilmez", () => {
+    renderPanel();
+    expect(screen.queryByLabelText("Sesli yanıtı aç")).not.toBeInTheDocument();
+  });
+
+  it("kapalıyken 'aç' düğmesi görünür, tıklayınca toggle çağrılır", () => {
+    useSpeechOutputMock.mockReturnValue(speechState(false));
+    renderPanel();
+    const button = screen.getByLabelText("Sesli yanıtı aç");
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(button);
+    expect(toggleSpeechMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("açıkken 'kapat' etiketi ve basılı durum gösterilir", () => {
+    useSpeechOutputMock.mockReturnValue(speechState(true));
+    renderPanel();
+    expect(screen.getByLabelText("Sesli yanıtı kapat")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("yeni soru gönderilince okuma kesilir", () => {
+    useSpeechOutputMock.mockReturnValue(speechState(true));
+    const { onSendMessage } = renderPanel();
+    const input = screen.getByPlaceholderText("Bir soru sorun...");
+    fireEvent.change(input, { target: { value: "Havuz var mı?" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(stopSpeechMock).toHaveBeenCalled();
+    expect(onSendMessage).toHaveBeenCalledWith("Havuz var mı?");
+  });
+
+  it("mikrofon açılınca okuma kesilir (rehber kendi sesini dinlemesin)", () => {
+    useSpeechOutputMock.mockReturnValue(speechState(true));
+    useSpeechInputMock.mockReturnValue({
+      isListening: false,
+      isSupported: true,
+      transcript: "",
+      start: startListeningMock,
+      stop: stopListeningMock,
+    });
+    renderPanel();
+    fireEvent.click(screen.getByLabelText("Sesli giriş"));
+    expect(stopSpeechMock).toHaveBeenCalled();
+    expect(startListeningMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("sesli sohbet", () => {
+  function enableVoice() {
+    useSpeechOutputMock.mockReturnValue({
+      isSupported: true,
+      enabled: false,
+      isSpeaking: false,
+      drainCount: 0,
+      isBusy: () => false,
+      enable: vi.fn(),
+      toggle: toggleSpeechMock,
+      stop: stopSpeechMock,
+    });
+    useSpeechInputMock.mockReturnValue({
+      isListening: false,
+      isSupported: true,
+      transcript: "",
+      start: startListeningMock,
+      stop: stopListeningMock,
+      cancel: vi.fn(),
+    });
+  }
+
+  it("mikrofon ya da ses yoksa 'Sesli sohbet' düğmesi gösterilmez", () => {
+    renderPanel();
+    expect(screen.queryByRole("button", { name: /Sesli sohbet/ })).not.toBeInTheDocument();
+  });
+
+  it("başlayınca yazı kutusunun yerine görüşme çubuğu gelir, 'Bitir' geri getirir", () => {
+    enableVoice();
+    renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: /Sesli sohbet/ }));
+
+    expect(screen.getByText("Dinliyorum…")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Bir soru sorun...")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Bitirdim" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Bitir$/ }));
+    expect(screen.getByPlaceholderText("Bir soru sorun...")).toBeInTheDocument();
   });
 });
 

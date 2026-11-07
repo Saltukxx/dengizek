@@ -3,14 +3,24 @@
 import {
   ActionIcon,
   Box,
+  Button,
   Divider,
   Group,
+  Loader,
   ScrollArea,
   Stack,
   Text,
   TextInput,
 } from "@mantine/core";
-import { IconMicrophone, IconMicrophoneOff, IconSend } from "@tabler/icons-react";
+import {
+  IconMicrophone,
+  IconMicrophoneOff,
+  IconPhone,
+  IconPhoneOff,
+  IconSend,
+  IconVolume,
+  IconVolumeOff,
+} from "@tabler/icons-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { GuideMessage } from "@/lib/tour/use-tour-guide";
 import { AutoTourButton } from "./auto-tour-button";
@@ -18,6 +28,9 @@ import { guideStrings, speechLocaleFor } from "./tour-guide-i18n";
 import { TourGuideChips } from "./tour-guide-chips";
 import { TourGuideMessage } from "./tour-guide-message";
 import { useSpeechInput } from "./use-speech-input";
+import { useSpeechOutput } from "./use-speech-output";
+import { useVoiceCall, type VoiceCallState } from "./use-voice-call";
+import type { GuideStrings } from "./tour-guide-i18n";
 
 interface TourGuidePanelProps {
   messages: GuideMessage[];
@@ -86,6 +99,21 @@ export function TourGuidePanel({
       onResult: (text) => setInputValue(text),
     });
 
+  // Sesli yanıt — misafir açarsa cevaplar cümle cümle okunur. Yeni soru ya da
+  // mikrofon okumayı keser (rehber kendi sesini dinlemesin).
+  const speech = useSpeechOutput({ messages, isThinking, language: detectedLanguage });
+
+  // Sesli sohbet — dinler, misafir susunca gönderir, cevabı okur, yeniden dinler.
+  const lastMessage = messages[messages.length - 1];
+  const call = useVoiceCall({
+    output: speech,
+    isThinking,
+    lang: speechLocaleFor(detectedLanguage),
+    onSend: onSendMessage,
+    replyText: lastMessage?.role === "assistant" && !lastMessage.isThinking ? lastMessage.content : "",
+    fillerText: strings.callFiller,
+  });
+
   // Yeni mesaj gelince en alta kaydır
   useEffect(() => {
     if (scrollRef.current) {
@@ -97,7 +125,13 @@ export function TourGuidePanel({
     const text = inputValue.trim();
     if (!text || isThinking) return;
     setInputValue("");
+    speech.stop();
     onSendMessage(text);
+  };
+
+  const handleChipClick = (chip: string) => {
+    speech.stop();
+    onChipClick(chip);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
@@ -174,6 +208,36 @@ export function TourGuidePanel({
             </Stack>
           </Group>
           <Group gap={6} wrap="nowrap">
+            {call.isSupported && !call.isActive && (
+              <Button
+                type="button"
+                variant="light"
+                size="compact-sm"
+                radius={999}
+                leftSection={<IconPhone size={15} />}
+                onClick={() => {
+                  stopListening();
+                  call.start();
+                }}
+                disabled={isThinking}
+              >
+                {strings.callStart}
+              </Button>
+            )}
+            {speech.isSupported && !call.isActive && (
+              <ActionIcon
+                type="button"
+                variant="subtle"
+                size="md"
+                onClick={speech.toggle}
+                aria-pressed={speech.enabled}
+                aria-label={speech.enabled ? strings.voiceReplyOff : strings.voiceReplyOn}
+                title={speech.enabled ? strings.voiceReplyOff : strings.voiceReplyOn}
+                style={{ color: speech.enabled ? "var(--er-primary)" : "var(--er-text-dim)" }}
+              >
+                {speech.enabled ? <IconVolume size={18} /> : <IconVolumeOff size={18} />}
+              </ActionIcon>
+            )}
             {onStartAutoTour && onStopAutoTour && (
               <AutoTourButton
                 isAutoTour={isAutoTour}
@@ -235,7 +299,7 @@ export function TourGuidePanel({
           <Box px={20} py={12} style={{ flexShrink: 0 }}>
             <TourGuideChips
               chips={lastAssistantMessage.chips}
-              onChipClick={onChipClick}
+              onChipClick={handleChipClick}
               disabled={isThinking}
             />
           </Box>
@@ -251,9 +315,18 @@ export function TourGuidePanel({
         </>
       )}
 
-      {/* Metin girişi */}
+      {/* Metin girişi — sesli sohbette yerini görüşme çubuğu alır */}
       <Divider color="var(--er-line)" />
       <Box px={20} py={16} style={{ flexShrink: 0 }}>
+        {call.isActive ? (
+          <VoiceCallBar state={call.state} transcript={call.transcript} strings={strings} onTap={call.tap} onEnd={call.end} />
+        ) : (
+        <>
+        {call.error === "mic-denied" && (
+          <Text size="xs" mb={8} role="alert" style={{ color: "var(--er-text-muted)" }}>
+            {strings.callMicDenied}
+          </Text>
+        )}
         <TextInput
           ref={inputRef}
           value={inputValue}
@@ -272,7 +345,11 @@ export function TourGuidePanel({
                   variant="subtle"
                   size="sm"
                   disabled={isThinking}
-                  onClick={() => (isListening ? stopListening() : startListening())}
+                  onClick={() => {
+                    if (isListening) return stopListening();
+                    speech.stop();
+                    startListening();
+                  }}
                   aria-label={isListening ? strings.voiceStop : strings.voiceStart}
                   style={{ color: isListening ? "var(--er-primary)" : "var(--er-text-dim)" }}
                 >
@@ -311,7 +388,94 @@ export function TourGuidePanel({
             },
           }}
         />
+        </>
+        )}
       </Box>
     </Stack>
+  );
+}
+
+const CALL_STATUS: Record<Exclude<VoiceCallState, "off">, keyof GuideStrings> = {
+  listening: "callListening",
+  thinking: "callThinking",
+  speaking: "callSpeaking",
+  paused: "callPaused",
+};
+
+const CALL_ACTION: Partial<Record<VoiceCallState, keyof GuideStrings>> = {
+  listening: "callDoneTalking",
+  speaking: "callInterrupt",
+  paused: "callListenAgain",
+};
+
+/** Sesli sohbet sırasında yazı kutusunun yerine gelen durum çubuğu. */
+function VoiceCallBar({
+  state,
+  transcript,
+  strings,
+  onTap,
+  onEnd,
+}: {
+  state: VoiceCallState;
+  transcript: string;
+  strings: GuideStrings;
+  onTap: () => void;
+  onEnd: () => void;
+}) {
+  if (state === "off") return null;
+  const action = CALL_ACTION[state];
+  const active = state === "listening" || state === "speaking";
+  return (
+    <Group justify="space-between" wrap="nowrap" gap={12} aria-live="polite">
+      <Group gap={10} wrap="nowrap" style={{ minWidth: 0 }}>
+        <Box
+          aria-hidden
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: "50%",
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: active ? "var(--er-primary)" : "var(--er-surface-2)",
+            color: active ? "#fff" : "var(--er-text-dim)",
+            border: "1px solid var(--er-line)",
+          }}
+        >
+          {state === "listening" && <IconMicrophone size={18} />}
+          {state === "thinking" && <Loader size={16} type="dots" color="var(--er-primary)" />}
+          {state === "speaking" && <IconVolume size={18} />}
+          {state === "paused" && <IconMicrophoneOff size={18} />}
+        </Box>
+        <Stack gap={0} style={{ minWidth: 0 }}>
+          <Text size="sm" fw={600} style={{ color: "var(--er-text)" }}>
+            {strings[CALL_STATUS[state]]}
+          </Text>
+          {transcript && state !== "speaking" ? (
+            <Text size="xs" lineClamp={2} style={{ color: "var(--er-text-muted)" }}>
+              {transcript}
+            </Text>
+          ) : null}
+        </Stack>
+      </Group>
+      <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
+        {action && (
+          <Button type="button" variant="light" size="compact-sm" radius={999} onClick={onTap}>
+            {strings[action]}
+          </Button>
+        )}
+        <Button
+          type="button"
+          color="red"
+          size="compact-sm"
+          radius={999}
+          leftSection={<IconPhoneOff size={14} />}
+          onClick={onEnd}
+        >
+          {strings.callEnd}
+        </Button>
+      </Group>
+    </Group>
   );
 }

@@ -57,6 +57,7 @@ import { useVideoSource } from "./use-video-source";
 import { usePlaybackToken } from "./use-playback-token";
 import { getVisitId } from "@/lib/visit-client";
 import { useTourExit } from "./use-tour-exit";
+import { guestPaths, type GuestSurface } from "@/lib/guest-surface";
 
 // Kapalı mobil çekmece yüksekliği — panel header'ı + metin girişi görünür kalır.
 const GUIDE_PEEK_HEIGHT = 210;
@@ -64,7 +65,7 @@ const GUIDE_PEEK_HEIGHT = 210;
 type TourPlayerProps = {
   manifest: TourManifest;
   hotelName?: string;
-  surface?: "yaz" | "kis";
+  surface?: GuestSurface;
   /** ?room= bağlamı — AI oda belirtmediğinde talep formu bununla doldurulur. */
   contextRoomSlug?: string;
   backHref: string;
@@ -87,9 +88,9 @@ export function TourPlayer({
   const isMobileGuide = useMediaQuery("(max-width: 48em)");
   const router = useRouter();
   const isWinter = surface === "kis";
-  const inquiryPath = isWinter ? "/kis/talep" : "/inquiry";
+  const inquiryPath = guestPaths(surface).inquiry;
   const guidePeekHeight = isWinter ? 112 : GUIDE_PEEK_HEIGHT;
-  const rootClassName = `er-tour-page${isWinter ? " er-tour-winter" : ""}`;
+  const rootClassName = `er-tour-page${isWinter ? " er-tour-winter" : surface === "termal" ? " er-tour-thermal" : ""}`;
   const {
     videoRef,
     machine,

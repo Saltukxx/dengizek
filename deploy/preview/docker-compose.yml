@@ -1,0 +1,75 @@
+# Otelsayfam önizleme — sunucudaki diğer projelerden (Vibly) bağımsız.
+# Kendi ağı, kendi veritabanı, kendi kapsayıcı adları; dışarıya yalnız
+# nginx'in 8080 portu açılır (app ve piper iç ağda kalır).
+name: otelsayfam
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: otelsayfam-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD gerekli}
+      POSTGRES_DB: dengizek
+    volumes:
+      - otelsayfam_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dengizek"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    mem_limit: 768m
+    cpus: 0.5
+
+  app:
+    image: otelsayfam-app:latest
+    container_name: otelsayfam-app
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Sesli yanıt servisi (aşağıda). Kapalıysa tarayıcı sesi kullanılır.
+      PIPER_URL: http://piper:5000
+    # Host portu YAYINLANMAZ: dışarıya yalnız nginx bakar. Böylece istemci
+    # uygulamaya doğrudan erişip güvenilir IP başlığını atlayamaz (ve Docker'ın
+    # yayınladığı portun ufw'yi atlaması sorunu bu uçta ortadan kalkar).
+    expose:
+      - "3000"
+    volumes:
+      # next/image önbelleği (AVIF/WebP) dağıtımlar arasında korunur; yoksa
+      # her yeniden kurulumda tüm görseller ilk istekte yeniden üretilir.
+      - otelsayfam_next_cache:/app/.next/cache
+    mem_limit: 1g
+    cpus: 1.0
+
+  # Rehberin Türkçe sesli yanıtları (deploy/piper). Port açılmaz, yalnız
+  # app iç ağdan erişir. Paylaşılan sunucu: tek çekirdekle sınırlı.
+  piper:
+    image: otelsayfam-piper:latest
+    container_name: otelsayfam-piper
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 1.0
+
+  # Ters vekil — dışarıya bakan tek servis. Uygulamanın önünde güvenilir hop:
+  # istemci IP'sini doğru belirler (bkz. nginx.conf, rate-limit.ts).
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: otelsayfam-nginx
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    mem_limit: 128m
+    cpus: 0.5
+
+volumes:
+  otelsayfam_pg_data:
+  otelsayfam_next_cache:

@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { IconArrowLeft, IconMessageCircle } from "@tabler/icons-react";
+import { guestPaths, type GuestSurface } from "@/lib/guest-surface";
 
 type TourHeaderProps = {
   hotelName: string;
   hotelSlug: string;
   backHref: string;
-  surface?: "yaz" | "kis";
+  surface?: GuestSurface;
   /** Talep bağlantısına tıklanınca (tur çıkış kaydı için). */
   onInquiryClick?: () => void;
 };
@@ -15,18 +16,18 @@ type TourHeaderProps = {
  * solda marka + tesise dönüş, sağda talep eylemi.
  */
 export function TourHeader({ hotelName, hotelSlug, backHref, surface = "yaz", onInquiryClick }: TourHeaderProps) {
-  const isWinter = surface === "kis";
+  const paths = guestPaths(surface);
   return (
     <header
       className="er-header"
       style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50 }}
     >
-      <Link href={isWinter ? "/kis" : "/"} className="er-brand">
+      <Link href={paths.home} className="er-brand">
         Otelsayfam
       </Link>
 
       <nav className="er-nav" aria-label="Tur navigasyonu">
-        <Link href={isWinter ? "/kis/oteller" : "/browse"} className="er-nav-link">
+        <Link href={paths.browse} className="er-nav-link">
           Oteller
         </Link>
         <Link href={backHref} className="er-nav-link" data-active="true">
@@ -44,7 +45,7 @@ export function TourHeader({ hotelName, hotelSlug, backHref, surface = "yaz", on
           Turdan çık
         </Link>
         <Link
-          href={`${isWinter ? "/kis/talep" : "/inquiry"}?hotel=${hotelSlug}`}
+          href={`${paths.inquiry}?hotel=${hotelSlug}`}
           className="er-btn er-btn-cta"
           onClick={onInquiryClick}
         >
