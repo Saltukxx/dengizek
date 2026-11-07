@@ -27,7 +27,9 @@ function buildDb() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("[db] DATABASE_URL ortam değişkeni tanımlı değil.");
   if (isLocalDatabaseUrl(url)) {
-    const client = postgres(url, { max: 10 });
+    // idle_timeout: boşta bağlantılar kapanır; geliştirmede yeniden yüklenen
+    // modüllerin bıraktığı havuzlar Postgres'in bağlantı sınırını doldurmasın.
+    const client = postgres(url, { max: 10, idle_timeout: 20 });
     return drizzlePostgres(client, { schema });
   }
   neonConfig.webSocketConstructor = ws;
@@ -35,11 +37,14 @@ function buildDb() {
   return drizzleNeon(pool, { schema });
 }
 
-let _db: Db | null = null;
+// Next geliştirme sunucusu modülü her değişiklikte yeniden yükler; istemci
+// globalThis'te tutulmazsa her yüklemede yeni bir havuz açılır (Kasım 2026:
+// 99 boşta bağlantı, "too many clients" hatası → otel verisi eksik yüklendi).
+const globalForDb = globalThis as unknown as { __dengizekDb?: Db };
 
 export function getDb(): Db {
-  if (!_db) _db = buildDb();
-  return _db;
+  if (!globalForDb.__dengizekDb) globalForDb.__dengizekDb = buildDb();
+  return globalForDb.__dengizekDb;
 }
 
 export function isDbConfigured(): boolean {
