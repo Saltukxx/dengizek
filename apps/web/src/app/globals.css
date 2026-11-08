@@ -3868,6 +3868,12 @@ a {
     font-weight: 700;
     color: var(--er-text);
   }
+  .er-hotel-bar-note {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--er-text-muted);
+  }
 
   .er-hotel-bar-ask {
     display: inline-flex;

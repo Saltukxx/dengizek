@@ -58,7 +58,7 @@ import { PageBanner } from "@/components/guest/page-banner";
 import { GalleryRail } from "@/components/guest/gallery-rail";
 import { HotelStickyBar } from "@/components/guest/hotel-sticky-bar";
 import { hotelChatStarters } from "@/lib/ai/hotel-page-chat";
-import { resolveGuestRoomPrice } from "@/lib/guest-pricing";
+import { formatUpcomingFrom, resolveGuestRoomPrice, resolveUpcomingFromPrice } from "@/lib/guest-pricing";
 import { formatPrice } from "@/lib/price";
 
 export type HotelDetailSurface = GuestSurface;
@@ -214,6 +214,26 @@ export async function HotelDetailPage({ params, surface = "yaz" }: HotelDetailPa
       ? cheapest.originalPriceMinor
       : null;
   const currency = cheapest?.currency ?? content.rooms.find((r) => r.currency)?.currency ?? "TRY";
+  // Bugün fiyat yoksa en yakın dönemin fiyatı: "14 Kasım'dan itibaren ₺7.500".
+  const upcoming =
+    fromPrice == null
+      ? resolveUpcomingFromPrice(
+          content.rooms.map((room) => ({
+            room: {
+              id: room.id,
+              priceMinor: room.priceMinor,
+              currency: room.currency,
+              priceOnRequest: room.priceOnRequest,
+              discountPercent: room.discountPercent,
+              discountLabel: room.discountLabel,
+              minStayNights: room.minStayNights,
+            },
+            rates: room.rates,
+            promotions: content.promotions,
+            ratePlanPrices: content.ratePlanPrices,
+          })),
+        )
+      : null;
 
   const location = [hotel.city, hotel.country].filter(Boolean).join(", ");
 
@@ -431,6 +451,16 @@ export async function HotelDetailPage({ params, surface = "yaz" }: HotelDetailPa
                 </span>
                 <span className="er-price-note">/ gece</span>
               </>
+            ) : upcoming ? (
+              <>
+                <span className="er-price" style={{ fontSize: 30 }}>
+                  {formatPrice(upcoming.priceMinor, upcoming.currency)}
+                </span>
+                <span className="er-price-note">/ gece</span>
+                <span className="er-price-note" style={{ width: "100%" }}>
+                  {formatUpcomingFrom(upcoming.fromDate)}
+                </span>
+              </>
             ) : (
               <span className="er-price-note">Fiyat talep üzerine</span>
             )}
@@ -527,7 +557,14 @@ export async function HotelDetailPage({ params, surface = "yaz" }: HotelDetailPa
       </div>
 
       <HotelStickyBar
-        priceText={fromPrice != null ? `${formatPrice(fromPrice, currency)} / gece` : "Fiyat talep üzerine"}
+        priceText={
+          fromPrice != null
+            ? `${formatPrice(fromPrice, currency)} / gece`
+            : upcoming
+              ? `${formatPrice(upcoming.priceMinor, upcoming.currency)} / gece`
+              : "Fiyat talep üzerine"
+        }
+        priceNote={upcoming ? formatUpcomingFrom(upcoming.fromDate) : null}
         inquiryHref={`${paths.inquiry}?hotel=${slug}`}
       />
 
@@ -566,6 +603,7 @@ export async function HotelDetailPage({ params, surface = "yaz" }: HotelDetailPa
                 starRating={h.starRating}
                 amenities={h.amenities}
                 minPriceMinor={h.minPriceMinor}
+                upcomingPrice={h.upcomingPrice}
                 hasTour={Boolean(h.tourId)}
                 promotionBadge={h.promotionBadge}
                 href={paths.hotel(h.slug)}

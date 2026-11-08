@@ -3,6 +3,7 @@ import Link from "next/link";
 import { IconPlayerPlayFilled, IconRosetteDiscount } from "@tabler/icons-react";
 import type { HotelMock } from "@/lib/mocks/hotels";
 import { amenityLabel, highlightAmenityKeys } from "@/lib/amenities-catalog";
+import { formatUpcomingFrom, type UpcomingGuestPrice } from "@/lib/guest-pricing";
 import { formatPrice } from "@/lib/price";
 
 type HotelCardProps = {
@@ -19,6 +20,8 @@ type HotelCardProps = {
   amenities?: string[];
   /** En düşük oda fiyatı (en küçük birim); yoksa priceLabel kullanılır. */
   minPriceMinor?: number | null;
+  /** Bugün fiyat yoksa en yakın ileri tarihli fiyat — "14 Kasım'dan itibaren". */
+  upcomingPrice?: UpcomingGuestPrice | null;
   currency?: string;
   /** Yayında video turu olan tesislerde görselin üzerinde rozet çıkar. */
   hasTour?: boolean;
@@ -43,6 +46,7 @@ export function HotelCard({
   starRating,
   amenities = [],
   minPriceMinor,
+  upcomingPrice = null,
   currency = "TRY",
   hasTour = false,
   promotionBadge = null,
@@ -112,6 +116,11 @@ export function HotelCard({
           <p>
             <span className="er-price">{priceAmount}</span>{" "}
             <span className="er-price-note">gecelik başlayan</span>
+          </p>
+        ) : upcomingPrice ? (
+          <p>
+            <span className="er-price">{formatPrice(upcomingPrice.priceMinor, upcomingPrice.currency)}</span>{" "}
+            <span className="er-price-note">gecelik · {formatUpcomingFrom(upcomingPrice.fromDate)}</span>
           </p>
         ) : (
           <p className="er-price-note">Fiyat talep üzerine</p>

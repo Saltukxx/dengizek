@@ -119,6 +119,7 @@ export default async function ThermalHomePage() {
                 starRating={h.starRating}
                 amenities={h.amenities}
                 minPriceMinor={h.minPriceMinor}
+                upcomingPrice={h.upcomingPrice}
                 hasTour={Boolean(h.tourId)}
                 promotionBadge={h.promotionBadge}
                 href={`/termal/oteller/${h.slug}`}

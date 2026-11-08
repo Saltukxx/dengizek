@@ -16,7 +16,14 @@ import {
   type HotelMock,
 } from "@/lib/mocks/hotels";
 import type { ChildAgePrice, Extra, Promotion, Restaurant, Room, RoomRate } from "@/lib/db/schema";
-import { resolveGuestRoomPrice, type GuestPromotion, type GuestRatePlanPrice } from "@/lib/guest-pricing";
+import {
+  resolveGuestRoomPrice,
+  resolveUpcomingFromPrice,
+  type GuestPromotion,
+  type GuestRatePlanPrice,
+  type GuestRoomPricingInput,
+  type UpcomingGuestPrice,
+} from "@/lib/guest-pricing";
 import {
   parseHotelContentSnapshot,
   type HotelContentSnapshot,
@@ -159,7 +166,7 @@ function snapshotClosedRanges(snapshot: HotelContentSnapshot): NonNullable<Brows
     }));
 }
 
-function snapshotMinPriceMinor(snapshot: HotelContentSnapshot): number | null {
+function snapshotPricingInputs(snapshot: HotelContentSnapshot): GuestRoomPricingInput[] {
   const rooms = snapshot.rooms as unknown as Room[];
   const rates = snapshot.roomRates as unknown as RoomRate[];
   const ratesByRoom = new Map<string, RoomRate[]>();
@@ -169,12 +176,11 @@ function snapshotMinPriceMinor(snapshot: HotelContentSnapshot): number | null {
   const promotions = snapshotPromotions(snapshot);
   const ratePlanPrices = snapshotRatePlanPrices(snapshot);
 
-  let min: number | null = null;
-  for (const room of rooms) {
-    // "Talep üzerine" oda bugün bir dönem fiyatına düşüyorsa fiyatlıdır;
-    // karar aşağıda fiyat motorunda (priced.priceOnRequest).
-    if (room.isActive === false) continue;
-    const priced = resolveGuestRoomPrice({
+  // "Talep üzerine" oda bugün bir dönem fiyatına düşüyorsa fiyatlıdır;
+  // karar fiyat motorunda (priced.priceOnRequest).
+  return rooms
+    .filter((room) => room.isActive !== false)
+    .map((room) => ({
       room: {
         id: room.id,
         priceMinor: room.priceMinor,
@@ -187,7 +193,13 @@ function snapshotMinPriceMinor(snapshot: HotelContentSnapshot): number | null {
       rates: ratesByRoom.get(room.id) ?? [],
       promotions,
       ratePlanPrices,
-    });
+    }));
+}
+
+function snapshotMinPriceMinor(inputs: GuestRoomPricingInput[]): number | null {
+  let min: number | null = null;
+  for (const input of inputs) {
+    const priced = resolveGuestRoomPrice(input);
     if (priced.priceOnRequest || priced.priceMinor == null) continue;
     min = min == null ? priced.priceMinor : Math.min(min, priced.priceMinor);
   }
@@ -221,6 +233,8 @@ export interface BrowseHotelRow {
   /** Tatil sezonu kategorileri ("yaz"|"kis"|"termal"); boş = belirtilmedi. */
   seasons: string[];
   minPriceMinor: number | null;
+  /** Bugün fiyat yoksa en yakın ileri tarihli fiyat ("14 Kasım'dan itibaren"). */
+  upcomingPrice?: UpcomingGuestPrice | null;
   /** Yayındaki yorumların ortalaması (1–5); yorum yoksa null */
   reviewAverage: number | null;
   reviewCount: number;
@@ -373,6 +387,11 @@ async function loadPublishedHotelsForBrowse(
         // Snapshot satırda taşınmaz: büyük ve liste kartı ondan türeyen alanları kullanır.
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { publishedSnapshot, ...base } = row;
+        const pricingInputs = parsed.success ? snapshotPricingInputs(parsed.data) : null;
+        // İndirim/dönemsel fiyat uygulanmış gerçek "başlayan" fiyat.
+        const minPriceMinor = pricingInputs
+          ? snapshotMinPriceMinor(pricingInputs)
+          : (minPriceByHotel.get(row.id) ?? null);
         return {
           ...base,
           name: value("name", row.name),
@@ -386,10 +405,9 @@ async function loadPublishedHotelsForBrowse(
           amenities: value("amenities", row.amenities),
           petsAllowed: value("petsAllowed", row.petsAllowed),
           seasons: value("seasons", row.seasons) ?? [],
-          // İndirim/dönemsel fiyat uygulanmış gerçek "başlayan" fiyat.
-          minPriceMinor: parsed.success
-            ? snapshotMinPriceMinor(parsed.data)
-            : (minPriceByHotel.get(row.id) ?? null),
+          minPriceMinor,
+          upcomingPrice:
+            minPriceMinor == null && pricingInputs ? resolveUpcomingFromPrice(pricingInputs) : null,
           reviewAverage: reviewsByHotel.get(row.id)?.average ?? null,
           reviewCount: reviewsByHotel.get(row.id)?.total ?? 0,
           tourId: tourByHotel.get(row.slug) ?? null,

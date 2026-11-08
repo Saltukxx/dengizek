@@ -10,7 +10,16 @@ import { StayLink } from "./stay-calculator";
  * fiyat bilgisi, rehbere soru ve talep. Masaüstünde yapışkan rezervasyon
  * paneli aynı işi gördüğü için gizlidir.
  */
-export function HotelStickyBar({ priceText, inquiryHref }: { priceText: string; inquiryHref: string }) {
+export function HotelStickyBar({
+  priceText,
+  priceNote,
+  inquiryHref,
+}: {
+  priceText: string;
+  /** Fiyatın altında küçük not — "14 Kasım'dan itibaren". */
+  priceNote?: string | null;
+  inquiryHref: string;
+}) {
   const [visible, setVisible] = useState(false);
   useEffect(() => {
     const onScroll = () => setVisible(window.scrollY > 520);
@@ -20,7 +29,10 @@ export function HotelStickyBar({ priceText, inquiryHref }: { priceText: string; 
   }, []);
   return (
     <div className="er-hotel-bar" data-visible={visible || undefined} aria-hidden={!visible}>
-      <p className="er-hotel-bar-price">{priceText}</p>
+      <p className="er-hotel-bar-price">
+        {priceText}
+        {priceNote && <span className="er-hotel-bar-note">{priceNote}</span>}
+      </p>
       <OpenHotelChatButton className="er-hotel-bar-ask">
         <IconMessageCircle size={18} aria-hidden />
         Sor

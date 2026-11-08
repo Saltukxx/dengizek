@@ -493,3 +493,91 @@ export function quoteStayNights(
     stayPromotion: best.stayPromotion,
   };
 }
+
+// ---------------------------------------------------------------------------
+// İleri tarihli "başlayan" fiyat
+// ---------------------------------------------------------------------------
+
+export interface UpcomingGuestPrice {
+  priceMinor: number;
+  currency: string;
+  /** Fiyatın ilk geçerli olduğu gece (YYYY-MM-DD). */
+  fromDate: string;
+}
+
+function addDaysIso(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Bugün fiyatı olmayan otel için en yakın ileri tarihli fiyat: "14 Kasım'dan
+ * itibaren ₺7.500". Yalnız fiyat dönemi bugünden sonra başlayan otellerde
+ * anlamlıdır; bugün fiyatlı otelde çağıran bugünkü fiyatı kullanır.
+ *
+ * Her dönemin ilk 7 gecesinde fiyat motoru çalıştırılır (yalnız belli
+ * günlerde geçerli dönemler için); en erken fiyatlı gece ve o gecedeki en
+ * düşük oda fiyatı döner. Dönemin en az gece koşulu varsa o süreyle bakılır.
+ */
+export function resolveUpcomingFromPrice(
+  rooms: GuestRoomPricingInput[],
+  today: string = todayIso(),
+  horizonDays = 400,
+): UpcomingGuestPrice | null {
+  const tomorrow = addDaysIso(today, 1);
+  const horizon = addDaysIso(today, horizonDays);
+  const candidates: { date: string; room: GuestRoomPricingInput; nights: number }[] = [];
+
+  for (const room of rooms) {
+    const periods = [
+      ...room.rates.map((r) => ({ startDate: r.startDate, endDate: r.endDate, min: r.stayMinNights ?? r.minStayNights })),
+      ...(room.ratePlanPrices ?? [])
+        .filter((p) => p.roomId === room.room.id)
+        .map((p) => ({ startDate: p.startDate, endDate: p.endDate, min: p.minStayNights })),
+    ];
+    for (const period of periods) {
+      if (period.endDate < tomorrow || period.startDate > horizon) continue;
+      const start = period.startDate > tomorrow ? period.startDate : tomorrow;
+      const nights = Math.max(1, period.min ?? 1, room.room.minStayNights ?? 1);
+      for (let i = 0; i < 7; i++) {
+        const date = addDaysIso(start, i);
+        if (date > period.endDate) break;
+        candidates.push({ date, room, nights });
+      }
+    }
+  }
+
+  candidates.sort((a, b) => a.date.localeCompare(b.date));
+  let found: UpcomingGuestPrice | null = null;
+  for (const c of candidates) {
+    if (found && c.date > found.fromDate) break;
+    const priced = resolveGuestRoomPrice({ ...c.room, date: c.date, nights: c.nights, bookingDate: today });
+    if (priced.priceOnRequest || priced.priceMinor == null || priced.priceMinor <= 0) continue;
+    if (!found || priced.priceMinor < found.priceMinor) {
+      found = { priceMinor: priced.priceMinor, currency: priced.currency, fromDate: c.date };
+    }
+  }
+  return found;
+}
+
+const MONTH_ABLATIVE: Record<number, string> = {
+  1: "Ocak'tan", 2: "Şubat'tan", 3: "Mart'tan", 4: "Nisan'dan", 5: "Mayıs'tan", 6: "Haziran'dan",
+  7: "Temmuz'dan", 8: "Ağustos'tan", 9: "Eylül'den", 10: "Ekim'den", 11: "Kasım'dan", 12: "Aralık'tan",
+};
+
+/** Yılın okunuşuna göre ayrılma eki: 2026'dan, 2027'den, 2030'dan. */
+function yearAblative(year: number): string {
+  const ones = ["", "den", "den", "ten", "ten", "ten", "dan", "den", "den", "dan"];
+  const tens = ["", "dan", "den", "dan", "tan", "den", "tan", "ten", "den", "dan"];
+  const suffix = year % 10 ? ones[year % 10] : year % 100 ? tens[(year % 100) / 10] : "den";
+  return `${year}'${suffix}`;
+}
+
+/** "14 Kasım'dan itibaren" — yıl bugünkünden farklıysa "23 Ocak 2027'den itibaren". */
+export function formatUpcomingFrom(iso: string, today: string = todayIso()): string {
+  const [y, m, d] = iso.split("-").map(Number) as [number, number, number];
+  const month = MONTH_ABLATIVE[m] as string;
+  if (iso.slice(0, 4) === today.slice(0, 4)) return `${d} ${month} itibaren`;
+  return `${d} ${month.split("'")[0]} ${yearAblative(y)} itibaren`;
+}

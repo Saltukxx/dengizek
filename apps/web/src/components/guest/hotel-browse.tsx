@@ -518,6 +518,7 @@ export async function HotelBrowse({
                   starRating={h.starRating}
                   amenities={h.amenities}
                   minPriceMinor={h.minPriceMinor}
+                  upcomingPrice={h.upcomingPrice}
                   hasTour={Boolean(h.tourId)}
                   promotionBadge={h.promotionBadge}
                   // Seçilen tarih ve kişiler otel sayfasındaki fiyat hesaplayıcıyı doldurur.
