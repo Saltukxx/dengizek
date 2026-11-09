@@ -35,6 +35,16 @@ async function seed() {
     console.error("DATABASE_URL tanımlı değil. .env.local dosyanızı kontrol edin.");
     process.exit(1);
   }
+  // Seed kurgusal demo otelleri yayımlar; canlı veritabanına girmemeli.
+  const host = new URL(url).hostname;
+  const isLocalDb = host === "localhost" || host === "127.0.0.1" || host === "::1";
+  if ((process.env.NODE_ENV === "production" || !isLocalDb) && process.env.SEED_ALLOW_REMOTE !== "true") {
+    console.error(
+      `Seed yalnız yerel veritabanında çalışır (bulunan: ${host}). Demo oteller canlıya girmesin diye durduruldu; ` +
+        "bilerek uzak bir test veritabanına yazıyorsanız SEED_ALLOW_REMOTE=true verin.",
+    );
+    process.exit(1);
+  }
 
   const db = getDb();
 

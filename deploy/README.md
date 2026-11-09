@@ -173,8 +173,9 @@ sayfaları kontrol eder. Farklı sunucu için `DEPLOY_HOST`, `DEPLOY_DIR`,
    `AUTH_URL`, `GEMINI_API_KEY`; e-posta için `RESEND_API_KEY` + `EMAIL_FROM`.
    Gizli değerleri `openssl rand` ile üretin; dosyalar `chmod 600`.
 3. Veritabanı: `docker compose up -d postgres`, `CREATE EXTENSION vector`,
-   ardından `pg_restore` ile bir yedeği yükleyin (ya da `drizzle-kit push` +
-   seed).
+   ardından `pg_restore` ile bir yedeği yükleyin (ya da `drizzle-kit push`).
+   Seed çalıştırmayın: kurgusal demo oteller (Aurelia Bay, kış otelleri) yayımlar;
+   betik yerel olmayan veritabanında zaten durur.
 4. Fotoğraflar: `apps/web/public/uploads` → `/opt/otelsayfam/src/apps/web/public/uploads`
    (betik bu klasörü eşitlemez ve silmez).
 5. `deploy/preview/deploy.sh`
