@@ -1,0 +1,83 @@
+name: Otelsayfam
+options:
+  bundleIdPrefix: com.gbsoft
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    DEVELOPMENT_TEAM: KRQ4U9G63K
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  Otelsayfam:
+    type: application
+    platform: iOS
+    sources:
+      - path: Otelsayfam
+        type: syncedFolder
+    info:
+      path: Config/Info.plist
+      properties:
+        CFBundleDisplayName: Otelsayfam
+        CFBundleDevelopmentRegion: tr
+        UILaunchScreen: {}
+        UIAppFonts: [Manrope.ttf, PlusJakartaSans.ttf, EBGaramond.ttf, HankenGrotesk.ttf]
+        NSLocalNetworkUsageDescription: Geliştirme sürümü, aynı ağdaki Otelsayfam test sunucusuna bağlanır.
+        NSMicrophoneUsageDescription: Rehbere sesli soru sorabilmeniz için mikrofon kullanılır.
+        NSSpeechRecognitionUsageDescription: Sesli sorunuz yazıya çevrilip rehbere gönderilir; cihaz destekliyorsa tanıma cihazda yapılır.
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        # Alan adı + HTTPS gelene kadar yerel geliştirme sunucusuna (localhost) izin.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        OTSApiBaseURL: $(OTS_API_BASE_URL)
+    # Bildirimler (APNs): Xcode > Settings > Accounts'a Apple hesabı eklenince
+    # aşağıdaki üç satırı açın; yoksa genel imza profili bu yetkiyi içermediği
+    # için cihaz derlemesi başarısız olur. Sunucu tarafı APNS_* değişkenlerini ister.
+    # entitlements:
+    #   path: Config/Otelsayfam.entitlements
+    #   properties: { aps-environment: development }
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gbsoft.otelsayfam
+        GENERATE_INFOPLIST_FILE: NO
+      configs:
+        Debug:
+          OTS_API_BASE_URL: http://localhost:3000
+        Release:
+          OTS_API_BASE_URL: https://example.invalid
+  OtelsayfamTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: OtelsayfamTests
+        type: syncedFolder
+    dependencies:
+      - target: Otelsayfam
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.gbsoft.otelsayfam.tests
+  OtelsayfamUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: OtelsayfamUITests
+        type: syncedFolder
+    dependencies:
+      - target: Otelsayfam
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.gbsoft.otelsayfam.uitests
+schemes:
+  Otelsayfam:
+    build:
+      targets:
+        Otelsayfam: all
+        OtelsayfamTests: [test]
+    test:
+      targets: [OtelsayfamTests, OtelsayfamUITests]
