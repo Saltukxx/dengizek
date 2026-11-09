@@ -17,6 +17,9 @@ async function assertNoSeriousViolations(page: Page, path: string) {
       id: violation.id,
       impact: violation.impact,
       targets: violation.nodes.flatMap((node) => node.target),
+      // axe'ın ölçtüğü değerler (ör. kontrast oranı, ön/arka renk): CI'da
+      // yerelde görülmeyen ihlalin nedenini hata mesajında gösterir.
+      details: violation.nodes.map((node) => node.any.map((check) => check.message).join(" | ")),
     })),
     `${path} erişilebilirlik ihlalleri`,
   ).toEqual([]);
