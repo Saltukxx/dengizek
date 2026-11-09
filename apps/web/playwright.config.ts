@@ -10,6 +10,9 @@ export default defineConfig({
   // Dev sunucusu istek üzerine derlediği için paralel işçiler ilk derlemede
   // 30 sn'lik goto zaman aşımına takılıyor — tek işçi kararlı.
   workers: 1,
+  // CI'da sunucu soğuk başlar ve her sayfayı ilk istekte derler; çok adımlı
+  // akışlar (giriş + gönderim + birkaç sayfa) 30 sn'yi aşabiliyor.
+  timeout: process.env.CI ? 120_000 : 30_000,
   reporter: "list",
   snapshotPathTemplate: "{testDir}/__screenshots__/{testFilePath}/{arg}{ext}",
   expect: {

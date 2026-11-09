@@ -3,7 +3,10 @@
 //
 // Girdi: scripts/oteldenrezerve/scrape.py çıktısı (oteller.json + images/<slug>/...).
 // Kullanım:
-//   npm run import:oteldenrezerve -- <klasör> [--dry-run] [--only <slug>]
+//   npm run import:oteldenrezerve -- <klasör> [--dry-run] [--only <slug>] [--season <yaz|kis|termal>]
+//
+// - --season verilirse oteller o tatil sezonuna atanır (ör. termal klasörü için
+//   "--season termal"); verilmezse sezon boş kalır ve tesis yaz vitrininde görünür.
 //
 // - Oteller "taslak" açılır; misafire görünmez, admin inceleyip yayına alır.
 // - Aynı slug'la otel zaten varsa ATLANIR (panelde düzenlenmiş veriyi ezmemek için).
@@ -18,6 +21,8 @@ import path from "node:path";
 import { eq } from "drizzle-orm";
 import { getDb } from "../src/lib/db";
 import { hotelGalleryImagesTable, hotelsTable, roomsTable } from "../src/lib/db/schema";
+import { hotelSeasons } from "../src/lib/schemas/hotel-content";
+import { normalizeProvince } from "../src/lib/guest-city-groups";
 import {
   CHECK_IN_LABELS,
   CHECK_OUT_LABELS,
@@ -49,9 +54,12 @@ interface ScrapedHotel {
 
 
 const args = process.argv.slice(2);
-const dir = args.find((a) => !a.startsWith("--"));
+// Klasör: bayrak olmayan ve bir bayrağın değeri olmayan ilk argüman.
+const VALUE_FLAGS = new Set(["--only", "--season"]);
+const dir = args.find((a, i) => !a.startsWith("--") && !VALUE_FLAGS.has(args[i - 1] ?? ""));
 const dryRun = args.includes("--dry-run");
 const only = args.includes("--only") ? args[args.indexOf("--only") + 1] : undefined;
+const season = args.includes("--season") ? args[args.indexOf("--season") + 1] : undefined;
 
 // ---------------------------------------------------------------------------
 // Metin temizliği ve alan çıkarımı
@@ -87,7 +95,10 @@ async function uploadImage(hotelId: string, file: string) {
 }
 
 async function main() {
-  if (!dir) throw new Error("Kullanım: import-oteldenrezerve <klasör> [--dry-run] [--only <slug>]");
+  if (!dir) throw new Error("Kullanım: import-oteldenrezerve <klasör> [--dry-run] [--only <slug>] [--season <yaz|kis|termal>]");
+  if (season !== undefined && !(hotelSeasons as readonly string[]).includes(season)) {
+    throw new Error(`Geçersiz sezon: ${season} (yaz | kis | termal)`);
+  }
   const hotels = (JSON.parse(await readFile(path.join(dir, "oteller.json"), "utf-8")) as ScrapedHotel[])
     .filter((h) => !only || h.slug === only);
   const db = dryRun ? null : getDb();
@@ -123,7 +134,7 @@ async function main() {
     const values = {
       slug: h.slug,
       name: fixCaps(h.ad),
-      city: h.liste.il || h.konum.split("/")[0]?.trim() || null,
+      city: normalizeProvince(h.liste.il || h.konum.split("/")[0]?.trim() || null),
       country: "Türkiye",
       shortDescription: shortDescriptionOf(info),
       longDescription: info || null,
@@ -137,6 +148,7 @@ async function main() {
       aiFacts,
       aiPolicies,
       propertyType: "otel" as const,
+      seasons: season ? [season] : [],
       status: "taslak" as const,
     };
 

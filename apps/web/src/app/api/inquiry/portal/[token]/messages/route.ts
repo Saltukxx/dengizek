@@ -2,13 +2,13 @@
 // GET/POST /api/inquiry/portal/[token]/messages — misafir mesaj portalı
 // ---------------------------------------------------------------------------
 
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, or } from "drizzle-orm";
 import { getDb, isDbConfigured } from "@/lib/db";
 import { inquiriesTable, inquiryMessagesTable } from "@/lib/db/schema";
 import { inquiryMessageSchema } from "@/lib/schemas/hotel-panel";
-import { notifyHotelMembers } from "@/lib/notifications";
+import { notifyAdmins } from "@/lib/notifications";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
-import { apiRateLimited, apiServiceUnavailable, apiFail, apiNotFound, apiOk } from "@/lib/api-response";
+import { apiRateLimited, apiServiceUnavailable, apiFail, apiNotFound, apiOk, validationMessage } from "@/lib/api-response";
 import { hashPortalToken } from "@/lib/inquiry-portal-token";
 import { messageForDisplay } from "@/lib/manager-privacy";
 
@@ -51,10 +51,20 @@ export async function GET(req: Request, { params }: RouteParams) {
   }
 
   const db = getDb();
+  // Moderasyon: misafir kendi mesajlarını (onay bekleyen dahil) + yalnız
+  // onaylanmış otel mesajlarını görür. Onaylanmamış otel yanıtı görünmez.
   const messages = await db
     .select()
     .from(inquiryMessagesTable)
-    .where(eq(inquiryMessagesTable.inquiryId, inquiry.id))
+    .where(
+      and(
+        eq(inquiryMessagesTable.inquiryId, inquiry.id),
+        or(
+          eq(inquiryMessagesTable.approvalStatus, "onaylandi"),
+          eq(inquiryMessagesTable.senderRole, "guest"),
+        ),
+      ),
+    )
     .orderBy(asc(inquiryMessagesTable.createdAt));
 
   return apiOk({
@@ -93,10 +103,12 @@ export async function POST(req: Request, { params }: RouteParams) {
   const body = await req.json().catch(() => null);
   const parsed = inquiryMessageSchema.safeParse(body);
   if (!parsed.success) {
-    return apiFail("Doğrulama başarısız", 400, { issues: parsed.error.flatten() });
+    return apiFail(validationMessage(parsed.error), 400, { issues: parsed.error.flatten() });
   }
 
   const db = getDb();
+  // Moderasyon: misafir mesajı "bekliyor" kaydedilir, tesise doğrudan gitmez.
+  // Admin onaylayınca tesise bildirim düşer (bkz. /api/admin/moderation).
   const [message] = await db
     .insert(inquiryMessagesTable)
     .values({
@@ -104,17 +116,16 @@ export async function POST(req: Request, { params }: RouteParams) {
       senderRole: "guest",
       senderName: inquiry.name,
       body: parsed.data.body,
+      approvalStatus: "bekliyor",
     })
     .returning();
 
-  if (inquiry.hotelId) {
-    await notifyHotelMembers(inquiry.hotelId, {
-      type: "mesaj",
-      title: "Misafirden yeni mesaj",
-      body: parsed.data.body.slice(0, 80),
-      link: "/dashboard/inquiries",
-    });
-  }
+  void notifyAdmins({
+    type: "moderasyon",
+    title: "Misafir mesajı onay bekliyor",
+    body: parsed.data.body.slice(0, 80),
+    link: "/admin/mesaj-onay",
+  });
 
-  return apiOk({ message }, 201);
+  return apiOk({ message: messageForDisplay(message) }, 201);
 }

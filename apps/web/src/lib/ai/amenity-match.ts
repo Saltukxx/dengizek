@@ -56,7 +56,8 @@ const CANONICAL: Array<[RegExp, string]> = [
   [/\b(safe box|safety box|in ?room safe|kasa\w*)\b/g, "kasa"],
   [/\b(minibar|mini bar)\b/g, "minibar"],
   // Çocuk
-  [/\b(kids'? club|kids club|mini ?club|junior club|cocuk kulub\w*)\b/g, "cocuk kulubu"],
+  // "klüb" yaygın yazımı da dahil ("Çocuk klübü").
+  [/\b(kids'? club|kids club|mini ?club|junior club|cocuk k(?:u)?lub\w*)\b/g, "cocuk kulubu"],
   [/\b(playground|play area|oyun alan\w*)\b/g, "oyun alani"],
   [/\b(animation|entertainment|animasyon\w*)\b/g, "animasyon"],
   [/\b(kids|children|childrens|cocuklar\w*)\b/g, "cocuk"],
@@ -159,14 +160,17 @@ export const KNOWN_AMENITY_WORDS = new Set(
  * yerlerde geçmesi "çocuk havuzu var" demek değildir.
  */
 export function textsMentionAmenity(message: string, texts: string[]): boolean {
+  return texts.some((text) => textMentionsAmenity(message, text));
+}
+
+/** Sorulan olanak bu metinde (eş anlamlılarıyla, kelimeler yan yana) geçiyor mu? */
+export function textMentionsAmenity(message: string, text: string): boolean {
   const terms = amenityTerms(message).filter((t) => !PLACE_WORDS.test(t));
   if (!terms.length) return false;
   const span = terms.length + 1;
-  return texts.some((text) => {
-    const words = tokens(canonical(text));
-    return words.some((_, start) => {
-      const window = words.slice(start, start + span);
-      return wordMatch(terms[0]!, words[start]!) && terms.every((term) => window.some((w) => wordMatch(term, w)));
-    });
+  const words = tokens(canonical(text));
+  return words.some((_, start) => {
+    const window = words.slice(start, start + span);
+    return wordMatch(terms[0]!, words[start]!) && terms.every((term) => window.some((w) => wordMatch(term, w)));
   });
 }

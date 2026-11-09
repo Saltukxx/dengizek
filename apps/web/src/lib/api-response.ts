@@ -31,3 +31,14 @@ export function apiForbidden(message = "Bu işlem için yetkiniz yok.") {
 export function apiServiceUnavailable(message = "Hizmet geçici olarak kullanılamıyor.") {
   return apiFail(message, 503, { code: "service_unavailable" });
 }
+
+/**
+ * Doğrulama hatası mesajı — ilk alan hatasını da söyler ("Doğrulama
+ * başarısız: Şifre en az 8 karakter olmalı"). Paneller yalnız `error`
+ * metnini gösterdiğinden aksi halde kullanıcı neyin yanlış olduğunu
+ * bilemiyordu; ayrıntılı liste yine `issues` alanında döner.
+ */
+export function validationMessage(error: { issues: ReadonlyArray<{ message: string }> }): string {
+  const first = error.issues[0]?.message;
+  return first ? `Doğrulama başarısız: ${first}` : "Doğrulama başarısız";
+}

@@ -4,10 +4,11 @@ import { Suspense } from "react";
 import { getTourManifest } from "@/lib/mocks/hotels";
 import { getPublishedHotelBySlug } from "@/lib/hotels-repo";
 import { TourRouteClient } from "./tour-route-client";
+import { isGuestSurface } from "@/lib/guest-surface";
 
 type PageProps = {
   params: Promise<{ hotelSlug: string; tourId: string }>;
-  /** ?room= oda bağlamı; ?surface=kis kış vitrininin tema ve dönüş bağlamı. */
+  /** ?room= oda bağlamı; ?surface=kis|termal sezon vitrininin tema ve dönüş bağlamı. */
   searchParams: Promise<{ room?: string; surface?: string }>;
 };
 
@@ -25,7 +26,7 @@ export async function generateMetadata({ params }: Pick<PageProps, "params">): P
 export default async function TourPage({ params, searchParams }: PageProps) {
   const { hotelSlug, tourId } = await params;
   const { room, surface: requestedSurface } = await searchParams;
-  const surface = requestedSurface === "kis" ? "kis" : "yaz";
+  const surface = isGuestSurface(requestedSurface) ? requestedSurface : "yaz";
 
   let manifest;
   try {

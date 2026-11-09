@@ -3,13 +3,13 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
-import { asc, eq } from "drizzle-orm";
+import { validationMessage } from "@/lib/api-response";
+import { and, asc, eq, or } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { inquiriesTable, inquiryMessagesTable } from "@/lib/db/schema";
 import { inquiryMessageSchema } from "@/lib/schemas/hotel-panel";
-import { sendEmail } from "@/lib/email";
-import { rotateInquiryPortalToken } from "@/lib/inquiry-portal-token";
+import { notifyAdmins } from "@/lib/notifications";
 import { inquiryForManager, messageForDisplay } from "@/lib/manager-privacy";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -33,11 +33,27 @@ export async function GET(_req: Request, { params }: RouteParams) {
   const guard = await requireHotelAccess(inquiry.hotelId);
   if (guard.response) return guard.response;
 
+  // Moderasyon: tesis onaylanmamış talebi hiç göremez.
+  if (inquiry.approvalStatus !== "onaylandi") {
+    return NextResponse.json({ ok: false, error: "Talep bulunamadı." }, { status: 404 });
+  }
+
   const db = getDb();
+  // Tesis: onaylanmış mesajları (her iki taraftan) + kendi gönderdiği
+  // mesajları (onay bekleyen/reddedilen dahil, etiketle gösterilir) görür.
+  // Misafirin onaylanmamış mesajları tesise gösterilmez.
   const messages = await db
     .select()
     .from(inquiryMessagesTable)
-    .where(eq(inquiryMessagesTable.inquiryId, id))
+    .where(
+      and(
+        eq(inquiryMessagesTable.inquiryId, id),
+        or(
+          eq(inquiryMessagesTable.approvalStatus, "onaylandi"),
+          eq(inquiryMessagesTable.senderRole, "hotel"),
+        ),
+      ),
+    )
     .orderBy(asc(inquiryMessagesTable.createdAt));
 
   return NextResponse.json({
@@ -60,16 +76,24 @@ export async function POST(req: Request, { params }: RouteParams) {
   const guard = await requireHotelAccess(inquiry.hotelId);
   if (guard.response) return guard.response;
 
+  // Onaylanmamış talebe yanıt yazılamaz.
+  if (inquiry.approvalStatus !== "onaylandi") {
+    return NextResponse.json({ ok: false, error: "Talep bulunamadı." }, { status: 404 });
+  }
+
   const body = await req.json().catch(() => null);
   const parsed = inquiryMessageSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
+      { ok: false, error: validationMessage(parsed.error), issues: parsed.error.flatten() },
       { status: 400 },
     );
   }
 
   const db = getDb();
+  // Moderasyon: yanıt "bekliyor" kaydedilir. Misafire e-posta + portal linki,
+  // admin onaylayınca gönderilir (bkz. /api/admin/moderation). Tesis kendi
+  // mesajını "onay bekliyor" etiketiyle görür.
   const [message] = await db
     .insert(inquiryMessagesTable)
     .values({
@@ -77,18 +101,16 @@ export async function POST(req: Request, { params }: RouteParams) {
       senderRole: "hotel",
       senderName: parsed.data.senderName ?? guard.user.name,
       body: parsed.data.body,
+      approvalStatus: "bekliyor",
     })
     .returning();
 
-  {
-    const token = await rotateInquiryPortalToken(db, inquiry.id);
-    const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/inquiry/portal/${token}`;
-    await sendEmail({
-      to: inquiry.email,
-      subject: "Tesisinizden yeni mesaj — Otelsayfam",
-      text: `Merhaba ${inquiry.name},\n\nTesisinizden yeni bir mesaj var:\n\n${parsed.data.body}\n\nYanıtlamak için: ${portalUrl}`,
-    });
-  }
+  void notifyAdmins({
+    type: "moderasyon",
+    title: "Otel yanıtı onay bekliyor",
+    body: parsed.data.body.slice(0, 80),
+    link: "/admin/mesaj-onay",
+  });
 
-  return NextResponse.json({ ok: true, message }, { status: 201 });
+  return NextResponse.json({ ok: true, message: messageForDisplay(message) }, { status: 201 });
 }

@@ -3,7 +3,7 @@
 import { showNotification } from "@mantine/notifications";
 import { TourPlayer } from "@/components/tour-player/TourPlayer";
 import type { TourManifest } from "@/lib/schemas/tour-manifest";
-import { guestPaths } from "@/lib/guest-surface";
+import { guestPaths, type GuestSurface } from "@/lib/guest-surface";
 
 type Props = {
   manifest: TourManifest;
@@ -11,7 +11,7 @@ type Props = {
   hotelName: string;
   /** ?room= bağlamı — talep formunu ön doldurur ve geri bağlantısını odaya çevirir. */
   contextRoomSlug?: string;
-  surface?: "yaz" | "kis";
+  surface?: GuestSurface;
 };
 
 export function TourRouteClient({
@@ -38,7 +38,9 @@ export function TourRouteClient({
           ? "Oda sayfasına dön"
           : surface === "kis"
             ? "Kış oteline dön"
-            : `${hotelName} sayfasına dön`
+            : surface === "termal"
+              ? "Termal otele dön"
+              : `${hotelName} sayfasına dön`
       }
       onComplete={() => {
         showNotification({

@@ -32,6 +32,12 @@ describe("otel arama asistanı", () => {
     expect(searchHotels("Afyon'da çocuk havuzu olan otel", INDEX).summary).toBe("Çocuk havuzu olan, Afyon bölgesinde 1 otel buldum.".replace("Afyon", "Afyonkarahisar"));
   });
 
+  it("ekli kısaltma ('afyonda') iki il adını da kapsar; 'for 4' kişi sayısıdır", () => {
+    expect(slugs("afyonda otel arıyorum").sort()).toEqual(["a", "b"]);
+    expect(slugs("family room for 5 in afyon")).toEqual(["a"]);
+    expect(slugs("family room for 6 in afyon")).toEqual([]);
+  });
+
   it("eş anlamlı ve -lı eki: spor salonu, hamamlı", () => {
     expect(slugs("spor salonu ve hamamı olan otel")).toEqual(["a"]);
     expect(slugs("hamamlı otel")).toEqual(["a"]);
@@ -184,5 +190,31 @@ describe("otel arama asistanı", () => {
     const res = searchHotels("denize sıfır otel", idx);
     expect(res.query.unknown).toEqual([]);
     expect(res.summary).toContain("Denize sıfır olan 1 otel");
+  });
+});
+
+describe("otel adıyla arama", () => {
+  const NAMED: SearchIndexHotel[] = [
+    ...INDEX,
+    hotel({ slug: "o", name: "Oruçoğlu Thermal Hotel", city: "Afyonkarahisar", amenities: ["Çocuk Havuzu"] }),
+    hotel({ slug: "k", name: "Kar Zirvesi", city: "Bursa", amenities: ["Spa"] }),
+  ];
+  const named = (q: string) => searchHotels(q, NAMED);
+
+  it("adın başıyla eşleşir; Türkçe harf farkı önemsizdir", () => {
+    expect(named("oruç").results.map((r) => r.slug)).toEqual(["o"]);
+    expect(named("ORUCOGLU").results.map((r) => r.slug)).toEqual(["o"]);
+    expect(named("oruç").summary).toBe("“oruç” adıyla eşleşen 1 otel buldum.");
+    expect(named("kar zirvesi").results.map((r) => r.slug)).toEqual(["k"]);
+  });
+
+  it("ad + ölçüt: ad sonuçları daraltır, ölçüt yine uygulanır", () => {
+    expect(named("Oruçoğlu çocuk havuzu").results.map((r) => r.slug)).toEqual(["o"]);
+    expect(named("Kar Zirvesi çocuk havuzu").results).toEqual([]);
+  });
+
+  it("genel kelimeler ad sayılmaz; normal arama bozulmaz", () => {
+    expect(named("otel").results).toEqual([]);
+    expect(named("Afyon'da çocuk havuzu olan otel").results.map((r) => r.slug).sort()).toEqual(["a", "o"]);
   });
 });

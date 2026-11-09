@@ -61,6 +61,11 @@ describe("GuestAppShell — kış yüzeyi", () => {
       "href",
       "/kis",
     );
+    // "Nasıl Çalışır?" talep formuna değil, kış sayfasındaki anlatıma gider.
+    expect(screen.getAllByRole("link", { name: "Nasıl Çalışır?" })[0]).toHaveAttribute(
+      "href",
+      "/kis#nasil-calisir",
+    );
     expect(screen.getByRole("link", { name: "Kış Planı Oluştur" })).toHaveAttribute(
       "href",
       "/kis/talep",
@@ -69,5 +74,68 @@ describe("GuestAppShell — kış yüzeyi", () => {
       "href",
       "/",
     );
+  });
+});
+
+describe("GuestAppShell — termal yüzeyi", () => {
+  it("termal rotalarında termal temasını, navigasyonunu ve sezon geçişlerini kullanır", () => {
+    pathname = "/termal/oteller";
+    const { container } = render(
+      <GuestAppShell>
+        <p>termal içeriği</p>
+      </GuestAppShell>,
+    );
+
+    expect(container.firstElementChild).toHaveClass("er-thermal");
+    expect(screen.getAllByRole("link", { name: "Nasıl Çalışır?" })[0]).toHaveAttribute(
+      "href",
+      "/termal#nasil-calisir",
+    );
+    expect(screen.getByRole("link", { name: "Termal Talep Gönder" })).toHaveAttribute(
+      "href",
+      "/termal/talep",
+    );
+    expect(screen.getAllByRole("link", { name: "Yaz Otelleri" })[0]).toHaveAttribute("href", "/");
+    expect(screen.getAllByRole("link", { name: "Kış Otelleri" })[0]).toHaveAttribute("href", "/kis");
+  });
+
+  it("yaz yüzeyinden kış ve termal vitrinlerine geçiş verir", () => {
+    pathname = "/";
+    render(
+      <GuestAppShell>
+        <p>yaz içeriği</p>
+      </GuestAppShell>,
+    );
+    expect(screen.getAllByRole("link", { name: "Kış Otelleri" })[0]).toHaveAttribute("href", "/kis");
+    expect(screen.getAllByRole("link", { name: "Termal Oteller" })[0]).toHaveAttribute("href", "/termal");
+  });
+});
+
+describe("GuestAppShell — panel bağlantıları yalnız hesaba", () => {
+  it("misafir menüde panel bağlantısı görmez; mobil alt bar yoktur", () => {
+    pathname = "/termal";
+    render(
+      <GuestAppShell>
+        <p>içerik</p>
+      </GuestAppShell>,
+    );
+    const header = screen.getByRole("navigation", { name: "Ana navigasyon" });
+    for (const link of header.querySelectorAll("a")) {
+      expect(link.getAttribute("href")).not.toMatch(/^\/(dashboard|admin)/);
+    }
+    expect(screen.queryByRole("navigation", { name: "Mobil navigasyon" })).not.toBeInTheDocument();
+  });
+
+  it("sezon seçici üç vitrini gösterir, etkin olanı işaretler", () => {
+    pathname = "/kis/oteller";
+    render(
+      <GuestAppShell>
+        <p>içerik</p>
+      </GuestAppShell>,
+    );
+    const group = screen.getByRole("group", { name: "Vitrin" });
+    const links = [...group.querySelectorAll("a")];
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(["/", "/kis", "/termal"]);
+    expect(links[1]).toHaveAttribute("aria-current", "page");
   });
 });

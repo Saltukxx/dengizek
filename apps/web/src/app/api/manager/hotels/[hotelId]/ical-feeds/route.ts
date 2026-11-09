@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { randomBytes } from "node:crypto";
+import { validationMessage } from "@/lib/api-response";
 import { NextResponse } from "next/server";
 import { and, asc, eq } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
@@ -47,7 +48,7 @@ export async function POST(req: Request, { params }: RouteParams) {
   const parsed = icalFeedSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
+      { ok: false, error: validationMessage(parsed.error), issues: parsed.error.flatten() },
       { status: 400 },
     );
   }
@@ -116,7 +117,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   const parsed = icalFeedPatchSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
+      { ok: false, error: validationMessage(parsed.error), issues: parsed.error.flatten() },
       { status: 400 },
     );
   }

@@ -18,6 +18,8 @@ export function guestShareMeta({
       title,
       description,
       type: "website",
+      siteName: "Otelsayfam",
+      locale: "tr_TR",
       images,
     },
     twitter: {

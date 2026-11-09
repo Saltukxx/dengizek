@@ -73,6 +73,10 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
   images: {
+    // AVIF önce (en küçük), desteklemeyen tarayıcıya WebP.
+    formats: ["image/avif", "image/webp"],
+    // Optimize edilmiş görseller 30 gün önbellekte (kaynak dosya adları değişmez).
+    minimumCacheTTL: 60 * 60 * 24 * 30,
     remotePatterns: [
       {
         protocol: "https",
@@ -92,6 +96,16 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: securityHeaders,
+      },
+      // Panelden yüklenen görseller benzersiz adlı (uuid) — içerik değişmez.
+      {
+        source: "/uploads/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+      // Vitrin videoları/kapakları: adları sabit; bir hafta önbellek, arka planda yenileme.
+      {
+        source: "/marketing/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }],
       },
     ];
   },

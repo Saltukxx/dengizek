@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Paper, Select, SimpleGrid, Stack, Text, Title } from "@mantine/core";
-import { ANALYTICS_EVENT_LABELS } from "@/lib/schemas/analytics";
+import { ALL_EVENT_LABELS } from "@/lib/schemas/analytics";
 import { panelApi } from "@/lib/panel-api";
 import { PanelError, PanelLoading } from "@/components/panel-resource-state";
 import { useMyHotel } from "./use-my-hotel";
@@ -24,7 +24,7 @@ interface AnalyticsData {
 }
 
 /** Etiketler misafir yüzeyiyle ortak kaynaktan gelir (schemas/analytics.ts). */
-const eventLabels: Record<string, string> = ANALYTICS_EVENT_LABELS;
+const eventLabels: Record<string, string> = ALL_EVENT_LABELS;
 
 function GroupBar({ label, count, max }: { label: string; count: number; max: number }) {
   const pct = Math.round((count / max) * 100);

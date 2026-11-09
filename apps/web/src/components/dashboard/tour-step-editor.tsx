@@ -348,7 +348,7 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
               <Stack gap="sm">
                 <Group justify="flex-end" gap="xs">
                   <Tooltip label="Yukarı taşı">
-                    <ActionIcon variant="default" disabled={i === 0} onClick={() => move(i, -1)}>
+                    <ActionIcon variant="default" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Yukarı taşı" title="Yukarı taşı">
                       <IconArrowUp size={16} />
                     </ActionIcon>
                   </Tooltip>
@@ -357,12 +357,12 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
                       variant="default"
                       disabled={i === steps.length - 1}
                       onClick={() => move(i, 1)}
-                    >
+                     aria-label="Aşağı taşı" title="Aşağı taşı">
                       <IconArrowDown size={16} />
                     </ActionIcon>
                   </Tooltip>
                   <Tooltip label="Adımı sil">
-                    <ActionIcon color="red" variant="light" onClick={() => removeStep(i)}>
+                    <ActionIcon color="red" variant="light" onClick={() => removeStep(i)} aria-label="Sil" title="Sil">
                       <IconTrash size={16} />
                     </ActionIcon>
                   </Tooltip>
@@ -504,7 +504,7 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
                         const callouts = (s.callouts ?? []).filter((_, x) => x !== ci);
                         updateStep(i, { callouts: callouts.length ? callouts : undefined });
                       }}
-                    >
+                     aria-label="Sil" title="Sil">
                       <IconTrash size={16} />
                     </ActionIcon>
                   </Group>
@@ -571,7 +571,7 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
                         const hotspots = (s.hotspots ?? []).filter((_, x) => x !== hi);
                         updateStep(i, { hotspots: hotspots.length ? hotspots : undefined });
                       }}
-                    >
+                     aria-label="Sil" title="Sil">
                       <IconTrash size={16} />
                     </ActionIcon>
                   </Group>
@@ -628,7 +628,7 @@ export function TourStepEditor({ tourId }: { tourId: string }) {
                         const branches = (s.branches ?? []).filter((_, x) => x !== bi);
                         updateStep(i, { branches: branches.length ? branches : undefined });
                       }}
-                    >
+                     aria-label="Sil" title="Sil">
                       <IconTrash size={16} />
                     </ActionIcon>
                   </Group>

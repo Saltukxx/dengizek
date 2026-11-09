@@ -7,7 +7,8 @@ on:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # ubuntu-latest 26.04 oldu; kurulu Playwright sürümü onu desteklemiyor.
+    runs-on: ubuntu-24.04
     services:
       postgres:
         # hotel_fact_embeddings tablosu vector sütunu kullanıyor (pgvector) —

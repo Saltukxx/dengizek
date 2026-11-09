@@ -12,12 +12,14 @@ import { useEffect, useState } from "react";
 import { readConsent, writeConsent } from "@/lib/consent";
 
 export function ConsentBanner() {
-  // Sunucuda ve ilk render'da gizli — localStorage yalnızca istemcide okunur,
-  // aksi halde hydration uyuşmazlığı olur.
-  const [visible, setVisible] = useState(false);
+  // Bant sunucuda çizilir (JS beklemeden boyanır — geç gelen büyük metin LCP'yi
+  // geciktiriyordu). Daha önce seçim yapılmışsa kök düzendeki satır içi betik
+  // boyamadan önce <html data-consent> koyar ve CSS bandı gizler; istemci de
+  // ardından bileşeni kaldırır. İlk render sunucuyla aynıdır (uyuşmazlık yok).
+  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    if (readConsent() === null) setVisible(true);
+    if (readConsent() !== null) setVisible(false);
   }, []);
 
   if (!visible) return null;

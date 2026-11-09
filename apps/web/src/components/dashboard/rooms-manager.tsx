@@ -58,8 +58,10 @@ import {
   type ChildAgePriceForm,
 } from "@/lib/child-price";
 import { PriceInput, type PriceValue } from "./price-input";
+import { usePanelConfirm } from "./panel-confirm";
 import { OccupancyPricesEditor } from "./occupancy-prices-editor";
 import { ChildAgePricesEditor } from "./child-age-prices-editor";
+import { RateConditionsEditor, hasRateConditions } from "./rate-conditions-editor";
 import { MediaPicker } from "./media-picker";
 import { useMyHotel } from "./use-my-hotel";
 import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
@@ -74,6 +76,9 @@ interface RateRow {
   minStayNights: number | null;
   occupancyPrices?: { guestCount: number; priceMinor: number }[];
   childAgePrices?: ChildAgePrice[];
+  weekdays?: number[] | null;
+  stayMinNights?: number | null;
+  stayMaxNights?: number | null;
 }
 
 interface RoomRow {
@@ -115,6 +120,9 @@ interface RateForm {
   minStayNights: number | null;
   occupancyPrices: OccupancyPriceForm[];
   childAgePrices: ChildAgePriceForm[];
+  weekdays: number[];
+  stayMinNights: number | null;
+  stayMaxNights: number | null;
 }
 
 interface RoomForm {
@@ -206,15 +214,22 @@ function rateRowToForm(r: RateRow): RateForm {
     minStayNights: r.minStayNights,
     occupancyPrices: occupancyFromApi(r.occupancyPrices),
     childAgePrices: childAgePricesFromApi(r.childAgePrices),
+    weekdays: r.weekdays ?? [],
+    stayMinNights: r.stayMinNights ?? null,
+    stayMaxNights: r.stayMaxNights ?? null,
   };
 }
 
-/** Çakışan tarih aralığı var mı? (uyarı için — engellenmez) */
+/**
+ * Çakışan tarih aralığı var mı? (uyarı için — engellenmez). Koşullu dönem
+ * (gün / süre) ana dönemin üstüne yazmak için bilerek çakışır; sayılmaz.
+ */
 function hasOverlap(rates: RateForm[]): boolean {
   for (let i = 0; i < rates.length; i++) {
     for (let j = i + 1; j < rates.length; j++) {
       const a = rates[i];
       const b = rates[j];
+      if (hasRateConditions(a) || hasRateConditions(b)) continue;
       if (!a.startDate || !a.endDate || !b.startDate || !b.endDate) continue;
       if (a.startDate <= b.endDate && b.startDate <= a.endDate) return true;
     }
@@ -224,6 +239,7 @@ function hasOverlap(rates: RateForm[]): boolean {
 
 export function RoomsManager() {
   const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
+  const { confirm: confirmDelete, modal: confirmModal } = usePanelConfirm();
   const [rooms, setRooms] = useState<RoomRow[] | null>(null);
   const [editing, setEditing] = useState<{
     id: string | null;
@@ -326,6 +342,7 @@ export function RoomsManager() {
   }
 
   async function removeRoom(room: RoomRow) {
+    if (!(await confirmDelete({ title: "Odayı sil", message: `"${room.name}" odasını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`, confirmLabel: "Sil" }))) return;
     if (!hotel) return;
     const res = await fetch(`/api/manager/hotels/${hotel.id}/rooms/${room.id}`, {
       method: "DELETE",
@@ -412,6 +429,9 @@ export function RoomsManager() {
       minStayNights: r.minStayNights,
       occupancyPrices: occupancyToApi(r.occupancyPrices),
       childAgePrices: childAgePricesToApi(r.childAgePrices),
+      weekdays: r.weekdays.length ? r.weekdays : null,
+      stayMinNights: r.stayMinNights,
+      stayMaxNights: r.stayMaxNights,
     }));
     for (const rate of editing.rates) {
       const occErr = validateOccupancyForms(rate.occupancyPrices);
@@ -465,6 +485,7 @@ export function RoomsManager() {
 
   return (
     <Stack gap="md">
+      {confirmModal}
       <Group justify="space-between">
         <Text c="dimmed" size="sm">
           {rooms.length} oda tipi — misafir sayfasında bu sırayla görünür
@@ -590,7 +611,7 @@ export function RoomsManager() {
               </Stack>
               <Group gap={6} wrap="nowrap">
                 <Tooltip label="Yukarı">
-                  <ActionIcon variant="default" disabled={i === 0} onClick={() => move(i, -1)}>
+                  <ActionIcon variant="default" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Yukarı taşı" title="Yukarı taşı">
                     <IconArrowUp size={15} />
                   </ActionIcon>
                 </Tooltip>
@@ -599,7 +620,7 @@ export function RoomsManager() {
                     variant="default"
                     disabled={i === rooms.length - 1}
                     onClick={() => move(i, 1)}
-                  >
+                   aria-label="Aşağı taşı" title="Aşağı taşı">
                     <IconArrowDown size={15} />
                   </ActionIcon>
                 </Tooltip>
@@ -620,12 +641,12 @@ export function RoomsManager() {
                         rates: (room.rates ?? []).map(rateRowToForm),
                       })
                     }
-                  >
+                   aria-label="Düzenle" title="Düzenle">
                     <IconPencil size={15} />
                   </ActionIcon>
                 </Tooltip>
                 <Tooltip label="Sil">
-                  <ActionIcon color="red" variant="light" onClick={() => removeRoom(room)}>
+                  <ActionIcon color="red" variant="light" onClick={() => removeRoom(room)} aria-label="Sil" title="Sil">
                     <IconTrash size={15} />
                   </ActionIcon>
                 </Tooltip>
@@ -927,7 +948,7 @@ export function RoomsManager() {
                                   s && { ...s, rates: s.rates.filter((_, j) => j !== i) },
                               )
                             }
-                          >
+                           aria-label="Sil" title="Sil">
                             <IconTrash size={15} />
                           </ActionIcon>
                         </Tooltip>
@@ -986,6 +1007,10 @@ export function RoomsManager() {
                         value={rate.childAgePrices}
                         onChange={(childAgePrices) => setRate(i, { childAgePrices })}
                       />
+                      <RateConditionsEditor
+                        value={{ weekdays: rate.weekdays, stayMinNights: rate.stayMinNights, stayMaxNights: rate.stayMaxNights }}
+                        onChange={(c) => setRate(i, c)}
+                      />
                     </Stack>
                   </Paper>
                 ))}
@@ -1010,6 +1035,9 @@ export function RoomsManager() {
                                 minStayNights: null,
                                 occupancyPrices: [],
                                 childAgePrices: [],
+                                weekdays: [],
+                                stayMinNights: null,
+                                stayMaxNights: null,
                               },
                             ],
                           },

@@ -9,7 +9,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { getDb, isDbConfigured } from "@/lib/db";
 import { guestSessionsTable } from "@/lib/db/schema";
 import { guestSessionUpsertSchema } from "@/lib/schemas/guest-session";
-import { apiFail, apiOk, apiRateLimited } from "@/lib/api-response";
+import { apiFail, apiOk, apiRateLimited, validationMessage } from "@/lib/api-response";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 
 export async function GET(req: Request) {
@@ -61,7 +61,7 @@ export async function PATCH(req: Request) {
   const body = await req.json().catch(() => null);
   const parsed = guestSessionUpsertSchema.safeParse(body);
   if (!parsed.success) {
-    return apiFail("Doğrulama başarısız", 400, { issues: parsed.error.flatten() });
+    return apiFail(validationMessage(parsed.error), 400, { issues: parsed.error.flatten() });
   }
 
   if (!isDbConfigured()) return apiOk({});

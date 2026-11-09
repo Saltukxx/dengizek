@@ -73,6 +73,7 @@ export const inquirySourceLabels: Record<InquirySource, string> = {
   web:         "Web formu",
   tour_ai:     "AI rehber",
   tour_player: "Tur oynatıcı",
+  hotel_chat:  "Otel sayfası sohbeti",
 };
 
 export const propertyTypeLabels: Record<PropertyType, string> = {

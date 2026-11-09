@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
+import { validationMessage } from "@/lib/api-response";
 import { and, eq } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
@@ -44,7 +45,7 @@ export async function POST(req: Request, { params }: RouteParams) {
   const parsed = hotelMemberAddSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
+      { ok: false, error: validationMessage(parsed.error), issues: parsed.error.flatten() },
       { status: 400 },
     );
   }
@@ -94,7 +95,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
   const parsed = hotelMemberRemoveSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
+      { ok: false, error: validationMessage(parsed.error), issues: parsed.error.flatten() },
       { status: 400 },
     );
   }

@@ -7,7 +7,7 @@
 // ---------------------------------------------------------------------------
 
 import { describe, expect, it } from "vitest";
-import { buildSystemPrompt } from "./route";
+import { buildSystemPrompt } from "./chat-handler";
 
 type Ctx = Parameters<typeof buildSystemPrompt>[0];
 

@@ -7,6 +7,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const requireHotelAccessMock = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
   requireHotelAccess: (...args: unknown[]) => requireHotelAccessMock(...args),
+  requireAnalyticsAccess: (hotel: { analyticsEnabled: boolean }) =>
+    hotel.analyticsEnabled
+      ? null
+      : new Response(JSON.stringify({ ok: false, code: "ANALYTICS_NOT_ENABLED" }), { status: 403 }),
 }));
 
 const selectQueue: unknown[] = [];
@@ -34,6 +38,8 @@ const okGuard = {
   hotel: {
     id: "hotel-1",
     slug: "aurelia-bay",
+    status: "yayinda" as const,
+    analyticsEnabled: true,
     aiPersona: "Yapay Zeka Rehberi",
     cancellationPolicy: null,
     aiPolicies: [],

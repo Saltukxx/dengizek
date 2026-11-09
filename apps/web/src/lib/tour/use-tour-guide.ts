@@ -12,6 +12,7 @@ import {
 import { detectLanguageHint } from "@/lib/ai/language-detect";
 import { trackEvent } from "@/lib/analytics-client";
 import { readGuestSessionToken } from "@/lib/tour/use-guest-session";
+import { getVisitId } from "@/lib/visit-client";
 
 // ---------------------------------------------------------------------------
 // Tipler
@@ -67,6 +68,42 @@ function extractAllFactCards(parts: unknown[] | undefined): AiFactCard[] {
     }
   }
   return cards;
+}
+
+/**
+ * useChat mesajlarını panelin gösterdiği biçime çevirir: gizli tetik
+ * mesajları atılır, öneri çipleri ile fiyat/bilgi kartları araç
+ * çıktılarından okunur. Tur rehberi ve otel sayfası sohbeti ortak kullanır.
+ */
+export function toGuideMessages(
+  chatMessages: Array<{ id: string; role: string; parts?: unknown[] }>,
+  chipsSuppressed = false,
+): GuideMessage[] {
+  const textOf = (parts: unknown[] | undefined) =>
+    ((parts?.filter((p) => (p as { type?: string }).type === "text") ?? []) as { text: string }[])
+      .map((p) => p.text)
+      .join("");
+  return chatMessages
+    .filter((m) => textOf(m.parts) !== "[HIDDEN]")
+    .map((m) => {
+      const suggestNextToolPart = m.parts?.find((p) => (p as { type?: string }).type === "tool-suggestNext") as
+        | { input?: { chips?: string[] } }
+        | undefined;
+      const chips = suggestNextToolPart?.input?.chips;
+
+      const priceResult = extractToolOutput<AiPriceQueryResult>(m.parts, "getRoomPrice");
+      const priceCards = priceResult?.ok ? priceResult.cards : undefined;
+      const factCards = extractAllFactCards(m.parts);
+
+      return {
+        id: m.id,
+        role: m.role as "user" | "assistant",
+        content: textOf(m.parts),
+        chips: chipsSuppressed ? undefined : chips,
+        priceCards,
+        factCards: factCards.length > 0 ? factCards : undefined,
+      };
+    });
 }
 
 function visibleSteps(manifest: TourManifest) {
@@ -281,34 +318,7 @@ export function useTourGuide({
 
   const isLoading = status === "submitted" || status === "streaming";
 
-  const mappedChatMessages: GuideMessage[] = chatMessages
-    .filter((m) => {
-      const textParts = m.parts?.filter((p) => p.type === "text") as { text: string }[] | undefined;
-      const textContent = textParts?.map((p) => p.text).join("") || "";
-      return textContent !== "[HIDDEN]";
-    })
-    .map((m) => {
-      const textParts = m.parts?.filter((p) => p.type === "text") as { text: string }[] | undefined;
-      const textContent = textParts?.map((p) => p.text).join("") || "";
-
-      const suggestNextToolPart = m.parts?.find((p) => p.type === "tool-suggestNext") as
-        | { input?: { chips?: string[] } }
-        | undefined;
-      const chips = suggestNextToolPart?.input?.chips;
-
-      const priceResult = extractToolOutput<AiPriceQueryResult>(m.parts, "getRoomPrice");
-      const priceCards = priceResult?.ok ? priceResult.cards : undefined;
-      const factCards = extractAllFactCards(m.parts);
-
-      return {
-        id: m.id,
-        role: m.role as "user" | "assistant",
-        content: textContent,
-        chips: chipsSuppressed ? undefined : chips,
-        priceCards,
-        factCards: factCards.length > 0 ? factCards : undefined,
-      };
-    });
+  const mappedChatMessages = toGuideMessages(chatMessages, chipsSuppressed);
 
   const allMessages = [...mappedChatMessages, ...localMessages];
 
@@ -369,8 +379,15 @@ export function useTourGuide({
     }
   }, [chatMessages, manifest, onOpenInquiry, showInquiryBlockedMessage]);
 
+  const inFlightRef = useRef(false);
+  // Bekleyen tetik yalnız argümanlarıyla saklanır; gönderilirken güncel
+  // trigger (güncel stepsSeen / adım) kullanılır.
+  const pendingTriggerRef = useRef<[TriggerReason, string | undefined, string | undefined] | null>(null);
+  const triggerRef = useRef<((reason: TriggerReason, userMessage?: string, stepIdOverride?: string) => Promise<void>) | null>(null);
+  const tourStartSentRef = useRef(false);
+
   const trigger = useCallback(
-    async (reason: TriggerReason, userMessage?: string, stepIdOverride?: string) => {
+    async (reason: TriggerReason, userMessage?: string, stepIdOverride?: string): Promise<void> => {
       if (reason !== "userMessage" && !isAutoTourRef.current && nudgeCountRef.current >= maxNudges)
         return;
 
@@ -390,6 +407,7 @@ export function useTourGuide({
         // Yalnızca UX ipucu — dil tespiti belirsiz kaldığında kullanılır,
         // asla otoriter değil (bkz. detectLanguageHint).
         browserLocale: typeof navigator !== "undefined" ? navigator.language : undefined,
+        visitId: getVisitId(),
       };
 
       if (reason === "tourStart" && !tourStartTrackedRef.current) {
@@ -401,16 +419,36 @@ export function useTourGuide({
         );
       }
 
-      if (reason === "userMessage" && userMessage) {
-        lastUserMessageRef.current = userMessage;
-        await chatSendMessage({ text: userMessage }, { body });
-      } else {
-        await chatSendMessage({ text: "[HIDDEN]" }, { body });
-        setNudgeCount((n) => n + 1);
+      // Aynı anda tek istek: AI SDK eşzamanlı ikinci isteği desteklemez
+      // (önceki yanıtın durumu silinir, "reading 'state'" hatası ve çift
+      // mesaj). Yanıt sürerken gelen otomatik tetik bekletilir; yalnız en
+      // sonuncusu, istek bitince gönderilir (adım değişimi arka arkaya
+      // stepEnd + stepStart üretir, eskisini anlatmanın anlamı yok).
+      if (inFlightRef.current) {
+        if (reason !== "userMessage") pendingTriggerRef.current = [reason, userMessage, stepIdOverride];
+        return;
+      }
+      inFlightRef.current = true;
+      try {
+        if (reason === "userMessage" && userMessage) {
+          lastUserMessageRef.current = userMessage;
+          await chatSendMessage({ text: userMessage }, { body });
+        } else {
+          await chatSendMessage({ text: "[HIDDEN]" }, { body });
+          setNudgeCount((n) => n + 1);
+        }
+      } finally {
+        inFlightRef.current = false;
+        const next = pendingTriggerRef.current;
+        pendingTriggerRef.current = null;
+        if (next && isMountedRef.current) void triggerRef.current?.(...next);
       }
     },
     [chatSendMessage, currentStep?.stepId, getCompletionMeta, manifest, maxNudges, stepsSeen],
   );
+  useEffect(() => {
+    triggerRef.current = trigger;
+  }, [trigger]);
 
   const CHIP_REJECTION_LIMIT = 2;
 
@@ -494,7 +532,11 @@ export function useTourGuide({
   );
 
   useEffect(() => {
-    void trigger("tourStart");
+    // StrictMode etkiyi iki kez çalıştırır; karşılama yalnız bir kez istenir.
+    if (!tourStartSentRef.current) {
+      tourStartSentRef.current = true;
+      void trigger("tourStart");
+    }
     resetIdleTimer();
 
     return () => {

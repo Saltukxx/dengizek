@@ -51,6 +51,7 @@ export const inquirySourceEnum = pgEnum("inquiry_source", [
   "web",
   "tour_ai",
   "tour_player",
+  "hotel_chat",
 ]);
 export const propertyTypeEnum = pgEnum("property_type", [
   "otel",
@@ -81,6 +82,13 @@ export const messageSenderRoleEnum = pgEnum("message_sender_role", [
   "guest",
   "hotel",
   "system",
+]);
+// Moderasyon: misafir ile tesis arasındaki her mesaj (ilk talep dahil) önce
+// admin onayına düşer. Karşı tarafa yalnız "onaylandi" olanlar teslim edilir.
+export const messageApprovalEnum = pgEnum("message_approval", [
+  "bekliyor",
+  "onaylandi",
+  "reddedildi",
 ]);
 
 // ---------------------------------------------------------------------------
@@ -132,7 +140,7 @@ export const hotelsTable = pgTable("hotels", {
   checkOutTime: text("check_out_time"), // "12:00"
   // Olanak anahtarları — src/lib/amenities-catalog.ts kataloğundan (+ serbest metin)
   amenities: text("amenities").array().default([]).notNull(),
-  // Tatil sezonu kategorileri ("yaz", "kis") — bkz. hotelSeasons.
+  // Tatil sezonu kategorileri ("yaz", "kis", "termal") — bkz. hotelSeasons.
   // Dizi: bir tesis iki sezonda da hizmet verebilir. Boş dizi = belirtilmedi.
   seasons: text("seasons").array().default([]).notNull(),
 
@@ -147,6 +155,9 @@ export const hotelsTable = pgTable("hotels", {
   address:           text("address"),
   phone:             text("phone"),
   contactEmail:      text("contact_email"),
+  // Misafire gösterilen numaralar (otel sayfasındaki Ara / WhatsApp düğmeleri).
+  publicPhone:       text("public_phone"),
+  whatsappPhone:     text("whatsapp_phone"),
   airportDistanceKm: integer("airport_distance_km"),
   latitude:    text("latitude"),
   longitude:   text("longitude"),
@@ -168,6 +179,10 @@ export const hotelsTable = pgTable("hotels", {
   // Moderasyon akışından bağımsız: onay/red durumunu bozmadan anlık kapatma sağlar.
   suspendedAt:    timestamp("suspended_at"),
   suspensionNote: text("suspension_note"),
+
+  // Analitik erişimi — yayın durumundan BAĞIMSIZ, admin elle açar. Otel
+  // yayında olsa bile admin bu bayrağı açmadıkça analitik sayfasını göremez.
+  analyticsEnabled: boolean("analytics_enabled").default(false).notNull(),
 
   // Taslak / inceleme / yayın ayrımı. Mevcut kolonlar çalışma kopyasıdır;
   // misafir yüzü yalnızca publishedSnapshot okur.
@@ -387,6 +402,11 @@ export const roomRatesTable = pgTable("room_rates", {
     .notNull(),
   /** Yaş aralığına göre çocuk fiyatı — doluysa oda varsayılanını ezer */
   childAgePrices: jsonb("child_age_prices").$type<ChildAgePrice[]>().default([]).notNull(),
+  /** Dönem yalnız bu gecelerde geçerli (0 Pazar … 6 Cumartesi); boş → her gece. */
+  weekdays: integer("weekdays").array(),
+  /** Dönem yalnız konaklama süresi bu aralıktaysa geçerli (ör. tek gece, en az 3 gece). */
+  stayMinNights: integer("stay_min_nights"),
+  stayMaxNights: integer("stay_max_nights"),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -526,10 +546,19 @@ export const inquiriesTable = pgTable("inquiries", {
   status:    inquiryStatusEnum("status").default("yeni").notNull(),
   handledBy: uuid("handled_by").references(() => usersTable.id, { onDelete: "set null" }),
   handledAt: timestamp("handled_at"),
+
+  // Moderasyon — ilk talep (misafirin ilk mesajı) admin onayından geçmeden
+  // tesis yöneticisine gösterilmez. Mevcut kayıtlar migration'da "onaylandi".
+  approvalStatus: messageApprovalEnum("approval_status").default("bekliyor").notNull(),
+  approvedBy:     uuid("approved_by").references(() => usersTable.id, { onDelete: "set null" }),
+  approvedAt:     timestamp("approved_at"),
+  rejectedReason: text("rejected_reason"),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   hotelStatusIdx: index("inquiries_hotel_status_idx").on(table.hotelId, table.status),
   sourceIdx: index("inquiries_source_idx").on(table.source),
+  approvalIdx: index("inquiries_approval_idx").on(table.approvalStatus),
 }));
 
 // ---------------------------------------------------------------------------
@@ -632,10 +661,22 @@ export const promotionsTable = pgTable("promotions", {
   id:              uuid("id").defaultRandom().primaryKey(),
   hotelId:         uuid("hotel_id").notNull().references(() => hotelsTable.id, { onDelete: "cascade" }),
   name:            text("name").notNull(),
-  discountPercent: integer("discount_percent").notNull(),
+  /** Yüzde indirim; kal-öde kampanyasında boş. */
+  discountPercent: integer("discount_percent"),
+  /** "X kal Y öde" basamakları — [{ stay, pay }]; doluysa kampanya kal-öde türündedir. */
+  stayPayTiers:    jsonb("stay_pay_tiers").$type<{ stay: number; pay: number }[]>().default([]).notNull(),
+  /** Ücretsiz gece: "hafta_ici" (Pazar–Perşembe gecelerinden) | "en_ucuz". */
+  freeNightRule:   text("free_night_rule").$type<"hafta_ici" | "en_ucuz">(),
   validFrom:       date("valid_from"),
   validTo:         date("valid_to"),
   minNights:       integer("min_nights"),
+  /** Konaklama en fazla bu kadar geceyse (ör. "2 ve 3 gece için"). */
+  maxNights:       integer("max_nights"),
+  /** Rezervasyonun yapılabileceği tarih aralığı (erken rezervasyon, son rezervasyon). */
+  bookableFrom:    date("bookable_from"),
+  bookableTo:      date("bookable_to"),
+  /** Oda tipi başına gecelik kampanya kontenjanı; dolunca kampanya o gece kapanır. */
+  allotment:       integer("allotment"),
   roomIds:         uuid("room_ids").array().default([]).notNull(),
   isActive:        boolean("is_active").default(true).notNull(),
   createdAt:       timestamp("created_at").defaultNow().notNull(),
@@ -653,8 +694,12 @@ export const analyticsEventsTable = pgTable("analytics_events", {
   hotelSlug:  text("hotel_slug"),
   eventType:  text("event_type").notNull(),
   payload:    jsonb("payload").$type<Record<string, unknown>>().default({}).notNull(),
+  // Anonim ziyaret kimliği — tarayıcı sekmesi başına rastgele UUID (isim, IP,
+  // e-posta değil). Aynı ziyaretin soru, tur ve talep olaylarını birbirine bağlar.
+  visitId:    text("visit_id"),
   createdAt:  timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
+  visitCreatedIdx: index("analytics_visit_created_idx").on(table.visitId, table.createdAt),
   hotelEventIdx: index("analytics_hotel_event_idx").on(table.hotelId, table.eventType),
   createdAtIdx:  index("analytics_created_at_idx").on(table.createdAt),
   hotelCreatedIdx: index("analytics_hotel_created_idx").on(table.hotelId, table.createdAt),
@@ -670,9 +715,18 @@ export const inquiryMessagesTable = pgTable("inquiry_messages", {
   senderRole: messageSenderRoleEnum("sender_role").notNull(),
   senderName: text("sender_name"),
   body:       text("body").notNull(),
+
+  // Moderasyon — guest/hotel mesajları "bekliyor" başlar, admin onaylayınca
+  // karşı tarafa teslim edilir. "system" mesajları kodda "onaylandi" yazılır.
+  approvalStatus: messageApprovalEnum("approval_status").default("bekliyor").notNull(),
+  approvedBy:     uuid("approved_by").references(() => usersTable.id, { onDelete: "set null" }),
+  approvedAt:     timestamp("approved_at"),
+  rejectedReason: text("rejected_reason"),
+
   createdAt:  timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   inquiryIdx: index("inquiry_messages_inquiry_idx").on(table.inquiryId),
+  approvalIdx: index("inquiry_messages_approval_idx").on(table.approvalStatus),
 }));
 
 // ---------------------------------------------------------------------------
@@ -734,6 +788,8 @@ export const bookingsTable = pgTable("bookings", {
   hotelId:     uuid("hotel_id").notNull().references(() => hotelsTable.id, { onDelete: "cascade" }),
   roomId:      uuid("room_id").references(() => roomsTable.id, { onDelete: "set null" }),
   ratePlanId:  uuid("rate_plan_id").references(() => ratePlansTable.id, { onDelete: "set null" }),
+  /** Uygulanan kampanya — kampanya kontenjanı bu kayıtlardan sayılır. */
+  promotionId: uuid("promotion_id").references(() => promotionsTable.id, { onDelete: "set null" }),
   inquiryId:   uuid("inquiry_id").references(() => inquiriesTable.id, { onDelete: "set null" }),
   guestName:   text("guest_name").notNull(),
   guestEmail:  text("guest_email").notNull(),

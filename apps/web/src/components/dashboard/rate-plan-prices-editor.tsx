@@ -25,6 +25,7 @@ import {
   type OccupancyPriceForm,
 } from "@/lib/occupancy-price";
 import { OccupancyPricesEditor } from "./occupancy-prices-editor";
+import { usePanelConfirm } from "./panel-confirm";
 import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 
 interface PriceRow {
@@ -79,6 +80,7 @@ export function RatePlanPricesEditor({
   opened: boolean;
   onClose: () => void;
 }) {
+  const { confirm: confirmDelete, modal: confirmModal } = usePanelConfirm();
   const [prices, setPrices] = useState<PriceRow[] | null>(null);
   const [rooms, setRooms] = useState<RoomOption[]>([]);
   const [form, setForm] = useState<PriceForm>(emptyForm());
@@ -164,6 +166,7 @@ export function RatePlanPricesEditor({
   }
 
   async function removePrice(id: string) {
+    if (!(await confirmDelete({ title: "Fiyat dönemini sil", message: "Bu fiyat dönemini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.", confirmLabel: "Sil" }))) return;
     const res = await fetch(`/api/manager/hotels/${hotelId}/rate-plans/${planId}/prices`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -172,12 +175,14 @@ export function RatePlanPricesEditor({
     const json = await res.json();
     if (lock.consumeResponse(json)) return;
     if (json.ok) void reload();
+    else notifications.show({ color: "red", message: json.error ?? "Silinemedi." });
   }
 
   const roomName = (id: string) => rooms.find((r) => r.id === id)?.name ?? id.slice(0, 8);
 
   return (
     <>
+      {confirmModal}
     <Drawer opened={opened} onClose={onClose} title={`Fiyatlar — ${planName}`} position="right" size="lg">
       <Stack gap="md">
         {!prices ? (
@@ -225,7 +230,7 @@ export function RatePlanPricesEditor({
                         <Button size="xs" variant="light" onClick={() => startEdit(p)}>
                           Düzenle
                         </Button>
-                        <Button size="xs" color="red" variant="light" onClick={() => removePrice(p.id)}>
+                        <Button size="xs" color="red" variant="light" onClick={() => removePrice(p.id)} aria-label="Sil" title="Sil">
                           <IconTrash size={14} />
                         </Button>
                       </Group>

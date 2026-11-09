@@ -39,6 +39,7 @@ import {
 import type { MenuSection } from "@/lib/db/schema";
 import { formatPrice, type Currency } from "@/lib/price";
 import { PriceInput } from "./price-input";
+import { usePanelConfirm } from "./panel-confirm";
 import { MediaPicker } from "./media-picker";
 import { useMyHotel } from "./use-my-hotel";
 import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
@@ -92,6 +93,7 @@ function newId(prefix: string) {
 
 export function RestaurantsManager() {
   const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
+  const { confirm: confirmDelete, modal: confirmModal } = usePanelConfirm();
   const [restaurants, setRestaurants] = useState<RestaurantRow[] | null>(null);
   const [editing, setEditing] = useState<{ id: string | null; form: RestaurantForm } | null>(
     null,
@@ -183,6 +185,7 @@ export function RestaurantsManager() {
   }
 
   async function removeRestaurant(r: RestaurantRow) {
+    if (!(await confirmDelete({ title: "Restoranı sil", message: `"${r.name}" restoranını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`, confirmLabel: "Sil" }))) return;
     if (!hotel) return;
     const res = await fetch(`/api/manager/hotels/${hotel.id}/restaurants/${r.id}`, {
       method: "DELETE",
@@ -218,6 +221,7 @@ export function RestaurantsManager() {
 
   return (
     <Stack gap="md">
+      {confirmModal}
       <Group justify="space-between">
         <Text c="dimmed" size="sm">
           {restaurants.length} restoran
@@ -263,7 +267,7 @@ export function RestaurantsManager() {
                       variant="subtle"
                       disabled={index === 0}
                       onClick={() => move(index, -1)}
-                    >
+                     aria-label="Yukarı taşı" title="Yukarı taşı">
                       <IconArrowUp size={15} />
                     </ActionIcon>
                   </Tooltip>
@@ -272,7 +276,7 @@ export function RestaurantsManager() {
                       variant="subtle"
                       disabled={index === restaurants.length - 1}
                       onClick={() => move(index, 1)}
-                    >
+                     aria-label="Aşağı taşı" title="Aşağı taşı">
                       <IconArrowDown size={15} />
                     </ActionIcon>
                   </Tooltip>
@@ -294,12 +298,12 @@ export function RestaurantsManager() {
                           },
                         })
                       }
-                    >
+                     aria-label="Düzenle" title="Düzenle">
                       <IconPencil size={15} />
                     </ActionIcon>
                   </Tooltip>
                   <Tooltip label="Sil">
-                    <ActionIcon color="red" variant="light" onClick={() => removeRestaurant(r)}>
+                    <ActionIcon color="red" variant="light" onClick={() => removeRestaurant(r)} aria-label="Sil" title="Sil">
                       <IconTrash size={15} />
                     </ActionIcon>
                   </Tooltip>
@@ -400,7 +404,7 @@ export function RestaurantsManager() {
                             onClick={() =>
                               patchForm({ menu: f.menu.filter((_, x) => x !== si) })
                             }
-                          >
+                           aria-label="Sil" title="Sil">
                             <IconTrash size={15} />
                           </ActionIcon>
                         </Tooltip>
@@ -426,7 +430,7 @@ export function RestaurantsManager() {
                                       items: section.items.filter((_, x) => x !== ii),
                                     })
                                   }
-                                >
+                                 aria-label="Sil" title="Sil">
                                   <IconTrash size={15} />
                                 </ActionIcon>
                               </Tooltip>

@@ -11,11 +11,16 @@ import type { AnalyticsEventType as KnownAnalyticsEventType } from "@/lib/schema
  */
 export type AnalyticsEventType = KnownAnalyticsEventType | (string & {});
 
+/**
+ * @param visitId anonim ziyaret kimliği (bkz. @/lib/visit-client) — aynı
+ *   ziyaretin olaylarını birbirine bağlar; çağıran doğrulanmış değer geçirir.
+ */
 export async function trackEvent(
   eventType: AnalyticsEventType,
   payload: Record<string, unknown> = {},
   hotelId?: string | null,
   hotelSlug?: string | null,
+  visitId?: string | null,
 ) {
   if (!isDbConfigured()) return;
   try {
@@ -25,6 +30,7 @@ export async function trackEvent(
       hotelSlug: hotelSlug ?? null,
       eventType,
       payload,
+      visitId: visitId ?? null,
     });
   } catch {
     // telemetry must not break UX

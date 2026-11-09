@@ -6,10 +6,11 @@ const mocks = vi.hoisted(() => ({
   getPublishedHotelContent: vi.fn(),
   getPublishedReviews: vi.fn(),
   getPublishedTours: vi.fn(),
+  getPublishedHotelsForBrowse: vi.fn(),
   notFound: vi.fn(() => { throw new Error("NEXT_NOT_FOUND"); }),
 }));
 
-vi.mock("next/navigation", () => ({ notFound: mocks.notFound }));
+vi.mock("next/navigation", () => ({ notFound: mocks.notFound, useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/lib/hotels-repo", async () => {
   const actual = await vi.importActual<typeof import("@/lib/hotels-repo")>("@/lib/hotels-repo");
   return {
@@ -18,6 +19,7 @@ vi.mock("@/lib/hotels-repo", async () => {
     getPublishedHotelContent: mocks.getPublishedHotelContent,
     getPublishedReviews: mocks.getPublishedReviews,
     getPublishedTours: mocks.getPublishedTours,
+    getPublishedHotelsForBrowse: mocks.getPublishedHotelsForBrowse,
   };
 });
 vi.mock("@/components/guest/analytics-tracker", () => ({ ViewTracker: () => null }));
@@ -31,7 +33,7 @@ vi.mock("@/components/guest/restaurants-section", () => ({ RestaurantsSection: (
 vi.mock("@/components/guest/rooms-section", () => ({ RoomsSection: () => null }));
 vi.mock("@/components/guest/reviews-section", () => ({ ReviewsSection: () => null }));
 
-import { generateHotelMetadata, HotelDetailPage } from "./page";
+import { generateHotelMetadata, HotelDetailPage } from "@/components/guest/hotel-detail-page";
 
 const hotel = {
   slug: "kar-zirvesi",
@@ -84,6 +86,7 @@ describe("otel detay sezon koruması", () => {
     mocks.getPublishedTours.mockResolvedValue([
       { tourId: "genel-tur", title: "Genel Tur", roomSlug: null },
     ]);
+    mocks.getPublishedHotelsForBrowse.mockResolvedValue([]);
   });
 
   afterEach(() => cleanup());
@@ -105,7 +108,7 @@ describe("otel detay sezon koruması", () => {
 
     expect(screen.getByRole("heading", { name: "Kar Zirvesi" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Oteller" })).toHaveAttribute("href", "/browse");
-    expect(screen.getByRole("link", { name: "Sanal Turu Başlat" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Video turu başlat" })).toHaveAttribute(
       "href",
       "/tours/kar-zirvesi/genel-tur",
     );
@@ -118,7 +121,7 @@ describe("otel detay sezon koruması", () => {
     }));
 
     expect(screen.getByRole("link", { name: "Oteller" })).toHaveAttribute("href", "/kis/oteller");
-    expect(screen.getByRole("link", { name: "Sanal Turu Başlat" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Video turu başlat" })).toHaveAttribute(
       "href",
       "/tours/kar-zirvesi/genel-tur?surface=kis",
     );
@@ -131,5 +134,34 @@ describe("otel detay sezon koruması", () => {
       { params: Promise.resolve({ slug: "kar-zirvesi" }) },
       "kis",
     )).resolves.toEqual({ title: "Otel" });
+  });
+
+  it("benzer otelleri, fiyat hesaplayıcıyı ve sabit tur / iletişim düğmelerini gösterir", async () => {
+    const row = (slug: string, city: string) => ({
+      slug, name: slug, city, country: "Türkiye", shortDescription: null, longDescription: null,
+      imageUrl: null, priceLabel: null, starRating: 5, amenities: [], petsAllowed: null,
+      seasons: ["kis"], minPriceMinor: null, reviewAverage: null, reviewCount: 0, tourId: null,
+    });
+    mocks.getPublishedHotelsForBrowse.mockResolvedValue([row("kar-zirvesi", "Bursa"), row("komsu-otel", "Bursa")]);
+    mocks.getPublishedHotelContent.mockResolvedValue({
+      ...content(["kis"]),
+      specs: { ...content(["kis"]).specs, publicPhone: "0532 111 22 33" },
+      rooms: [{
+        id: "r1", slug: "standart", name: "Standart Oda", imageUrl: null, boardType: null,
+        capacityAdults: 2, capacityChildren: 1, priceMinor: 100_000, currency: "TRY",
+        priceOnRequest: false, discountPercent: null, discountLabel: null, minStayNights: null, rates: [],
+      }],
+    });
+
+    render(await HotelDetailPage({ params: Promise.resolve({ slug: "kar-zirvesi" }), surface: "kis" }));
+
+    expect(screen.getByRole("heading", { name: "Benzer oteller" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Fiyat hesapla/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Otel turunu başlat" })).toHaveAttribute(
+      "href",
+      "/tours/kar-zirvesi/genel-tur?surface=kis",
+    );
+    expect(screen.getByRole("link", { name: "Oteli arayın" })).toHaveAttribute("href", "tel:+905321112233");
+    expect(screen.getByRole("link", { name: "WhatsApp ile yazın" }).getAttribute("href")).toContain("wa.me/905321112233");
   });
 });

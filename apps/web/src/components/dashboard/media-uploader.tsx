@@ -28,6 +28,7 @@ import { panelApi } from "@/lib/panel-api";
 import type { RuntimeCapabilities, ServiceStatus } from "@/lib/runtime-capabilities";
 import { PanelEmpty, PanelError, PanelLoading } from "@/components/panel-resource-state";
 import { useMyHotel } from "./use-my-hotel";
+import { usePanelConfirm } from "./panel-confirm";
 import { ListPagination } from "./list-pagination";
 
 interface MediaAsset {
@@ -43,6 +44,7 @@ interface MediaAsset {
 
 export function MediaUploader() {
   const { hotel, loading: hotelLoading, error: hotelError, reload: reloadHotels } = useMyHotel();
+  const { confirm: confirmDelete, modal: confirmModal } = usePanelConfirm();
   const [media, setMedia] = useState<MediaAsset[] | null>(null);
   const [videoStatus, setVideoStatus] = useState<ServiceStatus | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -151,6 +153,7 @@ export function MediaUploader() {
   }
 
   async function removeAsset(asset: MediaAsset) {
+    if (!(await confirmDelete({ title: "Videoyu sil", message: `"${asset.title}" videosunu silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`, confirmLabel: "Sil" }))) return;
     const res = await fetch(`/api/manager/media/${asset.id}`, { method: "DELETE" });
     const json = await res.json();
     if (json.ok) {
@@ -172,6 +175,7 @@ export function MediaUploader() {
 
   return (
     <Stack gap="md">
+      {confirmModal}
       {videoStatus !== "ready" && (
         <Alert
           color={videoStatus === "development" ? "yellow" : "red"}

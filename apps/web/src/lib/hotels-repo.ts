@@ -5,6 +5,10 @@
 // DB satırları bu şekle eşlenir.
 // ---------------------------------------------------------------------------
 
+import { bestPromotionBadge } from "@/lib/promotion-display";
+import { todayIso as todayIsoStatic } from "@/lib/price";
+import { cache } from "react";
+import { GUEST_HOTEL_LIST_TAG, guestCached, guestHotelTag } from "@/lib/guest-cache";
 import {
   getHotelBySlug as getMockHotelBySlug,
   getHotels as getMockHotels,
@@ -12,7 +16,14 @@ import {
   type HotelMock,
 } from "@/lib/mocks/hotels";
 import type { ChildAgePrice, Extra, Promotion, Restaurant, Room, RoomRate } from "@/lib/db/schema";
-import { resolveGuestRoomPrice, type GuestPromotion, type GuestRatePlanPrice } from "@/lib/guest-pricing";
+import {
+  resolveGuestRoomPrice,
+  resolveUpcomingFromPrice,
+  type GuestPromotion,
+  type GuestRatePlanPrice,
+  type GuestRoomPricingInput,
+  type UpcomingGuestPrice,
+} from "@/lib/guest-pricing";
 import {
   parseHotelContentSnapshot,
   type HotelContentSnapshot,
@@ -79,6 +90,7 @@ function snapshotPromotions(snapshot: HotelContentSnapshot): GuestPromotion[] {
   return (snapshot.promotions as unknown as Promotion[])
     .filter((item) => item.isActive)
     .map((item) => ({
+      id: item.id,
       name: item.name,
       discountPercent: item.discountPercent,
       validFrom: item.validFrom ? String(item.validFrom) : null,
@@ -86,7 +98,32 @@ function snapshotPromotions(snapshot: HotelContentSnapshot): GuestPromotion[] {
       minNights: item.minNights,
       roomIds: item.roomIds,
       isActive: item.isActive,
+      stayPayTiers: (item.stayPayTiers as { stay: number; pay: number }[] | undefined) ?? [],
+      freeNightRule: (item.freeNightRule as "hafta_ici" | "en_ucuz" | null | undefined) ?? null,
+      maxNights: item.maxNights ?? null,
+      bookableFrom: item.bookableFrom ? String(item.bookableFrom) : null,
+      bookableTo: item.bookableTo ? String(item.bookableTo) : null,
+      allotment: item.allotment ?? null,
     }));
+}
+
+/**
+ * Kontenjanlı kampanyalara dolmuş geceleri ekler (canlı rezervasyonlardan).
+ * Sorgu hatası fiyatı bozmaz: kontenjan bilgisi olmadan devam edilir.
+ */
+async function withPromotionSoldOut(hotelId: string | null | undefined, promotions: GuestPromotion[]): Promise<GuestPromotion[]> {
+  const limited = promotions.filter((p) => p.allotment != null && p.id);
+  if (!hotelId || !limited.length) return promotions;
+  try {
+    const { loadPromotionUsage, soldOutNights } = await import("@/lib/promotion-allotment");
+    const { todayIso } = await import("@/lib/price");
+    const usage = await loadPromotionUsage(hotelId, limited.map((p) => p.id as string), todayIso());
+    return promotions.map((p) =>
+      p.allotment != null && p.id ? { ...p, soldOut: soldOutNights({ id: p.id, allotment: p.allotment, roomIds: p.roomIds }, usage) } : p,
+    );
+  } catch {
+    return promotions;
+  }
 }
 
 function snapshotRatePlanPrices(snapshot: HotelContentSnapshot): GuestRatePlanPrice[] {
@@ -111,7 +148,25 @@ function snapshotRatePlanPrices(snapshot: HotelContentSnapshot): GuestRatePlanPr
  * fiyatı. Liste kartındaki "gecelik başlayan" değeri, detay sayfasındaki
  * fiyatla aynı motordan geçsin diye ham priceMinor yerine bu kullanılır.
  */
-function snapshotMinPriceMinor(snapshot: HotelContentSnapshot): number | null {
+function snapshotRoomCapacities(snapshot: HotelContentSnapshot): NonNullable<BrowseHotelRow["roomCapacities"]> {
+  return (snapshot.rooms as unknown as Room[])
+    .filter((room) => room.isActive !== false)
+    .map((room) => ({
+      capacityAdults: room.capacityAdults == null ? null : Number(room.capacityAdults),
+      capacityChildren: room.capacityChildren == null ? null : Number(room.capacityChildren),
+    }));
+}
+
+function snapshotClosedRanges(snapshot: HotelContentSnapshot): NonNullable<BrowseHotelRow["closedRanges"]> {
+  return snapshot.availabilityNotes
+    .filter((note) => Boolean(note.isBlackout) && note.startDate != null)
+    .map((note) => ({
+      startDate: String(note.startDate),
+      endDate: note.endDate == null ? null : String(note.endDate),
+    }));
+}
+
+function snapshotPricingInputs(snapshot: HotelContentSnapshot): GuestRoomPricingInput[] {
   const rooms = snapshot.rooms as unknown as Room[];
   const rates = snapshot.roomRates as unknown as RoomRate[];
   const ratesByRoom = new Map<string, RoomRate[]>();
@@ -121,10 +176,11 @@ function snapshotMinPriceMinor(snapshot: HotelContentSnapshot): number | null {
   const promotions = snapshotPromotions(snapshot);
   const ratePlanPrices = snapshotRatePlanPrices(snapshot);
 
-  let min: number | null = null;
-  for (const room of rooms) {
-    if (room.isActive === false || room.priceOnRequest === true) continue;
-    const priced = resolveGuestRoomPrice({
+  // "Talep üzerine" oda bugün bir dönem fiyatına düşüyorsa fiyatlıdır;
+  // karar fiyat motorunda (priced.priceOnRequest).
+  return rooms
+    .filter((room) => room.isActive !== false)
+    .map((room) => ({
       room: {
         id: room.id,
         priceMinor: room.priceMinor,
@@ -137,7 +193,13 @@ function snapshotMinPriceMinor(snapshot: HotelContentSnapshot): number | null {
       rates: ratesByRoom.get(room.id) ?? [],
       promotions,
       ratePlanPrices,
-    });
+    }));
+}
+
+function snapshotMinPriceMinor(inputs: GuestRoomPricingInput[]): number | null {
+  let min: number | null = null;
+  for (const input of inputs) {
+    const priced = resolveGuestRoomPrice(input);
     if (priced.priceOnRequest || priced.priceMinor == null) continue;
     min = min == null ? priced.priceMinor : Math.min(min, priced.priceMinor);
   }
@@ -145,14 +207,14 @@ function snapshotMinPriceMinor(snapshot: HotelContentSnapshot): number | null {
 }
 
 /**
- * Kış vitrini yalnızca açıkça "kis" seçilmiş tesisleri kabul eder. Sezonu
- * girilmemiş eski tesisler filtresiz yaz yüzeyinde görünmeye devam eder.
+ * Kış ve termal vitrinleri yalnızca o sezonu açıkça seçmiş tesisleri kabul
+ * eder. Sezonu girilmemiş eski tesisler yaz yüzeyinde görünmeye devam eder.
  */
 export function matchesSeason(seasons: string[] | null | undefined, season?: string): boolean {
   if (!season) return true;
   const list = seasons ?? [];
-  if (season === "kis") return list.includes("kis");
-  return list.length === 0 || list.includes(season);
+  if (season === "yaz") return list.length === 0 || list.includes("yaz");
+  return list.includes(season);
 }
 
 /** Yayında olan otelleri döner (misafir /browse). */
@@ -168,20 +230,30 @@ export interface BrowseHotelRow {
   starRating: number | null;
   amenities: string[];
   petsAllowed: boolean | null;
-  /** Tatil sezonu kategorileri ("yaz"|"kis"); boş = belirtilmedi. */
+  /** Tatil sezonu kategorileri ("yaz"|"kis"|"termal"); boş = belirtilmedi. */
   seasons: string[];
   minPriceMinor: number | null;
+  /** Bugün fiyat yoksa en yakın ileri tarihli fiyat ("14 Kasım'dan itibaren"). */
+  upcomingPrice?: UpcomingGuestPrice | null;
   /** Yayındaki yorumların ortalaması (1–5); yorum yoksa null */
   reviewAverage: number | null;
   reviewCount: number;
+  /** Yayında video turu varsa ilkinin kimliği; yoksa null. */
+  tourId: string | null;
+  /** Aktif odaların kapasiteleri — kişi sayısına göre süzme için. Boş = bilinmiyor. */
+  roomCapacities?: { capacityAdults: number | null; capacityChildren: number | null }[];
+  /** Otelin kapalı (satışa kapalı) dönemleri — tarih aramasında elenir. */
+  closedRanges?: { startDate: string | null; endDate: string | null }[];
+  /** Kartta gösterilen en cömert kampanya ("4 kal 3 öde", "%15 indirim"); yoksa null. */
+  promotionBadge?: string | null;
 }
 
 export interface BrowseFilters {
   /** Serbest metin — ad/şehir/ülke üzerinde arar. */
   q?: string;
   /**
-   * Tatil sezonu ("yaz" | "kis"). Kış filtresi yalnızca açıkça "kis"
-   * seçilmiş tesisleri kabul eder.
+   * Tatil sezonu ("yaz" | "kis" | "termal"). Kış ve termal filtreleri
+   * yalnızca o sezonu açıkça seçmiş tesisleri kabul eder.
    */
   season?: string;
 }
@@ -201,11 +273,24 @@ export interface BrowseFilters {
 export async function getPublishedHotelsForBrowse(
   filters: BrowseFilters = {},
 ): Promise<BrowseHotelRow[]> {
+  // Serbest metin araması önbelleğe alınmaz: her farklı sorgu ayrı kayıt olurdu.
+  return filters.q?.trim() ? loadPublishedHotelsForBrowse(filters) : cachedBrowse(filters);
+}
+
+const cachedBrowse = guestCached(
+  "browse",
+  (filters: BrowseFilters) => loadPublishedHotelsForBrowse(filters),
+  () => [GUEST_HOTEL_LIST_TAG],
+);
+
+async function loadPublishedHotelsForBrowse(
+  filters: BrowseFilters,
+): Promise<BrowseHotelRow[]> {
   if (isDbAvailable()) {
     try {
       const { getDb } = await import("@/lib/db");
-      const { hotelsTable, reviewsTable, roomsTable } = await import("@/lib/db/schema");
-      const { and, avg, count, eq, min, or, sql } = await import("drizzle-orm");
+      const { hotelsTable, reviewsTable, roomsTable, toursTable } = await import("@/lib/db/schema");
+      const { and, asc, avg, count, eq, isNotNull, min, or, sql } = await import("drizzle-orm");
       const { guestVisibleHotelWhere } = await import("@/lib/hotel-visibility");
       const db = getDb();
 
@@ -232,7 +317,7 @@ export async function getPublishedHotelsForBrowse(
       // bu da alt sorgunun kendi tablosuna çözülüp korelasyonu sessizce bozar
       // (rooms.hotel_id = rooms.id → hep NULL). Ayrı GROUP BY sorguları +
       // JS'te birleştirme hem doğru hem okunabilir.
-      const [rows, priceRows, reviewRows] = await Promise.all([
+      const [rows, priceRows, reviewRows, tourRows] = await Promise.all([
         db
           .select({
             id: hotelsTable.id,
@@ -268,7 +353,18 @@ export async function getPublishedHotelsForBrowse(
           .from(reviewsTable)
           .where(eq(reviewsTable.status, "yayinda"))
           .groupBy(reviewsTable.hotelId),
+        // Misafire açık turlar: yalnızca yayımlanmış manifesti olanlar.
+        db
+          .select({ hotelSlug: toursTable.hotelSlug, tourId: toursTable.tourId })
+          .from(toursTable)
+          .where(isNotNull(toursTable.publishedManifest))
+          .orderBy(asc(toursTable.createdAt)),
       ]);
+
+      const tourByHotel = new Map<string, string>();
+      for (const t of tourRows) {
+        if (!tourByHotel.has(t.hotelSlug)) tourByHotel.set(t.hotelSlug, t.tourId);
+      }
 
       const minPriceByHotel = new Map(
         priceRows.map((r) => [r.hotelId, r.minPriceMinor == null ? null : Number(r.minPriceMinor)]),
@@ -288,8 +384,16 @@ export async function getPublishedHotelsForBrowse(
         const parsed = parseHotelContentSnapshot(row.publishedSnapshot);
         const snapshot = parsed.success ? parsed.data.hotel : {};
         const value = <T>(key: string, fallback: T) => key in snapshot ? snapshot[key] as T : fallback;
+        // Snapshot satırda taşınmaz: büyük ve liste kartı ondan türeyen alanları kullanır.
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { publishedSnapshot, ...base } = row;
+        const pricingInputs = parsed.success ? snapshotPricingInputs(parsed.data) : null;
+        // İndirim/dönemsel fiyat uygulanmış gerçek "başlayan" fiyat.
+        const minPriceMinor = pricingInputs
+          ? snapshotMinPriceMinor(pricingInputs)
+          : (minPriceByHotel.get(row.id) ?? null);
         return {
-          ...row,
+          ...base,
           name: value("name", row.name),
           city: value("city", row.city),
           country: value("country", row.country),
@@ -301,12 +405,15 @@ export async function getPublishedHotelsForBrowse(
           amenities: value("amenities", row.amenities),
           petsAllowed: value("petsAllowed", row.petsAllowed),
           seasons: value("seasons", row.seasons) ?? [],
-          // İndirim/dönemsel fiyat uygulanmış gerçek "başlayan" fiyat.
-          minPriceMinor: parsed.success
-            ? snapshotMinPriceMinor(parsed.data)
-            : (minPriceByHotel.get(row.id) ?? null),
+          minPriceMinor,
+          upcomingPrice:
+            minPriceMinor == null && pricingInputs ? resolveUpcomingFromPrice(pricingInputs) : null,
           reviewAverage: reviewsByHotel.get(row.id)?.average ?? null,
           reviewCount: reviewsByHotel.get(row.id)?.total ?? 0,
+          tourId: tourByHotel.get(row.slug) ?? null,
+          roomCapacities: parsed.success ? snapshotRoomCapacities(parsed.data) : [],
+          closedRanges: parsed.success ? snapshotClosedRanges(parsed.data) : [],
+          promotionBadge: parsed.success ? bestPromotionBadge(snapshotPromotions(parsed.data), todayIsoStatic()) : null,
         };
       })
       // Sezon süzmesi eşlemeden SONRA yapılır: yayındaki değer snapshot'tan
@@ -345,12 +452,13 @@ export async function getPublishedHotelsForBrowse(
       minPriceMinor: null,
       reviewAverage: null,
       reviewCount: 0,
+      tourId: null,
     }))
     .filter((row) => matchesSeason(row.seasons, filters.season));
 }
 
 /** Yayında olan tek oteli döner (misafir /hotels/[slug]). */
-export async function getPublishedHotelBySlug(
+async function loadPublishedHotelBySlug(
   slug: string,
 ): Promise<HotelMock | undefined> {
   if (isDbAvailable()) {
@@ -386,10 +494,13 @@ export interface HotelSpecs {
   cancellationPolicy: string | null;
   childPolicy: string | null;
   petsAllowed: boolean | null;
-  /** Tatil sezonu kategorileri ("yaz"|"kis"); boş = belirtilmedi. */
+  /** Tatil sezonu kategorileri ("yaz"|"kis"|"termal"); boş = belirtilmedi. */
   seasons: string[];
   paymentMethods: string[];
-  // Tesisin telefonu ve e-postası bilerek yok: misafir yüzüne hiç taşınmaz.
+  // Tesisin iç telefonu ve e-postası bilerek yok: misafir yüzüne hiç taşınmaz.
+  // Misafire yalnız otelin bu amaçla girdiği numaralar gösterilir.
+  publicPhone?: string | null;
+  whatsappPhone?: string | null;
   address: string | null;
   airportDistanceKm: number | null;
   blackoutText: string | null;
@@ -430,6 +541,8 @@ const emptySpecs: HotelSpecs = {
   petsAllowed: null,
   seasons: [],
   paymentMethods: [],
+  publicPhone: null,
+  whatsappPhone: null,
   address: null,
   airportDistanceKm: null,
   blackoutText: null,
@@ -483,7 +596,7 @@ export async function getHotelIdBySlug(slug: string): Promise<string | null> {
   }
 }
 
-export async function getPublishedHotelContent(
+async function loadPublishedHotelContent(
   slug: string,
 ): Promise<PublishedHotelContent> {
   if (!isDbAvailable()) return emptyContent;
@@ -533,6 +646,8 @@ export async function getPublishedHotelContent(
           petsAllowed: (hotel.petsAllowed as boolean | null) ?? null,
           seasons: (hotel.seasons as string[] | undefined) ?? [],
           paymentMethods: (hotel.paymentMethods as string[] | undefined) ?? [],
+          publicPhone: (hotel.publicPhone as string | null) ?? null,
+          whatsappPhone: (hotel.whatsappPhone as string | null) ?? null,
           address: (hotel.address as string | null) ?? null,
           airportDistanceKm: (hotel.airportDistanceKm as number | null) ?? null,
           blackoutText: (hotel.blackoutText as string | null) ?? null,
@@ -541,7 +656,7 @@ export async function getPublishedHotelContent(
         latitude: (hotel.latitude as string | null) ?? null,
         longitude: (hotel.longitude as string | null) ?? null,
         availabilityNotes: snapshot.availabilityNotes.map((item) => ({ label: String(item.label), startDate: item.startDate == null ? null : String(item.startDate), endDate: item.endDate == null ? null : String(item.endDate), isBlackout: Boolean(item.isBlackout) })),
-        promotions: snapshotPromotions(snapshot),
+        promotions: await withPromotionSoldOut(hotel.id as string | undefined, snapshotPromotions(snapshot)),
         ratePlanPrices: snapshotRatePlanPrices(snapshot),
       };
     }
@@ -562,6 +677,8 @@ export async function getPublishedHotelContent(
         petsAllowed: hotelsTable.petsAllowed,
         seasons: hotelsTable.seasons,
         paymentMethods: hotelsTable.paymentMethods,
+        publicPhone: hotelsTable.publicPhone,
+        whatsappPhone: hotelsTable.whatsappPhone,
         address: hotelsTable.address,
         airportDistanceKm: hotelsTable.airportDistanceKm,
         blackoutText: hotelsTable.blackoutText,
@@ -674,6 +791,8 @@ export async function getPublishedHotelContent(
         petsAllowed: hotel.petsAllowed,
         seasons: hotel.seasons ?? [],
         paymentMethods: hotel.paymentMethods,
+        publicPhone: hotel.publicPhone,
+        whatsappPhone: hotel.whatsappPhone,
         address: hotel.address,
         airportDistanceKm: hotel.airportDistanceKm,
         blackoutText: hotel.blackoutText,
@@ -681,7 +800,8 @@ export async function getPublishedHotelContent(
       latitude: hotel.latitude,
       longitude: hotel.longitude,
       availabilityNotes,
-      promotions: promotions.map((p: Promotion) => ({
+      promotions: await withPromotionSoldOut(hotel.id, promotions.map((p: Promotion) => ({
+        id: p.id,
         name: p.name,
         discountPercent: p.discountPercent,
         validFrom: p.validFrom ? String(p.validFrom) : null,
@@ -689,7 +809,13 @@ export async function getPublishedHotelContent(
         minNights: p.minNights,
         roomIds: p.roomIds,
         isActive: p.isActive,
-      })),
+        stayPayTiers: p.stayPayTiers ?? [],
+        freeNightRule: p.freeNightRule ?? null,
+        maxNights: p.maxNights ?? null,
+        bookableFrom: p.bookableFrom ? String(p.bookableFrom) : null,
+        bookableTo: p.bookableTo ? String(p.bookableTo) : null,
+        allotment: p.allotment ?? null,
+      }))),
       ratePlanPrices: ratePlanPrices.map((p) => ({
         roomId: p.roomId,
         name: p.name,
@@ -721,6 +847,9 @@ export interface GuestRoomRate {
   minStayNights: number | null;
   occupancyPrices?: { guestCount: number; priceMinor: number }[];
   childAgePrices?: ChildAgePrice[];
+  weekdays?: number[] | null;
+  stayMinNights?: number | null;
+  stayMaxNights?: number | null;
 }
 
 export interface GuestRoomDetail {
@@ -757,7 +886,7 @@ export interface GuestRoomDetail {
 /**
  * Oda detayını döner: önce DB (yayında otel + aktif oda), yoksa mock.
  */
-export async function getPublishedRoom(
+async function loadPublishedRoom(
   hotelSlug: string,
   roomSlug: string,
 ): Promise<GuestRoomDetail | undefined> {
@@ -940,53 +1069,60 @@ const emptyReviewSummary: GuestReviewSummary = {
 export async function getPublishedReviews(slug: string): Promise<GuestReviewSummary> {
   if (!isDbAvailable()) return emptyReviewSummary;
   try {
-    const { getDb } = await import("@/lib/db");
-    const { hotelsTable, reviewsTable } = await import("@/lib/db/schema");
-    const { and, desc, eq } = await import("drizzle-orm");
-    const { guestVisibleHotelBySlugWhere } = await import("@/lib/hotel-visibility");
-
-    const rows = await getDb()
-      .select({
-        id: reviewsTable.id,
-        rating: reviewsTable.rating,
-        title: reviewsTable.title,
-        body: reviewsTable.body,
-        guestName: reviewsTable.guestName,
-        stayDate: reviewsTable.stayDate,
-        source: reviewsTable.source,
-        reply: reviewsTable.reply,
-        createdAt: reviewsTable.createdAt,
-      })
-      .from(reviewsTable)
-      .innerJoin(hotelsTable, eq(hotelsTable.id, reviewsTable.hotelId))
-      .where(and(guestVisibleHotelBySlugWhere(slug), eq(reviewsTable.status, "yayinda")))
-      .orderBy(desc(reviewsTable.createdAt))
-      .limit(100);
-
-    if (rows.length === 0) return emptyReviewSummary;
-
-    const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    let total = 0;
-    for (const r of rows) {
-      total += r.rating;
-      distribution[r.rating] = (distribution[r.rating] ?? 0) + 1;
-    }
-
-    return {
-      reviews: rows.map((r) => ({
-        ...r,
-        stayDate: r.stayDate == null ? null : String(r.stayDate),
-        createdAt: r.createdAt.toISOString(),
-      })),
-      count: rows.length,
-      average: Math.round((total / rows.length) * 10) / 10,
-      distribution,
-    };
+    return await cachedReviews(slug);
   } catch (err) {
-    // Yorumlar ikincil içerik — hata otel sayfasını düşürmemeli.
+    // Yorumlar ikincil içerik — hata otel sayfasını düşürmemeli. Hata
+    // önbelleğe girmesin diye yakalama sarmalayıcının dışında.
     console.warn("[hotels-repo] Yorum sorgusu başarısız:", err);
     return emptyReviewSummary;
   }
+}
+
+const cachedReviews = guestCached("reviews", loadPublishedReviews, (slug) => [guestHotelTag(slug)]);
+
+async function loadPublishedReviews(slug: string): Promise<GuestReviewSummary> {
+  const { getDb } = await import("@/lib/db");
+  const { hotelsTable, reviewsTable } = await import("@/lib/db/schema");
+  const { and, desc, eq } = await import("drizzle-orm");
+  const { guestVisibleHotelBySlugWhere } = await import("@/lib/hotel-visibility");
+
+  const rows = await getDb()
+    .select({
+      id: reviewsTable.id,
+      rating: reviewsTable.rating,
+      title: reviewsTable.title,
+      body: reviewsTable.body,
+      guestName: reviewsTable.guestName,
+      stayDate: reviewsTable.stayDate,
+      source: reviewsTable.source,
+      reply: reviewsTable.reply,
+      createdAt: reviewsTable.createdAt,
+    })
+    .from(reviewsTable)
+    .innerJoin(hotelsTable, eq(hotelsTable.id, reviewsTable.hotelId))
+    .where(and(guestVisibleHotelBySlugWhere(slug), eq(reviewsTable.status, "yayinda")))
+    .orderBy(desc(reviewsTable.createdAt))
+    .limit(100);
+
+  if (rows.length === 0) return emptyReviewSummary;
+
+  const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  let total = 0;
+  for (const r of rows) {
+    total += r.rating;
+    distribution[r.rating] = (distribution[r.rating] ?? 0) + 1;
+  }
+
+  return {
+    reviews: rows.map((r) => ({
+      ...r,
+      stayDate: r.stayDate == null ? null : String(r.stayDate),
+      createdAt: r.createdAt.toISOString(),
+    })),
+    count: rows.length,
+    average: Math.round((total / rows.length) * 10) / 10,
+    distribution,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1007,39 +1143,45 @@ export interface PublishedTourSummary {
 export async function getPublishedTours(hotelSlug: string): Promise<PublishedTourSummary[]> {
   if (!isDbAvailable()) return [];
   try {
-    const { getDb } = await import("@/lib/db");
-    const { hotelsTable, toursTable } = await import("@/lib/db/schema");
-    const { and, eq, isNotNull, asc } = await import("drizzle-orm");
-    const { guestVisibleHotelBySlugWhere } = await import("@/lib/hotel-visibility");
-
-    const rows = await getDb()
-      .select({
-        tourId: toursTable.tourId,
-        title: toursTable.title,
-        publishedManifest: toursTable.publishedManifest,
-      })
-      .from(toursTable)
-      .innerJoin(hotelsTable, eq(hotelsTable.slug, toursTable.hotelSlug))
-      .where(
-        and(
-          guestVisibleHotelBySlugWhere(hotelSlug),
-          eq(toursTable.hotelSlug, hotelSlug),
-          isNotNull(toursTable.publishedManifest),
-        ),
-      )
-      .orderBy(asc(toursTable.createdAt));
-
-    return rows.map((r) => ({
-      tourId: r.tourId,
-      title: r.title,
-      roomSlug:
-        (r.publishedManifest as { roomSlug?: string } | null)?.roomSlug ?? null,
-    }));
+    return await cachedTours(hotelSlug);
   } catch (err) {
     // Tur listesi ikincil — otel sayfasını düşürmemeli.
     console.warn("[hotels-repo] Tur listesi sorgusu başarısız:", err);
     return [];
   }
+}
+
+const cachedTours = guestCached("tours", loadPublishedTours, (slug) => [guestHotelTag(slug)]);
+
+async function loadPublishedTours(hotelSlug: string): Promise<PublishedTourSummary[]> {
+  const { getDb } = await import("@/lib/db");
+  const { hotelsTable, toursTable } = await import("@/lib/db/schema");
+  const { and, eq, isNotNull, asc } = await import("drizzle-orm");
+  const { guestVisibleHotelBySlugWhere } = await import("@/lib/hotel-visibility");
+
+  const rows = await getDb()
+    .select({
+      tourId: toursTable.tourId,
+      title: toursTable.title,
+      publishedManifest: toursTable.publishedManifest,
+    })
+    .from(toursTable)
+    .innerJoin(hotelsTable, eq(hotelsTable.slug, toursTable.hotelSlug))
+    .where(
+      and(
+        guestVisibleHotelBySlugWhere(hotelSlug),
+        eq(toursTable.hotelSlug, hotelSlug),
+        isNotNull(toursTable.publishedManifest),
+      ),
+    )
+    .orderBy(asc(toursTable.createdAt));
+
+  return rows.map((r) => ({
+    tourId: r.tourId,
+    title: r.title,
+    roomSlug:
+      (r.publishedManifest as { roomSlug?: string } | null)?.roomSlug ?? null,
+  }));
 }
 
 /**
@@ -1052,3 +1194,19 @@ export function pickTourForRoom(
 ): PublishedTourSummary | undefined {
   return tours.find((t) => t.roomSlug === roomSlug) ?? tours.find((t) => t.roomSlug == null);
 }
+
+// ---------------------------------------------------------------------------
+// Önbellek iki katmanlı: React cache aynı istekte (generateMetadata + sayfa)
+// tek okuma yapar; guestCached istekler arası tutar, yayında yenilenir
+// (bkz. guest-cache.ts).
+// ---------------------------------------------------------------------------
+
+export const getPublishedHotelBySlug = cache(
+  guestCached("hotel", loadPublishedHotelBySlug, (slug) => [guestHotelTag(slug)]),
+);
+export const getPublishedHotelContent = cache(
+  guestCached("content", loadPublishedHotelContent, (slug) => [guestHotelTag(slug)]),
+);
+export const getPublishedRoom = cache(
+  guestCached("room", loadPublishedRoom, (hotelSlug) => [guestHotelTag(hotelSlug)]),
+);

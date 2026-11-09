@@ -85,6 +85,64 @@ for (const city of cities) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Doğal ifadeler (1.4): misafirin yazacağı gibi — ek, eksik harf, cümle
+// kalıbı, bölge adı. Doğru küme yine basit kurallarla (motordan bağımsız).
+// ---------------------------------------------------------------------------
+
+interface Natural {
+  query: string;
+  /** Şehir/ilçe adları (normalize); boş = her yer. */
+  places?: string[];
+  probe?: string;
+  pets?: boolean;
+  /** En az bu kadar kişilik oda. */
+  guests?: number;
+}
+
+const NATURAL: Natural[] = [
+  { query: "afyonda saunası olan bir yer arıyorum", places: ["afyon", "afyonkarahisar"], probe: "sauna" },
+  { query: "Afyon'daki hamamlı oteller", places: ["afyon", "afyonkarahisar"], probe: "hamam" },
+  { query: "afyon civarı jakuzili otel önerir misin", places: ["afyon", "afyonkarahisar"], probe: "jakuzi" },
+  { query: "Pamukkale'de çocuk havuzu olan otel var mı", places: ["pamukkale"], probe: "cocuk-havuzu" },
+  { query: "pamukkale tarafında saunalı otel lazım", places: ["pamukkale"], probe: "sauna" },
+  { query: "Denizli'de otoparklı termal otel", places: ["denizli"], probe: "otopark" },
+  { query: "kozaklıda hamamı olan otel", places: ["kozakli"], probe: "hamam" },
+  { query: "Nevşehir Kozaklı spor salonu olan otel", places: ["kozakli"], probe: "fitness" },
+  { query: "Gazlıgöl'de jakuzi", places: ["gazligol"], probe: "jakuzi" },
+  { query: "balıkesirde termal otel çocuk havuzlu", places: ["balikesir"], probe: "cocuk-havuzu" },
+  { query: "yalovada otopark olan otel arıyorum", places: ["yalova"], probe: "otopark" },
+  { query: "Edremit'te saunası olan termal otel", places: ["edremit"], probe: "sauna" },
+  { query: "spa otel kütahya sauna", places: ["kutahya"], probe: "sauna" },
+  { query: "köpeğimle kalabileceğim termal otel", pets: true },
+  { query: "evcil hayvan kabul eden otel afyon", places: ["afyon", "afyonkarahisar"], pets: true },
+  { query: "kediyle gidebileceğimiz otel", pets: true },
+  { query: "afyonda 4 kişilik aile odası", places: ["afyon", "afyonkarahisar"], guests: 4 },
+  { query: "5 kişi kalabileceğimiz oda olan otel", guests: 5 },
+  { query: "pet friendly thermal hotel", pets: true },
+  { query: "hotel in pamukkale with sauna", places: ["pamukkale"], probe: "sauna" },
+  { query: "family room for 4 in afyon", places: ["afyon", "afyonkarahisar"], guests: 4 },
+];
+
+function naturalTruth(index: SearchIndexHotel[], n: Natural): string[] {
+  const probe = n.probe ? PROBES.find((p) => p.key === n.probe)! : null;
+  return index
+    .filter((h) => {
+      const where = `${normalizeText(h.city ?? "")} ${normalizeText(h.address ?? "")}`.split(/[\s/]+/);
+      if (n.places && !n.places.some((p) => where.includes(p))) return false;
+      if (probe && !(h.amenities.some((a) => probe.label.test(normalizeText(a))) || h.texts.some((t) => probe.text.test(normalizeText(t))))) return false;
+      if (n.pets && h.petsAllowed !== true) return false;
+      if (n.guests && !h.rooms.some((r) => r.capacityAdults + r.capacityChildren >= n.guests!)) return false;
+      return true;
+    })
+    .map((h) => h.slug)
+    .sort();
+}
+
+for (const [i, n] of NATURAL.entries()) {
+  cases.push({ id: `dogal:${i}`, kind: "dogal", query: n.query, expected: naturalTruth(index, n) });
+}
+
 const results: Array<Case & { got: string[]; ok: boolean; precision: number; recall: number; summary: string }> = [];
 
 describe(`Arama asistanı doğruluğu (${index.length} otel, API'siz)`, () => {

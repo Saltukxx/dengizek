@@ -18,6 +18,7 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMyHotel } from "./use-my-hotel";
+import { usePanelConfirm } from "./panel-confirm";
 import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 
 interface RuleRow {
@@ -64,6 +65,7 @@ export function formatCancellationRuleSummary(rule: RuleRow): string {
 
 export function CancellationRulesManager() {
   const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
+  const { confirm: confirmDelete, modal: confirmModal } = usePanelConfirm();
   const [rules, setRules] = useState<RuleRow[] | null>(null);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -140,6 +142,7 @@ export function CancellationRulesManager() {
   }
 
   async function removeRule(id: string) {
+    if (!(await confirmDelete({ title: "İptal kuralını sil", message: "Bu iptal kuralını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.", confirmLabel: "Sil" }))) return;
     const res = await fetch(`/api/manager/hotels/${hotel!.id}/cancellation-rules`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -148,10 +151,12 @@ export function CancellationRulesManager() {
     const json = await res.json();
     if (lock.consumeResponse(json)) return;
     if (json.ok) void reload();
+    else notifications.show({ color: "red", message: json.error ?? "Silinemedi." });
   }
 
   return (
     <Stack gap="md">
+      {confirmModal}
       <Group justify="flex-end">
         <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
           Kural ekle
@@ -186,10 +191,10 @@ export function CancellationRulesManager() {
                 </Table.Td>
                 <Table.Td>
                   <Group gap="xs" justify="flex-end">
-                    <Button size="xs" variant="light" onClick={() => openEdit(r)}>
+                    <Button size="xs" variant="light" onClick={() => openEdit(r)} aria-label="Düzenle" title="Düzenle">
                       <IconPencil size={14} />
                     </Button>
-                    <Button size="xs" color="red" variant="light" onClick={() => removeRule(r.id)}>
+                    <Button size="xs" color="red" variant="light" onClick={() => removeRule(r.id)} aria-label="Sil" title="Sil">
                       <IconTrash size={14} />
                     </Button>
                   </Group>

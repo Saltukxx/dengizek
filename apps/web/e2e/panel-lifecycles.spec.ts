@@ -6,7 +6,7 @@ import { login } from "./helpers";
 config({ path: ".env.local" });
 
 test.describe("Panel yaşam döngüleri", () => {
-  test("talepten rezervasyon açar, onaylar; panelde misafir iletişim bilgisi görünmez", async ({ page }) => {
+  test("talepten rezervasyon açar, onaylar; panelde misafir iletişim bilgisi görünmez", async ({ page, browser }) => {
     const stamp = Date.now().toString(36);
     const email = `booking-${stamp}@example.com`;
     const guestName = `E2E Rezervasyon ${stamp}`;
@@ -28,6 +28,23 @@ test.describe("Panel yaşam döngüleri", () => {
         },
       });
       expect(created.ok()).toBe(true);
+      const { id: inquiryId } = (await created.json()) as { id: string };
+
+      // Talep önce admin onayına düşer; onaylanmadan otel panelinde görünmez.
+      await page.goto("/dashboard/inquiries");
+      await expect(page.locator("tbody tr").filter({ hasText: guestName })).toHaveCount(0);
+
+      const adminContext = await browser.newContext();
+      try {
+        const adminPage = await adminContext.newPage();
+        await login(adminPage, "admin");
+        const approved = await adminPage.request.post("/api/admin/message-review", {
+          data: { kind: "inquiry", id: inquiryId, action: "approve" },
+        });
+        expect(approved.ok()).toBe(true);
+      } finally {
+        await adminContext.close();
+      }
 
       await page.goto("/dashboard/inquiries");
       const inquiryRow = page.locator("tbody tr").filter({ hasText: guestName });
@@ -37,6 +54,10 @@ test.describe("Panel yaşam döngüleri", () => {
       await expect(inquiryRow).not.toContainText("0532");
       await expect(inquiryRow).toContainText("iletişim bilgisi gizlendi");
       await inquiryRow.getByRole("button", { name: "Rezervasyona dönüştür" }).click();
+      // Pencerede oda ve (isteğe bağlı) uygulanan kampanya seçilir.
+      const convert = page.getByRole("dialog", { name: "Rezervasyona dönüştür" });
+      await expect(convert).toBeVisible();
+      await convert.getByRole("button", { name: "Rezervasyon oluştur" }).click();
       await expect(page.getByText("Rezervasyon oluşturuldu.")).toBeVisible();
 
       await page.goto("/dashboard/bookings");

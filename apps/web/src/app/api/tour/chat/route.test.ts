@@ -22,6 +22,8 @@ vi.mock("ai", async () => ({
   // Gerçek SDK'daki gibi bir stop koşulu nesnesi döndürmesi yeterli —
   // testler streamText'e GEÇİLEN argümanları doğruluyor.
   stepCountIs: (n: number) => ({ __stopAfter: n }),
+  // Model sarmalayıcısı (yedek model, geciken isteği tekrarlama) bu testlerin konusu değil.
+  wrapLanguageModel: ({ model }: { model: unknown }) => model,
 }));
 
 vi.mock("@ai-sdk/google", () => ({
@@ -42,6 +44,9 @@ vi.mock("@/lib/analytics", () => ({
 }));
 
 import { POST } from "./route";
+
+/** Belirli türdeki trackEvent çağrıları — olumsuz kontroller argüman sayısından bağımsız kalsın. */
+const eventsOfType = (type: string) => trackEventMock.mock.calls.filter((c) => c[0] === type);
 
 const baseBody = {
   // Serbest sohbet: sunucu aracı tetiklemez, model konuşur.
@@ -153,6 +158,64 @@ describe("POST /api/tour/chat", () => {
     await expect(res.json()).resolves.toMatchObject({
       ok: false,
       error: "Tur bulunamadı.",
+    });
+  });
+
+  // Ayrı IP'ler: dosyadaki diğer testlerle IP başına dakika kotası paylaşılmasın.
+  describe("otel sayfası sohbeti (tursuz)", () => {
+    const hotelPageBody = { ...baseBody, tourId: "_otel-sayfasi" };
+
+    it("yayındaki otelde tek adımlı genel bakış turuyla aynı motoru çalıştırır", async () => {
+      const res = await POST(makeRequest(hotelPageBody, "10.9.0.1"));
+      expect(res.status).toBe(200);
+      expect(streamTextMock).toHaveBeenCalledTimes(1);
+      const call = streamTextMock.mock.calls[0][0] as { system: string };
+      expect(call.system).toContain("Genel bakış");
+    });
+
+    it("yayında olmayan otelde 404 döner, model çağrılmaz", async () => {
+      const res = await POST(makeRequest({ ...hotelPageBody, hotelSlug: "olmayan-otel" }, "10.9.0.2"));
+      expect(res.status).toBe(404);
+      expect(streamTextMock).not.toHaveBeenCalled();
+    });
+
+    it.each(["tourStart", "idle", "stepStart"])(
+      "soru dışı tetik (%s) 400 ile reddedilir, model çağrılmaz",
+      async (triggerReason) => {
+        const res = await POST(makeRequest({ ...hotelPageBody, triggerReason }, `10.9.1.${triggerReason.length}`));
+        expect(res.status).toBe(400);
+        expect(streamTextMock).not.toHaveBeenCalled();
+      },
+    );
+
+    it("otomatik tur bayrağı 400 ile reddedilir", async () => {
+      const res = await POST(makeRequest({ ...hotelPageBody, isAutoTour: true }, "10.9.0.3"));
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe("soru kaydı yolculuk alanları", () => {
+    const visitId = "7d1f0c3e-2b4a-4c6d-9e8f-0a1b2c3d4e5f";
+    const question = { role: "user", content: "Otelde golf sahası var mı?" };
+
+    it("turda sorulan soru ziyaret kimliği, yüzey, adım ve süreyle kaydedilir", async () => {
+      await POST(makeRequest({ ...baseBody, messages: [question], visitId }, "10.9.2.1"));
+      const [call] = eventsOfType("ai_question");
+      expect(call[1]).toMatchObject({ surface: "tur", stepId: "s1", tourId: "demo-lobby", source: "sunucu", model: null });
+      expect(typeof (call[1] as { latencyMs: unknown }).latencyMs).toBe("number");
+      expect(call[4]).toBe(visitId);
+    });
+
+    it("otel sayfasında sorulan soru adımsız, 'otel-sayfasi' yüzeyiyle kaydedilir", async () => {
+      await POST(makeRequest({ ...baseBody, tourId: "_otel-sayfasi", messages: [question], visitId }, "10.9.2.2"));
+      const [call] = eventsOfType("ai_question");
+      expect(call[1]).toMatchObject({ surface: "otel-sayfasi", stepId: null });
+      expect(call[4]).toBe(visitId);
+    });
+
+    it("UUID olmayan ziyaret kimliği isteği 400 ile reddeder", async () => {
+      const res = await POST(makeRequest({ ...baseBody, visitId: "ada@example.com" }, "10.9.2.3"));
+      expect(res.status).toBe(400);
     });
   });
 
@@ -288,7 +351,8 @@ describe("POST /api/tour/chat", () => {
     await POST(
       makeRequest({
         ...baseBody,
-        messages: [{ role: "user", content: "Merhaba, havuz nerede?" }],
+        // Bilgi sorusu değil: sunucu turu olmadan model konuşur.
+        messages: [{ role: "user", content: "Merhaba, bize biraz bu tesisten bahseder misiniz?" }],
       }),
     );
     const call = streamTextMock.mock.calls[0][0] as { system: string };
@@ -328,12 +392,7 @@ describe("POST /api/tour/chat", () => {
         completionMeta: { progressRatio: 1 / 3, nextStepId: "s2" },
       }),
     );
-    expect(trackEventMock).not.toHaveBeenCalledWith(
-      "ai_completion_drift",
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-    );
+    expect(eventsOfType("ai_completion_drift")).toHaveLength(0);
   });
 
   it("uzun geçmiş streamText'e gönderilmeden önce pencerelenir", async () => {
@@ -362,6 +421,7 @@ describe("POST /api/tour/chat", () => {
       expect.objectContaining({ inputTokens: 123, outputTokens: 45, model: "gemini-3.1-flash-lite" }),
       null,
       "aurelia-bay",
+      null,
     );
   });
 
@@ -374,6 +434,7 @@ describe("POST /api/tour/chat", () => {
       expect.objectContaining({ question: "Hello, could you tell me a little about this place please?", reason: "kartsiz" }),
       null,
       "aurelia-bay",
+      null,
     );
   });
 
@@ -385,6 +446,7 @@ describe("POST /api/tour/chat", () => {
       expect.objectContaining({ question: "Otelde golf sahası var mı?", reason: "bilgi-yok" }),
       null,
       "aurelia-bay",
+      null,
     );
   });
 
@@ -392,7 +454,48 @@ describe("POST /api/tour/chat", () => {
     await POST(makeRequest({ ...baseBody, messages: [{ role: "user", content: "Hello, could you tell me a little about this place please?" }] }));
     const call = streamTextMock.mock.calls[0][0] as { onFinish: (event: unknown) => void };
     call.onFinish({ totalUsage: {}, steps: [{ toolResults: [{ toolName: "citeFact", output: { ok: true } }] }] });
-    expect(trackEventMock).not.toHaveBeenCalledWith("ai_unanswered", expect.anything(), expect.anything(), expect.anything());
+    expect(eventsOfType("ai_unanswered")).toHaveLength(0);
+  });
+
+  it("her soru analiz için kaydedilir: sunucu turu (bilgi yok) ve model turu (cevaplandı)", async () => {
+    await POST(makeRequest({ ...baseBody, messages: [{ role: "user", content: "Otelde golf sahası var mı?" }] }));
+    expect(trackEventMock).toHaveBeenCalledWith(
+      "ai_question",
+      expect.objectContaining({ question: "Otelde golf sahası var mı?", outcome: "bilgi-yok", source: "sunucu", topic: "diger" }),
+      null,
+      "aurelia-bay",
+      null,
+    );
+
+    await POST(makeRequest({ ...baseBody, messages: [{ role: "user", content: "Hello, could you tell me a little about this place please?" }] }));
+    const call = streamTextMock.mock.calls[0][0] as { onFinish: (event: unknown) => void };
+    call.onFinish({
+      totalUsage: {},
+      text: "Here are the details.",
+      steps: [{ toolResults: [{ toolName: "citeFact", input: { factId: "spec.amenities" }, output: { ok: true } }] }],
+    });
+    expect(trackEventMock).toHaveBeenCalledWith(
+      "ai_question",
+      expect.objectContaining({ outcome: "cevaplandi", source: "model", factIds: ["spec.amenities"], answer: "Here are the details." }),
+      null,
+      "aurelia-bay",
+      null,
+    );
+  });
+
+  it("'Kendin dene' sohbeti ziyaretçi başına 3 soruda durur", async () => {
+    const ip = "8.8.8.1";
+    const demoBody = { ...baseBody, demo: true, visitId: "11111111-1111-4111-8111-111111111111" };
+    const statuses: number[] = [];
+    for (let i = 0; i < 4; i++) statuses.push((await POST(makeRequest(demoBody, ip))).status);
+    expect(statuses.slice(0, 3)).not.toContain(429);
+    expect(statuses[3]).toBe(429);
+    // Aynı IP'deki başka ziyaretçi (ortak ağ) kendi hakkını kullanabilir.
+    const other = await POST(makeRequest({ ...demoBody, visitId: "22222222-2222-4222-8222-222222222222" }, ip));
+    expect(other.status).not.toBe(429);
+    // Demo bayrağı olmayan normal sohbet bu sınırdan etkilenmez.
+    const normal = await POST(makeRequest(baseBody, ip));
+    expect(normal.status).not.toBe(429);
   });
 
   it("hız sınırı aşıldığında 429 ve Türkçe mesaj döner", async () => {

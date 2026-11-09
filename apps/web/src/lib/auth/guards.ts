@@ -93,8 +93,23 @@ export async function requireAdmin(): Promise<GuardResult> {
   return result;
 }
 
+type HotelModerationStatus = "taslak" | "incelemede" | "yayinda" | "reddedildi";
+
 type HotelGuardResult =
-  | { user: SessionUser; hotel: { id: string; slug: string; name: string; aiPersona: string; aiPolicies: string[]; cancellationPolicy: string | null }; response: null }
+  | {
+      user: SessionUser;
+      hotel: {
+        id: string;
+        slug: string;
+        name: string;
+        status: HotelModerationStatus;
+        analyticsEnabled: boolean;
+        aiPersona: string;
+        aiPolicies: string[];
+        cancellationPolicy: string | null;
+      };
+      response: null;
+    }
   | { user: null; hotel: null; response: NextResponse };
 
 /**
@@ -119,7 +134,7 @@ export async function requireHotelAccess(
     hotelIdOrSlug,
   );
   const [hotel] = await db
-    .select({ id: hotelsTable.id, slug: hotelsTable.slug, name: hotelsTable.name, aiPersona: hotelsTable.aiPersona, aiPolicies: hotelsTable.aiPolicies, cancellationPolicy: hotelsTable.cancellationPolicy })
+    .select({ id: hotelsTable.id, slug: hotelsTable.slug, name: hotelsTable.name, status: hotelsTable.status, analyticsEnabled: hotelsTable.analyticsEnabled, aiPersona: hotelsTable.aiPersona, aiPolicies: hotelsTable.aiPolicies, cancellationPolicy: hotelsTable.cancellationPolicy })
     .from(hotelsTable)
     .where(isUuid ? eq(hotelsTable.id, hotelIdOrSlug) : eq(hotelsTable.slug, hotelIdOrSlug))
     .limit(1);
@@ -155,4 +170,25 @@ export async function requireHotelAccess(
   }
 
   return { user, hotel, response: null };
+}
+
+/**
+ * Analitik erişimi kapısı — yayın durumundan BAĞIMSIZ. Admin, tesis yayında
+ * olsa bile analitiği elle açmadıkça (analyticsEnabled) 403 döner.
+ * requireHotelAccess'ten DÖNEN hotel ile çağrılır.
+ */
+export function requireAnalyticsAccess(
+  hotel: { analyticsEnabled: boolean },
+): NextResponse | null {
+  if (!hotel.analyticsEnabled) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Analitik erişimi admin tarafından açılmamış.",
+        code: "ANALYTICS_NOT_ENABLED",
+      },
+      { status: 403 },
+    );
+  }
+  return null;
 }

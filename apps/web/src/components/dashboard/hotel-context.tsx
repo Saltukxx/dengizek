@@ -23,6 +23,7 @@ export interface MyHotel {
   country: string | null;
   status: "taslak" | "incelemede" | "yayinda" | "reddedildi";
   moderationNote: string | null;
+  analyticsEnabled: boolean;
   publishedRevision: number | null;
   draftRevision: number;
   submittedRevision: number | null;

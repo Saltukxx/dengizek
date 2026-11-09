@@ -5,10 +5,10 @@ import { getDb, isDbConfigured } from "@/lib/db";
 import { hotelsTable, inquiriesTable, roomsTable } from "@/lib/db/schema";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { trackEvent } from "@/lib/analytics";
-import { notifyHotelMembers } from "@/lib/notifications";
+import { notifyAdmins } from "@/lib/notifications";
 import { sendEmail } from "@/lib/email";
 import { validateStayDates } from "@/lib/stay-dates";
-import { apiRateLimited, apiServiceUnavailable, apiFail } from "@/lib/api-response";
+import { apiRateLimited, apiServiceUnavailable, apiFail, validationMessage } from "@/lib/api-response";
 import { generatePortalToken, hashPortalToken, portalTokenExpiry } from "@/lib/inquiry-portal-token";
 import { guestVisibleHotelBySlugWhere } from "@/lib/hotel-visibility";
 import { redactContactInfo } from "@/lib/contact-guard";
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const parsed = inquiryFormSchema.safeParse(body);
   if (!parsed.success) {
-    return apiFail("Doğrulama başarısız", 400, { issues: parsed.error.flatten() });
+    return apiFail(validationMessage(parsed.error), 400, { issues: parsed.error.flatten() });
   }
 
   if (!isDbConfigured()) {
@@ -128,25 +128,26 @@ export async function POST(req: Request) {
 
   void trackEvent(
     "inquiry_submit",
-    { inquiryId: inquiry.id, roomSlug, tourId: data.tourId, stepKey: data.stepKey },
+    { inquiryId: inquiry.id, roomSlug, tourId: data.tourId, stepKey: data.stepKey, source: data.source ?? "web" },
     hotelId,
     data.hotelSlug,
+    data.visitId,
   );
 
-  if (hotelId) {
-    void notifyHotelMembers(hotelId, {
-      type: "talep",
-      title: "Yeni talep",
-      body: `${guestName} — ${guestMessage.slice(0, 80)}`,
-      link: "/dashboard/inquiries",
-    });
-  }
+  // Moderasyon: talep otele DOĞRUDAN gitmez. Önce admin onayına düşer; otel
+  // yöneticisi ancak admin onaylayınca görür (bkz. /api/admin/moderation).
+  void notifyAdmins({
+    type: "moderasyon",
+    title: "Yeni talep onay bekliyor",
+    body: `${guestName} — ${guestMessage.slice(0, 80)}`,
+    link: "/admin/mesaj-onay",
+  });
 
   const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/inquiry/portal/${portalToken}`;
   const emailStatus = await sendEmail({
     to: data.email,
     subject: "Talebiniz alındı — Otelsayfam",
-    text: `Merhaba ${data.name},\n\nTalebiniz otele iletildi. Yanıtları takip etmek için: ${portalUrl}`,
+    text: `Merhaba ${data.name},\n\nTalebiniz Otelsayfam ekibine ulaştı. Yanıtları takip etmek için: ${portalUrl}`,
   });
 
   return NextResponse.json({

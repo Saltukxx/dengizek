@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
+import { validationMessage } from "@/lib/api-response";
 import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
@@ -51,7 +52,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
   const parsed = inventoryPutSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
+      { ok: false, error: validationMessage(parsed.error), issues: parsed.error.flatten() },
       { status: 400 },
     );
   }

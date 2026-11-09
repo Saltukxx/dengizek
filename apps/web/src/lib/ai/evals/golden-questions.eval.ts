@@ -16,9 +16,10 @@
 import { writeFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chatModelId, getChatModel } from "@/lib/ai/llm";
+import { isMisleadingCardPointer } from "@/lib/ai/deterministic-tools";
 import { textContainsPriceLikeContent } from "@/lib/ai/response-guard";
 import { fixtures } from "./fixtures";
-import { judgeGrounding, runTurn, type Verdict } from "./harness";
+import { QuotaExhaustedError, judgeGrounding, runTurn, shownCards, type Verdict } from "./harness";
 
 // ---------------------------------------------------------------------------
 // Eval
@@ -37,6 +38,8 @@ interface FixtureMetric {
 }
 
 const metrics: FixtureMetric[] = [];
+/** Model kotası bittiği için koşulamayan fixture'lar. */
+const quotaSkipped: string[] = [];
 
 describe(`AI rehber eval (${fixtures.length} soru, gerçek model)`, () => {
   beforeAll(() => {
@@ -44,7 +47,10 @@ describe(`AI rehber eval (${fixtures.length} soru, gerçek model)`, () => {
   });
 
   afterAll(() => {
-    const spoke = metrics.filter((m) => m.verdict);
+    const judged = metrics.filter((m) => m.verdict && !m.verdict.skipped);
+    const judgePending = metrics.filter((m) => m.verdict?.skipped).map((m) => m.id);
+    if (quotaSkipped.length) console.warn(`Model kotası: ${quotaSkipped.length} fixture koşulamadı (atlandı).`);
+    if (judgePending.length) console.warn(`Hakem kotası: ${judgePending.length} cevap denetlenemedi (bekliyor) — geçti SAYILMADI.`);
     writeFileSync(
       "eval-metrics.json",
       JSON.stringify(
@@ -52,8 +58,12 @@ describe(`AI rehber eval (${fixtures.length} soru, gerçek model)`, () => {
           generatedAt: new Date().toISOString(),
           model: chatModelId(),
           fixtureCount: metrics.length,
-          modelTurns: spoke.length,
-          ungrounded: spoke.filter((m) => !m.verdict?.grounded).map((m) => ({ id: m.id, claim: m.verdict?.claim, text: m.text })),
+          modelTurns: metrics.filter((m) => m.modelSpoke).length,
+          judged: judged.length,
+          // CI bunu okur: denetlenemeyen cevap geçti sayılmaz, ayrıca raporlanır.
+          judgePending,
+          quotaSkipped,
+          ungrounded: judged.filter((m) => !m.verdict?.grounded).map((m) => ({ id: m.id, claim: m.verdict?.claim, text: m.text })),
           totalTokens: metrics.reduce((s, m) => s + m.inputTokens + m.outputTokens, 0),
           avgDurationMs: metrics.length ? Math.round(metrics.reduce((s, m) => s + m.durationMs, 0) / metrics.length) : 0,
           fixtures: metrics,
@@ -65,9 +75,19 @@ describe(`AI rehber eval (${fixtures.length} soru, gerçek model)`, () => {
   });
 
   for (const fixture of fixtures) {
-    it(fixture.id, async () => {
+    it(fixture.id, async (ctx) => {
       const started = Date.now();
-      const turn = await runTurn(fixture);
+      let turn;
+      try {
+        turn = await runTurn(fixture);
+      } catch (error) {
+        // Günlük model kotası bitti: bu fixture değerlendirilemedi (hata değil).
+        if (error instanceof QuotaExhaustedError) {
+          quotaSkipped.push(fixture.id);
+          ctx.skip();
+        }
+        throw error;
+      }
       const metric: FixtureMetric = {
         id: fixture.id,
         hotel: fixture.hotel,
@@ -116,12 +136,28 @@ describe(`AI rehber eval (${fixtures.length} soru, gerçek model)`, () => {
       }
 
       // Metinde asla fiyat yok — fiyat yalnız kartta.
-      expect(textContainsPriceLikeContent(turn.text), `metinde fiyat: ${turn.text}`).toBe(false);
+      // Sunucunun sabit metni ("10–13 Ağustos (3 gece), 2 kişi") gece/kişi sayısı
+      // içerir; tutar, para birimi ve yüzde her durumda yasak (imported eval ile aynı kural).
+      const pricedOrServer = !turn.modelSpoke || called.has("getRoomPrice");
+      expect(textContainsPriceLikeContent(turn.text, { hadPriceTool: pricedOrServer }), `metinde fiyat: ${turn.text}`).toBe(false);
+
+      // Bilinen konu sorulduysa, cevabı içermeyen karta "aşağıda görebilirsiniz" denmez.
+      if (fixture.message && turn.reply !== "unknown") {
+        expect(isMisleadingCardPointer(fixture.message, turn.text, shownCards(turn.tools)), `yanıltıcı yönlendirme: ${turn.text}`).toBe(false);
+      }
 
       // Model konuştuysa hakem: otel verisi dışında iddia var mı?
       if (turn.modelSpoke && turn.text.trim()) {
-        metric.verdict = await judgeGrounding(turn.data, fixture.message || `(tur tetikleyicisi: ${fixture.trigger})`, turn.text);
-        expect(metric.verdict.grounded, `uydurma: ${metric.verdict.claim} | metin: ${turn.text}`).toBe(true);
+        metric.verdict = await judgeGrounding(
+          turn.data,
+          fixture.message || `(tur tetikleyicisi: ${fixture.trigger})`,
+          turn.text,
+          shownCards(turn.tools),
+        );
+        // Kota dolduysa karar "bekliyor" — afterAll ayrıca raporlar.
+        if (!metric.verdict.skipped) {
+          expect(metric.verdict.grounded, `uydurma: ${metric.verdict.claim} | metin: ${turn.text}`).toBe(true);
+        }
       }
     });
   }

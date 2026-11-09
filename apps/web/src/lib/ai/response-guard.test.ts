@@ -6,6 +6,10 @@ import {
   createGuardStreamTransform,
   decideToolChoice,
   detectToolHints,
+  hasOnlyFramingSentences,
+  cardAnswerSentence,
+  pointsToCard,
+  serverTurnText,
   textContainsPriceLikeContent,
 } from "@/lib/ai/response-guard";
 
@@ -256,5 +260,57 @@ describe("detectToolHints — İngilizce", () => {
 describe("serbest metin fiyat kalıpları", () => {
   it.each(["Gecelik 4.500 lira", "120 euro", "%20 indirim var", "yüzde 15 indirim", "toplam 300 USD"])("%s", (text) => {
     expect(textContainsPriceLikeContent(text, { hadPriceTool: true })).toBe(true);
+  });
+});
+
+describe("hasOnlyFramingSentences", () => {
+  it("karta yönlendirme + nezaket cümlesi: somut iddia yok", () => {
+    expect(hasOnlyFramingSentences("Termal havuzlarımız hakkında detaylı bilgiyi aşağıda görebilirsiniz. Başka merak ettiğiniz bir konu var mı?")).toBe(true);
+    expect(hasOnlyFramingSentences("Bilgiyi sizin için kartta paylaştım.")).toBe(true);
+    expect(hasOnlyFramingSentences("You can find the details below.")).toBe(true);
+  });
+
+  it("somut iddia içeren cümle varsa hakem gerekir", () => {
+    expect(hasOnlyFramingSentences("Lobide 24 saat açık bir bar var. Detaylar aşağıda.")).toBe(false);
+    expect(hasOnlyFramingSentences("Otelimizin özel bir kumsalı var.")).toBe(false);
+  });
+});
+
+describe("pointsToCard", () => {
+  it("kart yönlendirmesini tanır", () => {
+    expect(pointsToCard("Giriş saatini aşağıda görebilirsiniz.")).toBe(true);
+    expect(pointsToCard("Giriş saati 14:00.")).toBe(false);
+  });
+});
+
+describe("serverTurnText — talep formu", () => {
+  const turn = { runs: [{ toolName: "openInquiry" as const, output: { ok: true } }] };
+
+  it("turda form açılır", () => {
+    expect(serverTurnText(turn, "tr")).toBe("Talep formunu sizin için açtım.");
+  });
+
+  it("otel sayfasında form açılmaz, düğme gösterilir", () => {
+    expect(serverTurnText(turn, "tr", { inquiryButton: true })).toBe(
+      "Talep formunu aşağıdaki düğmeden açabilirsiniz.",
+    );
+    expect(serverTurnText(turn, "en", { inquiryButton: true })).toMatch(/button below/);
+  });
+});
+
+describe("kart cümlesi — fiyat", () => {
+  // Gerçek veri (basaranlar-termal): fiyat otelin kendi metninde.
+  const priced = { title: "Pansiyon", text: "Sabah kahvaltısı kişi başı 600 TL." };
+
+  it("fiyat içeren cümle rehberin cevabına alıntılanmaz", () => {
+    expect(cardAnswerSentence(priced, "Kahvaltı var mı?")).toBe("");
+    expect(
+      serverTurnText({ runs: [{ toolName: "citeFact", output: { ok: true, card: priced } }], question: "Kahvaltı var mı?" }, "tr"),
+    ).toBe("Bilgiyi sizin için kartta paylaştım.");
+  });
+
+  it("fiyatsız cümle alıntılanır", () => {
+    const card = { title: "Pansiyon", text: "Otelimizde açık büfe kahvaltı vardır." };
+    expect(cardAnswerSentence(card, "Kahvaltı var mı?")).toBe("Otelimizde açık büfe kahvaltı vardır.");
   });
 });

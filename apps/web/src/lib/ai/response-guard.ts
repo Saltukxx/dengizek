@@ -132,7 +132,7 @@ export type GuardFlags = { hadPriceTool: boolean; hadFactTool: boolean };
 
 /**
  * Bir adımda hangi tool'un ZORLA çağrılacağına karar verir (streamText'in
- * prepareStep'ine bağlanır — bkz. chat/route.ts). Fiyat ve fact ipucu aynı
+ * prepareStep'ine bağlanır — bkz. chat/chat-handler.ts). Fiyat ve fact ipucu aynı
  * anda gelirse fiyat önceliklidir: serbest metinde rakam üretmek daha yüksek
  * riskli bir hallucination sınıfı. Bir adımda yalnızca TEK tool zorlanabilir
  * (zorunlu araç seçimi tek fonksiyon seçer; bazı sağlayıcılar bunu uygulamaz —
@@ -232,6 +232,14 @@ export function serverToolFallbackText(toolName: ServerToolName, language: strin
   return language && language !== "tr" ? texts.en : texts.tr;
 }
 
+export interface ServerTextOptions {
+  /**
+   * Talep formu kendiliğinden açılmaz, misafire düğme gösterilir (otel
+   * sayfası sohbeti). Turda form doğrudan açılır.
+   */
+  inquiryButton?: boolean;
+}
+
 /**
  * Kart turları (fiyat / bilgi / talep) için modelsiz çerçeve cümlesi. Kart
  * bilgiyi zaten gösterir; model bu cümlede bilgi uydurabildiği (ör.
@@ -242,6 +250,7 @@ export function serverToolCardText(
   toolName: Exclude<ServerToolName, "navigateTo">,
   language: string | undefined,
   output: unknown,
+  opts: ServerTextOptions = {},
 ): string {
   const en = Boolean(language && language !== "tr");
   const result = (output ?? {}) as { ok?: boolean; blocked?: boolean; error?: string };
@@ -256,6 +265,11 @@ export function serverToolCardText(
     return en
       ? "Let's explore the tour a little more first; then I can open the request form."
       : "Turu biraz daha gezelim; ardından talep formunu açabilirim.";
+  }
+  if (toolName === "openInquiry" && opts.inquiryButton) {
+    return en
+      ? "You can open the request form with the button below."
+      : "Talep formunu aşağıdaki düğmeden açabilirsiniz.";
   }
   return serverToolFallbackText(toolName, language);
 }
@@ -349,9 +363,18 @@ function priceTurnText(result: AiPriceQueryResult | null, en: boolean): string {
         ? " Child rates depend on age — tell me the children's ages and I'll add them."
         : " Çocuk ücreti yaşa göre değişiyor; çocukların yaşlarını yazarsanız ekleyeyim."
       : "";
+  // Kampanya uygulandıysa misafire açıkça söylenir (kart satırı: "Kampanya").
+  const campaigns = [
+    ...new Set(result.cards.flatMap((c) => c.lines.filter((l) => l.label === "Kampanya").map((l) => l.value.split(":")[0]!.trim()))),
+  ];
+  const campaignNote = campaigns.length
+    ? en
+      ? ` Campaign applied: ${campaigns.join(", ")} — the card shows the discounted total.`
+      : ` Kampanya uygulandı: ${campaigns.join(", ")}; kartta indirimli toplam yazıyor.`
+    : "";
   return en
-    ? `Prices for ${subject} are on the card. ${tail}${ageNote}`
-    : `${subject.charAt(0).toLocaleUpperCase("tr-TR")}${subject.slice(1)} için fiyatlar kartta. ${tail}${ageNote}`;
+    ? `Prices for ${subject} are on the card.${campaignNote} ${tail}${ageNote}`
+    : `${subject.charAt(0).toLocaleUpperCase("tr-TR")}${subject.slice(1)} için fiyatlar kartta.${campaignNote} ${tail}${ageNote}`;
 }
 
 const ASK_DATES_TEXT = {
@@ -382,7 +405,13 @@ const UNKNOWN_TEXT = {
 const AMENITY_ANSWER_MAX = 8;
 
 /** "Evet, tesiste “Fitness Center” bulunuyor." — yalnız listede olan olanaklar. */
-export function amenityAnswerText(amenities: string[], priceAsked: boolean, en: boolean): string {
+export function amenityAnswerText(
+  amenities: string[],
+  priceAsked: boolean,
+  en: boolean,
+  /** Oda özelliği (balkon, klima…): "odalarda" denir, bulunmayan odalar belirtilir. */
+  roomFeature?: { exceptions: string[] },
+): string {
   const shown = amenities.slice(0, AMENITY_ANSWER_MAX).map((a) => `“${a}”`);
   const rest = amenities.length - shown.length;
   const list = shown.join(", ") + (rest > 0 ? (en ? ` and ${rest} more` : ` ve ${rest} olanak daha`) : "");
@@ -391,6 +420,11 @@ export function amenityAnswerText(amenities: string[], priceAsked: boolean, en: 
       ? " I don't have information on whether it is free or paid; I can ask the hotel for you."
       : " Ücretli olup olmadığına dair bilgim yok; isterseniz otele sorabilirim."
     : "";
+  if (roomFeature) {
+    const except = roomFeature.exceptions.slice(0, AMENITY_ANSWER_MAX).map((r) => `“${r}”`).join(", ");
+    if (en) return `Yes, the rooms have ${list}.${except ? ` Not available in: ${except}.` : ""}${priceNote}`;
+    return `Evet, odalarda ${list} bulunuyor.${except ? ` Şu odalarda bulunmuyor: ${except}.` : ""}${priceNote}`;
+  }
   if (en) return `Yes, the property has ${list}.${priceNote}`;
   return amenities.length === 1
     ? `Evet, tesiste ${list} bulunuyor.${priceNote}`
@@ -426,16 +460,18 @@ export function serverTurnText(
     reply?: "unknown" | "contact" | "askDates" | "rooms";
     amenities?: string[];
     amenityPriceAsked?: boolean;
+    roomFeature?: { exceptions: string[] };
     rooms?: string[];
     /** Misafirin sorusu — bilgi kartının soruya uyan cümlesi cevapta söylenir. */
     question?: string;
   },
   language: string | undefined,
+  opts: ServerTextOptions = {},
 ): string | null {
   const en = Boolean(language && language !== "tr");
   const amenityRun = turn.runs.length === 1 && turn.runs[0]!.toolName === "citeFact" ? turn.runs[0] : undefined;
   if (turn.amenities?.length && amenityRun && (amenityRun.output as { ok?: boolean } | null)?.ok !== false) {
-    return amenityAnswerText(turn.amenities, Boolean(turn.amenityPriceAsked), en);
+    return amenityAnswerText(turn.amenities, Boolean(turn.amenityPriceAsked), en, turn.roomFeature);
   }
   if (!turn.runs.length) {
     if (turn.reply === "rooms" && turn.rooms?.length) return roomListText(turn.rooms, en);
@@ -461,9 +497,19 @@ export function serverTurnText(
     const sentence = cardAnswerSentence({ title: card.title, text: card.text }, turn.question);
     if (sentence) return `${/[.!?…]$/.test(sentence) ? sentence : `${sentence}.`} Ayrıntılar kartta.`;
   }
+  // Birden fazla bilgi kartı (iki soru tek mesajda): her kartın soruya uyan cümlesi.
+  if (!failed && !en && turn.question && turn.runs.length > 1 && turn.runs.every((r) => r.toolName === "citeFact")) {
+    const sentences = turn.runs.map((r) => {
+      const c = (r.output as { card?: { title?: string; text?: string } } | null)?.card;
+      return c?.text ? cardAnswerSentence({ title: c.title, text: c.text }, turn.question!) : null;
+    });
+    if (sentences.every(Boolean)) {
+      return `${sentences.map((x) => (/[.!?…]$/.test(x!) ? x : `${x}.`)).join(" ")} Ayrıntılar kartlarda.`;
+    }
+  }
   if (turn.runs.length === 1 || failed) {
     const run = failed ?? turn.runs[0]!;
-    return serverToolCardText(run.toolName as Exclude<ServerToolName, "navigateTo">, language, run.output);
+    return serverToolCardText(run.toolName as Exclude<ServerToolName, "navigateTo">, language, run.output, opts);
   }
   return en ? MULTI_CARD_TEXT.en : MULTI_CARD_TEXT.tr;
 }
@@ -476,6 +522,30 @@ export function serverTurnText(
 /** Kartı işaret eden boş çerçeve ifadeleri (normalize metinde). */
 const CARD_POINTER =
   /\b(asagida|asagidaki|kartta|karttaki|kartimizda|burada (?:bulabilir|gorebilir)|paylastim|paylasiyorum|listeledim|derledim|below|on the card|in the card|the card below|you can find|you can see|you can check|shared)\b/;
+
+/** Metin karta işaret ediyor mu ("Detayları aşağıda görebilirsiniz")? */
+export function pointsToCard(text: string): boolean {
+  return CARD_POINTER.test(normalizeText(text));
+}
+
+/** Nezaket/kapanış cümlesi — bilgi iddiası taşımaz ("Başka sorunuz var mı?"). */
+const COURTESY =
+  /\b(yardimci ol\w*|buradayim|memnuniyet\w*|baska (?:bir )?(?:sorunuz|konu\w*|merak\w*)|let me know|happy to help|anything else|feel free)\b/;
+
+/**
+ * Cevap yalnız karta yönlendirme, soru ve nezaket cümlelerinden mi oluşuyor?
+ * Böyle bir cevapta denetlenecek somut iddia yoktur (eval hakemi atlanır).
+ */
+export function hasOnlyFramingSentences(text: string): boolean {
+  const sentences = text
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return sentences.every((s) => {
+    const n = normalizeText(s);
+    return s.endsWith("?") || CARD_POINTER.test(n) || COURTESY.test(n);
+  });
+}
 
 /** Soru/çerçeve kelimeleri — kartın hangi cümlesinin soruya uyduğunu ölçerken sayılmaz. */
 const FRAME_WORDS = /^(otel|tesis|bilgi|detay|hakkin|anlat|nedir|neler|misin|musun|olanak|hizmet|politika|guncel|what|tell|about|your|the|have|does)/;
@@ -500,9 +570,27 @@ function clip(text: string): string {
  * "Otel olanakları: Kapalı Termal Havuz, Açık Termal Havuz.").
  */
 export function cardAnswerSentence(card: { title?: string; text: string }, question: string): string {
+  const sentence = bestCardSentence(card, question);
+  // Rehber kendi cümlesinde fiyat söylemez — fiyatın tek kaynağı fiyat kartı.
+  // Otel metnindeki tutar ("kahvaltı kişi başı 600 TL") güncel olmayabilir;
+  // kartta "Otel ifadesi" etiketiyle görünmeye devam eder.
+  return textContainsPriceLikeContent(sentence, { hadPriceTool: true }) ? "" : sentence;
+}
+
+/**
+ * Değer sorusu (saat / derece): "saat" kelimesi konu sayılmaz ("Kahvaltı saat
+ * kaçta?" → "Çay Saati" satırı değil), değeri taşıyan konu satırı öne geçer.
+ */
+const VALUE_QUESTIONS: Array<{ ask: RegExp; frame: RegExp; value: RegExp }> = [
+  { ask: /\b(kacta|saat kac|saatleri|ne zaman|kaca kadar|what time|hours)\b/, frame: /^(saat|kacta|zaman)/, value: /\d{1,2}[:.]\d{2}/ },
+  { ask: /\b(kac derece|derece|sicaklik\w*|temperature|how warm)\b/, frame: /^(derece|sicaklik)/, value: /\d{2}\s*(?:[-–]\s*\d{2}\s*)?(?:°|derece)/i },
+];
+
+function bestCardSentence(card: { title?: string; text: string }, question: string): string {
+  const valueAsk = VALUE_QUESTIONS.find((v) => v.ask.test(normalizeText(question)));
   // Her soru kelimesi eş anlamlılarıyla tek grup: bir kelime en fazla bir kez sayılır.
   const groups = tokens(question)
-    .filter((t) => t.length >= 4 && !FRAME_WORDS.test(t))
+    .filter((t) => t.length >= 4 && !FRAME_WORDS.test(t) && !(valueAsk && valueAsk.frame.test(t)))
     .map((t) => [t, ...(synonymsOf(t) ?? [])]);
   const hits = (value: string) => {
     const words = tokens(value);
@@ -524,7 +612,12 @@ export function cardAnswerSentence(card: { title?: string; text: string }, quest
   });
   const score = (value: string) => {
     const words = tokens(value);
-    return groups.reduce((sum, group, i) => (group.some((term) => words.some((w) => sameRoot(term, w))) ? sum + groupWeight[i]! : sum), 0);
+    const subject = groups.reduce((sum, group, i) => (group.some((term) => words.some((w) => sameRoot(term, w))) ? sum + groupWeight[i]! : sum), 0);
+    if (!(subject > 0 && valueAsk?.value.test(value))) return subject;
+    // Konu + sorulan değer aynı cümlede: cevabın kendisi. Sorudaki kelimenin
+    // kendisi eş anlamlısından öne geçer ("kahvaltı" satırı, "yemek" değil).
+    const literal = groups.filter((group) => words.some((w) => sameRoot(group[0]!, w))).length;
+    return subject + 1 + literal * 0.01;
   };
   const best = sentences.reduce((a, b) => (score(b) > score(a) ? b : a), sentences[0]!);
 
@@ -573,9 +666,15 @@ export function cardPointerReplacement(
  * tamponlanır; blok bitince boş kart cümlesiyse kartın cümlesiyle değişir.
  * Kart gelmeden yazılan metin her zamanki gibi gerçek zamanlı akar.
  */
-export function createCardPointerTransform<TOOLS extends ToolSet>(question: string | undefined, language: string | undefined) {
+export function createCardPointerTransform<TOOLS extends ToolSet>(
+  question: string | undefined,
+  language: string | undefined,
+  /** Metin, gösterilen kartlarda olmayan bir cevaba mı işaret ediyor? (yanıltıcı yönlendirme) */
+  isMisleading?: (text: string, cards: Array<{ title?: string; text: string }>) => boolean,
+) {
   return () => {
     const cards: Array<{ title?: string; text: string }> = [];
+    let factAttempted = false;
     let buffering = false;
     let buffer = "";
     let blockId = "";
@@ -585,8 +684,9 @@ export function createCardPointerTransform<TOOLS extends ToolSet>(question: stri
         if (chunk.type === "tool-result" && chunk.toolName === "citeFact") {
           const card = (chunk.output as { card?: { title?: string; text?: string } } | undefined)?.card;
           if (card?.text) cards.push({ title: card.title, text: card.text });
+          factAttempted = true;
         }
-        if (chunk.type === "text-start" && cards.length && question) {
+        if (chunk.type === "text-start" && (cards.length || (factAttempted && isMisleading)) && question) {
           buffering = true;
           buffer = "";
           blockId = chunk.id;
@@ -598,7 +698,11 @@ export function createCardPointerTransform<TOOLS extends ToolSet>(question: stri
           return;
         }
         if (buffering && chunk.type === "text-end") {
-          const text = cardPointerReplacement(buffer, cards, question!, language) ?? buffer;
+          const text = isMisleading?.(buffer, cards)
+            ? language && language !== "tr"
+              ? UNKNOWN_TEXT.en
+              : UNKNOWN_TEXT.tr
+            : (cardPointerReplacement(buffer, cards, question!, language) ?? buffer);
           if (text) controller.enqueue({ type: "text-delta", id: blockId, text });
           buffering = false;
           controller.enqueue(chunk);

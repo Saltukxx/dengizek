@@ -160,9 +160,10 @@ describe("syncFactEmbeddings", () => {
 
     await syncFactEmbeddings("aurelia-bay");
 
-    expect(embedTextMock).toHaveBeenCalledTimes(1);
-    expect(insertMock).toHaveBeenCalledTimes(1);
-    const [values] = insertMock.mock.calls[0]!;
+    // Giriş saati + her otelde bulunan "kampanyalar" bilgisi.
+    expect(embedTextMock).toHaveBeenCalledTimes(2);
+    expect(insertMock).toHaveBeenCalledTimes(2);
+    const values = insertMock.mock.calls.map(([v]) => v).find((v) => (v as { factId: string }).factId === "spec.check_in");
     expect(values).toMatchObject({
       hotelSlug: "aurelia-bay",
       factId: "spec.check_in",
@@ -184,12 +185,11 @@ describe("syncFactEmbeddings", () => {
     // aynı hash'i önceden hesaplayıp "zaten var" gibi davranmak için
     // gerçek fonksiyonu bir kez çalıştırıp insert'e giden hash'i yakalıyoruz
     await syncFactEmbeddings("aurelia-bay");
-    const [firstValues] = insertMock.mock.calls[0]!;
-    const existingHash = (firstValues as { contentHash: string }).contentHash;
+    const existing = insertMock.mock.calls.map(([v]) => v as { factId: string; contentHash: string });
 
     embedTextMock.mockClear();
     insertMock.mockClear();
-    selectResultMock.mockResolvedValue([{ factId: "spec.check_in", contentHash: existingHash }]);
+    selectResultMock.mockResolvedValue(existing.map(({ factId, contentHash }) => ({ factId, contentHash })));
 
     await syncFactEmbeddings("aurelia-bay");
     expect(embedTextMock).not.toHaveBeenCalled();
@@ -224,8 +224,7 @@ describe("syncFactEmbeddings", () => {
 
     // Gerçek hash'i yakalamak için önce sync çalıştırıp insert değerini oku.
     await syncFactEmbeddings("aurelia-bay");
-    const [values] = insertMock.mock.calls[0]!;
-    const freshHash = (values as { contentHash: string }).contentHash;
+    const freshHash = (insertMock.mock.calls.map(([v]) => v as { factId: string; contentHash: string }).find((v) => v.factId === "spec.check_in"))!.contentHash;
 
     selectResultMock.mockResolvedValue([
       { factId: "spec.check_in", contentHash: freshHash }, // güncel
@@ -234,10 +233,11 @@ describe("syncFactEmbeddings", () => {
     ]);
 
     const freshness = await computeFactEmbeddingFreshness("aurelia-bay");
+    // Katalog: giriş, çıkış, kampanyalar → kampanyalar henüz embed edilmemiş.
     expect(freshness).toEqual({
-      totalFacts: 2,
+      totalFacts: 3,
       embedded: 1,
-      missingOrStale: 1,
+      missingOrStale: 2,
       orphaned: 1,
     });
   });

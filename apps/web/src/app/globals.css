@@ -57,6 +57,17 @@
   /* ── Tipografi ───────────────────────────────────────────────────────── */
   --er-font-display: var(--font-manrope), "Manrope", system-ui, sans-serif;
   --er-font-sans: var(--font-plus-jakarta), var(--font-inter), system-ui, sans-serif;
+
+  /* Vitrin banner tonları (yaz). --tm-deep: banner zemini, --tm-deep-2: koyu
+     uç, --tm-sand: vurgu (etiket, kart, ilerleme), --tm-glow: banner halesi.
+     Kış ve termal kabukları kendi değerlerini verir. */
+  --tm-deep: #0e1f40;
+  --tm-deep-2: #0a1630;
+  --tm-sand: #ffc58f;
+  --tm-sand-2: #f08a4b;
+  --tm-glow: rgba(120, 170, 255, 0.18);
+  --tm-ink-on-deep: #fffdf9;
+  --tm-muted-on-deep: rgba(255, 253, 249, 0.78);
 }
 
 html,
@@ -66,7 +77,9 @@ body {
   width: 100%;
   min-height: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  /* clip: yatay taşmayı keser ama (hidden'ın aksine) body'yi kaydırma kabı
+     yapmaz — yoksa sticky başlık, rezervasyon paneli ve termal sahne çalışmaz. */
+  overflow-x: clip;
 }
 
 html {
@@ -89,6 +102,11 @@ html:has(.er-winter),
 html:has(.er-winter) body {
   background: #101415;
   color-scheme: dark;
+}
+
+html:has(.er-thermal),
+html:has(.er-thermal) body {
+  background: #f7f3ec;
 }
 
 * {
@@ -296,10 +314,8 @@ a {
   border-radius: var(--er-radius-sm);
   background: var(--er-surface-2);
   color: var(--er-text-muted);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -365,11 +381,9 @@ a {
 
 .er-field-label {
   display: block;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--er-text-dim);
+  color: var(--er-text-muted);
   margin-bottom: 6px;
 }
 
@@ -529,6 +543,7 @@ a {
 ───────────────────────────────────────────────────────────────────────────── */
 
 .er-hotel-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -566,35 +581,101 @@ a {
 .er-hotel-card .er-hotel-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 20px 24px 0;
+  gap: 8px;
+  padding: 18px 20px 0;
   flex: 1;
 }
 
+.er-hotel-card .er-hotel-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
 .er-hotel-card .er-hotel-title {
+  flex: 1;
   font-family: var(--er-font-display);
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.25;
-  color: var(--er-primary);
+  color: var(--er-text);
   margin: 0;
 }
 
+.er-hotel-card:hover .er-hotel-title {
+  color: var(--er-primary);
+}
+
+/* Başlık bağlantısı kartın tamamını tıklanabilir yapar. */
+.er-stretched-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.er-stretched-link:focus-visible {
+  outline: none;
+}
+
+.er-hotel-card:has(.er-stretched-link:focus-visible) {
+  outline: 2px solid var(--er-primary);
+  outline-offset: 2px;
+}
+
+.er-hotel-card .er-hotel-meta {
+  margin: 0;
+  font-size: 14px;
+  color: var(--er-text-dim);
+}
+
+.er-hotel-card .er-hotel-desc {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--er-text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.er-hotel-card .er-hotel-highlights {
+  margin: 2px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--er-text);
+}
+
 .er-hotel-card .er-hotel-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
   margin-top: auto;
-  padding: 16px 24px 20px;
-  border-top: 1px solid var(--er-line);
+  padding: 14px 20px 18px;
+}
+
+.er-hotel-card .er-hotel-foot p {
+  margin: 0;
+}
+
+.er-tour-badge {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: var(--er-radius-sm);
+  background: rgba(14, 31, 64, 0.82);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .er-price {
   font-family: var(--er-font-display);
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--er-primary);
@@ -742,34 +823,8 @@ a {
   color: var(--er-text-dim);
 }
 
-.er-mobile-nav {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 60;
-  display: none;
-  justify-content: space-around;
-  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
-  background: rgba(255, 255, 255, 0.96);
-  border-top: 1px solid var(--er-line);
-  backdrop-filter: blur(20px);
-}
 
-.er-mobile-nav a {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 6px 10px;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--er-text-dim);
-}
 
-.er-mobile-nav a[data-active="true"] {
-  color: var(--er-primary);
-}
 
 .er-drawer-overlay {
   position: fixed;
@@ -810,13 +865,6 @@ a {
 
 .er-page {
   min-height: calc(100dvh - var(--er-header-h));
-  padding-bottom: 88px;
-}
-
-@media (min-width: 48em) {
-  .er-page {
-    padding-bottom: 0;
-  }
 }
 
 .er-room-layout {
@@ -854,7 +902,7 @@ a {
 
 @media (max-width: 48em) {
   .er-consent {
-    bottom: calc(72px + env(safe-area-inset-bottom));
+    bottom: calc(16px + env(safe-area-inset-bottom));
   }
 
   .er-hamburger {
@@ -863,10 +911,6 @@ a {
 
   .er-nav {
     display: none;
-  }
-
-  .er-mobile-nav {
-    display: flex;
   }
 
   .er-footer-grid {
@@ -1416,136 +1460,523 @@ a {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Yaz ana sayfa — tur hikâyesi (kış sayfasındaki sahnenin açık yüzey karşılığı)
+   Termal vitrini — Travertine & Mineral
+   Bu blok yalnızca /termal kabuğunda ve surface=termal turunda etkinleşir.
+   Açık, sıcak taş zemini; derin mineral yeşili vurgu; terrakota eylem rengi.
 ───────────────────────────────────────────────────────────────────────────── */
 
-.er-tour-story {
-  padding-block: clamp(40px, 6vw, 72px);
-  border-top: 1px solid var(--er-line);
-  background: var(--er-surface);
+.er-thermal,
+.er-tour-thermal {
+  --tm-deep: #0f3633;
+  --tm-deep-2: #0b2a28;
+  --tm-sand: #f1c9a8;
+  --tm-sand-2: #d98a5c;
+  --tm-glow: rgba(120, 200, 190, 0.16);
+  --er-primary: #1d5c58;
+  --er-primary-hover: #164a47;
+  --er-primary-strong: #0f3633;
+  --er-primary-tint: rgba(29, 92, 88, 0.08);
+  --er-primary-tint-strong: rgba(29, 92, 88, 0.14);
+  --er-cta: #a44a24;
+  --er-cta-hover: #873b1b;
+  --er-cta-tint: rgba(164, 74, 36, 0.1);
+  --er-navy: #1f2a2a;
+  --er-bg: #f7f3ec;
+  --er-surface: #fffdf9;
+  --er-surface-2: #f1ebe1;
+  --er-surface-3: #e9e1d4;
+  --er-text: #1f2a2a;
+  --er-text-muted: #4a4f4c;
+  --er-text-dim: #686b65;
+  --er-line: #e5ddd0;
+  --er-line-strong: #cfc4b2;
+  --er-font-display: var(--font-eb-garamond), Georgia, serif;
+  --er-radius: 10px;
+  --er-radius-md: 14px;
+  --er-radius-lg: 18px;
+  --er-shadow-sm: 0 1px 2px rgba(31, 42, 42, 0.06);
+  --er-shadow: 0 10px 32px rgba(31, 42, 42, 0.08);
+  --er-shadow-lg: 0 18px 48px rgba(31, 42, 42, 0.12);
+  background: var(--er-bg);
+  color: var(--er-text);
+  min-height: 100dvh;
+  width: 100%;
 }
 
-.er-tour-story-stage {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 520px);
-  gap: clamp(24px, 4vw, 56px);
-  align-items: center;
+.er-thermal .er-display,
+.er-thermal .er-brand,
+.er-tour-thermal .er-display {
+  font-family: var(--er-font-display);
+  letter-spacing: 0;
 }
 
-.er-tour-story-preview {
+.er-thermal .er-brand {
+  font-size: 25px;
+  color: var(--er-primary);
+}
+
+.er-thermal .er-header {
+  border-color: var(--er-line);
+  background: rgba(255, 253, 249, 0.92);
+  backdrop-filter: blur(16px);
+}
+
+.er-thermal .er-footer {
+  border-color: var(--er-line);
+  background: var(--er-surface-2);
+}
+
+.er-thermal .er-eyebrow {
+  color: var(--er-cta);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Ortak sayfa banner'ı (components/guest/page-banner.tsx) — vitrin ana
+   sayfasının koyu degrade dili; renkler --tm-* tokenlarından (yaz/kış/termal).
+───────────────────────────────────────────────────────────────────────────── */
+
+.pb {
   position: relative;
-  display: block;
-  aspect-ratio: 16 / 10;
+  isolation: isolate;
   overflow: hidden;
+  padding-block: clamp(28px, 4.5vw, 56px) clamp(32px, 5vw, 64px);
+  background:
+    radial-gradient(50rem 26rem at 90% 0%, color-mix(in srgb, var(--tm-sand) 14%, transparent), transparent 60%),
+    radial-gradient(40rem 24rem at 0% 100%, var(--tm-glow), transparent 60%),
+    linear-gradient(160deg, var(--tm-deep) 0%, var(--tm-deep-2) 100%);
+  color: var(--tm-ink-on-deep);
+}
+
+.pb.pb-overlap {
+  padding-bottom: clamp(72px, 9vw, 112px);
+}
+
+.pb-glow {
+  position: absolute;
+  inset: -30% -10% auto;
+  height: 140%;
+  z-index: -1;
+  background:
+    radial-gradient(closest-side, var(--tm-glow), transparent),
+    radial-gradient(closest-side, color-mix(in srgb, var(--tm-sand) 10%, transparent), transparent);
+  background-size: 45% 60%, 35% 50%;
+  background-position: 15% 30%, 85% 60%;
+  background-repeat: no-repeat;
+  filter: blur(20px);
+  animation: pb-drift 18s ease-in-out infinite alternate;
+}
+
+@keyframes pb-drift {
+  to {
+    background-position: 35% 45%, 65% 35%;
+  }
+}
+
+.pb-inner {
+  position: relative;
+}
+
+.pb-before {
+  margin-bottom: 14px;
+  font-size: 14px;
+  color: var(--tm-muted-on-deep);
+}
+
+.pb-before a {
+  color: var(--tm-ink-on-deep);
+}
+
+.pb-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tm-sand);
+}
+
+.pb-title {
+  margin: 0;
+  max-width: 900px;
+  font-size: clamp(34px, 4.6vw, 56px);
+  font-weight: 500;
+  line-height: 1.05;
+  color: var(--tm-ink-on-deep);
+  animation: pb-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.pb-lede {
+  margin: 12px 0 0;
+  max-width: 640px;
+  font-size: clamp(15px, 1.4vw, 18px);
+  color: var(--tm-muted-on-deep);
+  animation: pb-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both 0.1s;
+}
+
+.pb-body {
+  margin-top: 22px;
+  animation: pb-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both 0.18s;
+}
+
+/* Yalnız hareket — başlık ilk karede görünür (LCP gecikmesin). */
+@keyframes pb-rise {
+  from {
+    transform: translateY(10px);
+  }
+}
+
+.pb-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.pb-crumbs a {
+  color: var(--tm-sand);
+  font-weight: 600;
+}
+
+.pb-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  font-size: 14px;
+  color: var(--tm-muted-on-deep);
+}
+
+.pb-meta strong {
+  color: var(--tm-ink-on-deep);
+}
+
+.pb-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pb-stars {
+  display: inline-flex;
+  gap: 2px;
+  color: var(--tm-sand);
+}
+
+/* Banner'ın üstüne binen kart / form */
+.pb-lift {
+  position: relative;
+  z-index: 1;
+  margin-top: clamp(-88px, -7vw, -56px);
+}
+
+.pb-form-card {
+  max-width: 640px;
+  margin-inline: auto;
+  padding: clamp(20px, 4vw, 36px);
+  border: 1px solid var(--er-line);
+  border-radius: var(--er-radius-lg);
+  background: var(--er-surface);
+  box-shadow: var(--er-shadow-lg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pb-glow,
+  .pb-title,
+  .pb-lede,
+  .pb-body {
+    animation: none;
+  }
+}
+
+/* Banner içindeki yapay zekâ arama kutusu (liste sayfaları) */
+.pb-assistant {
+  max-width: 760px;
+  color: var(--er-text);
+}
+
+/* ── Arama asistanı sayfası (components/guest/hotel-finder.tsx) ─────────── */
+
+.hf-form {
+  max-width: 760px;
+  color: var(--er-text);
+}
+
+.hf-chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: var(--tm-muted-on-deep);
+}
+
+.hf-chain strong {
+  color: var(--tm-ink-on-deep);
+}
+
+.hf-chain a {
+  margin-left: 8px;
+  color: var(--tm-sand);
+  font-weight: 600;
+}
+
+.hf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.hf-chip {
+  padding: 7px 14px;
+  border: 1px solid color-mix(in srgb, var(--tm-ink-on-deep) 26%, transparent);
+  border-radius: 999px;
+  color: var(--tm-ink-on-deep);
+  font-size: 13.5px;
+  font-weight: 500;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.hf-chip:hover,
+.hf-chip[data-active="true"] {
+  border-color: var(--tm-sand);
+  background: color-mix(in srgb, var(--tm-sand) 16%, transparent);
+}
+
+.hf-results {
+  padding-block: clamp(24px, 4vw, 40px) clamp(48px, 7vw, 80px);
+}
+
+.hf-summary {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 16px 20px;
+  border: 1px solid var(--er-line);
+  border-left: 4px solid var(--tm-sand-2);
   border-radius: var(--er-radius-md);
-  background: var(--er-navy);
+  background: var(--er-surface);
+  box-shadow: var(--er-shadow-sm);
+}
+
+.hf-summary > svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--er-primary);
+}
+
+.hf-summary p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.hf-summary .hf-summary-note {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--er-text-muted);
+}
+
+.hf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.hf-card {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--er-line);
+  border-radius: var(--er-radius-lg);
+  background: var(--er-surface);
+  color: var(--er-text);
+  box-shadow: var(--er-shadow-sm);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.hf-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--er-line-strong);
   box-shadow: var(--er-shadow);
 }
 
-.er-tour-story-preview img {
-  width: 100%;
-  height: 100%;
+.hf-card-photo {
+  flex: 0 0 38%;
+  min-height: 170px;
   object-fit: cover;
 }
 
-.er-tour-story-preview::after {
-  position: absolute;
-  inset: 0;
-  content: "";
-  background: linear-gradient(0deg, rgba(14, 31, 64, 0.55), rgba(14, 31, 64, 0.05) 60%);
+.hf-card-photo-empty {
+  background: linear-gradient(160deg, var(--tm-deep), var(--tm-deep-2));
 }
 
-.er-tour-story-preview ol {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  z-index: 1;
+.hf-card-body {
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px 18px;
+}
+
+.hf-card-title {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.hf-card-city {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--er-text-muted);
+}
+
+.hf-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13.5px;
+}
+
+.hf-card-list li {
+  display: flex;
+  align-items: flex-start;
   gap: 6px;
+  overflow-wrap: anywhere;
+}
+
+.hf-card-list svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.hf-yes {
+  color: var(--er-success);
+}
+
+.hf-missing {
+  color: var(--er-text-muted);
+}
+
+.hf-card-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: auto;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--er-primary);
+}
+
+.hf-empty p {
+  margin: 0;
+  color: var(--er-text-muted);
+}
+
+@media (max-width: 40em) {
+  .hf-card {
+    flex-direction: column;
+  }
+
+  .hf-card-photo {
+    flex-basis: auto;
+    height: 180px;
+  }
+}
+
+/* Yaz/kış/termal ana sayfa tanıtım bölümleri: components/marketing/showcase/showcase.css */
+.er-thermal-regions .er-h2 {
+  margin-bottom: 18px;
+}
+
+.er-thermal-region-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+  gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.er-tour-story-preview li {
-  padding: 5px 10px;
-  border-radius: var(--er-radius-sm);
-  background: rgba(14, 31, 64, 0.6);
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 12px;
+.er-thermal-region-list a {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--er-line);
+  border-radius: var(--er-radius);
+  background: var(--er-surface);
+  color: var(--er-text);
   font-weight: 600;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.er-tour-story-preview li[data-active="true"] {
-  background: #fff;
-  color: var(--er-navy);
+.er-thermal-region-list a:hover {
+  border-color: var(--er-primary);
+  background: var(--er-primary-tint);
 }
 
-.er-tour-story-play {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  z-index: 1;
-  display: grid;
-  place-items: center;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: var(--er-cta);
-  color: #fff;
-  transform: translate(-50%, -50%);
-  transition: background 200ms ease;
+.er-thermal-region-list small {
+  font-weight: 500;
+  color: var(--er-text-dim);
+  white-space: nowrap;
 }
 
-.er-tour-story-preview:hover .er-tour-story-play {
-  background: var(--er-cta-hover);
-}
-
-.er-tour-story-steps {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: clamp(24px, 4vw, 40px);
-}
-
-.er-tour-story-steps article {
-  padding: 20px;
-  background: var(--er-bg);
-  box-shadow: none;
-}
-
-.er-tour-story-steps article > div {
+.er-thermal-owner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: var(--er-primary);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  gap: 20px;
 }
 
-.er-tour-story-steps article > div span {
-  color: var(--er-text-dim);
+.er-thermal-owner p {
+  margin: 6px 0 0;
+  color: var(--er-text-muted);
 }
 
-.er-tour-story-steps h3 {
-  margin: 14px 0 6px;
-  font-size: 18px;
+/* Termal otel listesi başlığı */
+.er-thermal-browse-intro {
+  margin-bottom: 20px;
 }
 
-.er-tour-story-steps p {
+.er-thermal-browse-intro h1 {
+  margin: 0 0 6px;
+  font-size: clamp(34px, 4.6vw, 52px);
+  font-weight: 500;
+  line-height: 1.08;
+}
+
+.er-thermal-browse-intro p:last-child {
   margin: 0;
   color: var(--er-text-muted);
-  font-size: 14px;
-  line-height: 1.55;
 }
 
-@media (max-width: 64em) {
-  .er-tour-story-stage,
-  .er-tour-story-steps {
-    grid-template-columns: 1fr;
+@media (max-width: 48em) {
+  .er-thermal-owner {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Yaz ana sayfa — tur hikâyesi (kış sayfasındaki sahnenin açık yüzey karşılığı)
+───────────────────────────────────────────────────────────────────────────── */
 
 /* Eski tur sayfası kabuğu — düzen sabiti olarak korunur */
 .tour-page-shell {
@@ -1572,6 +2003,11 @@ a {
 
 .er-winter,
 .er-tour-winter {
+  --tm-deep: #0d2236;
+  --tm-deep-2: #081827;
+  --tm-sand: #8dcbe6;
+  --tm-sand-2: #4f9fc4;
+  --tm-glow: rgba(141, 203, 230, 0.16);
   --er-primary: #8dcbe6;
   --er-primary-hover: #b8e3f5;
   --er-primary-strong: #081827;
@@ -1707,58 +2143,13 @@ a {
   background: #08121b;
 }
 
-.er-winter .er-mobile-nav,
 .er-winter .er-drawer {
   border-color: var(--er-line);
   background: rgba(8, 24, 39, 0.97);
 }
 
 /* Kış ana sayfası */
-.er-winter-home {
-  overflow: hidden;
-}
 
-.er-winter-hero {
-  position: relative;
-  min-height: min(480px, calc(100dvh - var(--er-header-h)));
-  display: flex;
-  align-items: flex-end;
-  isolation: isolate;
-  overflow: hidden;
-}
-
-.er-winter-hero-photo {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 62% 38%;
-}
-
-.er-winter-hero-shade {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  background:
-    linear-gradient(90deg, rgba(3, 13, 22, 0.78) 0%, rgba(3, 13, 22, 0.42) 46%, rgba(3, 13, 22, 0.08) 78%),
-    linear-gradient(180deg, rgba(3, 13, 22, 0.28) 0%, transparent 38%, rgba(16, 20, 21, 0.55) 100%);
-}
-
-.er-winter-hero-inner {
-  position: relative;
-  z-index: 2;
-  width: 100%;
-  padding-block: clamp(40px, 6vw, 64px) clamp(28px, 4vw, 44px);
-}
-
-.er-winter-hero-copy {
-  max-width: 720px;
-}
-
-.er-winter-eyebrow,
 .er-winter .er-eyebrow {
   display: inline-flex;
   align-items: center;
@@ -1769,177 +2160,6 @@ a {
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-}
-
-.er-winter-hero h1 {
-  max-width: 560px;
-  margin: 0;
-  font-size: clamp(36px, 5vw, 56px);
-  font-weight: 500;
-  letter-spacing: -0.04em;
-  line-height: 0.96;
-}
-
-.er-winter-hero-copy > p:not(.er-winter-eyebrow) {
-  max-width: 480px;
-  margin: 14px 0 18px;
-  color: rgba(243, 246, 247, 0.78);
-  font-size: clamp(15px, 1.6vw, 17px);
-  line-height: 1.5;
-}
-
-.er-winter-search {
-  position: relative;
-  max-width: 820px;
-  overflow: hidden;
-  border: 1px solid rgba(243, 246, 247, 0.18);
-  border-radius: 4px;
-  background: rgba(8, 16, 24, 0.82);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38);
-  backdrop-filter: blur(18px);
-}
-
-.er-winter-hero .er-search-console {
-  position: relative;
-  max-width: none;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 0.9fr) auto;
-  gap: 0;
-  align-items: stretch;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.er-winter-hero .er-winter-field {
-  position: relative;
-  min-width: 0;
-  padding: 14px 20px 13px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  cursor: pointer;
-  transition: background 160ms ease;
-}
-
-.er-winter-hero .er-winter-field + .er-winter-field {
-  box-shadow: inset 1px 0 0 rgba(243, 246, 247, 0.12);
-}
-
-.er-winter-hero .er-winter-field:hover {
-  background: rgba(243, 246, 247, 0.04);
-}
-
-.er-winter-hero .er-winter-field:focus-within {
-  background: rgba(243, 246, 247, 0.06);
-  box-shadow: inset 0 -2px 0 var(--er-cta);
-}
-
-.er-winter-hero .er-winter-field + .er-winter-field:focus-within {
-  box-shadow:
-    inset 1px 0 0 rgba(243, 246, 247, 0.12),
-    inset 0 -2px 0 var(--er-cta);
-}
-
-.er-winter-hero .er-field-label {
-  margin-bottom: 2px;
-  padding-left: 0;
-  color: rgba(243, 246, 247, 0.52);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-}
-
-.er-winter-hero .er-search-console .er-input,
-.er-winter-hero .er-search-console .er-select {
-  min-height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  background-image: none;
-  box-shadow: none;
-  font-family: var(--er-font-display);
-  font-size: 20px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  line-height: 1.2;
-  color: var(--er-text);
-  text-overflow: ellipsis;
-}
-
-.er-winter-hero .er-search-console .er-input::placeholder {
-  color: rgba(243, 246, 247, 0.78);
-  font-weight: 500;
-}
-
-.er-winter-hero .er-search-console .er-input:hover,
-.er-winter-hero .er-search-console .er-select:hover,
-.er-winter-hero .er-search-console .er-input:focus,
-.er-winter-hero .er-search-console .er-select:focus {
-  border: 0;
-  background-color: transparent;
-  background-image: none;
-  box-shadow: none;
-}
-
-.er-winter-hero .er-search-console .er-select {
-  appearance: none;
-  -webkit-appearance: none;
-  cursor: pointer;
-  padding-right: 18px;
-  background-image: none;
-}
-
-.er-winter-hero .er-search-console .er-select::-ms-expand {
-  display: none;
-}
-
-.er-winter-hero .er-winter-field:has(select)::after {
-  content: "";
-  position: absolute;
-  right: 16px;
-  bottom: 18px;
-  width: 12px;
-  height: 12px;
-  pointer-events: none;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23f3f6f7' stroke-opacity='0.55' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat center / 12px;
-}
-
-.er-winter-hero .er-search-console .er-btn {
-  align-self: stretch;
-  min-height: 0;
-  margin: 0;
-  border-radius: 0;
-  padding-inline: 28px;
-  background: var(--er-cta);
-  color: #fff;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-  box-shadow: none;
-}
-
-.er-winter-hero .er-search-console .er-btn:hover {
-  background: var(--er-cta-hover);
-  box-shadow: none;
-}
-
-.er-winter-trust {
-  display: flex;
-  gap: 14px 22px;
-  flex-wrap: wrap;
-  margin-top: 14px;
-  color: rgba(243, 246, 247, 0.72);
-  font-size: 12px;
-}
-
-.er-winter-trust span {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
 }
 
 .er-winter-featured,
@@ -1961,12 +2181,6 @@ a {
   font-size: clamp(38px, 5vw, 64px);
   font-weight: 500;
   line-height: 1;
-}
-
-.er-winter-card-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 22px;
 }
 
 .er-winter .er-hotel-card {
@@ -1992,23 +2206,17 @@ a {
   color: #fff;
 }
 
-.er-winter-home .er-btn,
 .er-winter-browse .er-btn {
   border-radius: 4px;
   box-shadow: none;
 }
 
-.er-winter-home .er-btn:hover,
-.er-winter-home .er-btn-cta:hover,
-.er-winter-home .er-btn-primary:hover,
 .er-winter-browse .er-btn:hover,
 .er-winter-browse .er-btn-cta:hover,
 .er-winter-browse .er-btn-primary:hover {
   box-shadow: none;
 }
 
-.er-winter-home .er-card,
-.er-winter-home .er-hotel-card,
 .er-winter-browse .er-card,
 .er-winter-browse .er-hotel-card {
   border: 1px solid rgba(243, 246, 247, 0.18);
@@ -2017,296 +2225,18 @@ a {
   box-shadow: none;
 }
 
-.er-winter-home .er-hotel-card:hover,
 .er-winter-browse .er-hotel-card:hover {
   border-color: rgba(243, 246, 247, 0.32);
   box-shadow: none;
   transform: none;
 }
 
-.er-winter-home .er-hotel-card .er-btn,
 .er-winter-browse .er-hotel-card .er-btn {
   border-radius: 4px;
 }
 
-.er-winter-home .er-hotel-card .er-btn-primary:hover,
 .er-winter-browse .er-hotel-card .er-btn-primary:hover {
   background: var(--er-cta-hover);
-}
-
-.er-winter-experience {
-  padding-block: clamp(40px, 6vw, 64px);
-  border-block: 1px solid var(--er-line);
-  background: #0b171f;
-}
-
-.er-winter-experience h2 {
-  max-width: 420px;
-  margin: 0;
-  font-size: clamp(28px, 3.4vw, 40px);
-  font-weight: 500;
-  line-height: 1.05;
-}
-
-.er-winter-experience-stage {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 380px);
-  gap: 28px;
-  align-items: center;
-}
-
-.er-winter-experience-head p:not(.er-eyebrow) {
-  max-width: 380px;
-  margin: 10px 0 0;
-  color: var(--er-text-muted);
-  font-size: 15px;
-  line-height: 1.55;
-}
-
-.er-winter-tour-preview {
-  position: relative;
-  display: block;
-  overflow: hidden;
-  width: 100%;
-  max-width: 380px;
-  aspect-ratio: 16 / 10;
-  border: 1px solid rgba(243, 246, 247, 0.18);
-  border-radius: 4px;
-  box-shadow: none;
-  color: inherit;
-  text-decoration: none;
-  justify-self: end;
-}
-
-.er-winter-tour-preview-photo {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.er-winter-tour-preview-shade {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(180deg, rgba(8, 24, 39, 0.08) 20%, rgba(8, 24, 39, 0.82) 100%),
-    linear-gradient(90deg, rgba(8, 24, 39, 0.28), transparent 38%);
-}
-
-.er-winter-tour-preview-stops {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.er-winter-tour-preview-stops li {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 0 8px;
-  border: 1px solid rgba(243, 246, 247, 0.18);
-  border-radius: 4px;
-  background: rgba(8, 16, 24, 0.72);
-  color: rgba(243, 246, 247, 0.78);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  backdrop-filter: blur(12px);
-}
-
-.er-winter-tour-preview-stops li[data-active="true"] {
-  border-color: var(--er-cta);
-  background: rgba(8, 16, 24, 0.82);
-  color: #fff;
-}
-
-.er-winter-tour-preview-play {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border: 1px solid rgba(243, 246, 247, 0.18);
-  border-radius: 4px;
-  background: rgba(8, 16, 24, 0.82);
-  color: #fff;
-  transform: translate(-50%, -50%);
-  box-shadow: none;
-}
-
-.er-winter-tour-preview:hover .er-winter-tour-preview-play {
-  border-color: var(--er-cta);
-  background: var(--er-cta);
-}
-
-.er-winter-tour-preview-meta {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  left: 12px;
-}
-
-.er-winter-tour-preview-meta p {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  margin: 0 0 8px;
-  color: #fff;
-  font-family: var(--er-font-display);
-  font-size: 16px;
-  font-weight: 500;
-}
-
-.er-winter-tour-preview-meta span {
-  color: rgba(243, 246, 247, 0.62);
-  font-family: var(--er-font-sans);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.er-winter-tour-preview-bar {
-  height: 3px;
-  overflow: hidden;
-  border-radius: 0;
-  background: rgba(243, 246, 247, 0.22);
-}
-
-.er-winter-tour-preview-bar span {
-  display: block;
-  width: 38%;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--er-cta);
-}
-
-.er-winter-steps {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 24px;
-}
-
-.er-winter-step {
-  padding: 18px 18px 20px;
-  border: 1px solid rgba(243, 246, 247, 0.18);
-  border-radius: 4px;
-  background: #141a1c;
-  box-shadow: none;
-}
-
-.er-winter-step-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.er-winter-step-icon,
-.er-winter-step-top > span:last-child {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: auto;
-  height: auto;
-  border: 0;
-  border-radius: 0;
-  color: var(--er-text-dim);
-  background: transparent;
-}
-
-.er-winter-step-icon {
-  color: var(--er-cta);
-}
-
-.er-winter-step-top > span:last-child {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-}
-
-.er-winter-step h3 {
-  margin: 16px 0 8px;
-  font-family: var(--er-font-display);
-  font-size: 20px;
-  font-weight: 500;
-}
-
-.er-winter-step p {
-  margin: 0;
-  color: var(--er-text-muted);
-  line-height: 1.65;
-}
-
-.er-winter-final {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 280px;
-  text-align: center;
-}
-
-.er-winter-final-photo {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center 42%;
-}
-
-.er-winter-final-shade {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  background:
-    linear-gradient(180deg, rgba(8, 24, 39, 0.42) 0%, rgba(8, 24, 39, 0.58) 52%, rgba(8, 24, 39, 0.82) 100%),
-    radial-gradient(circle at 50% 38%, rgba(141, 203, 230, 0.12), transparent 46%);
-}
-
-.er-winter-final-inner {
-  position: relative;
-  z-index: 2;
-  padding-block: clamp(48px, 7vw, 72px);
-}
-
-.er-winter-final h2 {
-  max-width: 640px;
-  margin: 0 auto;
-  font-size: clamp(30px, 4vw, 44px);
-  font-weight: 500;
-  line-height: 1.05;
-}
-
-.er-winter-final p {
-  max-width: 460px;
-  margin: 12px auto 0;
-  color: rgba(243, 246, 247, 0.82);
-}
-
-.er-winter-final .er-btn {
-  margin-top: 22px;
-  min-height: 48px;
-  padding-inline: 22px;
-  box-shadow: none;
-}
-
-.er-winter-final .er-btn:hover {
-  box-shadow: none;
 }
 
 .er-winter-owner {
@@ -2684,46 +2614,14 @@ a {
   color: #fff;
 }
 
-@media (max-width: 64em) {
-  .er-winter-card-grid,
-  .er-winter-steps,
-  .er-winter-experience-stage {
-    grid-template-columns: 1fr;
-  }
-
-  .er-winter-tour-preview {
-    justify-self: start;
-    max-width: 360px;
-  }
-
-  .er-winter-hero .er-search-console {
-    grid-template-columns: 1fr;
-  }
-
-  .er-winter-hero .er-winter-field + .er-winter-field {
-    box-shadow: inset 0 1px 0 rgba(243, 246, 247, 0.12);
-  }
-
-  .er-winter-hero .er-search-console .er-btn {
-    min-height: 52px;
-  }
-
-  .er-winter-step {
-    min-height: auto;
-  }
-
-  .er-winter-step h3 {
-    margin-top: 16px;
-  }
-}
-
 @media (max-width: 48em) {
-  .er-winter .er-header-actions > .er-nav-link,
-  .er-winter .er-header-actions > .er-btn {
+  /* Giriş ve talep bağlantıları mobilde çekmece menüde; üst çubuk taşmasın. */
+  .er-header-actions > .er-nav-link,
+  .er-header-actions > .er-btn {
     display: none;
   }
 
-  .er-winter .er-header-actions {
+  .er-header-actions {
     gap: 0;
   }
 
@@ -2731,26 +2629,33 @@ a {
     padding-inline: 12px !important;
   }
 
-  .er-winter-hero {
-    min-height: 420px;
+  /* Sezon geçişleri mobilde yalnız simge — iki düğme başlığa sığsın. */
+  .er-header-actions {
+    gap: 6px;
   }
 
-  .er-winter-hero-photo {
-    object-position: 70% 32%;
+  .er-season-switch {
+    padding-inline: 10px !important;
   }
 
-  .er-winter-hero-shade {
-    background:
-      linear-gradient(180deg, rgba(3, 13, 22, 0.5) 0%, rgba(3, 13, 22, 0.18) 42%, rgba(16, 20, 21, 0.62) 100%);
+  .er-season-switch-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 
-  .er-winter-hero-inner {
-    padding-block: 36px 28px;
-  }
 
-  .er-winter-hero h1 {
-    font-size: clamp(32px, 9vw, 44px);
-  }
+
+
+
+
+
+
+
+
 
   .er-winter-section-head,
   .er-winter-owner .er-container {
@@ -2765,4 +2670,2133 @@ a {
   .er-winter-detail-title h1 {
     font-size: clamp(46px, 14vw, 66px);
   }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Yaz ana sayfa — hero, kısayollar, tur anlatımı, otel sahibi bandı
+───────────────────────────────────────────────────────────────────────────── */
+
+.er-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.er-hero {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: clamp(520px, 72vh, 680px);
+  overflow: hidden;
+  background: var(--er-navy);
+}
+
+.er-hero-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(90deg, rgba(14, 31, 64, 0.88) 0%, rgba(14, 31, 64, 0.6) 45%, rgba(14, 31, 64, 0.1) 80%),
+    linear-gradient(0deg, rgba(14, 31, 64, 0.5) 0%, transparent 40%);
+}
+
+.er-hero-inner {
+  position: relative;
+  z-index: 2;
+  padding-block: clamp(56px, 9vw, 96px);
+}
+
+.er-hero-inner > * {
+  max-width: 620px;
+}
+
+.er-hero-title {
+  color: #fff;
+  font-size: clamp(36px, 5.4vw, 60px);
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
+.er-hero-lede {
+  margin: 18px 0 0;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: clamp(16px, 1.7vw, 19px);
+  line-height: 1.55;
+}
+
+.er-hero-credit {
+  position: absolute;
+  right: var(--er-gutter);
+  bottom: 14px;
+  z-index: 2;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+}
+
+.er-hero-credit:hover {
+  color: #fff;
+}
+
+@media (max-width: 40em) {
+  .er-hero-mask {
+    background: linear-gradient(180deg, rgba(14, 31, 64, 0.55) 0%, rgba(14, 31, 64, 0.82) 55%, rgba(14, 31, 64, 0.9) 100%);
+  }
+
+  .er-hero-credit {
+    display: none;
+  }
+}
+
+.er-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 20px;
+}
+
+/* Dört sütunlu dar kartlar (benzer oteller) */
+.er-card-grid-4 {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+}
+
+.er-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: clamp(24px, 4vw, 56px);
+  padding-bottom: clamp(40px, 6vw, 64px);
+}
+
+.er-shortcuts-title {
+  margin: 0 0 8px;
+  font-family: var(--er-font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--er-text);
+}
+
+.er-shortcuts ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--er-line);
+}
+
+.er-shortcuts li a {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--er-line);
+  color: var(--er-text);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.er-shortcuts li a:hover {
+  color: var(--er-primary);
+}
+
+.er-shortcuts-count {
+  color: var(--er-text-dim);
+  font-size: 13px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.er-owner-band {
+  background: var(--er-navy);
+  color: #fff;
+}
+
+.er-owner-band > .er-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px 48px;
+  flex-wrap: wrap;
+  padding-block: clamp(40px, 6vw, 56px);
+}
+
+.er-owner-band h2 {
+  color: #fff;
+}
+
+.er-owner-band p {
+  max-width: 520px;
+  margin: 10px 0 0;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+/* Liste filtre paneli — onay işaretli satırlar */
+.er-filter-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--er-text-muted);
+}
+
+.er-filter-check:hover,
+.er-filter-check[data-active="true"] {
+  color: var(--er-primary);
+}
+
+.er-filter-check[data-active="true"] {
+  font-weight: 600;
+}
+
+.er-filter-count {
+  margin-left: auto;
+  color: var(--er-text-dim);
+  font-size: 13px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Otel detayı — olanak listesi (kategori | olanaklar) */
+.er-amenity-list {
+  display: grid;
+  margin: 20px 0 0;
+  border-top: 1px solid var(--er-line);
+}
+
+.er-amenity-list > div {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) 1fr;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--er-line);
+}
+
+.er-amenity-list dt {
+  font-weight: 600;
+  color: var(--er-text);
+}
+
+.er-amenity-list dd {
+  margin: 0;
+  color: var(--er-text-muted);
+  line-height: 1.6;
+}
+
+@media (max-width: 40em) {
+  .er-amenity-list > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
+
+/* Otel detayı — fotoğraflar */
+.er-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.er-gallery-thumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--er-radius);
+  background: var(--er-surface-3);
+}
+
+.er-gallery-more {
+  margin-top: 16px;
+}
+
+.er-gallery-more summary {
+  cursor: pointer;
+  color: var(--er-primary);
+  font-weight: 600;
+}
+
+.er-gallery-more h3 {
+  margin: 24px 0 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--er-text);
+}
+
+.er-gallery-more h3 span {
+  color: var(--er-text-dim);
+  font-weight: 400;
+}
+
+/* Bölüm içi küçük etiket (büyük harf yerine) */
+.er-label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--er-primary);
+}
+
+/* Otel detayı — uzun açıklama */
+.er-description-more summary {
+  margin-top: 8px;
+  cursor: pointer;
+  color: var(--er-primary);
+  font-weight: 600;
+}
+
+.er-description-more[open] summary {
+  display: none;
+}
+
+/* Otel sayfası sabit düğmeleri — WhatsApp / telefon, video tur, "Soru sorun" */
+.er-dock {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.er-dock > * {
+  pointer-events: auto;
+}
+
+.er-dock-contact {
+  display: flex;
+  gap: 10px;
+}
+
+.er-dock-pill,
+.er-dock-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  box-shadow: var(--er-shadow-lg);
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.er-dock-pill:hover,
+.er-dock-icon:hover {
+  transform: translateY(-1px);
+}
+
+.er-dock-pill {
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: var(--er-radius-pill);
+  font: 600 15px var(--er-font-sans);
+}
+
+.er-dock-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+}
+
+.er-chat-launcher {
+  background: var(--er-primary);
+  color: #fff;
+}
+
+.er-chat-launcher:hover {
+  background: var(--er-primary-hover);
+}
+
+.er-winter .er-chat-launcher {
+  color: var(--er-navy);
+}
+
+.er-dock-tour {
+  background: var(--er-cta);
+  color: #fff;
+}
+
+.er-dock-tour:hover {
+  background: var(--er-cta-hover, var(--er-cta));
+  color: #fff;
+}
+
+.er-dock-wa {
+  background: #25d366;
+  color: #fff;
+}
+
+.er-dock-wa:hover {
+  background: #1ebe5b;
+}
+
+.er-dock-tel {
+  border: 1px solid var(--er-line);
+  background: var(--er-surface);
+  color: var(--er-text);
+}
+
+.er-chat-sheet {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 80;
+  width: min(400px, calc(100vw - 40px));
+  height: min(620px, calc(100vh - 100px));
+  overflow: hidden;
+  border: 1px solid var(--er-line);
+  border-radius: var(--er-radius-lg);
+  background: var(--er-surface);
+  box-shadow: var(--er-shadow-lg);
+}
+
+.er-chat-sheet[hidden] {
+  display: none;
+}
+
+.er-chat-inline {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  width: 100%;
+  padding: 14px;
+  border: 0;
+  border-radius: var(--er-radius);
+  background: var(--er-primary-tint);
+  color: var(--er-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.er-chat-inline:hover {
+  background: var(--er-primary-tint-strong);
+}
+
+.er-chat-inline > span {
+  display: grid;
+  gap: 2px;
+}
+
+.er-chat-inline strong {
+  font-size: 14px;
+}
+
+.er-chat-inline strong + span {
+  color: var(--er-text-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 48em) {
+  .er-dock {
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    gap: 8px;
+  }
+
+  .er-dock-pill {
+    min-height: 44px;
+    padding: 0 16px;
+    font-size: 14px;
+  }
+
+  .er-dock-icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Mobilde panel ekranın tamamını kaplar. */
+  .er-chat-sheet {
+    inset: 0;
+    width: auto;
+    height: auto;
+    border: 0;
+    border-radius: 0;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Misafir üst menüsü (guest-app-shell.tsx, .gh) — fildişi kâğıt.
+   Koyu banner'lardan ayrışan sıcak zemin, mürekkep rengi yazı; vitrin rengi
+   yalnız alt çizgide ve etkin bağlantıda. Tur ekranının başlığı (.er-header,
+   TourHeader) bu bloktan etkilenmez.
+───────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --gh-paper: #f3eee4;
+  --gh-ink: #1a1a1a;
+  --gh-ink-soft: #55524c;
+  --gh-rule: #ddd5c6;
+  /* Vitrin vurgusu (alt çizgi). Yaz: gece mavisi; kış ve termal aşağıda. */
+  --gh-accent: #1c56a6;
+}
+
+.er-winter {
+  --gh-accent: #2f7393;
+}
+
+.er-thermal {
+  --gh-accent: #b5552d;
+}
+
+.er-header.gh {
+  display: block;
+  padding-inline: 0;
+  border-bottom: 2px solid var(--gh-accent);
+  background: var(--gh-paper);
+  box-shadow: none;
+  color: var(--gh-ink);
+  backdrop-filter: none;
+  transition: box-shadow 0.25s ease;
+}
+
+.er-header.gh[data-scrolled] {
+  box-shadow: 0 6px 24px rgba(26, 26, 26, 0.12);
+}
+
+.gh-inner {
+  display: flex;
+  align-items: center;
+  gap: clamp(16px, 2.6vw, 36px);
+  height: 100%;
+  max-width: var(--er-container);
+  margin-inline: auto;
+  padding-inline: var(--er-gutter);
+}
+
+.gh-brand {
+  flex-shrink: 0;
+  font-family: var(--er-font-display);
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--gh-ink);
+}
+
+.gh-nav {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2vw, 28px);
+  margin-inline: auto;
+}
+
+.gh-link {
+  position: relative;
+  padding: 6px 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--gh-ink-soft);
+  transition: color 0.2s ease;
+}
+
+.gh-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 2px;
+  background: var(--gh-accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.25s ease;
+}
+
+.gh-link:hover,
+.gh-link[data-active="true"] {
+  color: var(--gh-ink);
+}
+
+.gh-link:hover::after,
+.gh-link[data-active="true"]::after {
+  transform: scaleX(1);
+}
+
+.gh-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-shrink: 0;
+}
+
+.gh-seasons {
+  display: inline-flex;
+  align-items: center;
+}
+
+.gh-season {
+  position: relative;
+  padding: 4px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gh-ink-soft);
+}
+
+.gh-season + .gh-season {
+  margin-left: 22px;
+}
+
+/* "Yaz · Kış · Termal" ayırıcısı */
+.gh-season + .gh-season::before {
+  content: "·";
+  position: absolute;
+  left: -14px;
+  color: var(--gh-rule);
+  font-weight: 700;
+}
+
+.gh-season:hover {
+  color: var(--gh-ink);
+}
+
+.gh-season[data-active] {
+  color: var(--gh-ink);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: var(--gh-accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+}
+
+.gh-account {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gh-ink);
+}
+
+.gh-cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 8px;
+  background: var(--gh-ink);
+  color: var(--gh-paper);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.2s ease;
+}
+
+.gh-cta:hover {
+  background: #000;
+}
+
+.gh-burger {
+  display: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-right: -8px;
+  border: 0;
+  background: transparent;
+  color: var(--gh-ink);
+  cursor: pointer;
+}
+
+.gh-link:focus-visible,
+.gh-season:focus-visible,
+.gh-cta:focus-visible,
+.gh-brand:focus-visible,
+.gh-burger:focus-visible {
+  outline: 2px solid var(--gh-accent);
+  outline-offset: 3px;
+}
+
+/* Mobil menü (çekmece) ekleri */
+.gh-drawer-title {
+  margin: 16px 24px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--er-text-dim);
+}
+
+.gh-drawer-foot {
+  margin-top: auto;
+  padding: 16px 24px 0;
+  border-top: 1px solid var(--er-line);
+}
+
+.er-drawer .gh-owner-link {
+  padding: 0;
+  font-size: 13px;
+  color: var(--er-text-muted);
+}
+
+@media (max-width: 60em) {
+  .gh-nav,
+  .gh-cta,
+  .gh-account {
+    display: none;
+  }
+
+  .gh-burger {
+    display: inline-grid;
+  }
+
+  .gh-actions {
+    margin-left: auto;
+    gap: 12px;
+  }
+
+  .gh-brand {
+    font-size: 21px;
+  }
+
+  .gh-season {
+    font-size: 13px;
+  }
+
+  .gh-season + .gh-season {
+    margin-left: 16px;
+  }
+
+  .gh-season + .gh-season::before {
+    left: -11px;
+  }
+}
+
+
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Otel sahipleri bandı (components/guest/owner-band.tsx) — gerçek otel
+   fotoğraflarından iki kayan şerit, arada vitrin renginde koyu zemin.
+───────────────────────────────────────────────────────────────────────────── */
+
+.ob {
+  position: relative;
+  overflow: hidden;
+  padding-block: 14px;
+  background: var(--tm-deep-2);
+  color: var(--tm-ink-on-deep);
+}
+
+.ob-strip {
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+.ob-track {
+  display: flex;
+  gap: 12px;
+  width: max-content;
+  animation: ob-scroll 70s linear infinite;
+}
+
+.ob-strip[data-reverse] .ob-track {
+  animation-direction: reverse;
+}
+
+.ob-strip img {
+  width: 200px;
+  height: 128px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  object-fit: cover;
+  filter: saturate(0.85) brightness(0.8);
+  transition: filter 0.3s ease;
+}
+
+.ob:hover .ob-strip img {
+  filter: saturate(1) brightness(0.9);
+}
+
+@keyframes ob-scroll {
+  to {
+    transform: translateX(calc(-50% - 6px));
+  }
+}
+
+.ob-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr);
+  grid-template-areas:
+    "head steps"
+    "head cta";
+  align-items: start;
+  gap: 24px clamp(24px, 5vw, 64px);
+  padding-block: clamp(36px, 6vw, 64px);
+}
+
+.ob-head {
+  grid-area: head;
+}
+
+.ob-eyebrow {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tm-sand);
+}
+
+.ob-title {
+  margin: 0;
+  font-size: clamp(30px, 3.6vw, 44px);
+  font-weight: 500;
+  line-height: 1.08;
+  color: var(--tm-ink-on-deep);
+}
+
+.ob-count {
+  margin: 18px 0 0;
+  font-size: 15px;
+  color: var(--tm-muted-on-deep);
+}
+
+.ob-count strong {
+  display: block;
+  font-family: var(--er-font-display);
+  font-size: clamp(40px, 5vw, 56px);
+  font-weight: 500;
+  line-height: 1;
+  color: var(--tm-sand);
+}
+
+.ob-steps {
+  grid-area: steps;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid color-mix(in srgb, var(--tm-ink-on-deep) 18%, transparent);
+}
+
+.ob-steps li {
+  padding: 18px 20px 0 0;
+}
+
+.ob-steps li + li {
+  padding-left: 20px;
+  border-left: 1px solid color-mix(in srgb, var(--tm-ink-on-deep) 12%, transparent);
+}
+
+.ob-step-no {
+  font-family: var(--er-font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--tm-sand);
+}
+
+.ob-steps h3 {
+  margin: 6px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--tm-ink-on-deep);
+}
+
+.ob-steps p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--tm-muted-on-deep);
+}
+
+.ob-cta {
+  grid-area: cta;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 22px;
+  border-radius: 8px;
+  background: var(--tm-ink-on-deep);
+  color: var(--tm-deep);
+  font-weight: 700;
+  transition: transform 0.2s ease;
+}
+
+.ob-cta:hover {
+  transform: translateY(-1px);
+}
+
+.ob-cta:focus-visible {
+  outline: 2px solid var(--tm-sand);
+  outline-offset: 3px;
+}
+
+@media (max-width: 56em) {
+  .ob-inner {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "head"
+      "steps"
+      "cta";
+  }
+
+  .ob-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .ob-steps li,
+  .ob-steps li + li {
+    padding: 14px 0;
+    border-left: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--tm-ink-on-deep) 12%, transparent);
+  }
+
+  .ob-cta {
+    justify-self: stretch;
+    justify-content: center;
+  }
+
+  .ob-strip img {
+    width: 150px;
+    height: 96px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ob-track {
+    animation: none;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Mobil iyileştirmeler — yana kaydırılan raylar, bölge karoları.
+───────────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 48em) {
+  /* Kart ızgarası → yana kaydırılan ray; sonraki kartın kenarı görünür. */
+  .mobile-rail {
+    display: flex !important;
+    gap: 14px !important;
+    max-width: none !important;
+    margin-inline: calc(var(--er-gutter) * -1);
+    padding: 2px var(--er-gutter) 8px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--er-gutter);
+    scrollbar-width: none;
+  }
+
+  .mobile-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-rail > * {
+    flex: 0 0 82%;
+    scroll-snap-align: start;
+  }
+
+  /* Termal bölgeler: 2 sütunlu karolar */
+  .er-thermal-region-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .er-thermal-region-list a {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 12px 14px;
+  }
+}
+
+/* ── Liste: mobil araç çubuğu, filtre sayfası, yatay kartlar ──────────────── */
+
+.er-mobile-tools,
+.er-active-filters {
+  display: none;
+}
+
+@media (max-width: 64em) {
+  /* Yan filtre paneli mobilde alttan açılan sayfaya taşınır. */
+  .er-browse-grid > .er-browse-filters,
+  .er-sort-pills {
+    display: none !important;
+  }
+
+  .er-mobile-tools {
+    display: flex;
+    gap: 10px;
+    margin: -8px 0 12px;
+  }
+
+  .er-mobile-tools > * {
+    flex: 1;
+  }
+
+  .er-filter-sheet > summary {
+    width: 100%;
+    min-height: 44px;
+    list-style: none;
+    cursor: pointer;
+  }
+
+  .er-filter-sheet > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  /* Açıkken özetin kendisi tam ekran karartma olur; dokununca kapanır. */
+  .er-filter-sheet[open] > summary::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 85;
+    background: rgba(14, 18, 24, 0.5);
+  }
+
+  .er-filter-sheet-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 86;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 82dvh;
+    padding: 12px 16px calc(20px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+    border-radius: 20px 20px 0 0;
+    background: var(--er-bg);
+    box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.25);
+    animation: er-sheet-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .er-filter-sheet-panel::before {
+    content: "";
+    align-self: center;
+    width: 40px;
+    height: 4px;
+    border-radius: 4px;
+    background: var(--er-line-strong);
+  }
+
+  .er-filter-sheet-title {
+    margin: 0;
+    font-family: var(--er-font-display);
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  .er-sort-select .er-select {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .er-active-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .er-active-filters .er-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 34px;
+  }
+}
+
+@keyframes er-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@media (max-width: 40em) {
+  /* Yatay kart: fotoğraf solda — bir ekranda 3–4 otel. */
+  .er-browse-results .er-hotel-card {
+    flex-direction: row;
+  }
+
+  .er-browse-results .er-hotel-card .er-hotel-media {
+    flex: 0 0 38%;
+    aspect-ratio: auto;
+    min-height: 150px;
+  }
+
+  .er-browse-results .er-hotel-card .er-hotel-body {
+    padding: 12px 14px 0;
+    min-width: 0;
+  }
+
+  .er-browse-results .er-hotel-card .er-hotel-title {
+    font-size: 16px;
+  }
+
+  .er-browse-results .er-hotel-card .er-hotel-desc {
+    display: none;
+  }
+
+  .er-browse-results .er-hotel-card .er-hotel-foot {
+    padding: 8px 14px 12px;
+  }
+
+  .er-browse-results .er-tour-badge {
+    font-size: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .er-filter-sheet-panel {
+    animation: none;
+  }
+}
+
+/* ── Otel sayfası: olanak etiketleri, mobil galeri, eylem çubuğu ─────────── */
+
+.er-amenity-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.er-amenity-chips li {
+  padding: 5px 11px;
+  border: 1px solid var(--er-line);
+  border-radius: 999px;
+  background: var(--er-surface);
+  font-size: 13px;
+  color: var(--er-text-muted);
+}
+
+.er-amenity-more {
+  margin-top: 8px;
+}
+
+.er-amenity-more > summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--er-primary);
+  cursor: pointer;
+}
+
+.er-amenity-more[open] > summary {
+  margin-bottom: 8px;
+}
+
+.er-gallery-rail,
+.er-hotel-bar {
+  display: none;
+}
+
+@media (max-width: 48em) {
+  /* Mobilde ızgara galeri yerine kaydırılan ray */
+  .er-gallery {
+    display: none !important;
+  }
+
+  .er-gallery-rail {
+    position: relative;
+    display: block;
+    margin-bottom: 24px;
+  }
+
+  .er-gallery-rail-track {
+    display: flex;
+    overflow-x: auto;
+    border-radius: var(--er-radius-md);
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .er-gallery-rail-track::-webkit-scrollbar {
+    display: none;
+  }
+
+  .er-gallery-rail-track img {
+    flex: 0 0 100%;
+    width: 100%;
+    height: 260px;
+    object-fit: cover;
+    scroll-snap-align: start;
+  }
+
+  .er-gallery-rail-count {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  /* Eylem çubuğu */
+  .er-hotel-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 65;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--er-line);
+    background: var(--er-surface);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.12);
+    transform: translateY(110%);
+    transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .er-hotel-bar[data-visible] {
+    transform: none;
+  }
+
+  .er-hotel-bar-price {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.25;
+    font-weight: 700;
+    color: var(--er-text);
+  }
+  .er-hotel-bar-note {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--er-text-muted);
+  }
+
+  .er-hotel-bar-ask {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--er-line-strong);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--er-text);
+    font: 600 14px var(--er-font-sans);
+    cursor: pointer;
+  }
+
+  .er-hotel-bar-cta {
+    min-height: 44px;
+  }
+
+  /* Çubuk görünürken "Soru sorun" gizlenir (çubukta "Sor" var); kalan
+     düğmeler çubuğun üstüne çıkar. */
+  html:has(.er-hotel-bar[data-visible]) .er-chat-launcher {
+    display: none;
+  }
+
+  html:has(.er-hotel-bar[data-visible]) .er-dock {
+    bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+
+  /* Çubuk altbilgiyi örtmesin */
+  html:has(.er-hotel-bar) .er-footer {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .er-hotel-bar {
+    transition: none;
+  }
+}
+
+
+/* ── Mobil menü: ekranı kaplayan fildişi panel (guest-app-shell .gd) ─────── */
+
+.er-drawer.gd {
+  inset: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: var(--gh-paper);
+  color: var(--gh-ink);
+  box-shadow: none;
+  animation: gd-in 0.22s ease;
+}
+
+@keyframes gd-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+.gd-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--er-header-h);
+  padding-inline: var(--er-gutter);
+  border-bottom: 2px solid var(--gh-accent);
+}
+
+.gd-close {
+  display: inline-grid;
+}
+
+.gd-seasons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 18px var(--er-gutter) 0;
+  padding: 4px;
+  border: 1px solid var(--gh-rule);
+  border-radius: 12px;
+}
+
+.er-drawer .gd-season {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 9px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gh-ink-soft);
+}
+
+.er-drawer .gd-season[data-active] {
+  background: var(--gh-ink);
+  color: var(--gh-paper);
+}
+
+.gd-links {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+  padding-inline: var(--er-gutter);
+}
+
+.er-drawer .gd-link {
+  display: flex;
+  align-items: center;
+  min-height: 56px;
+  padding: 0;
+  border-bottom: 1px solid var(--gh-rule);
+  font-family: var(--er-font-display);
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--gh-ink);
+}
+
+.er-drawer .gd-link[data-active="true"] {
+  color: var(--gh-accent);
+}
+
+.gd-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: auto;
+  padding: 20px var(--er-gutter) calc(24px + env(safe-area-inset-bottom));
+}
+
+.er-drawer .gd-cta {
+  display: grid;
+  place-items: center;
+  min-height: 52px;
+  padding: 0;
+  border-radius: 10px;
+  background: var(--gh-ink);
+  color: var(--gh-paper);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.er-drawer .gd-owner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0;
+  font-size: 14px;
+  color: var(--gh-ink-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .er-drawer.gd {
+    animation: none;
+  }
+}
+
+/* ── Altbilgi (mobil): sıkı, iki sütunlu bağlantılar ─────────────────────── */
+
+@media (max-width: 48em) {
+  .er-footer {
+    padding-block: 32px 24px;
+  }
+
+  .er-footer-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 24px 16px;
+  }
+
+  .er-footer-grid > div:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .er-footer-grid a {
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+  }
+
+  .er-footer-bottom {
+    margin-top: 16px;
+  }
+
+  /* Dokunma alanları: sezon seçici ve banner çipleri en az 44px */
+  .gh-season {
+    padding-block: 12px;
+  }
+
+  .hf-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+  }
+}
+
+/* Eski çekmecenin sol kenar çizgisi ve etkin zemini bu panelde yok. */
+.er-drawer.gd a {
+  border-left: 0;
+}
+
+.er-drawer.gd .gd-link[data-active="true"] {
+  background: none;
+}
+
+.er-drawer.gd .gh-brand {
+  padding: 0;
+  font-size: 23px;
+  color: var(--gh-ink);
+}
+
+
+/* Çerez tercihi önceden verilmiş: sunucuda çizilen bant boyanmaz (layout.tsx). */
+html[data-consent] .er-consent {
+  display: none;
+}
+
+
+/* ── Konaklama alanları: tarih + kişi (stay-fields.tsx) ─────────────────── */
+
+.sf {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.3fr;
+  gap: 8px;
+  color: var(--er-text);
+}
+
+.sf-field {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--er-line-strong);
+  border-radius: var(--er-radius);
+  background: var(--er-surface);
+  cursor: pointer;
+}
+
+.sf-field:focus-within {
+  border-color: var(--er-primary);
+  box-shadow: 0 0 0 3px var(--er-primary-tint);
+}
+
+.sf-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--er-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.sf-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--er-text);
+  font: 600 15px var(--er-font-sans);
+  outline: none;
+}
+
+.sf-party > summary {
+  display: grid;
+  gap: 4px;
+  list-style: none;
+}
+
+.sf-party > summary::-webkit-details-marker {
+  display: none;
+}
+
+.sf-party-value {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sf-party-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  display: grid;
+  gap: 14px;
+  width: min(320px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid var(--er-line);
+  border-radius: var(--er-radius-md);
+  background: var(--er-surface);
+  box-shadow: var(--er-shadow-lg);
+  color: var(--er-text);
+  text-align: left;
+  cursor: default;
+}
+
+.sf-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sf-stepper > span:first-child {
+  display: grid;
+}
+
+.sf-stepper strong {
+  font-size: 15px;
+}
+
+.sf-stepper small {
+  color: var(--er-text-muted);
+  font-size: 12px;
+}
+
+.sf-stepper-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sf-stepper-controls button {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--er-line-strong);
+  border-radius: 50%;
+  background: var(--er-surface);
+  color: var(--er-text);
+  cursor: pointer;
+}
+
+.sf-stepper-controls button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.sf-stepper-controls output {
+  min-width: 20px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.sf-ages {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.sf-ages label {
+  display: grid;
+  gap: 4px;
+  color: var(--er-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sf-ages .er-input {
+  min-height: 38px;
+  padding-inline: 8px;
+}
+
+.sf-ages p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--er-text-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 40em) {
+  .sf {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .sf-party {
+    grid-column: 1 / -1;
+  }
+
+  .sf-party-panel {
+    left: 0;
+    right: auto;
+    width: 100%;
+  }
+}
+
+/* Termal ana sayfa araması: bölge + tarih + kişi */
+.tm-stay-search {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border-radius: var(--er-radius-md);
+  background: color-mix(in srgb, var(--er-surface) 88%, transparent);
+  box-shadow: var(--er-shadow-lg);
+}
+
+.tm-stay-search-row {
+  display: grid;
+  gap: 8px;
+}
+
+.tm-stay-search .sf-field,
+.tm-stay-search-where {
+  border-color: var(--er-line);
+}
+
+.tm-stay-search-where {
+  display: grid;
+  gap: 4px;
+  padding: 8px 12px;
+  border: 1px solid var(--er-line);
+  border-radius: var(--er-radius);
+  background: var(--er-surface);
+}
+
+.tm-stay-search-where:focus-within {
+  border-color: var(--er-primary);
+  box-shadow: 0 0 0 3px var(--er-primary-tint);
+}
+
+.tm-stay-search button[type="submit"] {
+  min-height: 50px;
+}
+
+/* Otel listesi: bölge + tarih + kişi araması */
+.er-stay-filter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr) auto;
+  gap: 8px;
+  align-items: stretch;
+  margin-bottom: 14px;
+}
+
+.er-stay-filter > button {
+  min-height: 100%;
+}
+
+@media (max-width: 64em) {
+  .er-stay-filter {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .er-stay-filter .sf {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+@media (max-width: 40em) {
+  .er-stay-filter {
+    grid-template-columns: 1fr;
+  }
+
+  .er-stay-filter .sf {
+    grid-row: auto;
+  }
+
+  .er-stay-filter > button {
+    min-height: 44px;
+  }
+}
+
+/* ── Fiyat hesaplayıcı (stay-calculator.tsx) ─────────────────────────────── */
+
+.sc {
+  display: grid;
+  gap: 16px;
+  margin-bottom: clamp(28px, 4vw, 44px);
+  padding: clamp(16px, 2.4vw, 24px);
+  border: 1px solid var(--er-line);
+  border-radius: var(--er-radius-lg);
+  background: var(--er-surface);
+  box-shadow: var(--er-shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.04));
+}
+
+.sc-head {
+  display: grid;
+  gap: 4px;
+}
+
+.sc-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: clamp(20px, 2.2vw, 24px);
+}
+
+.sc-title svg {
+  color: var(--er-primary);
+}
+
+.sc-head p {
+  margin: 0;
+  color: var(--er-text-muted);
+  font-size: 14px;
+}
+
+.sc-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--er-radius);
+  background: var(--er-primary-tint);
+  color: var(--er-text);
+  font-size: 14px;
+}
+
+.sc-hint svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--er-primary);
+}
+
+.sc-hint-error {
+  background: var(--er-cta-tint);
+}
+
+.sc-hint-error svg {
+  color: var(--er-cta);
+}
+
+.sc-rooms {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sc-room {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid var(--er-line);
+  border-radius: var(--er-radius-md);
+}
+
+.sc-room[data-fit="confirm"] {
+  border-style: dashed;
+}
+
+.sc-room-name {
+  margin: 0;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.sc-room-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 4px 0 0;
+  color: var(--er-text-muted);
+  font-size: 13px;
+}
+
+.sc-ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--er-success, #2f7a4a);
+  font-weight: 600;
+}
+
+.sc-warn {
+  color: var(--er-cta);
+  font-weight: 600;
+}
+
+.sc-no {
+  color: var(--er-text-dim);
+}
+
+.sc-note {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 6px 0 0;
+  color: var(--er-cta);
+  font-size: 13px;
+}
+
+.sc-room-price {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  text-align: right;
+}
+
+.sc-room-price s {
+  color: var(--er-text-dim);
+  font-size: 13px;
+}
+
+.sc-room-price strong {
+  font-family: var(--er-font-display);
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+.sc-room-price strong.sc-request {
+  font-family: inherit;
+  font-size: 15px;
+}
+
+.sc-room-price small {
+  color: var(--er-text-muted);
+  font-size: 12px;
+}
+
+.sc-badge {
+  margin-top: 2px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--er-cta-tint);
+  color: var(--er-cta);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sc-room-cta {
+  min-height: 38px;
+  margin-top: 8px;
+  padding-inline: 14px;
+  font-size: 14px;
+}
+
+.sc-empty {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.sc-empty p,
+.sc-foot {
+  margin: 0;
+  color: var(--er-text-muted);
+  font-size: 13px;
+}
+
+.sc-foot {
+  margin-top: 10px;
+}
+
+@media (max-width: 40em) {
+  .sc-room {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .sc-room-price {
+    justify-items: start;
+    text-align: left;
+  }
+}
+
+.sc-request-all {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+}
+
+.sc-room-names {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 8px 16px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sc-room-names li {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.sc-room-names svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--er-success, #2f7a4a);
+}
+
+.sc-room-names small {
+  color: var(--er-text-muted);
+  font-weight: 500;
+}
+
+.sc-rooms[hidden] {
+  display: none;
+}
+
+/* ── Benzer oteller ─────────────────────────────────────────────────────── */
+
+.er-similar {
+  margin-top: clamp(40px, 6vw, 72px);
+  padding-top: clamp(28px, 4vw, 40px);
+  border-top: 1px solid var(--er-line);
+}
+
+.sc-room-more {
+  color: var(--er-text-muted);
+  font-weight: 500;
+}
+
+/* ── Kampanyalar: kart etiketi, otel sayfası bölümü, hesaplayıcı ─────────── */
+
+.er-promo-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: calc(100% - 24px);
+  padding: 5px 10px 5px 8px;
+  border-radius: var(--er-radius-sm);
+  background: var(--er-cta);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.er-promo-badge > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pr {
+  margin-bottom: 16px;
+  padding: clamp(16px, 2.2vw, 22px);
+  border: 1px solid color-mix(in srgb, var(--er-cta) 28%, var(--er-line));
+  border-radius: var(--er-radius-lg);
+  background: color-mix(in srgb, var(--er-cta) 6%, var(--er-surface));
+}
+
+.pr-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  color: var(--er-cta);
+  font-family: var(--er-font-display);
+  font-size: clamp(18px, 2vw, 21px);
+  font-weight: 700;
+}
+
+.pr-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pr-item {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: var(--er-radius-md);
+  background: var(--er-surface);
+  box-shadow: var(--er-shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05));
+}
+
+.pr-headline {
+  margin: 0;
+  color: var(--er-text);
+  font-family: var(--er-font-display);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.pr-name {
+  margin: 0;
+  color: var(--er-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pr-conditions {
+  display: grid;
+  gap: 2px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--er-text);
+  font-size: 13px;
+}
+
+.pr-conditions li::before {
+  content: "· ";
+  color: var(--er-cta);
+  font-weight: 700;
+}
+
+.pr-urgency {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 6px 0 0;
+  color: var(--er-cta);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pr-foot {
+  margin: 12px 0 0;
+  color: var(--er-text-muted);
+  font-size: 12px;
+}
+
+/* Rezervasyon panelindeki kampanya satırı */
+.er-panel-promo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--er-radius);
+  background: var(--er-cta-tint);
+  color: var(--er-cta);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Hesaplayıcı: tasarruf ve "bir gece daha" ipucu */
+.sc-saving {
+  color: var(--er-cta);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sc-upsell {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border: 1px dashed color-mix(in srgb, var(--er-cta) 45%, transparent);
+  border-radius: var(--er-radius);
+  color: var(--er-text);
+  font-size: 14px;
+}
+
+.sc-upsell svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--er-cta);
+}
+
+.sc-upsell button {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--er-cta);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pr-periods {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--er-line);
+}
+
+.pr-periods-title {
+  margin: 0 0 4px;
+  color: var(--er-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.pr-periods ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pr-periods li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  align-items: baseline;
+}
+
+.pr-deadline {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--er-cta);
+  font-size: 12px;
+  font-weight: 700;
 }

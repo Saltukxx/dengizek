@@ -17,9 +17,10 @@ import {
   TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconCoin, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconAlertCircle, IconCoin, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { boardTypeLabels, boardTypes } from "@/lib/schemas/hotel-content";
 import { RatePlanPricesEditor } from "./rate-plan-prices-editor";
+import { usePanelConfirm } from "./panel-confirm";
 import { useMyHotel } from "./use-my-hotel";
 import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 
@@ -39,9 +40,12 @@ interface RuleOption {
 
 export function RatePlansManager() {
   const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
+  const { confirm: confirmDelete, modal: confirmModal } = usePanelConfirm();
   const [plans, setPlans] = useState<PlanRow[] | null>(null);
   const [rules, setRules] = useState<RuleOption[]>([]);
   const [open, setOpen] = useState(false);
+  // Düzenlenen planın kimliği; null → yeni plan.
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [pricesPlan, setPricesPlan] = useState<PlanRow | null>(null);
   const [form, setForm] = useState({
     name: "",
@@ -85,11 +89,38 @@ export function RatePlansManager() {
     label: boardTypeLabels[b],
   }));
 
-  async function createPlan() {
+  const emptyForm = {
+    name: "",
+    isRefundable: true,
+    isDefault: false,
+    boardTypeOverride: null as string | null,
+    cancellationRuleId: null as string | null,
+  };
+
+  function openCreate() {
+    setEditingId(null);
+    setForm(emptyForm);
+    setOpen(true);
+  }
+
+  function openEdit(plan: PlanRow) {
+    setEditingId(plan.id);
+    setForm({
+      name: plan.name,
+      isRefundable: plan.isRefundable,
+      isDefault: plan.isDefault,
+      boardTypeOverride: plan.boardTypeOverride,
+      cancellationRuleId: plan.cancellationRuleId,
+    });
+    setOpen(true);
+  }
+
+  async function savePlan() {
     const res = await fetch(`/api/manager/hotels/${hotel!.id}/rate-plans`, {
-      method: "POST",
+      method: editingId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        ...(editingId ? { id: editingId } : {}),
         name: form.name,
         isRefundable: form.isRefundable,
         isDefault: form.isDefault,
@@ -101,18 +132,13 @@ export function RatePlansManager() {
     const json = await res.json();
     if (lock.consumeResponse(json)) return;
     if (json.ok) {
-      notifications.show({ color: "green", message: "Fiyat planı eklendi." });
+      notifications.show({ color: "green", message: editingId ? "Fiyat planı güncellendi." : "Fiyat planı eklendi." });
       setOpen(false);
-      setForm({
-        name: "",
-        isRefundable: true,
-        isDefault: false,
-        boardTypeOverride: null,
-        cancellationRuleId: null,
-      });
+      setEditingId(null);
+      setForm(emptyForm);
       void reload();
     } else {
-      notifications.show({ color: "red", message: json.error ?? "Eklenemedi." });
+      notifications.show({ color: "red", message: json.error ?? (editingId ? "Güncellenemedi." : "Eklenemedi.") });
     }
   }
 
@@ -127,9 +153,12 @@ export function RatePlansManager() {
     const json = await res.json();
     if (lock.consumeResponse(json)) return;
     if (json.ok) void reload();
+    // Ör. varsayılan plan kapatılamaz — sessiz kalırsa anahtar geri sıçrar ve neden anlaşılmaz.
+    else notifications.show({ color: "red", message: json.error ?? "Güncellenemedi." });
   }
 
   async function removePlan(id: string) {
+    if (!(await confirmDelete({ title: "Fiyat planını sil", message: "Bu fiyat planını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.", confirmLabel: "Sil" }))) return;
     const res = await fetch(`/api/manager/hotels/${hotel!.id}/rate-plans`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -137,13 +166,17 @@ export function RatePlansManager() {
     });
     const json = await res.json();
     if (lock.consumeResponse(json)) return;
-    if (json.ok) void reload();
+    if (json.ok) {
+      notifications.show({ color: "green", message: "Fiyat planı silindi." });
+      void reload();
+    } else notifications.show({ color: "red", message: json.error ?? "Silinemedi." });
   }
 
   return (
     <Stack gap="md">
+      {confirmModal}
       <Group justify="flex-end">
-        <Button leftSection={<IconPlus size={16} />} onClick={() => setOpen(true)}>
+        <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
           Plan ekle
         </Button>
       </Group>
@@ -199,7 +232,10 @@ export function RatePlansManager() {
                     >
                       Fiyatları yönet
                     </Button>
-                    <Button size="xs" color="red" variant="light" onClick={() => removePlan(p.id)}>
+                    <Button size="xs" variant="light" onClick={() => openEdit(p)} aria-label="Düzenle" title="Düzenle">
+                      <IconPencil size={14} />
+                    </Button>
+                    <Button size="xs" color="red" variant="light" onClick={() => removePlan(p.id)} aria-label="Sil" title="Sil">
                       <IconTrash size={14} />
                     </Button>
                   </Group>
@@ -209,7 +245,7 @@ export function RatePlansManager() {
           </Table.Tbody>
         </Table>
       </Paper>
-      <Modal opened={open} onClose={() => setOpen(false)} title="Yeni fiyat planı">
+      <Modal opened={open} onClose={() => setOpen(false)} title={editingId ? "Fiyat planını düzenle" : "Yeni fiyat planı"}>
         <Stack gap="sm">
           <TextInput
             label="Plan adı"
@@ -242,7 +278,7 @@ export function RatePlansManager() {
             value={form.cancellationRuleId || null}
             onChange={(v) => setForm({ ...form, cancellationRuleId: v })}
           />
-          <Button onClick={createPlan}>Kaydet</Button>
+          <Button onClick={savePlan}>Kaydet</Button>
         </Stack>
       </Modal>
       {pricesPlan && (

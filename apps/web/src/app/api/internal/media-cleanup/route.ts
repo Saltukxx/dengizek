@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { apiFail, apiOk } from "@/lib/api-response";
 import { cleanupMediaObjects, pruneStaleGuestSessions } from "@/lib/media-cleanup";
 import { pruneExpiredRateLimits } from "@/lib/rate-limit";
+import { pruneAiConversationText } from "@/lib/ai/conversation-retention";
 
 export async function POST(req: Request) {
   const expected = process.env.CRON_SECRET;
@@ -19,7 +20,12 @@ export async function POST(req: Request) {
     console.warn("[media-cleanup] guest_sessions prune başarısız:", err);
     return 0;
   });
-  return apiOk({ ...(await cleanupMediaObjects()), guestSessionsPruned });
+  // Yapay zekâ konuşma metinleri 90 gün sonra silinir (sayılar kalır).
+  const aiTextPruned = await pruneAiConversationText().catch((err) => {
+    console.warn("[media-cleanup] AI metin saklama temizliği başarısız:", err);
+    return 0;
+  });
+  return apiOk({ ...(await cleanupMediaObjects()), guestSessionsPruned, aiTextPruned });
 }
 
 export const GET = POST;

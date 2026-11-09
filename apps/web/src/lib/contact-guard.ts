@@ -58,7 +58,8 @@ export function redactContactInfo(text: string): string {
 }
 
 export function containsContactInfo(text: string | null | undefined): boolean {
-  return Boolean(text) && redactContactInfo(text as string) !== text;
+  // redactContactInfo sondaki boşluğu kırpar; yalnız boşluk farkı iletişim bilgisi değildir.
+  return Boolean(text) && redactContactInfo(text as string) !== (text as string).trimEnd();
 }
 
 export function redactNullable<T extends string | null | undefined>(text: T): T {

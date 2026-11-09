@@ -55,6 +55,9 @@ import { TourVideoInteractionInfo } from "./tour-video-info-boxes";
 import { useTourPlayerMachine } from "./use-tour-player-machine";
 import { useVideoSource } from "./use-video-source";
 import { usePlaybackToken } from "./use-playback-token";
+import { getVisitId } from "@/lib/visit-client";
+import { useTourExit } from "./use-tour-exit";
+import { guestPaths, type GuestSurface } from "@/lib/guest-surface";
 
 // Kapalı mobil çekmece yüksekliği — panel header'ı + metin girişi görünür kalır.
 const GUIDE_PEEK_HEIGHT = 210;
@@ -62,7 +65,7 @@ const GUIDE_PEEK_HEIGHT = 210;
 type TourPlayerProps = {
   manifest: TourManifest;
   hotelName?: string;
-  surface?: "yaz" | "kis";
+  surface?: GuestSurface;
   /** ?room= bağlamı — AI oda belirtmediğinde talep formu bununla doldurulur. */
   contextRoomSlug?: string;
   backHref: string;
@@ -85,9 +88,9 @@ export function TourPlayer({
   const isMobileGuide = useMediaQuery("(max-width: 48em)");
   const router = useRouter();
   const isWinter = surface === "kis";
-  const inquiryPath = isWinter ? "/kis/talep" : "/inquiry";
+  const inquiryPath = guestPaths(surface).inquiry;
   const guidePeekHeight = isWinter ? 112 : GUIDE_PEEK_HEIGHT;
-  const rootClassName = `er-tour-page${isWinter ? " er-tour-winter" : ""}`;
+  const rootClassName = `er-tour-page${isWinter ? " er-tour-winter" : surface === "termal" ? " er-tour-thermal" : ""}`;
   const {
     videoRef,
     machine,
@@ -167,6 +170,15 @@ export function TourPlayer({
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(" ");
 
+  const visibleStepIds = new Set(visibleStepList.map((s) => s.stepId));
+  const { markExit } = useTourExit({
+    tourId: manifest.tourId,
+    hotelSlug: manifest.hotelSlug,
+    currentStepId: currentStep?.stepId ?? null,
+    stepsSeenCount: stepsSeen.filter((id) => visibleStepIds.has(id)).length,
+    totalSteps: visibleStepList.length,
+  });
+
   const {
     messages: guideMessages,
     isThinking: guideThinking,
@@ -194,6 +206,7 @@ export function TourPlayer({
       if (inquiryRoom) params.set("room", inquiryRoom);
       const step = currentStep?.stepId;
       if (step) params.set("step", step);
+      markExit("talep");
       router.push(`${inquiryPath}?${params.toString()}`);
     },
   });
@@ -507,7 +520,11 @@ export function TourPlayer({
             Rehberli turu tamamladınız. Beğendiyseniz tesise bir talep bırakın.
           </Text>
           <Group justify="center" gap="sm" mt={24}>
-            <Link href={`${inquiryPath}?hotel=${manifest.hotelSlug}`} className="er-btn er-btn-cta">
+            <Link
+              href={`${inquiryPath}?hotel=${manifest.hotelSlug}`}
+              className="er-btn er-btn-cta"
+              onClick={() => markExit("talep")}
+            >
               Rezervasyon Talebi
             </Link>
             <Link href={backHref} className="er-btn er-btn-ghost">
@@ -554,6 +571,14 @@ export function TourPlayer({
       onChipClick={handleChipClick}
       onStartAutoTour={startAutoTour}
       onStopAutoTour={stopAutoTour}
+      onFeedback={(input) => {
+        // Değerlendirme kaybolursa misafir deneyimi etkilenmez.
+        void fetch("/api/tour/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ hotelSlug: manifest.hotelSlug, tourId: manifest.tourId, visitId: getVisitId(), ...input }),
+        }).catch(() => {});
+      }}
     />
   );
 
@@ -932,7 +957,10 @@ export function TourPlayer({
               <button type="button" onClick={() => setGuideExpanded(true)}>
                 <IconSparkles size={18} /> Rehbere Sor
               </button>
-              <Link href={`${inquiryPath}?hotel=${manifest.hotelSlug}&tour=${manifest.tourId}&source=tour_player`}>
+              <Link
+                href={`${inquiryPath}?hotel=${manifest.hotelSlug}&tour=${manifest.tourId}&source=tour_player`}
+                onClick={() => markExit("talep")}
+              >
                 <IconMessageCircle size={18} /> Talep Gönder
               </Link>
             </div>
@@ -954,6 +982,7 @@ export function TourPlayer({
         hotelSlug={manifest.hotelSlug}
         backHref={backHref}
         surface={surface}
+        onInquiryClick={() => markExit("talep")}
       />
       {resumeBanner}
 

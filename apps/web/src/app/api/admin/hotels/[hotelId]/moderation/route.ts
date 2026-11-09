@@ -4,6 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
+import { validationMessage } from "@/lib/api-response";
 import { and, eq } from "drizzle-orm";
 import { clearFactCatalogCache, syncFactEmbeddings } from "@/lib/ai/fact-store";
 import { requireAdmin } from "@/lib/auth/guards";
@@ -11,6 +12,7 @@ import { getDb } from "@/lib/db";
 import { hotelsTable } from "@/lib/db/schema";
 import { moderationDecisionSchema } from "@/lib/schemas/hotel-admin";
 import { logAudit } from "@/lib/audit";
+import { revalidateGuestHotel } from "@/lib/guest-cache";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -23,7 +25,7 @@ export async function POST(req: Request, { params }: RouteParams) {
   const parsed = moderationDecisionSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
+      { ok: false, error: validationMessage(parsed.error), issues: parsed.error.flatten() },
       { status: 400 },
     );
   }
@@ -70,6 +72,7 @@ export async function POST(req: Request, { params }: RouteParams) {
   if (!updated) return NextResponse.json({ ok: false, code: "REVISION_CONFLICT" }, { status: 409 });
 
   if (parsed.data.karar === "onayla") {
+    revalidateGuestHotel(hotel.slug);
     // publishedSnapshot değişti — misafir AI sohbetinin gördüğü aiPersona/
     // aiFacts/aiPolicies de bu snapshot'tan okunuyor (bkz. getHotelAiProfile).
     clearFactCatalogCache(hotel.slug);

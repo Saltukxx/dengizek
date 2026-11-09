@@ -3,12 +3,14 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
+import { validationMessage } from "@/lib/api-response";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { reviewsTable } from "@/lib/db/schema";
 import { reviewModerationSchema } from "@/lib/schemas/hotel-panel";
 import { logAudit } from "@/lib/audit";
+import { revalidateGuestHotelById } from "@/lib/guest-cache";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -21,7 +23,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   const parsed = reviewModerationSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
+      { ok: false, error: validationMessage(parsed.error), issues: parsed.error.flatten() },
       { status: 400 },
     );
   }
@@ -36,6 +38,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   if (!updated) {
     return NextResponse.json({ ok: false, error: "Yorum bulunamadı." }, { status: 404 });
   }
+  await revalidateGuestHotelById(updated.hotelId);
 
   await logAudit({
     actor: guard.user,

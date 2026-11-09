@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
+import { validationMessage } from "@/lib/api-response";
 import { and, desc, eq } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
@@ -10,6 +11,7 @@ import { reviewsTable } from "@/lib/db/schema";
 import { reviewCreateSchema, reviewPatchSchema } from "@/lib/schemas/hotel-panel";
 import { assertBookingBelongsToHotel, assertInquiryBelongsToHotel } from "@/lib/tenant-integrity";
 import { logAudit } from "@/lib/audit";
+import { revalidateGuestHotel } from "@/lib/guest-cache";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -37,7 +39,7 @@ export async function POST(req: Request, { params }: RouteParams) {
   const parsed = reviewCreateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
+      { ok: false, error: validationMessage(parsed.error), issues: parsed.error.flatten() },
       { status: 400 },
     );
   }
@@ -75,7 +77,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   const parsed = reviewPatchSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
+      { ok: false, error: validationMessage(parsed.error), issues: parsed.error.flatten() },
       { status: 400 },
     );
   }
@@ -93,5 +95,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   if (!updated) {
     return NextResponse.json({ ok: false, error: "Yorum bulunamadı." }, { status: 404 });
   }
+  // Otelin cevabı yayındaki yorumun altında görünür.
+  if (updated.status === "yayinda") revalidateGuestHotel(guard.hotel.slug);
   return NextResponse.json({ ok: true, review: updated });
 }

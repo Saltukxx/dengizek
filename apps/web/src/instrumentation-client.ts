@@ -1,20 +1,26 @@
-// Tarayıcı tarafı Sentry başlangıcı. Public DSN yoksa SDK tamamen no-op kalır;
-// yerel geliştirme ve test için Sentry hesabı gerekmez.
+// Tarayıcı tarafı Sentry başlangıcı. Public DSN yoksa SDK hiç indirilmez
+// (statik import her sayfaya ~66 KB ekliyordu); yerel geliştirme ve test için
+// Sentry hesabı gerekmez. DSN varsa SDK ayrı parça olarak arka planda yüklenir.
 
-import * as Sentry from "@sentry/nextjs";
-import { scrubEvent } from "@/lib/sentry";
+type SentryModule = typeof import("@sentry/nextjs");
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
+let sentry: SentryModule | null = null;
 
 if (dsn) {
-  Sentry.init({
-    dsn,
-    environment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ?? process.env.NODE_ENV,
-    release: process.env.NEXT_PUBLIC_SENTRY_RELEASE,
-    sendDefaultPii: false,
-    tracesSampleRate: Number(process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE ?? 0),
-    beforeSend: scrubEvent,
+  void Promise.all([import("@sentry/nextjs"), import("@/lib/sentry")]).then(([Sentry, { scrubEvent }]) => {
+    Sentry.init({
+      dsn,
+      environment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ?? process.env.NODE_ENV,
+      release: process.env.NEXT_PUBLIC_SENTRY_RELEASE,
+      sendDefaultPii: false,
+      tracesSampleRate: Number(process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE ?? 0),
+      beforeSend: scrubEvent,
+    });
+    sentry = Sentry;
   });
 }
 
-export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
+export function onRouterTransitionStart(...args: Parameters<SentryModule["captureRouterTransitionStart"]>) {
+  sentry?.captureRouterTransitionStart(...args);
+}

@@ -39,8 +39,25 @@ services:
         condition: service_healthy
     # Compose iç ağında DATABASE_URL host'u "postgres" olmalı — db/index.ts
     # bunu otomatik algılayıp postgres.js sürücüsünü kullanır (Neon değil).
+    environment:
+      # Sesli yanıt servisi (aşağıda). Boş bırakılırsa tarayıcı sesi kullanılır.
+      PIPER_URL: ${PIPER_URL-http://piper:5000}
     expose:
       - "3000"
+
+  # AI rehberin Türkçe sesli yanıtları (Piper, metinden sese). Yalnız iç ağdan
+  # erişilir. Kapalıysa/çökerse uygulama tarayıcının kendi sesine düşer;
+  # bu yüzden app buna bağımlı (depends_on) değildir. Sınırlar, ses üretimi
+  # işlemciyi doldurduğunda sitenin yavaşlamasını önler.
+  piper:
+    build:
+      context: ./deploy/piper
+    container_name: dengizek-piper
+    restart: unless-stopped
+    expose:
+      - "5000"
+    mem_limit: 512m
+    cpus: "1.5"
 
   nginx:
     image: nginx:1.27-alpine

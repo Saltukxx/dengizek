@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   generateHotelMetadata: vi.fn(),
 }));
 
-vi.mock("../../../hotels/[slug]/page", () => ({
+vi.mock("@/components/guest/hotel-detail-page", () => ({
   HotelDetailPage: (props: Record<string, unknown>) => {
     mocks.hotelDetailPage(props);
     return <div data-testid="winter-detail" />;

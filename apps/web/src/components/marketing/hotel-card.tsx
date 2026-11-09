@@ -1,40 +1,55 @@
 import Image from "next/image";
 import Link from "next/link";
-import { IconMapPin, IconStarFilled } from "@tabler/icons-react";
+import { IconPlayerPlayFilled, IconRosetteDiscount } from "@tabler/icons-react";
 import type { HotelMock } from "@/lib/mocks/hotels";
-import { amenityLabel } from "@/lib/amenities-catalog";
+import { amenityLabel, highlightAmenityKeys } from "@/lib/amenities-catalog";
+import { formatUpcomingFrom, type UpcomingGuestPrice } from "@/lib/guest-pricing";
 import { formatPrice } from "@/lib/price";
 
 type HotelCardProps = {
   hotel: HotelMock;
   href?: string;
+  /** Kartın ekranda kapladığı genişlik (next/image). Mobil rayda ~%82. */
+  sizes?: string;
   /** Yayındaki yorumların ortalaması (1–5) — yorum yoksa gösterilmez. */
   reviewAverage?: number | null;
   reviewCount?: number;
-  /** Tesis yıldızı — görselin üzerindeki rozette gösterilir. */
+  /** Tesis yıldızı — konum satırında gösterilir. */
   starRating?: number | null;
-  /** En fazla iki olanak çipi gösterilir. */
+  /** En fazla üç olanak, öncelik sırasına göre tek satırda gösterilir. */
   amenities?: string[];
   /** En düşük oda fiyatı (en küçük birim); yoksa priceLabel kullanılır. */
   minPriceMinor?: number | null;
+  /** Bugün fiyat yoksa en yakın ileri tarihli fiyat — "14 Kasım'dan itibaren". */
+  upcomingPrice?: UpcomingGuestPrice | null;
   currency?: string;
-  actionLabel?: string;
+  /** Yayında video turu olan tesislerde görselin üzerinde rozet çıkar. */
+  hasTour?: boolean;
+  /** Geçerli kampanya ("4 kal 3 öde", "%15 indirim") — görselin üzerinde gösterilir. */
+  promotionBadge?: string | null;
 };
 
+function highlightAmenities(values: string[]): string[] {
+  return highlightAmenityKeys(values, 3).map(amenityLabel);
+}
+
 /**
- * Elite Reserve otel kartı — 16:9 görsel, mavi başlık, olanak çipleri ve
- * alt satırda fiyat + turuncu eylem düğmesi.
+ * Otel kartı — kartın tamamı tek bağlantıdır (başlık bağlantısı kartı kaplar),
+ * böylece her kartta tekrarlanan bir "Detaylar" düğmesine gerek kalmaz.
  */
 export function HotelCard({
   hotel,
   href = `/hotels/${hotel.slug}`,
+  sizes = "(max-width: 768px) 82vw, (max-width: 1280px) 50vw, 420px",
   reviewAverage,
   reviewCount = 0,
   starRating,
   amenities = [],
   minPriceMinor,
+  upcomingPrice = null,
   currency = "TRY",
-  actionLabel = "Detayları Gör",
+  hasTour = false,
+  promotionBadge = null,
 }: HotelCardProps) {
   const hasReviews = reviewAverage != null && reviewCount > 0;
   const priceAmount =
@@ -43,36 +58,44 @@ export function HotelCard({
       : hotel.priceLabel && /\d/.test(hotel.priceLabel)
         ? hotel.priceLabel
         : null;
-  const location = [hotel.city, hotel.country].filter(Boolean).join(", ");
+  const meta = [hotel.city, starRating ? `${starRating} yıldızlı` : null].filter(Boolean).join(" · ");
+  const highlights = highlightAmenities(amenities);
 
   return (
     <article className="er-hotel-card">
-      <Link href={href} className="er-hotel-media" aria-label={hotel.name}>
+      <div className="er-hotel-media">
         {hotel.imageUrl ? (
           <Image
             src={hotel.imageUrl}
-            alt={hotel.name}
+            alt=""
             fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 420px"
+            sizes={sizes}
             style={{ objectFit: "cover" }}
           />
         ) : null}
-
-        {starRating ? (
-          <span
-            className="er-rating-badge"
-            style={{ position: "absolute", top: 12, left: 12, zIndex: 2 }}
-          >
-            <IconStarFilled size={13} style={{ color: "var(--er-cta)" }} />
-            {starRating} Yıldız
+        {hasTour ? (
+          <span className="er-tour-badge">
+            <IconPlayerPlayFilled size={12} aria-hidden />
+            Video tur
           </span>
         ) : null}
-      </Link>
+        {promotionBadge ? (
+          <span className="er-promo-badge">
+            <IconRosetteDiscount size={14} aria-hidden />
+            <span>
+              <span className="er-visually-hidden">Kampanya: </span>
+              {promotionBadge}
+            </span>
+          </span>
+        ) : null}
+      </div>
 
       <div className="er-hotel-body">
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-          <h3 className="er-hotel-title" style={{ flex: 1 }}>
-            <Link href={href}>{hotel.name}</Link>
+        <div className="er-hotel-heading">
+          <h3 className="er-hotel-title">
+            <Link href={href} className="er-stretched-link">
+              {hotel.name}
+            </Link>
           </h3>
           {hasReviews && (
             <span className="er-score" title={`${reviewCount} yorum`}>
@@ -81,64 +104,27 @@ export function HotelCard({
           )}
         </div>
 
-        {location && (
-          <p
-            style={{
-              margin: 0,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 14,
-              color: "var(--er-text-muted)",
-            }}
-          >
-            <IconMapPin size={15} stroke={1.8} style={{ color: "var(--er-text-dim)" }} />
-            {location}
-          </p>
-        )}
+        {meta && <p className="er-hotel-meta">{meta}</p>}
 
-        {hotel.shortDescription && (
-          <p
-            style={{
-              margin: 0,
-              fontSize: 14,
-              lineHeight: 1.55,
-              color: "var(--er-text-muted)",
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-            }}
-          >
-            {hotel.shortDescription}
-          </p>
-        )}
+        {hotel.shortDescription && <p className="er-hotel-desc">{hotel.shortDescription}</p>}
 
-        {amenities.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {amenities.slice(0, 2).map((key) => (
-              <span key={key} className="er-chip">
-                {amenityLabel(key)}
-              </span>
-            ))}
-          </div>
-        )}
+        {highlights.length > 0 && <p className="er-hotel-highlights">{highlights.join(" · ")}</p>}
       </div>
 
       <div className="er-hotel-foot">
-        <div>
-          {priceAmount ? (
-            <>
-              <div className="er-price">{priceAmount}</div>
-              <div className="er-price-note">gecelik başlayan</div>
-            </>
-          ) : (
-            <div className="er-price-note">Fiyat için talep gönderin</div>
-          )}
-        </div>
-        <Link href={href} className="er-btn er-btn-primary" style={{ minHeight: 44 }}>
-          {actionLabel}
-        </Link>
+        {priceAmount ? (
+          <p>
+            <span className="er-price">{priceAmount}</span>{" "}
+            <span className="er-price-note">gecelik başlayan</span>
+          </p>
+        ) : upcomingPrice ? (
+          <p>
+            <span className="er-price">{formatPrice(upcomingPrice.priceMinor, upcomingPrice.currency)}</span>{" "}
+            <span className="er-price-note">gecelik · {formatUpcomingFrom(upcomingPrice.fromDate)}</span>
+          </p>
+        ) : (
+          <p className="er-price-note">Fiyat talep üzerine</p>
+        )}
       </div>
     </article>
   );

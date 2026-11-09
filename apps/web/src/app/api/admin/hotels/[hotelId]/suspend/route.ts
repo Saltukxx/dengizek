@@ -4,12 +4,14 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
+import { validationMessage } from "@/lib/api-response";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { hotelsTable } from "@/lib/db/schema";
 import { logAudit } from "@/lib/audit";
+import { revalidateGuestHotel } from "@/lib/guest-cache";
 
 type RouteParams = { params: Promise<{ hotelId: string }> };
 
@@ -27,7 +29,7 @@ export async function POST(req: Request, { params }: RouteParams) {
   const parsed = suspendSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
+      { ok: false, error: validationMessage(parsed.error), issues: parsed.error.flatten() },
       { status: 400 },
     );
   }
@@ -56,6 +58,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     })
     .where(eq(hotelsTable.id, hotel.id))
     .returning();
+  revalidateGuestHotel(hotel.slug);
 
   await logAudit({
     actor: guard.user,

@@ -71,6 +71,8 @@ interface HotelDetail {
   paymentMethods: string[];
   address: string | null;
   phone: string | null;
+  publicPhone: string | null;
+  whatsappPhone: string | null;
   contactEmail: string | null;
   airportDistanceKm: number | null;
   latitude: string | null;
@@ -156,6 +158,8 @@ export function PropertyForm() {
         paymentMethods: detail.paymentMethods,
         address: detail.address ?? undefined,
         phone: detail.phone ?? undefined,
+        publicPhone: detail.publicPhone ?? undefined,
+        whatsappPhone: detail.whatsappPhone ?? undefined,
         contactEmail: detail.contactEmail ?? "",
         airportDistanceKm: detail.airportDistanceKm,
         latitude: detail.latitude ?? "",
@@ -293,7 +297,7 @@ export function PropertyForm() {
           />
           <MultiSelect
             label="Tatil sezonu"
-            description="Tesis hangi sezon(lar)da hizmet veriyor? İkisi birden seçilebilir; boş bırakılırsa sezon filtrelerinin dışında kalır."
+            description="Tesis hangi sezon(lar)da hizmet veriyor? Birden fazla seçilebilir; boş bırakılırsa yalnızca yaz vitrininde görünür."
             data={Object.entries(hotelSeasonLabels).map(([v, l]) => ({ value: v, label: l }))}
             value={detail.seasons ?? []}
             onChange={(v) => set("seasons", v)}
@@ -502,6 +506,22 @@ export function PropertyForm() {
               onChange={(v) =>
                 set("airportDistanceKm", typeof v === "number" ? v : null)
               }
+            />
+          </Group>
+          <Group grow>
+            <TextInput
+              label="Misafir telefonu"
+              description="Otel sayfasındaki “Ara” düğmesi bu numarayı arar. Boş bırakılırsa düğme çıkmaz."
+              placeholder="0 (272) 000 00 00"
+              value={detail.publicPhone ?? ""}
+              onChange={(e) => set("publicPhone", e.currentTarget.value)}
+            />
+            <TextInput
+              label="WhatsApp numarası"
+              description="Boşsa ve misafir telefonu cep numarasıysa WhatsApp için o kullanılır."
+              placeholder="0 (5xx) 000 00 00"
+              value={detail.whatsappPhone ?? ""}
+              onChange={(e) => set("whatsappPhone", e.currentTarget.value)}
             />
           </Group>
         </Stack>

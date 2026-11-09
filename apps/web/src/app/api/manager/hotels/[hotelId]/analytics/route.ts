@@ -4,7 +4,7 @@
 
 import { NextResponse } from "next/server";
 import { and, eq, gte, sql } from "drizzle-orm";
-import { requireHotelAccess } from "@/lib/auth/guards";
+import { requireHotelAccess, requireAnalyticsAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { analyticsEventsTable, inquiriesTable } from "@/lib/db/schema";
 import { analyticsFunnel } from "@/lib/schemas/analytics";
@@ -15,6 +15,10 @@ export async function GET(req: Request, { params }: RouteParams) {
   const { hotelId } = await params;
   const guard = await requireHotelAccess(hotelId);
   if (guard.response) return guard.response;
+
+  // Analitik erişimi admin tarafından açılmalı (yayın durumundan bağımsız).
+  const gate = requireAnalyticsAccess(guard.hotel);
+  if (gate) return gate;
 
   const url = new URL(req.url);
   const periodDays = Math.min(90, Math.max(7, Number(url.searchParams.get("period") ?? "30") || 30));

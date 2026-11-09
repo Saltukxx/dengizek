@@ -8,7 +8,7 @@ test("ana sayfa ve keşfet yüklenir", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await page.goto("/browse");
-  await expect(page.getByRole("heading", { name: "Video turlu oteller" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Oteller", exact: true })).toBeVisible();
 });
 
 test("mobil menüden keşfet sayfasına gidilir", async ({ page }) => {
@@ -19,7 +19,7 @@ test("mobil menüden keşfet sayfasına gidilir", async ({ page }) => {
   await expect(drawer).toBeVisible();
   await drawer.getByRole("link", { name: "Oteller", exact: true }).click();
   await expect(page).toHaveURL(/\/browse/);
-  await expect(page.getByRole("heading", { name: "Video turlu oteller" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Oteller", exact: true })).toBeVisible();
 });
 
 test("talep formu gönderilince teşekkür sayfasına gider", async ({ page }) => {

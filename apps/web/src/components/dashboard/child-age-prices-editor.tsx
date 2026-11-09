@@ -29,8 +29,9 @@ export function ChildAgePricesEditor({
   return (
     <Stack gap="xs">
       <Text size="xs" c="dimmed">
-        Yaş aralığına göre çocuk fiyatı tanımlayın (0-17 yaş). Eşleşme yoksa çocuk, yetişkin
-        fiyatından ücretlendirilir.
+        Yaş aralığına göre çocuk fiyatı tanımlayın (0-17 yaş). Aynı yaş aralığı 1. çocuk ve 2.
+        çocuk için ayrı fiyatlanabilir; en büyük çocuk 1. çocuktur. Yüzde, bir yetişkinin gecelik
+        payına göre hesaplanır. Eşleşme yoksa çocuk bir yetişkin gibi ücretlendirilir.
       </Text>
       {value.length === 0 && (
         <Text size="sm" c="dimmed">
@@ -58,6 +59,19 @@ export function ChildAgePricesEditor({
               patch(i, { ageTo: v === "" || v == null ? null : typeof v === "number" ? v : Number(v) })
             }
             w={90}
+          />
+          <Select
+            label={i === 0 ? "Hangi çocuk" : undefined}
+            aria-label="Hangi çocuk"
+            data={[
+              { value: "", label: "Her çocuk" },
+              { value: "1", label: "Yalnız 1. çocuk" },
+              { value: "2", label: "2. ve sonraki" },
+            ]}
+            value={row.childOrder ? String(row.childOrder) : ""}
+            onChange={(v) => patch(i, { childOrder: v === "1" ? 1 : v === "2" ? 2 : null })}
+            w={150}
+            allowDeselect={false}
           />
           <Select
             label={i === 0 ? "Ücretlendirme" : undefined}

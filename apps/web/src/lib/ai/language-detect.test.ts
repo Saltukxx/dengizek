@@ -30,3 +30,10 @@ describe("detectLanguageHint", () => {
     expect(detectLanguageHint("Şu oda müsait mi?", "en-US")).toBe("tr");
   });
 });
+
+describe("Türkçe'ye özgü harf taşımayan Türkçe sorular", () => {
+  it("İngilizce tarayıcıda da Türkçe kalır", () => {
+    expect(detectLanguageHint("Check-out saati kaçta?", "en-US")).toBe("tr");
+    expect(detectLanguageHint("Havuz kaçta açık?", "en-US")).toBe("tr");
+  });
+});

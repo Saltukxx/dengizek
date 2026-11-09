@@ -64,12 +64,16 @@ export function classifyToday<T extends StayBooking>(bookings: T[], today: strin
     const state = stayState(b);
     if (state === "beklemede") {
       // Onay bekleyen ve girişi bugün ya da geçmişte olan kayıt acildir.
-      if (b.checkIn <= today && b.checkOut > today) pending.push(b);
+      // Tarihi tamamen geçmiş olsa da listede kalır: karara bağlanmadan
+      // panodan düşerse sonsuza dek "beklemede" kalırdı.
+      if (b.checkIn <= today) pending.push(b);
       continue;
     }
     if (state === "onaylandi") {
       if (b.checkIn === today) arrivals.push(b);
-      else if (b.checkIn < today && b.checkOut >= today) lateArrivals.push(b);
+      // Girişi geçmiş, hiç giriş yapılmamış kayıt (çıkış tarihi geçmiş olsa
+      // da): "Girişi kaydet" ya da "Gelmedi" ile kapatılana kadar uyarıda.
+      else if (b.checkIn < today) lateArrivals.push(b);
       continue;
     }
     if (state === "konakliyor") {

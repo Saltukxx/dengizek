@@ -3,7 +3,7 @@
 // JWT stratejisi kullanıldığından adapter gerekmez.
 // ---------------------------------------------------------------------------
 
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -12,6 +12,11 @@ import { getDb } from "@/lib/db";
 import { usersTable } from "@/lib/db/schema";
 import { burnPasswordVerification, verifyPassword } from "@/lib/auth/password";
 import { checkRateLimit } from "@/lib/rate-limit";
+
+/** Deneme sınırı doldu — giriş formu "şifre hatalı" yerine bunu söyler. */
+class RateLimitedSignin extends CredentialsSignin {
+  code = "rate_limited";
+}
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -42,9 +47,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             failClosed: true,
           }))
         ) {
-          // Auth.js authorize null dönerse genel hata gösterilir;
-          // brute-force'a karşı sessizce reddediyoruz.
-          return null;
+          // Sınır doldu: doğru şifre de reddedilir. Kullanıcı "şifre hatalı"
+          // görüp şifresini sıfırlamaya kalkmasın diye ayrı kod döner (hesabın
+          // var olup olmadığını açığa vurmaz — her e-posta için aynı sınır).
+          throw new RateLimitedSignin();
         }
 
         const db = getDb();

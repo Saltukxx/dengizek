@@ -1,8 +1,8 @@
-/* eslint-disable @next/next/no-img-element */
 // ---------------------------------------------------------------------------
 // Misafir ekstra hizmetler bölümü — transfer, spa, romantik paketler...
 // ---------------------------------------------------------------------------
 
+import Image from "next/image";
 import type { Extra } from "@/lib/db/schema";
 import { extraCategoryLabels } from "@/lib/schemas/hotel-content";
 import { formatPrice } from "@/lib/price";
@@ -41,14 +41,17 @@ export function ExtrasSection({ extras }: { extras: Extra[] }) {
             }}
           >
             {extra.imageUrl && (
-              <img
+              <Image
                 src={extra.imageUrl}
                 alt={extra.name}
+                width={640}
+                height={320}
+                sizes="(max-width: 768px) 100vw, 360px"
                 style={{ width: "100%", height: 160, objectFit: "cover" }}
               />
             )}
             <div style={{ padding: "18px 20px 20px", display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
-              <p className="er-eyebrow" style={{ margin: 0, color: "var(--er-primary)", fontSize: 10 }}>
+              <p className="er-label" style={{ margin: 0, color: "var(--er-primary)" }}>
                 {extraCategoryLabels[extra.category as keyof typeof extraCategoryLabels] ?? extra.category}
               </p>
               <h3 style={{ margin: 0, color: "var(--er-text)", fontSize: 19, fontWeight: 700 }}>

@@ -20,6 +20,7 @@ import { notifications } from "@mantine/notifications";
 import { IconCopy, IconPlus, IconTrash } from "@tabler/icons-react";
 import { PanelEmpty, PanelError, PanelLoading } from "@/components/panel-resource-state";
 import { useMyHotel } from "./use-my-hotel";
+import { usePanelConfirm } from "./panel-confirm";
 import { PanelRevisionConflictModal, usePanelRevision } from "./panel-revision-conflict";
 
 interface FeedRow {
@@ -39,6 +40,7 @@ interface RoomOption {
 
 export function ConnectivityPanel() {
   const { hotel, loading: hotelLoading, error: hotelError } = useMyHotel();
+  const { confirm: confirmDelete, modal: confirmModal } = usePanelConfirm();
   const [feeds, setFeeds] = useState<FeedRow[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [rooms, setRooms] = useState<RoomOption[]>([]);
@@ -108,6 +110,7 @@ export function ConnectivityPanel() {
   }
 
   async function removeFeed(id: string) {
+    if (!(await confirmDelete({ title: "Takvim bağlantısını sil", message: "Bu takvim bağlantısını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.", confirmLabel: "Sil" }))) return;
     if (!hotel) return;
     const res = await fetch(`/api/manager/hotels/${hotel.id}/ical-feeds`, {
       method: "DELETE",
@@ -121,6 +124,7 @@ export function ConnectivityPanel() {
 
   return (
     <Stack gap="md">
+      {confirmModal}
       <Text c="dimmed" size="sm">
         Kanal yöneticisi entegrasyonu. <strong>Dışa aktarma</strong> bağlantısını diğer platforma
         verin; <strong>içe aktarma</strong> URL&apos;si girerseniz o takvimdeki doluluk yarım

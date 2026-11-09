@@ -1,9 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader, Paper, Select, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
-import { ANALYTICS_EVENT_LABELS } from "@/lib/schemas/analytics";
+import {
+  Group,
+  Loader,
+  Paper,
+  Select,
+  SimpleGrid,
+  Stack,
+  Text,
+  Title,
+} from "@mantine/core";
+import {
+  IconActivity,
+  IconArrowsExchange,
+  IconMessage2,
+  type TablerIcon,
+} from "@tabler/icons-react";
+import { ALL_EVENT_LABELS } from "@/lib/schemas/analytics";
 import { SearchInsightsPanel } from "@/components/admin/search-insights";
+import { QuestionInsightsPanel } from "@/components/admin/question-insights";
+import { CriticalGapsPanel } from "@/components/admin/critical-gaps";
+import { RankedBars, TrendChart } from "@/components/admin/analytics-charts";
 
 interface AdminAnalytics {
   totalEvents: number;
@@ -16,12 +34,7 @@ interface AdminAnalytics {
   hotels: { id: string; name: string }[];
 }
 
-// Sunucunun yazdığı (misafir tarafının gönderemediği) olaylar da etiketlenir.
-const eventLabels: Record<string, string> = {
-  ...ANALYTICS_EVENT_LABELS,
-  hotel_search: "Arama asistanı",
-  ai_unanswered: "Rehberin cevapsız sorusu",
-};
+const eventLabels = ALL_EVENT_LABELS;
 
 export default function AdminAnalyticsPage() {
   const [data, setData] = useState<AdminAnalytics | null>(null);
@@ -40,122 +53,133 @@ export default function AdminAnalyticsPage() {
     void reload();
   }, [reload]);
 
-  if (!data) return <Loader />;
+  if (!data) {
+    return (
+      <Group justify="center" py="xl">
+        <Loader />
+      </Group>
+    );
+  }
 
-  const maxDay = Math.max(...data.timeSeries.map((d) => d.count), 1);
+  const days = data.period.days || 1;
+  const perDay = Math.round(data.totalEvents / days);
+
+  const typeItems = Object.entries(data.byType)
+    .map(([type, count]) => ({ label: eventLabels[type] ?? type, value: count }))
+    .sort((a, b) => b.value - a.value);
+
+  const hotelItems = data.byHotel.map((h) => ({ label: h.hotelName, value: h.count }));
 
   return (
-    <Stack gap="md" py="sm">
-      <div>
-        <Title order={2}>Platform analitiği</Title>
-        <Text c="dimmed" size="sm">
-          Son {data.period.days} gün
-        </Text>
-      </div>
-      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-        <Select
-          label="Dönem"
-          data={[
-            { value: "7", label: "7 gün" },
-            { value: "30", label: "30 gün" },
-            { value: "90", label: "90 gün" },
-          ]}
-          value={period}
-          onChange={(v) => v && setPeriod(v)}
-        />
-        <Select
-          label="Tesis"
-          clearable
-          searchable
-          data={data.hotels.map((h) => ({ value: h.id, label: h.name }))}
-          value={hotelId}
-          onChange={setHotelId}
-        />
-      </SimpleGrid>
+    <Stack gap="lg" py="sm">
+      <Group justify="space-between" align="flex-end" wrap="wrap" gap="md">
+        <div>
+          <Title order={2}>Platform analitiği</Title>
+          <Text c="dimmed" size="sm">
+            Son {data.period.days} günün ziyaretçi ve talep hareketi
+          </Text>
+        </div>
+        <Group gap="sm" wrap="nowrap">
+          <Select
+            aria-label="Dönem"
+            w={110}
+            data={[
+              { value: "7", label: "7 gün" },
+              { value: "30", label: "30 gün" },
+              { value: "90", label: "90 gün" },
+            ]}
+            value={period}
+            onChange={(v) => v && setPeriod(v)}
+            allowDeselect={false}
+          />
+          <Select
+            aria-label="Tesis"
+            placeholder="Tüm tesisler"
+            w={200}
+            clearable
+            searchable
+            data={data.hotels.map((h) => ({ value: h.id, label: h.name }))}
+            value={hotelId}
+            onChange={setHotelId}
+          />
+        </Group>
+      </Group>
+
       <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
-        <Paper withBorder p="lg" radius="md">
-          <Title order={4}>{data.totalEvents.toLocaleString("tr-TR")}</Title>
-          <Text c="dimmed" size="sm">
-            Toplam olay
-          </Text>
-        </Paper>
-        <Paper withBorder p="lg" radius="md">
-          <Title order={4}>{data.inquiries.toLocaleString("tr-TR")}</Title>
-          <Text c="dimmed" size="sm">
-            Yeni talepler
-          </Text>
-        </Paper>
-        <Paper withBorder p="lg" radius="md">
-          <Title order={4}>
-            {data.conversionRate != null ? `%${data.conversionRate}` : "—"}
-          </Title>
-          <Text c="dimmed" size="sm">
-            Tur → talep dönüşümü
-          </Text>
-        </Paper>
+        <StatTile
+          icon={IconActivity}
+          label="Toplam olay"
+          value={data.totalEvents.toLocaleString("tr-TR")}
+          context={`Günlük ortalama ${perDay.toLocaleString("tr-TR")}`}
+        />
+        <StatTile
+          icon={IconMessage2}
+          label="Yeni talep"
+          value={data.inquiries.toLocaleString("tr-TR")}
+          context={data.totalEvents > 0 ? `${days} günlük dönem` : "Henüz talep yok"}
+        />
+        <StatTile
+          icon={IconArrowsExchange}
+          label="Tur → talep dönüşümü"
+          value={data.conversionRate != null ? `%${data.conversionRate}` : "—"}
+          context="Tur görüntüleyen ziyaretçinin talep oranı"
+        />
       </SimpleGrid>
-      <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
-        {Object.entries(data.byType).map(([type, count]) => (
-          <Paper key={type} withBorder p="md" radius="md">
-            <Text fw={600}>{eventLabels[type] ?? type}</Text>
-            <Title order={3}>{count.toLocaleString("tr-TR")}</Title>
-          </Paper>
-        ))}
-      </SimpleGrid>
-      {data.byHotel.length > 0 && (
-        <Paper withBorder radius="md" p="md">
-          <Text fw={600} mb="sm">
+
+      <Paper withBorder radius="md" p="lg">
+        <Text fw={600} mb="md">
+          Günlük olaylar
+        </Text>
+        <TrendChart data={data.timeSeries} />
+      </Paper>
+
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+        <Paper withBorder radius="md" p="lg">
+          <Text fw={600} mb="md">
+            Olay türleri
+          </Text>
+          <RankedBars items={typeItems} emptyLabel="Bu dönemde olay yok." />
+        </Paper>
+        <Paper withBorder radius="md" p="lg">
+          <Text fw={600} mb="md">
             En aktif tesisler
           </Text>
-          <Table>
-            <Table.Tbody>
-              {data.byHotel.map((h) => (
-                <Table.Tr key={h.hotelId ?? h.hotelName}>
-                  <Table.Td>{h.hotelName}</Table.Td>
-                  <Table.Td>{h.count}</Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+          <RankedBars items={hotelItems} emptyLabel="Tesis hareketi yok." />
         </Paper>
-      )}
+      </SimpleGrid>
+
+      <QuestionInsightsPanel period={period} hotelId={hotelId} />
       <SearchInsightsPanel />
-      {data.timeSeries.length > 0 && (
-        <Paper withBorder radius="md" p="md">
-          <Text fw={600} mb="sm">
-            Günlük olaylar
-          </Text>
-          <Stack gap={4}>
-            {data.timeSeries.map((d) => (
-              <GroupBar key={d.day} label={d.day} count={d.count} max={maxDay} />
-            ))}
-          </Stack>
-        </Paper>
-      )}
+      <CriticalGapsPanel />
     </Stack>
   );
 }
 
-function GroupBar({ label, count, max }: { label: string; count: number; max: number }) {
-  const pct = Math.round((count / max) * 100);
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+  context,
+}: {
+  icon: TablerIcon;
+  label: string;
+  value: string;
+  context: string;
+}) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <Text size="xs" w={90} c="dimmed">
-        {new Date(label).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}
+    <Paper withBorder radius="md" p="lg">
+      <Group justify="space-between" align="flex-start" wrap="nowrap">
+        <Text size="xs" c="dimmed" tt="uppercase" fw={700} lts="0.05em">
+          {label}
+        </Text>
+        <Icon size={18} stroke={1.6} color="var(--mantine-color-gray-5)" />
+      </Group>
+      <Text fw={700} lh={1.1} mt="xs" style={{ fontSize: 30, fontVariantNumeric: "tabular-nums" }}>
+        {value}
       </Text>
-      <div style={{ flex: 1, height: 8, background: "var(--mantine-color-gray-2)", borderRadius: 4 }}>
-        <div
-          style={{
-            width: `${pct}%`,
-            height: "100%",
-            background: "var(--mantine-color-blue-6)",
-            borderRadius: 4,
-          }}
-        />
-      </div>
-      <Text size="xs" w={32}>
-        {count}
+      <Text size="xs" c="dimmed" mt={6}>
+        {context}
       </Text>
-    </div>
+    </Paper>
   );
 }

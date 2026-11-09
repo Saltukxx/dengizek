@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   viewTracker: vi.fn(),
 }));
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/lib/hotels-repo", () => ({
   getPublishedHotelsForBrowse: mocks.getPublishedHotelsForBrowse,
 }));
@@ -49,6 +50,7 @@ function hotel(overrides: Partial<BrowseHotelRow> & Pick<BrowseHotelRow, "slug" 
     minPriceMinor: 900_000,
     reviewAverage: 4.5,
     reviewCount: 10,
+    tourId: null,
     ...rest,
   };
 }
@@ -128,7 +130,7 @@ describe("HotelBrowse davranışı", () => {
   it("filtre bağlantıları mevcut koşulları korur ve sayfayı 1'e sıfırlar", async () => {
     mocks.getPublishedHotelsForBrowse.mockResolvedValue([hotel({ slug: "uygun", name: "Uygun" })]);
 
-    render(await HotelBrowse({
+    const { container } = render(await HotelBrowse({
       ...defaultProps,
       searchParams: { q: "Bursa", stars: "5", amenity: "spa-merkezi", sayfa: "4" },
     }));
@@ -139,10 +141,16 @@ describe("HotelBrowse davranışı", () => {
       "/kis/oteller?q=Bursa&stars=5&amenity=spa-merkezi&sort=price-asc",
     );
     expect(sortLink.getAttribute("href")).not.toContain("sayfa=");
-    expect(screen.getByRole("link", { name: "Filtreleri temizle" })).toHaveAttribute(
+    // Filtre paneli masaüstü kenarında ve mobil filtre sayfasında aynıdır.
+    const desktopFilters = container.querySelector<HTMLElement>("aside.er-browse-filters")!;
+    expect(within(desktopFilters).getByRole("link", { name: "Filtreleri temizle" })).toHaveAttribute(
       "href",
       "/kis/oteller",
     );
+    expect(screen.getAllByRole("link", { name: "Filtreleri temizle" })).toHaveLength(2);
+    // Mobil: seçili filtreler kaldırılabilir etiketler ("5+ yıldız" kaldırılınca stars düşer).
+    const chips = container.querySelector<HTMLElement>(".er-active-filters")!;
+    expect(within(chips).getByRole("link", { name: /5\+ yıldız/ }).getAttribute("href")).not.toContain("stars=");
   });
 
   it("sonuç yoksa kart yerine erişilebilir boş durum ve temizleme eylemi gösterir", async () => {
@@ -167,7 +175,8 @@ describe("HotelBrowse davranışı", () => {
 
     expect(screen.getAllByTestId("hotel-card")).toHaveLength(1);
     expect(screen.getByTestId("hotel-card")).toHaveAttribute("data-slug", "otel-13");
-    expect(screen.getByText("13 tesis bulundu · sayfa 2/2")).toBeInTheDocument();
+    expect(screen.getByText("13 tesis bulundu")).toBeInTheDocument();
+    expect(screen.getByText("Sayfa 2/2")).toBeInTheDocument();
     const pagination = screen.getByRole("navigation", { name: "Sayfalama" });
     const previousUrl = new URL(
       within(pagination).getByRole("link", { name: "Önceki sayfa" }).getAttribute("href")!,
@@ -178,6 +187,31 @@ describe("HotelBrowse davranışı", () => {
     expect(within(pagination).getByRole("link", { name: "Sonraki sayfa" })).toHaveAttribute(
       "aria-disabled",
       "true",
+    );
+  });
+
+  it("kişi sayısı ve kapalı döneme göre süzer; kart bağlantısı tarih ve kişileri taşır", async () => {
+    mocks.getPublishedHotelsForBrowse.mockResolvedValue([
+      hotel({ slug: "genis", name: "Geniş", roomCapacities: [{ capacityAdults: 4, capacityChildren: 2 }] }),
+      hotel({ slug: "dar", name: "Dar", roomCapacities: [{ capacityAdults: 2, capacityChildren: 0 }] }),
+      hotel({ slug: "bilinmiyor", name: "Bilinmiyor", roomCapacities: [] }),
+      hotel({
+        slug: "kapali",
+        name: "Kapalı",
+        roomCapacities: [{ capacityAdults: 4, capacityChildren: 2 }],
+        closedRanges: [{ startDate: "2026-12-01", endDate: "2026-12-31" }],
+      }),
+    ]);
+
+    render(await HotelBrowse({
+      ...defaultProps,
+      searchParams: { giris: "2026-12-10", cikis: "2026-12-13", yetiskin: "4", cocuk: "7" },
+    }));
+
+    expect(screen.getAllByTestId("hotel-card").map((card) => card.dataset.slug)).toEqual(["genis", "bilinmiyor"]);
+    expect(screen.getAllByTestId("hotel-card")[0]).toHaveAttribute(
+      "href",
+      "/kis/oteller/genis?giris=2026-12-10&cikis=2026-12-13&yetiskin=4&cocuk=7",
     );
   });
 });

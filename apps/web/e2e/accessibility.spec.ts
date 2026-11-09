@@ -17,14 +17,20 @@ async function assertNoSeriousViolations(page: Page, path: string) {
       id: violation.id,
       impact: violation.impact,
       targets: violation.nodes.flatMap((node) => node.target),
+      // axe'ın ölçtüğü değerler (ör. kontrast oranı, ön/arka renk): CI'da
+      // yerelde görülmeyen ihlalin nedenini hata mesajında gösterir.
+      details: violation.nodes.map((node) => node.any.map((check) => check.message).join(" | ")),
     })),
     `${path} erişilebilirlik ihlalleri`,
   ).toEqual([]);
 }
 
 test.describe("WCAG 2.1 AA kalite kapısı", () => {
+  // Her test 5-6 sayfayı tarıyor; CI'da dev sunucusuyla varsayılan 30 sn yetmiyor.
+  test.describe.configure({ timeout: 180_000 });
+
   test("kritik misafir ve kış sayfalarında serious/critical ihlal yok", async ({ page }) => {
-    for (const path of ["/", "/browse", "/kis", "/kis/oteller", "/inquiry"]) {
+    for (const path of ["/", "/browse", "/kis", "/kis/oteller", "/termal", "/termal/oteller", "/inquiry"]) {
       await assertNoSeriousViolations(page, path);
     }
   });

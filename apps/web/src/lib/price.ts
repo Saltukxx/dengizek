@@ -63,6 +63,12 @@ export interface ChildAgePriceLike {
   mode: "ucretsiz" | "sabit" | "yuzde";
   priceMinor?: number | null;
   percent?: number | null;
+  /**
+   * Kaçıncı çocuğa uygulanır: 1 → yalnız 1. çocuk, 2 → 2. ve sonraki
+   * çocuklar; boş → her çocuk. Çocuklar yaşa göre büyükten küçüğe sıralanır
+   * (en büyük çocuk 1. çocuktur).
+   */
+  childOrder?: 1 | 2 | null;
 }
 
 export interface RateLike {
@@ -74,6 +80,48 @@ export interface RateLike {
   minStayNights?: number | null;
   occupancyPrices?: OccupancyPriceLike[];
   childAgePrices?: ChildAgePriceLike[];
+  /**
+   * Dönem yalnız bu gecelerde geçerli (0 Pazar … 6 Cumartesi; gecenin
+   * tarihine göre — Cuma gecesi = Cuma). Boş → her gece.
+   */
+  weekdays?: number[] | null;
+  /** Dönem yalnız konaklama en az / en fazla bu kadar geceyse geçerli. */
+  stayMinNights?: number | null;
+  stayMaxNights?: number | null;
+}
+
+/** Gecenin haftanın hangi günü olduğu (0 Pazar … 6 Cumartesi). */
+export function weekdayOf(date: string): number {
+  return new Date(`${date}T12:00:00.000Z`).getUTCDay();
+}
+
+/** Koşulsuz dönem 0; gün ve konaklama süresi koşulu taşıyanlar daha özeldir. */
+function rateSpecificity(rate: RateLike): number {
+  return (rate.weekdays?.length ? 1 : 0) + (rate.stayMinNights != null || rate.stayMaxNights != null ? 2 : 0);
+}
+
+/**
+ * Bu gece için geçerli dönem. Koşullar: tarih aralığı, gece (haftanın günü)
+ * ve konaklama süresi. Konaklama süresi bilinmiyorsa (ör. "bugünkü fiyat")
+ * süre koşullu dönemler uygulanmaz. Birden fazla dönem geçerliyse önce daha
+ * özel olan (koşullu), sonra başlangıcı en geç olan kazanır — böylece
+ * "Cuma-Cumartesi" ya da "tek gece Cumartesi" dönemi ana dönemin üstüne
+ * yazılabilir.
+ */
+export function pickRate<R extends RateLike>(rates: R[], date: string, nights?: number | null): R | undefined {
+  const day = weekdayOf(date);
+  return rates
+    .filter((r) => {
+      if (!(r.startDate <= date && date <= r.endDate)) return false;
+      if (r.weekdays?.length && !r.weekdays.includes(day)) return false;
+      if (r.stayMinNights != null || r.stayMaxNights != null) {
+        if (nights == null) return false;
+        if (r.stayMinNights != null && nights < r.stayMinNights) return false;
+        if (r.stayMaxNights != null && nights > r.stayMaxNights) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => rateSpecificity(b) - rateSpecificity(a) || (a.startDate < b.startDate ? 1 : a.startDate > b.startDate ? -1 : 0))[0];
 }
 
 /** Kişi sayısına göre dönem fiyatını çözer; eşleşme yoksa baz fiyat döner. */
@@ -128,11 +176,9 @@ export function resolveCurrentRate(
   rates: RateLike[],
   date: string = todayIso(),
   guestCount?: number | null,
+  nights?: number | null,
 ): ResolvedRate {
-  const active = rates
-    .filter((r) => r.startDate <= date && date <= r.endDate)
-    .sort((a, b) => (a.startDate < b.startDate ? 1 : -1));
-  const winner = active[0];
+  const winner = pickRate(rates, date, nights);
   if (winner) {
     return {
       priceMinor: resolveRatePriceForGuests(winner, guestCount),

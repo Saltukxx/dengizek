@@ -4,6 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";
+import { validationMessage } from "@/lib/api-response";
 import { and, eq, sql } from "drizzle-orm";
 import { requireHotelAccess } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
@@ -11,6 +12,7 @@ import { tourStepsTable, toursTable } from "@/lib/db/schema";
 import { tourUpdateSchema } from "@/lib/schemas/tour-editor";
 import { logAudit } from "@/lib/audit";
 import { revisionConflictResponse } from "@/lib/panel-revision";
+import { revalidateGuestHotel } from "@/lib/guest-cache";
 
 type RouteParams = { params: Promise<{ hotelId: string; tourId: string }> };
 
@@ -58,7 +60,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   const parsed = tourUpdateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: "Doğrulama başarısız", issues: parsed.error.flatten() },
+      { ok: false, error: validationMessage(parsed.error), issues: parsed.error.flatten() },
       { status: 400 },
     );
   }
@@ -75,6 +77,8 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     .where(and(eq(toursTable.id, tour.id), eq(toursTable.draftRevision, parsed.data.expectedRevision)))
     .returning();
   if (!updated) return revisionConflictResponse(tour.draftRevision, tour.updatedAt);
+  // Tur adı misafir sayfasında doğrudan okunur (yayın beklemez).
+  if (updated.publishedManifest) revalidateGuestHotel(updated.hotelSlug);
 
   return NextResponse.json({ ok: true, tour: updated });
 }
@@ -102,6 +106,7 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
       ),
     );
   await db.delete(toursTable).where(eq(toursTable.id, tour.id));
+  revalidateGuestHotel(guard.hotel.slug);
 
   await logAudit({
     actor: guard.user,

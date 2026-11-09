@@ -45,6 +45,14 @@ describe("classifyToday", () => {
     expect(result.arrivals).toEqual([]);
   });
 
+  it("tarihi tamamen geçmiş, hiç kapatılmamış kayıtları uyarıda tutar", () => {
+    const pastConfirmed = { id: "pc", ...base, checkIn: "2026-11-01", checkOut: "2026-11-03" };
+    const pastPending = { id: "pp", ...base, status: "beklemede" as const, checkIn: "2026-11-01", checkOut: "2026-11-03" };
+    const result = classifyToday([pastConfirmed, pastPending], today);
+    expect(result.lateArrivals).toEqual([pastConfirmed]);
+    expect(result.pending).toEqual([pastPending]);
+  });
+
   it("yalnız girişi gelmiş bekleyen kaydı acil sayar; iptal ve gelmediyi hiç saymaz", () => {
     const urgent = { id: "p", ...base, status: "beklemede" as const };
     const future = { id: "f", ...base, status: "beklemede" as const, checkIn: "2026-12-20", checkOut: "2026-12-22" };
