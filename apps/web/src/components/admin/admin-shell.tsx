@@ -162,8 +162,8 @@ export function AdminShell({
                 leftSection={<l.icon size={18} stroke={1.7} />}
                 rightSection={
                   l.href === "/admin/mesaj-onay" && pendingReview > 0 ? (
-                    <Badge size="sm" circle color="red.9" variant="filled">
-                      {pendingReview}
+                    <Badge size="sm" circle={pendingReview < 10} color="red" variant="filled">
+                      {pendingReview > 99 ? "99+" : pendingReview}
                     </Badge>
                   ) : undefined
                 }
