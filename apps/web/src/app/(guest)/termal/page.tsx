@@ -17,6 +17,7 @@ export const metadata: Metadata = guestShareMeta({
   title: "Termal oteller",
   description:
     "Termal otelleri gitmeden video turla gezin; merak ettiğinizi yapay zekâ rehberine sorun, cevabı otelin kendi bilgisinden alın.",
+  imageUrl: "/marketing/termal/termal-havuz.jpg",
 });
 
 /** Termal vitrininde gösterilen öne çıkan otel sayısı. */

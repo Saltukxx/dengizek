@@ -44,6 +44,9 @@ const hankenGrotesk = Hanken_Grotesk({
 });
 
 export const metadata: Metadata = {
+  // Göreli paylaşım görselleri (/uploads/..., /marketing/...) bu adrese göre tam URL olur.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
+  openGraph: { siteName: "Otelsayfam", locale: "tr_TR" },
   title: {
     default: "Otelsayfam — Otel video turları",
     template: "%s | Otelsayfam",

@@ -24,7 +24,7 @@ describe("model kotası", () => {
   });
 
   it("geçici yoğunluk (503): artan aralıkla tekrar dener, tükenirse bekliyor", async () => {
-    const sleep = vi.fn(async (_ms: number) => {});
+    const sleep = vi.fn(async (ms: number) => { void ms; });
     const busy = Object.assign(new Error("This model is currently experiencing high demand."), { statusCode: 503 });
     await expect(withQuotaRetry(async () => { throw busy; }, sleep)).rejects.toBeInstanceOf(QuotaExhaustedError);
     expect(sleep.mock.calls.map((c) => c[0])).toEqual([5000, 10000, 20000]);

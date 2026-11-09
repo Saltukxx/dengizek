@@ -1,7 +1,7 @@
 # Termal vitrini — "Otelsayfam neden farklı?" pazarlama sayfası
 
 **Tarih:** 4 Kasım 2026
-**Durum:** Adım 0–5 uygulandı (4 Kasım 2026). Adım 6 (yaz/kış vitrinlerine uyarlama) bekliyor.
+**Durum:** Tüm adımlar uygulandı. Adım 6: yaz (`/`) ve kış (`/kis`) vitrinleri aynı `ShowcaseIntro` bileşenlerini `SHOWCASE_CONFIGS` ile kullanıyor (7 Kasım 2026).
 **Kapsam:** `/termal` ana sayfası. Beğenilirse aynı bileşenler yaz (`/`) ve kış (`/kis`) vitrinlerine uyarlanır.
 
 ## Amaç

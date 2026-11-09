@@ -122,7 +122,8 @@ Sıra taban ölçüme göre güncellenir; aşağıdaki öncelik tahmindir.
 - Model `citeFact` ile kart gösterdiğinde: soru bilinen bir konuya (`KNOWN_TOPICS`) aitse ve kart o konunun kanıtını içermiyorsa → kart düşer, sabit "bu bilgi bende yok, otelden alabilirim" metni gider, soru `bilgi-yok` olarak cevapsızlara kaydedilir.
 - Yer: `createCardPointerTransform` / `onFinish` hattı (`route.ts`). Sunucu turunda zaten çözülmüş durum; bu model turları için.
 
-**1.2 Oda kapasitesi**
+**1.2 Oda kapasitesi** — ✅
+- Yapılan: "kaç kişilik" sorusu + oda adı planlayıcıda doğrudan o odanın kartına gider (`deterministic-tools.test.ts`); kart "N yetişkin + M çocuk" der (`text.ts`).
 - Oda kartı (`room.<slug>.info`) kapasiteyi her zaman "N yetişkin (+ M çocuk)" biçiminde içersin.
 - "kaç kişilik / kaç kişi kalır / how many people" sorusu + oda adı → planlayıcıda doğrudan o odanın kartı (model yok).
 
