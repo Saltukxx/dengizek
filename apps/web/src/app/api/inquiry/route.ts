@@ -147,7 +147,7 @@ export async function POST(req: Request) {
   const emailStatus = await sendEmail({
     to: data.email,
     subject: "Talebiniz alındı — Otelsayfam",
-    text: `Merhaba ${data.name},\n\nTalebiniz otele iletildi. Yanıtları takip etmek için: ${portalUrl}`,
+    text: `Merhaba ${data.name},\n\nTalebiniz Otelsayfam ekibine ulaştı. Yanıtları takip etmek için: ${portalUrl}`,
   });
 
   return NextResponse.json({

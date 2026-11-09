@@ -112,7 +112,7 @@ export function InquiryForm() {
         overlap
         eyebrow="Rezervasyon"
         title="Talep Gönder"
-        lede="Talebiniz otele iletilecek; yanıtı e-postanıza gelen bağlantıdaki Otelsayfam portalından alırsınız. Müsaitlik bilgilendiricidir; kesin onay otelden gelir."
+        lede="Talebiniz Otelsayfam ekibine ulaşır; yanıtı e-postanıza gelen bağlantıdaki portaldan alırsınız. Müsaitlik bilgilendiricidir; kesin onayı ekibimiz otelle teyit edip verir."
       />
     <div className="er-container" style={{ paddingBottom: "clamp(32px, 5vw, 64px)" }}>
     <div className="pb-lift pb-form-card">

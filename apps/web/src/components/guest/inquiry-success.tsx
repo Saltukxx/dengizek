@@ -23,10 +23,10 @@ export async function InquirySuccessPage({
   const { emailStatus } = await searchParams;
   const statusMessage =
     emailStatus === "sent"
-      ? "Talebiniz otele iletildi ve takip bağlantınız e-posta adresinize gönderildi."
+      ? "Talebiniz Otelsayfam ekibine ulaştı ve takip bağlantınız e-posta adresinize gönderildi."
       : emailStatus === "queued"
-        ? "Talebiniz otele iletildi. Takip e-postanız gönderim kuyruğuna alındı."
-        : "Talebiniz otele iletildi. E-posta bildirimi şu anda gönderilemiyor; takip bağlantınız hazır olduğunda e-postanıza ulaşacak.";
+        ? "Talebiniz Otelsayfam ekibine ulaştı. Takip e-postanız gönderim kuyruğuna alındı."
+        : "Talebiniz Otelsayfam ekibine ulaştı. E-posta bildirimi şu anda gönderilemiyor; takip bağlantınız hazır olduğunda e-postanıza ulaşacak.";
   return (
     <>
       <PageBanner
