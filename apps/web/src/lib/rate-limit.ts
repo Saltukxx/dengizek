@@ -119,8 +119,18 @@ async function checkRateLimitDb(key: string, options: RateLimitOptions): Promise
 }
 
 /** true → istek kabul; false → limit aşıldı. */
+/**
+ * Yalnız geliştirmede: RATE_LIMIT_MEMORY=true → sayaçlar bellekte. Yerel
+ * sunucu canlı veritabanına salt okunur bağlıyken (iOS testi) sayaç
+ * yazılamadığı için fail-closed uçlar (rehber, giriş) her isteği reddederdi.
+ * Production'da yok sayılır.
+ */
+function memoryOnlyForDev(): boolean {
+  return process.env.NODE_ENV !== "production" && process.env.RATE_LIMIT_MEMORY === "true";
+}
+
 export async function checkRateLimit(key: string, options: RateLimitOptions): Promise<boolean> {
-  if (!isDbConfigured()) {
+  if (!isDbConfigured() || memoryOnlyForDev()) {
     return checkRateLimitMemory(key, options);
   }
   try {

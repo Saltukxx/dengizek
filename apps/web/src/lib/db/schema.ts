@@ -730,6 +730,23 @@ export const inquiryMessagesTable = pgTable("inquiry_messages", {
 }));
 
 // ---------------------------------------------------------------------------
+// inquiry_push_targets — iOS uygulamasında "cevap gelince bildirim al" diyen
+// misafirin cihaz kimliği. Hesap yok: kayıt talebe bağlıdır, talep silinince
+// gider. Yönetici cevap yazınca bu cihazlara APNs bildirimi gönderilir.
+// ---------------------------------------------------------------------------
+
+export const inquiryPushTargetsTable = pgTable("inquiry_push_targets", {
+  id:          uuid("id").defaultRandom().primaryKey(),
+  inquiryId:   uuid("inquiry_id").notNull().references(() => inquiriesTable.id, { onDelete: "cascade" }),
+  deviceToken: text("device_token").notNull(),
+  /** "sandbox" (Xcode/TestFlight geliştirme) | "production" (App Store) */
+  environment: text("environment").notNull(),
+  createdAt:   timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  inquiryTokenUnique: uniqueIndex("inquiry_push_targets_inquiry_token_unique").on(table.inquiryId, table.deviceToken),
+}));
+
+// ---------------------------------------------------------------------------
 // reviews — misafir yorumları
 // ---------------------------------------------------------------------------
 

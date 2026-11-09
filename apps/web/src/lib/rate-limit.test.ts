@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { requestIp } from "./rate-limit";
 
 function req(headers: Record<string, string>) {
@@ -25,5 +25,20 @@ describe("requestIp — sahte başlığa karşı dayanıklı IP", () => {
 
   it("hiçbir başlık yoksa 'unknown'", () => {
     expect(requestIp(req({}))).toBe("unknown");
+  });
+});
+
+describe("RATE_LIMIT_MEMORY (yalnız geliştirme)", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("geliştirmede açıkken veritabanına gitmeden bellekte sayar", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("RATE_LIMIT_MEMORY", "true");
+    vi.stubEnv("DATABASE_URL", "postgres://x@127.0.0.1:1/yok");
+    const { checkRateLimit } = await import("./rate-limit");
+    const options = { name: `bellek-${Math.random()}`, windowMs: 60_000, limit: 2, failClosed: true };
+    expect(await checkRateLimit("ip", options)).toBe(true);
+    expect(await checkRateLimit("ip", options)).toBe(true);
+    expect(await checkRateLimit("ip", options)).toBe(false);
   });
 });

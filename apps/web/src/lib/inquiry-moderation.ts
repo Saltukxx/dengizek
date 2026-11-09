@@ -14,6 +14,7 @@ import type { getDb } from "@/lib/db";
 import { inquiriesTable, inquiryMessagesTable } from "@/lib/db/schema";
 import { notifyHotelMembers } from "@/lib/notifications";
 import { sendEmail } from "@/lib/email";
+import { notifyGuestReply } from "@/lib/push/notify-guest";
 import { rotateInquiryPortalToken } from "@/lib/inquiry-portal-token";
 
 type Db = ReturnType<typeof getDb>;
@@ -94,9 +95,10 @@ export async function approveMessage(db: Db, messageId: string, adminId: string)
     const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/inquiry/portal/${token}`;
     await sendEmail({
       to: inquiry.email,
-      subject: "Tesisinizden yeni mesaj — Otelsayfam",
-      text: `Merhaba ${inquiry.name},\n\nTesisinizden yeni bir mesaj var:\n\n${updated.body}\n\nYanıtlamak için: ${portalUrl}`,
+      subject: "Otelsayfam ekibinden yeni mesaj",
+      text: `Merhaba ${inquiry.name},\n\nOtelsayfam ekibinden yeni bir mesaj var:\n\n${updated.body}\n\nYanıtlamak için: ${portalUrl}`,
     });
+    await notifyGuestReply(db, inquiry, portalUrl);
   }
 
   return updated;
