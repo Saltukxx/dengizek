@@ -1,19 +1,20 @@
 // ---------------------------------------------------------------------------
-// GET /api/v1/hotels?season=termal|yaz|kis&q= — iOS uygulaması otel listesi.
-// Veri, web vitrinleriyle aynı önbellekli kaynaktan gelir; askıdaki ve
-// yayında olmayan oteller burada da görünmez.
+// GET /api/v1/hotels — iOS uygulaması otel listesi.
+// season=termal|yaz|kis, q, stars, tur, kampanya, pets, price, sort ve
+// konaklama (giris, cikis, yetiskin, cocuk): web vitriniyle aynı süzgeç
+// (lib/browse-filters). Veri, vitrinlerle aynı önbellekli kaynaktan gelir;
+// askıdaki ve yayında olmayan oteller burada da görünmez.
 // ---------------------------------------------------------------------------
 
 import { apiOk } from "@/lib/api-response";
+import { filterBrowseHotels } from "@/lib/browse-filters";
 import { getPublishedHotelsForBrowse } from "@/lib/hotels-repo";
-import { parseMobileSeason, toMobileHotelCard } from "@/lib/mobile-api/v1";
-
-const MAX_QUERY_CHARS = 100;
+import { parseMobileBrowseFilters, parseMobileSeason, toMobileHotelCard } from "@/lib/mobile-api/v1";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const season = parseMobileSeason(url.searchParams.get("season"));
-  const q = url.searchParams.get("q")?.trim().slice(0, MAX_QUERY_CHARS) || undefined;
-  const rows = await getPublishedHotelsForBrowse({ season, q });
-  return apiOk({ hotels: rows.map(toMobileHotelCard) });
+  const filters = parseMobileBrowseFilters(url.searchParams);
+  const rows = await getPublishedHotelsForBrowse({ season, q: filters.q?.toLowerCase() });
+  return apiOk({ hotels: filterBrowseHotels(rows, filters).map(toMobileHotelCard) });
 }

@@ -246,3 +246,19 @@ describe("queryRoomPrices — doğruluk kuralları", () => {
     expect((await queryRoomPrices("h", query, TODAY)).query).toEqual(query);
   });
 });
+
+describe("guestAvailabilityNote", () => {
+  it("panel terimini ve ham tarihi misafir diline çevirir", async () => {
+    const { guestAvailabilityNote } = await import("./price-engine");
+    expect(guestAvailabilityNote("2026-12-20 tarihinde envanter kaydı yok.")).toBe(
+      "Bu tarihler için müsaitliği ekibimiz teyit eder.",
+    );
+    expect(guestAvailabilityNote("2026-12-20 tarihinde müsait oda yok.")).toBe(
+      "20 Aralık gecesi için müsait oda görünmüyor. Ekibimiz teyit eder.",
+    );
+    expect(guestAvailabilityNote("2026-12-23 tarihinde çıkışa kapalı.")).toBe(
+      "23 Aralık tarihinde çıkış yapılamıyor. Ekibimiz teyit eder.",
+    );
+    expect(guestAvailabilityNote("Minimum konaklama 3 gecedir.")).toBe("Minimum konaklama 3 gecedir. Ekibimiz teyit eder.");
+  });
+});

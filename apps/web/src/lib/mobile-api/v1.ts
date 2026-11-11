@@ -7,9 +7,12 @@
 // ---------------------------------------------------------------------------
 
 import { amenityLabel, highlightAmenityKeys } from "@/lib/amenities-catalog";
-import type { BrowseHotelRow, PublishedHotelContent, PublishedTourSummary } from "@/lib/hotels-repo";
+import { PRICE_BAND_VALUES, SORT_VALUES, type BrowseFilters } from "@/lib/browse-filters";
+import type { BrowseHotelRow, GuestReviewSummary, PublishedHotelContent, PublishedTourSummary } from "@/lib/hotels-repo";
 import type { HotelMock } from "@/lib/mocks/hotels";
+import { boardTypeLabels } from "@/lib/schemas/hotel-content";
 import type { TourManifest } from "@/lib/schemas/tour-manifest";
+import { parseStaySearch, type CapacityFit, type StayQuote, type StaySearch } from "@/lib/stay-search";
 
 export const MOBILE_SEASONS = ["termal", "yaz", "kis"] as const;
 export type MobileSeason = (typeof MOBILE_SEASONS)[number];
@@ -68,6 +71,8 @@ export interface MobileHotelDetail {
   longDescription: string | null;
   imageUrl: string | null;
   starRating: number | null;
+  /** Kartla aynı "gecelik başlayan" fiyat; yoksa fiyat talep üzerine. */
+  price: MobilePrice | null;
   amenities: string[];
   gallery: { url: string; caption: string | null }[];
   rooms: MobileRoom[];
@@ -81,9 +86,52 @@ export interface MobileHotelDetail {
     petsAllowed: boolean | null;
   };
   contact: { phone: string | null; whatsapp: string | null };
+  /** Yayındaki misafir yorumları: özet ve en yeni birkaç yorum. */
+  reviews: MobileReviewSummary;
 }
 
-function cardPrice(row: BrowseHotelRow): MobilePrice | null {
+export interface MobileReview {
+  id: string;
+  rating: number;
+  title: string | null;
+  body: string;
+  guestName: string;
+  /** Konaklama tarihi (YYYY-MM-DD); bilinmiyorsa null. */
+  stayDate: string | null;
+  /** Otelin yanıtı (varsa). */
+  reply: string | null;
+  createdAt: string;
+}
+
+export interface MobileReviewSummary {
+  /** 1–5 arası ortalama, tek ondalık; yorum yoksa null. */
+  average: number | null;
+  count: number;
+  items: MobileReview[];
+}
+
+/** Otel sayfasına taşınan en fazla yorum sayısı (en yeniler). */
+export const MOBILE_REVIEW_LIMIT = 10;
+
+export function toMobileReviews(summary: GuestReviewSummary | null | undefined): MobileReviewSummary {
+  if (!summary || summary.count === 0) return { average: null, count: 0, items: [] };
+  return {
+    average: summary.average,
+    count: summary.count,
+    items: summary.reviews.slice(0, MOBILE_REVIEW_LIMIT).map((r) => ({
+      id: r.id,
+      rating: r.rating,
+      title: r.title ?? null,
+      body: r.body,
+      guestName: r.guestName,
+      stayDate: r.stayDate ?? null,
+      reply: r.reply ?? null,
+      createdAt: r.createdAt,
+    })),
+  };
+}
+
+function cardPrice(row: Pick<BrowseHotelRow, "minPriceMinor" | "upcomingPrice">): MobilePrice | null {
   if (row.minPriceMinor != null) return { amountMinor: row.minPriceMinor, currency: "TRY", fromDate: null };
   if (row.upcomingPrice) {
     return {
@@ -124,7 +172,8 @@ export function toMobileHotelDetail(
   hotel: HotelMock,
   content: PublishedHotelContent,
   tours: PublishedTourSummary[],
-  card?: Pick<BrowseHotelRow, "starRating"> | null,
+  card?: Pick<BrowseHotelRow, "starRating" | "minPriceMinor" | "upcomingPrice"> | null,
+  reviews?: GuestReviewSummary | null,
 ): MobileHotelDetail {
   const lat = toNumber(content.latitude);
   const lng = toNumber(content.longitude);
@@ -137,6 +186,7 @@ export function toMobileHotelDetail(
     longDescription: hotel.longDescription || null,
     imageUrl: hotel.imageUrl || null,
     starRating: content.specs.starRating ?? card?.starRating ?? null,
+    price: card ? cardPrice(card) : null,
     amenities: content.amenities.map(amenityLabel),
     gallery: content.gallery,
     rooms: content.rooms.map((r) => ({
@@ -164,6 +214,7 @@ export function toMobileHotelDetail(
       petsAllowed: content.specs.petsAllowed,
     },
     contact: { phone: content.specs.publicPhone ?? null, whatsapp: content.specs.whatsappPhone ?? null },
+    reviews: toMobileReviews(reviews),
   };
 }
 
@@ -216,5 +267,82 @@ export function toMobileTour(manifest: TourManifest): MobileTour {
         callouts: (step.callouts ?? []).map((c) => ({ id: c.id, tSec: c.tSec, title: c.title, body: c.body ?? null })),
         branches: (step.branches ?? []).map((b) => ({ id: b.id, label: b.label, nextStepId: b.nextStepId })),
       })),
+  };
+}
+
+// ── Liste süzgeci ───────────────────────────────────────────────────────────
+
+/**
+ * Liste parametreleri web vitriniyle aynı adları taşır: q, stars, tur,
+ * kampanya, pets, price (budget|mid|luxury), sort, giris, cikis, yetiskin,
+ * cocuk. Bozuk değerler yok sayılır.
+ */
+export function parseMobileBrowseFilters(params: URLSearchParams, maxQueryChars = 100): BrowseFilters & { q?: string } {
+  const stars = Number(params.get("stars"));
+  const price = params.get("price");
+  const sort = params.get("sort");
+  return {
+    q: params.get("q")?.trim().slice(0, maxQueryChars) || undefined,
+    minStars: Number.isInteger(stars) && stars >= 1 && stars <= 5 ? stars : undefined,
+    tourOnly: params.get("tur") === "1",
+    promoOnly: params.get("kampanya") === "1",
+    petsOnly: params.get("pets") === "1",
+    priceBand: PRICE_BAND_VALUES.find((v) => v === price),
+    sort: SORT_VALUES.find((v) => v === sort),
+    stay: parseStaySearch(params),
+  };
+}
+
+// ── Tarihli oda fiyatı ──────────────────────────────────────────────────────
+
+export interface MobileRoomQuote {
+  slug: string;
+  name: string;
+  boardLabel: string | null;
+  /** fits: uygun · confirm: çocuk kapasitesi otelden teyit · no: bu grubu almaz. */
+  fit: CapacityFit;
+  /** Tüm gecelerin toplamı (çocuk ücretleri dahil); fiyatlanamazsa null (talep üzerine). */
+  totalMinor: number | null;
+  /** İndirimsiz toplam; indirim yoksa null. */
+  originalTotalMinor: number | null;
+  currency: string;
+  discountLabel: string | null;
+  freeNights: number;
+  /** Satılamıyorsa nedeni ("Bu tarihlerde müsait oda yok" gibi). */
+  unavailable: string | null;
+  /** Bu tarihler için gereken en az gece; konaklama yetiyorsa null. */
+  minStayNights: number | null;
+}
+
+export interface MobileStayQuote {
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  adults: number;
+  childAges: number[];
+  /** Satılabilen ve uygun odalar önce, kendi içinde en ucuzdan pahalıya. */
+  rooms: MobileRoomQuote[];
+}
+
+export function toMobileStayQuote(quote: Extract<StayQuote, { ok: true }>, stay: StaySearch): MobileStayQuote {
+  return {
+    checkIn: stay.checkIn!,
+    checkOut: stay.checkOut!,
+    nights: quote.nights,
+    adults: stay.adults,
+    childAges: stay.childAges,
+    rooms: quote.rooms.map((r) => ({
+      slug: r.slug,
+      name: r.name,
+      boardLabel: r.boardType ? (boardTypeLabels[r.boardType as keyof typeof boardTypeLabels] ?? null) : null,
+      fit: r.fit,
+      totalMinor: r.totalMinor,
+      originalTotalMinor: r.originalTotalMinor,
+      currency: r.currency,
+      discountLabel: r.discountLabel,
+      freeNights: r.freeNights,
+      unavailable: r.unavailable,
+      minStayNights: r.minStayShortfall,
+    })),
   };
 }

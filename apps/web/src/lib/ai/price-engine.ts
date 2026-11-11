@@ -182,6 +182,26 @@ function buildSingleNightCard(room: Room, content: Content, query: RoomPriceQuer
  * müsaitlik teyidi gerektiğini söylemek yanlış beklenti oluşmasını engeller.
  * DB yoksa/hata varsa sessizce "not yok" döner; fiyat akışını asla kırmaz.
  */
+/**
+ * Envanter kontrolünün iç mesajını misafir diline çevirir: ham tarih
+ * ("2026-12-20") yerine "20 Aralık", "envanter kaydı" gibi panel terimi yok.
+ * Kesin cevabı Otelsayfam ekibi verir; not bunu söyler.
+ */
+export function guestAvailabilityNote(error: string): string {
+  const confirm = "Ekibimiz teyit eder.";
+  if (/envanter kaydı yok/i.test(error)) return "Bu tarihler için müsaitliği ekibimiz teyit eder.";
+  const iso = error.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+  const day = iso
+    ? new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", timeZone: "UTC" }).format(
+        new Date(`${iso}T00:00:00Z`),
+      )
+    : null;
+  if (day && /satış kapalı|müsait oda yok/i.test(error)) return `${day} gecesi için müsait oda görünmüyor. ${confirm}`;
+  if (day && /girişe kapalı/i.test(error)) return `${day} tarihinde giriş yapılamıyor. ${confirm}`;
+  if (day && /çıkışa kapalı/i.test(error)) return `${day} tarihinde çıkış yapılamıyor. ${confirm}`;
+  return `${error} ${confirm}`;
+}
+
 async function availabilityNote(roomId: string, checkIn: string, checkOut: string): Promise<string | null> {
   try {
     const { getDb, isDbConfigured } = await import("@/lib/db");
@@ -362,7 +382,7 @@ export async function queryRoomPrices(
       rooms.map(async (room) => {
         const card = buildStayTotalCard(room, content, checkIn, checkOut, query);
         const note = await availabilityNote(room.id, checkIn, checkOut);
-        if (note) card.lines.push({ label: "Müsaitlik", value: `${note} Bu tarihler için teyit gerekiyor.` });
+        if (note) card.lines.push({ label: "Müsaitlik", value: guestAvailabilityNote(note) });
         return card;
       }),
     );

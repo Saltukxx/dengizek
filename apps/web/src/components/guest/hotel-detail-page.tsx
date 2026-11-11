@@ -23,7 +23,6 @@ import {
   IconWifi,
 } from "@tabler/icons-react";
 import {
-  getHotelIdBySlug,
   getPublishedHotelBySlug,
   getPublishedHotelContent,
   getPublishedHotelsForBrowse,
@@ -53,7 +52,7 @@ import { HotelCard } from "@/components/marketing";
 import { hotelContactLinks } from "@/lib/contact-phone";
 import { boardTypeLabels } from "@/lib/schemas/hotel-content";
 import { pickSimilarHotels } from "@/lib/similar-hotels";
-import type { QuotePricing } from "@/lib/stay-search";
+import { loadQuotePricing } from "@/lib/quote-pricing";
 import { PageBanner } from "@/components/guest/page-banner";
 import { GalleryRail } from "@/components/guest/gallery-rail";
 import { HotelStickyBar } from "@/components/guest/hotel-sticky-bar";
@@ -63,19 +62,6 @@ import { formatPrice } from "@/lib/price";
 
 export type HotelDetailSurface = GuestSurface;
 
-/** Stop sale / dolu / CTA-CTD kısıtları — okunamazsa hesaplayıcı kısıtsız çalışır. */
-async function loadGuestRestrictions(hotelId: string | null) {
-  if (!hotelId) return {};
-  try {
-    const [{ loadStayRestrictions }, { todayIso }] = await Promise.all([import("@/lib/stay-restrictions"), import("@/lib/price")]);
-    const today = todayIso();
-    const horizon = new Date(`${today}T12:00:00.000Z`);
-    horizon.setUTCDate(horizon.getUTCDate() + 548);
-    return await loadStayRestrictions(hotelId, today, horizon.toISOString().slice(0, 10));
-  } catch {
-    return {};
-  }
-}
 export type HotelDetailPageProps = {
   params: Promise<{ slug: string }>;
   surface?: HotelDetailSurface;
@@ -238,43 +224,7 @@ export async function HotelDetailPage({ params, surface = "yaz" }: HotelDetailPa
   const location = [hotel.city, hotel.country].filter(Boolean).join(", ");
 
   // Fiyat hesaplayıcı istemcide çalışır; yalnız fiyat için gereken alanlar iner.
-  const quotePricing: QuotePricing = {
-    rooms: content.rooms.map((room) => ({
-      id: room.id,
-      slug: room.slug,
-      name: room.name,
-      imageUrl: room.imageUrl ?? null,
-      boardType: room.boardType ?? null,
-      capacityAdults: room.capacityAdults ?? null,
-      capacityChildren: room.capacityChildren ?? null,
-      priceMinor: room.priceMinor ?? null,
-      currency: room.currency,
-      priceOnRequest: room.priceOnRequest,
-      discountPercent: room.discountPercent ?? null,
-      discountLabel: room.discountLabel ?? null,
-      minStayNights: room.minStayNights ?? null,
-      childAgePrices: room.childAgePrices ?? null,
-      rates: room.rates.map((rate) => ({
-        name: rate.name,
-        startDate: String(rate.startDate),
-        endDate: String(rate.endDate),
-        priceMinor: rate.priceMinor,
-        currency: rate.currency,
-        minStayNights: rate.minStayNights,
-        occupancyPrices: rate.occupancyPrices ?? undefined,
-        childAgePrices: rate.childAgePrices ?? undefined,
-        weekdays: rate.weekdays ?? null,
-        stayMinNights: rate.stayMinNights ?? null,
-        stayMaxNights: rate.stayMaxNights ?? null,
-      })),
-    })),
-    promotions: content.promotions,
-    ratePlanPrices: content.ratePlanPrices,
-    closedRanges: content.availabilityNotes
-      .filter((note) => note.isBlackout && note.startDate)
-      .map((note) => ({ startDate: note.startDate, endDate: note.endDate })),
-    restrictions: await loadGuestRestrictions(await getHotelIdBySlug(slug)),
-  };
+  const quotePricing = await loadQuotePricing(slug, content);
   const boardLabels = Object.fromEntries(
     content.rooms
       .filter((room) => room.boardType && room.boardType !== "sadece-oda")
