@@ -1,15 +1,20 @@
 import Foundation
 
-enum APIError: LocalizedError {
+enum APIError: LocalizedError, Equatable, Sendable {
     case server(String)
     case notFound
     case unreachable
 
+    /// Ekranlar hatayı türüyle taşır; tanınmayan hata mesajıyla sunucu hatası sayılır.
+    init(_ error: any Error) {
+        self = (error as? APIError) ?? .server(error.localizedDescription)
+    }
+
     var errorDescription: String? {
         switch self {
         case .server(let message): message
-        case .notFound: "Aradığınız kayıt bulunamadı."
-        case .unreachable: "Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin."
+        case .notFound: String(localized: "Aradığınız kayıt bulunamadı.")
+        case .unreachable: String(localized: "Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.")
         }
     }
 }
@@ -18,15 +23,28 @@ enum APIError: LocalizedError {
 struct APIClient: Sendable {
     let baseURL: URL
     var session: URLSession = .shared
+    /// Son başarılı yanıtlar (çevrimdışı gösterim); testlerde nil ya da geçici klasör.
+    var cache: ResponseCache? = .shared
 
     static let live = APIClient(baseURL: AppConfig.apiBaseURL)
 
-    func hotels(season: Season? = nil, query: String? = nil) async throws -> [HotelCard] {
+    func hotels(
+        season: Season? = nil,
+        query: String? = nil,
+        stay: StaySearch? = nil,
+        filters: BrowseFilters? = nil
+    ) async throws -> [HotelCard] {
+        let response: HotelsResponse = try await get("api/v1/hotels", query: Self.hotelsQuery(season: season, query: query, stay: stay, filters: filters))
+        return response.hotels
+    }
+
+    private static func hotelsQuery(season: Season?, query: String?, stay: StaySearch?, filters: BrowseFilters?) -> [URLQueryItem] {
         var items: [URLQueryItem] = []
         if let season { items.append(URLQueryItem(name: "season", value: season.rawValue)) }
         if let query, !query.isEmpty { items.append(URLQueryItem(name: "q", value: query)) }
-        let response: HotelsResponse = try await get("api/v1/hotels", query: items)
-        return response.hotels
+        if let stay { items += stay.queryItems }
+        if let filters { items += filters.queryItems }
+        return items
     }
 
     func hotel(slug: String) async throws -> HotelDetail {
@@ -34,13 +52,38 @@ struct APIClient: Sendable {
         return response.hotel
     }
 
+    /// Keşfet listesi; bağlantı yoksa aynı aramanın son kaydı (`isStale`).
+    func browse(season: Season, stay: StaySearch, filters: BrowseFilters) async throws -> Fetched<[HotelCard]> {
+        let query = Self.hotelsQuery(season: season, query: nil, stay: stay, filters: filters)
+        let fetched: Fetched<HotelsResponse> = try await fetch("api/v1/hotels", query: query, staleOK: true)
+        return Fetched(value: fetched.value.hotels, isStale: fetched.isStale)
+    }
+
+    /// Otel sayfası; bağlantı yoksa son kayıt (`isStale`).
+    func hotelPageData(slug: String) async throws -> Fetched<HotelDetail> {
+        let fetched: Fetched<HotelResponse> = try await fetch("api/v1/hotels/\(slug)", staleOK: true)
+        return Fetched(value: fetched.value.hotel, isStale: fetched.isStale)
+    }
+
+    /// Seçilen tarih ve kişi için oda oda toplam fiyat. Tarih hatasında
+    /// (geçmiş tarih, 30 geceden uzun, otel kapalı) sunucunun Türkçe mesajıyla
+    /// `APIError.server` atar.
+    func quote(hotelSlug: String, stay: StaySearch) async throws -> StayQuote {
+        var items = stay.queryItems
+        if !stay.hasParty { items.append(URLQueryItem(name: "yetiskin", value: String(stay.adults))) }
+        let response: QuoteResponse = try await get("api/v1/hotels/\(hotelSlug)/quote", query: items)
+        guard let quote = response.quote else { throw APIError.server(response.error ?? String(localized: "Fiyat hesaplanamadı.")) }
+        return quote
+    }
+
     func tour(hotelSlug: String, tourId: String) async throws -> Tour {
         let response: TourResponse = try await get("api/v1/hotels/\(hotelSlug)/tours/\(tourId)")
         return response.tour
     }
 
-    /// Talebi gönderir, talep kimliğini döner. Sunucu doğrulama hatasını Türkçe açıklamayla döner.
-    func sendInquiry(_ body: InquiryRequest) async throws -> String {
+    /// Talebi gönderir; talep kimliğini ve (varsa) yazışma bağlantısını döner.
+    /// Sunucu doğrulama hatasını Türkçe açıklamayla döner.
+    func sendInquiry(_ body: InquiryRequest) async throws -> InquiryReceipt {
         var request = URLRequest(url: baseURL.appending(path: "api/v1/inquiries"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -55,9 +98,9 @@ struct APIClient: Sendable {
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
             let failure = try? JSONDecoder().decode(FailureResponse.self, from: data)
-            throw APIError.server(failure?.error ?? (status == 429 ? "Çok fazla talep gönderdiniz, biraz sonra tekrar deneyin." : "Talep gönderilemedi."))
+            throw APIError.server(failure?.error ?? (status == 429 ? String(localized: "Çok fazla talep gönderdiniz, biraz sonra tekrar deneyin.") : String(localized: "Talep gönderilemedi.")))
         }
-        return try JSONDecoder().decode(InquiryCreated.self, from: data).id
+        return try JSONDecoder().decode(InquiryReceipt.self, from: data)
     }
 
     /// Cihazı talebe bağlar: yönetici cevap yazınca bildirim gelir.
@@ -69,7 +112,20 @@ struct APIClient: Sendable {
         let (data, response) = try await session.data(for: request)
         guard (200..<300).contains((response as? HTTPURLResponse)?.statusCode ?? 0) else {
             let failure = try? JSONDecoder().decode(FailureResponse.self, from: data)
-            throw APIError.server(failure?.error ?? "Bildirim kaydı yapılamadı.")
+            throw APIError.server(failure?.error ?? String(localized: "Bildirim kaydı yapılamadı."))
+        }
+    }
+
+    /// "Fiyat düşünce haber ver": cihazı otele bağlar ya da bağı kaldırır.
+    func setPriceAlert(hotelSlug: String, deviceToken: String, enabled: Bool) async throws {
+        var request = URLRequest(url: baseURL.appending(path: "api/v1/price-alerts"))
+        request.httpMethod = enabled ? "POST" : "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(["hotelSlug": hotelSlug, "deviceToken": deviceToken, "environment": PushCenter.environment])
+        let (data, response) = try await session.data(for: request)
+        guard (200..<300).contains((response as? HTTPURLResponse)?.statusCode ?? 0) else {
+            let failure = try? JSONDecoder().decode(FailureResponse.self, from: data)
+            throw APIError.server(failure?.error ?? String(localized: "Fiyat bildirimi ayarlanamadı."))
         }
     }
 
@@ -82,7 +138,7 @@ struct APIClient: Sendable {
         request.timeoutInterval = 15
         let (data, response) = try await session.data(for: request)
         guard (response as? HTTPURLResponse)?.statusCode == 200, data.count > 44 else {
-            throw APIError.server("Ses üretilemedi.")
+            throw APIError.server(String(localized: "Ses üretilemedi."))
         }
         return data
     }
@@ -105,7 +161,7 @@ struct APIClient: Sendable {
                         var data = Data()
                         for try await byte in bytes { data.append(byte) }
                         let failure = try? JSONDecoder().decode(FailureResponse.self, from: data)
-                        throw APIError.server(failure?.error ?? (status == 429 ? "Çok fazla soru sordunuz, biraz sonra tekrar deneyin." : "Rehber şu an cevap veremedi."))
+                        throw APIError.server(failure?.error ?? (status == 429 ? String(localized: "Çok fazla soru sordunuz, biraz sonra tekrar deneyin.") : String(localized: "Rehber şu an cevap veremedi.")))
                     }
                     for try await line in bytes.lines {
                         if let event = GuideEvent.parse(line: line) { continuation.yield(event) }
@@ -123,6 +179,11 @@ struct APIClient: Sendable {
         }
     }
 
+    /// Otelin web sayfası: paylaşılır, uygulama yüklüyse otel sayfasını açar.
+    func hotelPage(slug: String) -> URL {
+        baseURL.appending(path: "hotels/\(slug)")
+    }
+
     /// Sunucunun döndüğü göreli yolları (`/uploads/...`) tam adrese çevirir.
     func resolve(_ path: String?) -> URL? {
         guard let path, !path.isEmpty else { return nil }
@@ -130,11 +191,18 @@ struct APIClient: Sendable {
         return URL(string: path, relativeTo: baseURL)?.absoluteURL
     }
 
-    private func get<T: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> T {
+    private func get<T: Decodable & Sendable>(_ path: String, query: [URLQueryItem] = []) async throws -> T {
+        try await fetch(path, query: query, staleOK: false).value
+    }
+
+    /// `staleOK`: sunucuya ulaşılamazsa aynı adresin son başarılı yanıtı döner.
+    private func fetch<T: Decodable & Sendable>(_ path: String, query: [URLQueryItem] = [], staleOK: Bool) async throws -> Fetched<T> {
         var components = URLComponents(url: baseURL.appending(path: path), resolvingAgainstBaseURL: false)!
         if !query.isEmpty { components.queryItems = query }
-        var request = URLRequest(url: components.url!)
+        let url = components.url!
+        var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(Locale.current.language.languageCode?.identifier ?? "tr", forHTTPHeaderField: "Accept-Language")
 
         let data: Data
         let response: URLResponse
@@ -142,20 +210,28 @@ struct APIClient: Sendable {
             (data, response) = try await session.data(for: request)
         } catch {
             if Task.isCancelled { throw CancellationError() }
+            if staleOK, let saved = cache?.data(for: url), let value = try? JSONDecoder().decode(T.self, from: saved) {
+                return Fetched(value: value, isStale: true)
+            }
             throw APIError.unreachable
         }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if status == 404 { throw APIError.notFound }
         guard (200..<300).contains(status) else {
             let failure = try? JSONDecoder().decode(FailureResponse.self, from: data)
-            throw APIError.server(failure?.error ?? "Beklenmeyen bir hata oluştu (\(status)).")
+            throw APIError.server(failure?.error ?? String(localized: "Beklenmeyen bir hata oluştu (\(status))."))
         }
-        return try JSONDecoder().decode(T.self, from: data)
+        let value = try JSONDecoder().decode(T.self, from: data)
+        if staleOK { cache?.store(data, for: url) }
+        return Fetched(value: value, isStale: false)
     }
 }
 
-private struct HotelsResponse: Decodable { let hotels: [HotelCard] }
-private struct HotelResponse: Decodable { let hotel: HotelDetail }
-private struct TourResponse: Decodable { let tour: Tour }
-private struct InquiryCreated: Decodable { let id: String }
+private struct HotelsResponse: Decodable, Sendable { let hotels: [HotelCard] }
+private struct HotelResponse: Decodable, Sendable { let hotel: HotelDetail }
+private struct TourResponse: Decodable, Sendable { let tour: Tour }
+private struct QuoteResponse: Decodable, Sendable {
+    let quote: StayQuote?
+    let error: String?
+}
 private struct FailureResponse: Decodable { let error: String? }

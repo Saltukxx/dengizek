@@ -6,7 +6,18 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		52FCE15E359C7CA675BC0658 /* OtelsayfamWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2178D92DD2DF55CE9D5F84A6 /* OtelsayfamWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
+		32A86436F045DAEFE51D1846 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C3B1730EAF37D39E53876E2B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 64FACB09045D1FCE26260A0D;
+			remoteInfo = OtelsayfamWidgets;
+		};
 		D3211D77FCAA53D31BBC9AB1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = C3B1730EAF37D39E53876E2B /* Project object */;
@@ -23,8 +34,23 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		A865D7C2A36A55D1D17732FB /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				52FCE15E359C7CA675BC0658 /* OtelsayfamWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		1971652B23F451FF4D4A6EB7 /* Otelsayfam.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Otelsayfam.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2178D92DD2DF55CE9D5F84A6 /* OtelsayfamWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = OtelsayfamWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		6911D73E04D7AEDFD953C275 /* OtelsayfamTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = OtelsayfamTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B60E52861A33B7DDB19EDB95 /* OtelsayfamUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = OtelsayfamUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -32,16 +58,46 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		6113DF98B214E9438AC69FE8 /* OtelsayfamTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
 			path = OtelsayfamTests;
+			sourceTree = "<group>";
+		};
+		67C1378770400E2ED4CE609D /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Shared;
 			sourceTree = "<group>";
 		};
 		6E790F32B19AA9E85F62F167 /* Otelsayfam */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
 			path = Otelsayfam;
+			sourceTree = "<group>";
+		};
+		7B27538917DA50F621B7062D /* OtelsayfamWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = OtelsayfamWidgets;
 			sourceTree = "<group>";
 		};
 		97377B904E33171B9E5E8B26 /* OtelsayfamUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
 			path = OtelsayfamUITests;
 			sourceTree = "<group>";
 		};
@@ -54,6 +110,8 @@
 				6E790F32B19AA9E85F62F167 /* Otelsayfam */,
 				6113DF98B214E9438AC69FE8 /* OtelsayfamTests */,
 				97377B904E33171B9E5E8B26 /* OtelsayfamUITests */,
+				7B27538917DA50F621B7062D /* OtelsayfamWidgets */,
+				67C1378770400E2ED4CE609D /* Shared */,
 				D7EFB60404FDAA6693DB9242 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -64,6 +122,7 @@
 				1971652B23F451FF4D4A6EB7 /* Otelsayfam.app */,
 				6911D73E04D7AEDFD953C275 /* OtelsayfamTests.xctest */,
 				B60E52861A33B7DDB19EDB95 /* OtelsayfamUITests.xctest */,
+				2178D92DD2DF55CE9D5F84A6 /* OtelsayfamWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -71,19 +130,45 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		6F746183A5DBD24192CC18A6 /* Otelsayfam */ = {
+		64FACB09045D1FCE26260A0D /* OtelsayfamWidgets */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 82147E9B24183B929AB5D3B9 /* Build configuration list for PBXNativeTarget "Otelsayfam" */;
+			buildConfigurationList = 337E395E65ED6DAA8C91E78A /* Build configuration list for PBXNativeTarget "OtelsayfamWidgets" */;
 			buildPhases = (
-				3301B0E7B9F8594F6E225CB5 /* Sources */,
-				60B0578F6BF7E706E2D45629 /* Resources */,
+				F129D3AB48E85B68E479BD7D /* Sources */,
+				80A003587E83FDA68AB14212 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				7B27538917DA50F621B7062D /* OtelsayfamWidgets */,
+				67C1378770400E2ED4CE609D /* Shared */,
+			);
+			name = OtelsayfamWidgets;
+			packageProductDependencies = (
+			);
+			productName = OtelsayfamWidgets;
+			productReference = 2178D92DD2DF55CE9D5F84A6 /* OtelsayfamWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		6F746183A5DBD24192CC18A6 /* Otelsayfam */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 82147E9B24183B929AB5D3B9 /* Build configuration list for PBXNativeTarget "Otelsayfam" */;
+			buildPhases = (
+				3301B0E7B9F8594F6E225CB5 /* Sources */,
+				60B0578F6BF7E706E2D45629 /* Resources */,
+				A865D7C2A36A55D1D17732FB /* Embed Foundation Extensions */,
+				AC49FD181D572C2BB30FF781 /* Debug: şifresiz bağlantı izni (önizleme sunucusu) */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2A634AFC0ADA027F3D980BAA /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
 				6E790F32B19AA9E85F62F167 /* Otelsayfam */,
+				67C1378770400E2ED4CE609D /* Shared */,
 			);
 			name = Otelsayfam;
 			packageProductDependencies = (
@@ -145,6 +230,10 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					64FACB09045D1FCE26260A0D = {
+						DevelopmentTeam = KRQ4U9G63K;
+						ProvisioningStyle = Automatic;
+					};
 					6F746183A5DBD24192CC18A6 = {
 						DevelopmentTeam = KRQ4U9G63K;
 						ProvisioningStyle = Automatic;
@@ -161,11 +250,11 @@
 				};
 			};
 			buildConfigurationList = EA477A999D0FB0813B795ACE /* Build configuration list for PBXProject "Otelsayfam" */;
-			developmentRegion = en;
+			developmentRegion = tr;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				Base,
-				en,
+				tr,
 			);
 			mainGroup = CBCC4CB75BA582EE1F584DE3;
 			minimizedProjectReferenceProxies = 1;
@@ -175,6 +264,7 @@
 			projectRoot = "";
 			targets = (
 				6F746183A5DBD24192CC18A6 /* Otelsayfam */,
+				64FACB09045D1FCE26260A0D /* OtelsayfamWidgets */,
 				9545E749F4FE67D3FE7C3878 /* OtelsayfamTests */,
 				CD55F83EA17BFFFCC0ECC6FE /* OtelsayfamUITests */,
 			);
@@ -196,6 +286,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		80A003587E83FDA68AB14212 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D4B00394F1D4F739671A482A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -204,6 +301,29 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		AC49FD181D572C2BB30FF781 /* Debug: şifresiz bağlantı izni (önizleme sunucusu) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Debug: şifresiz bağlantı izni (önizleme sunucusu)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"$CONFIGURATION\" = \"Debug\" ]; then\n  PLIST=\"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n  /usr/libexec/PlistBuddy -c \"Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true\" \"$PLIST\" 2>/dev/null \\\n    || /usr/libexec/PlistBuddy -c \"Set :NSAppTransportSecurity:NSAllowsArbitraryLoads true\" \"$PLIST\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		3301B0E7B9F8594F6E225CB5 /* Sources */ = {
@@ -227,6 +347,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F129D3AB48E85B68E479BD7D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -234,6 +361,11 @@
 			isa = PBXTargetDependency;
 			target = 6F746183A5DBD24192CC18A6 /* Otelsayfam */;
 			targetProxy = E22327ED2B4A19A8B2576716 /* PBXContainerItemProxy */;
+		};
+		2A634AFC0ADA027F3D980BAA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 64FACB09045D1FCE26260A0D /* OtelsayfamWidgets */;
+			targetProxy = 32A86436F045DAEFE51D1846 /* PBXContainerItemProxy */;
 		};
 		E20E4752A6B43A72702629D2 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -243,6 +375,24 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		051C50935BC21C3AC14E8F1E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Config/AppGroup.entitlements;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/Widgets-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gbsoft.otelsayfam.widgets;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		1C07661EBFBEC31F79A25BD3 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -298,6 +448,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 0.1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -305,9 +456,11 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -332,6 +485,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Config/AppGroup.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Config/Info.plist;
@@ -412,15 +566,36 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 0.1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		6C4C0C0F69C1309858CB7316 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Config/AppGroup.entitlements;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/Widgets-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gbsoft.otelsayfam.widgets;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -445,6 +620,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Config/AppGroup.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Config/Info.plist;
@@ -479,6 +655,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		337E395E65ED6DAA8C91E78A /* Build configuration list for PBXNativeTarget "OtelsayfamWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				051C50935BC21C3AC14E8F1E /* Debug */,
+				6C4C0C0F69C1309858CB7316 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		82147E9B24183B929AB5D3B9 /* Build configuration list for PBXNativeTarget "Otelsayfam" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

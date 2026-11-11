@@ -41,7 +41,7 @@ struct GuideView: View {
             .toolbarBackground(theme.surface, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(model.speaksAnswers ? "Sesli yanıtı kapat" : "Sesli yanıtı aç",
+                    Button(model.speaksAnswers ? String(localized: "Sesli yanıtı kapat") : String(localized: "Sesli yanıtı aç"),
                            systemImage: model.speaksAnswers ? "speaker.wave.2.fill" : "speaker.slash") {
                         model.speaksAnswers.toggle()
                     }
@@ -70,11 +70,10 @@ struct GuideView: View {
 
     private var intro: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Eyebrow(model.hotelName)
             Text("Merak ettiğinizi sorun.")
                 .font(theme.display(26, style: .title2))
                 .foregroundStyle(theme.isDark ? theme.text : theme.navy)
-            Text("Cevaplar otelin girdiği bilgilerden gelir. Bilgi yoksa uydurmaz; sorunuzu ekibimize iletmenizi önerir.")
+            Text("Cevaplar \(model.hotelName) için girilen bilgilerden gelir. Bilgi yoksa uydurmaz; sorunuzu ekibimize iletmenizi önerir.")
                 .font(theme.body(14))
                 .foregroundStyle(theme.textDim)
         }
@@ -98,7 +97,7 @@ struct GuideView: View {
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 8)
                                 .background(theme.surface, in: .capsule)
-                                .overlay(Capsule().strokeBorder(theme.lineStrong))
+                                .overlay { Capsule().strokeBorder(theme.lineStrong) }
                         }
                     }
                     .padding(.horizontal)
@@ -106,7 +105,7 @@ struct GuideView: View {
                 .scrollIndicators(.hidden)
             }
             HStack(alignment: .bottom, spacing: 8) {
-                Button(voice.isListening ? "Dinlemeyi bitir ve gönder" : "Sesli sor",
+                Button(voice.isListening ? String(localized: "Dinlemeyi bitir ve gönder") : String(localized: "Sesli sor"),
                        systemImage: voice.isListening ? "waveform.circle.fill" : "mic.circle") {
                     toggleListening()
                 }
@@ -115,7 +114,7 @@ struct GuideView: View {
                 .foregroundStyle(voice.isListening ? Color.red : theme.primary)
                 .symbolEffect(.variableColor.iterative, isActive: voice.isListening)
                 .disabled(model.isAnswering)
-                TextField(voice.isListening ? "Dinliyorum…" : "Sorunuzu yazın…", text: $draft, axis: .vertical)
+                TextField(voice.isListening ? String(localized: "Dinliyorum…") : String(localized: "Sorunuzu yazın…"), text: $draft, axis: .vertical)
                     .lineLimit(1...4)
                     .focused($inputFocused)
                     .submitLabel(.send)
@@ -125,7 +124,7 @@ struct GuideView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(theme.surface2, in: .rect(cornerRadius: 20))
-                    .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(theme.line))
+                    .overlay { RoundedRectangle(cornerRadius: 20).strokeBorder(theme.line) }
                 if model.isAnswering {
                     Button("Durdur", systemImage: "stop.circle.fill") { model.cancel() }
                         .labelStyle(.iconOnly)
@@ -187,8 +186,10 @@ private struct GuideMessageView: View {
                 ForEach(Array(message.facts.enumerated()), id: \.offset) { _, card in
                     FactCardView(card: card)
                 }
-                ForEach(message.prices, id: \.roomSlug) { card in
+                if message.prices.count == 1, let card = message.prices.first {
                     PriceCardView(card: card)
+                } else if message.prices.count > 1 {
+                    RoomPriceList(cards: message.prices)
                 }
                 if message.text.isEmpty && isStreaming {
                     TypingIndicator()
@@ -214,40 +215,113 @@ private struct GuideMessageView: View {
     }
 }
 
+/// Birden çok oda için fiyat cevabı: ortak bilgiler (tarih, gece, kişi,
+/// pansiyon, müsaitlik notu) üstte bir kez; altta tek kartta oda satırları.
+private struct RoomPriceList: View {
+    @Environment(\.theme) private var theme
+    let cards: [PriceCard]
+
+    var body: some View {
+        let shared = sharedLines
+        let sharedLabels = Set(shared.map(\.label))
+        let short = shared.filter { $0.value.count <= 32 }
+        let notes = shared.filter { $0.value.count > 32 }.map(\.value)
+            + (cards.allSatisfy(\.priceOnRequest) ? [String(localized: "Fiyat talep üzerine verilir.")] : [])
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 0) {
+                if !short.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) { PriceLines(lines: short) }
+                        .padding(14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(theme.surface2)
+                    Divider().overlay(theme.line)
+                }
+                ForEach(Array(cards.enumerated()), id: \.element.roomSlug) { index, card in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(card.roomName)
+                            .font(theme.display(17, style: .headline))
+                            .foregroundStyle(theme.isDark ? theme.text : theme.navy)
+                        PriceLines(lines: card.lines.filter { !sharedLabels.contains($0.label) })
+                    }
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityElement(children: .combine)
+                    if index < cards.count - 1 { Divider().overlay(theme.line) }
+                }
+            }
+            .cardSurface()
+            ForEach(notes, id: \.self) { note in
+                Label(note, systemImage: "info.circle")
+                    .font(theme.body(13))
+                    .foregroundStyle(theme.textDim)
+            }
+        }
+    }
+
+    private var sharedLines: [PriceCard.Line] {
+        guard let first = cards.first else { return [] }
+        return first.lines.filter { line in
+            cards.allSatisfy { card in card.lines.contains { $0.label == line.label && $0.value == line.value } }
+        }
+    }
+}
+
+private struct PriceLines: View {
+    @Environment(\.theme) private var theme
+    let lines: [PriceCard.Line]
+
+    var body: some View {
+        ForEach(lines, id: \.label) { line in
+            HStack(alignment: .top) {
+                Text(line.label).foregroundStyle(theme.textDim)
+                Spacer(minLength: 12)
+                Text(line.value).foregroundStyle(theme.text).multilineTextAlignment(.trailing)
+            }
+            .font(theme.body(14))
+        }
+    }
+}
+
+/// Kaynak kartı: türünü renkli simge ve etiketle söyler; zemin aynı rengin
+/// çok açık tonu. (Sol kenar çizgili kart kalıbı kullanılmaz.)
 private struct FactCardView: View {
     @Environment(\.theme) private var theme
     let card: FactCard
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Label(card.label, systemImage: symbol)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(color)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: symbol)
+                    .font(.caption.weight(.bold))
+                Text(card.label)
+                    .font(theme.body(12, weight: 700))
+                    .textCase(.uppercase)
+                    .tracking(0.6)
+            }
+            .foregroundStyle(color)
             if let title = card.title { Text(title).font(theme.body(15, weight: 700)).foregroundStyle(theme.text) }
-            Text(card.text).font(theme.body(15)).foregroundStyle(theme.text)
+            Text(card.text).font(theme.body(15)).foregroundStyle(theme.text).lineSpacing(2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(theme.surface, in: .rect(cornerRadius: theme.radiusMedium))
-        .overlay(alignment: .leading) { Rectangle().fill(color).frame(width: 3) }
-        .clipShape(.rect(cornerRadius: theme.radiusMedium))
-        .overlay(RoundedRectangle(cornerRadius: theme.radiusMedium).strokeBorder(theme.line))
+        .padding(14)
+        .background(color.opacity(theme.isDark ? 0.14 : 0.07), in: .rect(cornerRadius: theme.radiusMedium, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 
     private var color: Color {
         switch card.kind {
-        case "verified": Color(hex: 0x0CA678)
-        case "policy": Color(hex: 0x1C7ED6)
-        default: Color(hex: 0xF08C00)
+        case "verified": Color(hex: 0x0B7A5A)
+        case "policy": Color(hex: 0x1960A8)
+        default: Color(hex: 0xA25E00)
         }
     }
 
     private var symbol: String {
         switch card.kind {
         case "verified": "checkmark.seal.fill"
-        case "policy": "doc.text"
-        default: "quote.bubble"
+        case "policy": "doc.text.fill"
+        default: "quote.bubble.fill"
         }
     }
 }
@@ -259,16 +333,9 @@ private struct PriceCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(card.roomName).font(theme.display(17, style: .headline)).foregroundStyle(theme.isDark ? theme.text : theme.navy)
-            ForEach(card.lines, id: \.label) { line in
-                HStack(alignment: .top) {
-                    Text(line.label).foregroundStyle(theme.textDim)
-                    Spacer(minLength: 12)
-                    Text(line.value).foregroundStyle(theme.text).multilineTextAlignment(.trailing)
-                }
-                .font(theme.body(14))
-            }
+            PriceLines(lines: card.lines)
             if card.priceOnRequest {
-                Text("Fiyat talep üzerine verilir.").font(.caption).foregroundStyle(.secondary)
+                Text("Fiyat talep üzerine verilir.").font(theme.body(12)).foregroundStyle(theme.textDim)
             }
         }
         .padding(14)

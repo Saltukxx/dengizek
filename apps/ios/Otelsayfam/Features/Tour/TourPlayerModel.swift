@@ -76,7 +76,7 @@ final class TourPlayerModel {
 
     private func loadCurrentStep() {
         guard let step = machine.current, let url = resolve(step.media.src) else {
-            machine.fail("Bu adımın videosu bulunamadı.")
+            machine.fail(String(localized: "Bu adımın videosu bulunamadı."))
             return
         }
         statusTask?.cancel()
@@ -109,7 +109,7 @@ final class TourPlayerModel {
             for await status in item.publisher(for: \.status).values {
                 guard let self else { return }
                 switch status {
-                case .failed: self.machine.fail("Video oynatılamadı. Bağlantınızı kontrol edip tekrar deneyin.")
+                case .failed: self.machine.fail(String(localized: "Video oynatılamadı. Bağlantınızı kontrol edip tekrar deneyin."))
                 default: break
                 }
             }

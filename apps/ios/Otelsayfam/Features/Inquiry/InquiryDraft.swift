@@ -10,7 +10,6 @@ struct InquiryDraft: Equatable, Sendable {
 
     var name = ""
     var email = ""
-    var phone = ""
     var message = ""
     var hasDates = false
     var checkIn = Calendar.current.startOfDay(for: .now).addingTimeInterval(7 * 86_400)
@@ -22,18 +21,25 @@ struct InquiryDraft: Equatable, Sendable {
 
     /// Formdaki ilk hatanın açıklaması; geçerliyse nil.
     var validationError: String? {
-        if name.trimmed.isEmpty { return "Adınızı yazın." }
-        if !email.trimmed.isPlausibleEmail { return "Geçerli bir e-posta adresi yazın." }
-        if message.trimmed.isEmpty { return "Mesajınızı yazın." }
-        if hasDates && checkOut <= checkIn { return "Çıkış tarihi girişten sonra olmalı." }
+        if name.trimmed.isEmpty { return String(localized: "Adınızı yazın.") }
+        if !email.trimmed.isPlausibleEmail { return String(localized: "Geçerli bir e-posta adresi yazın.") }
+        if message.trimmed.isEmpty { return String(localized: "Mesajınızı yazın.") }
+        if hasDates && checkOut <= checkIn { return String(localized: "Çıkış tarihi girişten sonra olmalı.") }
         return nil
     }
+
+    /// Kayıtlı ad ve e-posta; boş alanları doldurur, yazılmış olanı ezmez.
+    mutating func apply(_ profile: GuestProfile) {
+        if name.trimmed.isEmpty { name = profile.name }
+        if email.trimmed.isEmpty { email = profile.email }
+    }
+
+    var profile: GuestProfile { GuestProfile(name: name.trimmed, email: email.trimmed) }
 
     func body(hotelSlug: String, source: Source, tourId: String?) -> InquiryRequest {
         InquiryRequest(
             name: name.trimmed,
             email: email.trimmed,
-            phone: phone.trimmed.isEmpty ? nil : phone.trimmed,
             message: message.trimmed,
             marketingConsent: marketingConsent,
             hotelSlug: hotelSlug,
@@ -44,7 +50,7 @@ struct InquiryDraft: Equatable, Sendable {
             roomSlug: roomSlug,
             tourId: tourId,
             source: source.rawValue,
-            locale: "tr",
+            locale: Locale.current.language.languageCode?.identifier ?? "tr",
             visitId: DeviceID.current
         )
     }
@@ -57,7 +63,6 @@ struct InquiryDraft: Equatable, Sendable {
 struct InquiryRequest: Encodable, Sendable {
     let name: String
     let email: String
-    let phone: String?
     let message: String
     let marketingConsent: Bool
     let hotelSlug: String

@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Web otel kartı (.er-hotel-card): 16:9 görsel + "Video tur" etiketi,
-/// başlık, şehir · yıldız, kısa açıklama, öne çıkan olanaklar, fiyat.
+/// Otel kartı: 16:9 görsel + "Video tur" etiketi, başlık, şehir · yıldız,
+/// öne çıkan olanaklar, fiyat. Uzun açıklama otel sayfasında; kartta iki
+/// satırda kesilen metin karar için bilgi vermiyordu.
 struct HotelCardView: View {
     @Environment(\.theme) private var theme
     let hotel: HotelCard
@@ -23,7 +24,7 @@ struct HotelCardView: View {
                         .foregroundStyle(theme.isDark ? theme.text : theme.navy)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if let average = hotel.reviewAverage, hotel.reviewCount > 0 {
-                        Text(average.formatted(.number.precision(.fractionLength(1)).locale(Locale(identifier: "tr_TR"))))
+                        Text(Formatting.rating(average))
                             .font(theme.body(15, weight: 700))
                             .foregroundStyle(theme.primary)
                             .padding(.horizontal, 10)
@@ -34,12 +35,6 @@ struct HotelCardView: View {
                 }
                 if let meta = metaLine {
                     Text(meta).font(theme.body(15)).foregroundStyle(theme.textDim)
-                }
-                if let description = hotel.shortDescription {
-                    Text(description)
-                        .font(theme.body(15))
-                        .foregroundStyle(theme.textMuted)
-                        .lineLimit(2)
                 }
                 if !hotel.highlights.isEmpty {
                     Text(hotel.highlights.joined(separator: " · "))
@@ -59,7 +54,7 @@ struct HotelCardView: View {
     private var metaLine: String? {
         var parts: [String] = []
         if let city = hotel.city { parts.append(city) }
-        if let stars = hotel.starRating, stars > 0 { parts.append("\(stars) yıldızlı") }
+        if let stars = hotel.starRating, stars > 0 { parts.append(String(localized: "\(stars) yıldızlı")) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
@@ -93,14 +88,14 @@ struct HotelCardView: View {
                 Text(Formatting.price(price))
                     .font(theme.display(24, style: .title2))
                     .foregroundStyle(theme.primary)
-                Text(price.fromDate == nil ? "gecelik başlayan" : "gecelik · \(Formatting.priceNote(price))")
+                Text(price.fromDate == nil ? String(localized: "gecelik başlayan") : String(localized: "gecelik · \(Formatting.priceNote(price))"))
                     .font(theme.body(14))
                     .foregroundStyle(theme.textDim)
             }
         } else {
-            Text("Fiyat için talep gönderin")
-                .font(theme.body(14))
-                .foregroundStyle(theme.textDim)
+            Label("Fiyat talep üzerine", systemImage: "envelope")
+                .font(theme.body(14, weight: 600))
+                .foregroundStyle(theme.textMuted)
         }
     }
 }

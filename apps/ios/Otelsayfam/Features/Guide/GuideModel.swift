@@ -17,7 +17,7 @@ struct GuideMessage: Identifiable, Equatable, Sendable {
 @MainActor
 @Observable
 final class GuideModel: Identifiable {
-    static let starterQuestions = ["Giriş-çıkış saatleri?", "Havuz var mı?", "Evcil hayvan kabul ediliyor mu?"]
+    static let starterQuestions = [String(localized: "Giriş-çıkış saatleri?"), String(localized: "Havuz var mı?"), String(localized: "Evcil hayvan kabul ediliyor mu?")]
 
     let hotelSlug: String
     let hotelName: String
@@ -103,7 +103,7 @@ final class GuideModel: Identifiable {
         speakPending(final: true)
         updateLast { message in
             if message.text.isEmpty && message.facts.isEmpty && message.prices.isEmpty && !message.failed {
-                message.text = "Bu soruya şu an cevap veremedim. Dilerseniz sorunuzu ekibimize iletebilirsiniz."
+                message.text = String(localized: "Bu soruya şu an cevap veremedim. Dilerseniz sorunuzu ekibimize iletebilirsiniz.")
                 message.suggestsInquiry = true
             }
         }

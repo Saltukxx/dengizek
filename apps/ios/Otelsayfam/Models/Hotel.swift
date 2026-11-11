@@ -8,9 +8,9 @@ enum Season: String, CaseIterable, Identifiable, Sendable, Codable {
 
     var title: String {
         switch self {
-        case .termal: "Termal"
-        case .yaz: "Yaz"
-        case .kis: "Kış"
+        case .termal: String(localized: "Termal")
+        case .yaz: String(localized: "Yaz")
+        case .kis: String(localized: "Kış")
         }
     }
 
@@ -126,6 +126,9 @@ struct HotelDetail: Codable, Hashable, Sendable {
     let longDescription: String?
     let imageUrl: String?
     let starRating: Int?
+    /// Kartla aynı "gecelik başlayan" fiyat; yoksa fiyat talep üzerine.
+    /// Eski sunucu bu alanı göndermez (opsiyonel çözülür).
+    let price: Price?
     let amenities: [String]
     let gallery: [GalleryImage]
     let rooms: [Room]
@@ -133,4 +136,56 @@ struct HotelDetail: Codable, Hashable, Sendable {
     let location: Location?
     let policies: Policies
     let contact: Contact
+    /// Yayındaki misafir yorumları (eski sunucu göndermez).
+    let reviews: ReviewSummary?
+}
+
+struct Review: Codable, Hashable, Identifiable, Sendable {
+    let id: String
+    let rating: Int
+    let title: String?
+    let body: String
+    let guestName: String
+    /// Konaklama tarihi (YYYY-MM-DD).
+    let stayDate: String?
+    let reply: String?
+    let createdAt: String
+
+    /// "Ekim 2026 konaklaması"; tarih yoksa nil.
+    var stayText: String? {
+        guard let stayDate, let text = Formatting.monthYear(stayDate) else { return nil }
+        return String(localized: "\(text) konaklaması")
+    }
+}
+
+struct ReviewSummary: Codable, Hashable, Sendable {
+    /// 1–5 arası ortalama; yorum yoksa nil.
+    let average: Double?
+    let count: Int
+    /// En yeni yorumlar (sunucu sınırlı sayıda gönderir).
+    let items: [Review]
+}
+
+extension Room {
+    /// Web'deki boardTypeLabels ile aynı etiketler.
+    var boardLabel: String {
+        switch boardType {
+        case "kahvalti-dahil": String(localized: "Kahvaltı dahil")
+        case "yarim-pansiyon": String(localized: "Yarım pansiyon")
+        case "tam-pansiyon": String(localized: "Tam pansiyon")
+        case "hersey-dahil": String(localized: "Her şey dahil")
+        default: String(localized: "Sadece oda")
+        }
+    }
+
+    var capacityText: String {
+        let adults = String(localized: "\(capacityAdults) yetişkin")
+        return capacityChildren > 0 ? adults + " + " + String(localized: "\(capacityChildren) çocuk") : adults
+    }
+
+    /// Kapak ve galeri, tekrarsız.
+    var images: [String] {
+        var seen = Set<String>()
+        return ([imageUrl].compactMap(\.self) + galleryUrls).filter { !$0.isEmpty && seen.insert($0).inserted }
+    }
 }

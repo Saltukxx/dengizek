@@ -36,26 +36,4 @@ extension Theme {
     func body(_ size: CGFloat = 16, weight: CGFloat = 400, style: UIFont.TextStyle = .body) -> Font {
         Typography.font(sansFamily, size: size, weight: weight, relativeTo: style)
     }
-
-    /// Üst başlık (.er-eyebrow): 12px, 600, büyük harf, geniş aralık.
-    var eyebrowFont: Font { body(12, weight: 600, style: .caption1) }
-}
-
-/// "OTELSAYFAM NEDEN FARKLI?" gibi bölüm üst başlığı.
-struct Eyebrow: View {
-    @Environment(\.theme) private var theme
-    let text: String
-    var color: Color?
-
-    init(_ text: String, color: Color? = nil) {
-        self.text = text
-        self.color = color
-    }
-
-    var body: some View {
-        Text(text.uppercased(with: Locale(identifier: "tr_TR")))
-            .font(theme.eyebrowFont)
-            .tracking(1.7)
-            .foregroundStyle(color ?? theme.cta)
-    }
 }

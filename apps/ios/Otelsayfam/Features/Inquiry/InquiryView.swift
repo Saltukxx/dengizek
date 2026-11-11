@@ -1,17 +1,25 @@
+import SwiftData
 import SwiftUI
 
 struct InquiryView: View {
     @Environment(\.api) private var api
+    @Environment(\.modelContext) private var context
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
     let hotelSlug: String
     let hotelName: String
+    /// "Talepleriniz" listesindeki küçük görsel.
+    var hotelImageUrl: String?
     let rooms: [Room]
     var source: InquiryDraft.Source = .hotelPage
     var tourId: String?
     var initialMessage = ""
+    /// Keşfet ya da otel sayfasında seçilen tarih ve kişi formu doldurur.
+    var stay: StaySearch?
+    var roomSlug: String?
 
     @State private var draft = InquiryDraft()
+    @State private var didPrefill = false
     @State private var isSending = false
     @State private var errorMessage: String?
     @State private var sentInquiryId: String?
@@ -29,23 +37,42 @@ struct InquiryView: View {
             .scrollContentBackground(.hidden)
             .background(theme.bg)
             .tint(theme.primary)
-            .navigationTitle(sent ? "" : "Talep gönder")
+            .navigationTitle(sent ? "" : String(localized: "Talep gönder"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(sent ? "Kapat" : "Vazgeç") { dismiss() }
+                    Button(sent ? String(localized: "Kapat") : String(localized: "Vazgeç")) { dismiss() }
                 }
             }
         }
-        .onAppear { if draft.message.isEmpty { draft.message = initialMessage } }
+        .onAppear(perform: prefill)
+        .sensoryFeedback(.success, trigger: sent) { _, isSent in isSent }
+        // Eksik alan ya da gönderilemedi: hata titreşimi, mesaj formda görünür.
+        .sensoryFeedback(.error, trigger: errorMessage) { _, message in message != nil }
         .interactiveDismissDisabled(isSending)
+    }
+
+    private func prefill() {
+        guard !didPrefill else { return }
+        didPrefill = true
+        draft.message = initialMessage
+        draft.roomSlug = roomSlug
+        draft.apply(GuestProfile.load())
+        if let stay {
+            draft.adults = stay.adults
+            draft.children = stay.childAges.count
+            if stay.hasDates, let checkIn = stay.checkIn, let checkOut = stay.checkOut {
+                draft.hasDates = true
+                draft.checkIn = checkIn
+                draft.checkOut = checkOut
+            }
+        }
     }
 
     private var form: some View {
         Form {
             Section {
                 VStack(alignment: .leading, spacing: 8) {
-                    Eyebrow("Talep")
                     Text(hotelName)
                         .font(theme.display(24, style: .title2))
                         .foregroundStyle(theme.isDark ? theme.text : theme.navy)
@@ -76,19 +103,19 @@ struct InquiryView: View {
             Section("İletişim") {
                 TextField("Ad Soyad", text: $draft.name)
                     .textContentType(.name)
+                    .accessibilityIdentifier("inquiry.name")
                 TextField("E-posta", text: $draft.email)
                     .textContentType(.emailAddress)
                     .keyboardType(.emailAddress)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                TextField("Telefon (isteğe bağlı)", text: $draft.phone)
-                    .textContentType(.telephoneNumber)
-                    .keyboardType(.phonePad)
+                    .accessibilityIdentifier("inquiry.email")
             }
 
             Section("Mesaj") {
                 TextField("Özel talepler, sorular…", text: $draft.message, axis: .vertical)
                     .lineLimit(4...10)
+                    .accessibilityIdentifier("inquiry.message")
             }
 
             Section {
@@ -107,6 +134,7 @@ struct InquiryView: View {
                 }
                 .buttonStyle(.otsCTA)
                 .disabled(isSending)
+                .accessibilityIdentifier("inquiry.send")
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
             }
@@ -122,7 +150,7 @@ struct InquiryView: View {
                 Text("Talebiniz alındı")
                     .font(theme.display(28, style: .title1))
                     .foregroundStyle(theme.isDark ? theme.text : theme.navy)
-                Text("Ekibimiz \(hotelName) için talebinizi inceleyip \(draft.email) adresine dönüş yapacak.")
+                Text("Ekibimiz \(hotelName) için talebinizi inceleyip \(draft.email) adresine dönüş yapacak. Talebiniz Kaydedilenler sekmesinde de duruyor.")
                     .font(theme.body(15))
                     .foregroundStyle(theme.textMuted)
                     .multilineTextAlignment(.center)
@@ -171,7 +199,7 @@ struct InquiryView: View {
                 try await api.registerPush(inquiryId: inquiryId, deviceToken: token)
                 pushState = .enabled
             } catch {
-                pushState = .failed("Bildirim açılamadı; cevap e-postanıza gelecek.")
+                pushState = .failed(String(localized: "Bildirim açılamadı; cevap e-postanıza gelecek."))
             }
         }
     }
@@ -186,8 +214,10 @@ struct InquiryView: View {
         Task {
             defer { isSending = false }
             do {
-                let id = try await api.sendInquiry(draft.body(hotelSlug: hotelSlug, source: source, tourId: tourId))
-                withAnimation { sentInquiryId = id }
+                let receipt = try await api.sendInquiry(draft.body(hotelSlug: hotelSlug, source: source, tourId: tourId))
+                draft.profile.save()
+                InquiryLog.record(receipt, draft: draft, hotelSlug: hotelSlug, hotelName: hotelName, imageUrl: hotelImageUrl, in: context)
+                withAnimation { sentInquiryId = receipt.id }
             } catch {
                 errorMessage = error.localizedDescription
             }
@@ -197,4 +227,5 @@ struct InquiryView: View {
 
 #Preview {
     InquiryView(hotelSlug: "orucoglu-thermal-hotel", hotelName: "Oruçoğlu Thermal Hotel", rooms: [])
+        .modelContainer(for: [SavedHotel.self, RecentHotel.self, SentInquiry.self], inMemory: true)
 }

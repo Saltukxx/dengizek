@@ -3,8 +3,11 @@ import SwiftUI
 struct SearchView: View {
     @Environment(\.api) private var api
     @Environment(\.theme) private var theme
+    @Environment(StayStore.self) private var store
     @State private var query = ""
     @State private var state: Loadable<[HotelCard]>?
+    /// Sonuçlar ekrandayken yeni arama sürüyor: eski sonuçlar soluk kalır.
+    @State private var isReloading = false
 
     var body: some View {
         ScrollView {
@@ -12,7 +15,6 @@ struct SearchView: View {
                 switch state {
                 case nil:
                     VStack(alignment: .leading, spacing: 8) {
-                        Eyebrow("Otel ara")
                         Text("Otel adı ya da şehir yazın.")
                             .font(theme.display(26, style: .title2))
                             .foregroundStyle(theme.isDark ? theme.text : theme.navy)
@@ -22,29 +24,48 @@ struct SearchView: View {
                     }
                     .padding(.top, 8)
                 case .loading:
-                    ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
-                case .failed(let message):
-                    ErrorStateView(message: message) { await search() }
+                    VStack(spacing: 12) {
+                        ForEach(0..<4, id: \.self) { _ in HotelRowSkeleton() }
+                    }
+                    .skeleton()
+                case .failed(let error):
+                    ErrorStateView(error: error) { await search() }
                 case .loaded(let hotels) where hotels.isEmpty:
-                    ContentUnavailableView.search(text: query)
+                    StateMessageView(
+                        symbol: "magnifyingglass",
+                        title: String(localized: "Sonuç yok"),
+                        message: String(localized: "“\(query)” ile eşleşen otel bulunamadı. Otel adını ya da şehri deneyin.")
+                    )
                 case .loaded(let hotels):
-                    Eyebrow("\(hotels.count) sonuç")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(hotels.count) sonuç")
+                            .font(theme.body(14, weight: 600))
+                            .foregroundStyle(theme.textDim)
+                        // Keşfet'te seçilen tarih ve kişi aramada da geçerli.
+                        if !store.stay.isEmpty {
+                            Text([store.stay.datesSummary, store.stay.partySummary].compactMap(\.self).joined(separator: " · "))
+                                .font(theme.body(13))
+                                .foregroundStyle(theme.textDim)
+                        }
+                    }
                     ForEach(hotels) { hotel in
                         NavigationLink(value: hotel) { HotelRow(summary: hotel.summary, detail: hotel.highlights.joined(separator: " · ")) }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.pressScaleRow)
                             .accessibilityIdentifier("search-result-\(hotel.slug)")
+                            .opacity(isReloading ? 0.45 : 1)
                     }
                 }
             }
             .padding(16)
+            .readableWidth()
         }
         .background(theme.bg)
-        .navigationTitle("Ara")
-        .searchable(text: $query, prompt: "Otel, şehir…")
+        .brandedNavigationTitle(String(localized: "Ara"))
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Otel, şehir…")
         .navigationDestination(for: HotelCard.self) { hotel in
             HotelDetailView(slug: hotel.slug, title: hotel.name)
         }
-        .task(id: query) {
+        .task(id: SearchKey(query: query, stay: store.stay)) {
             // Yazarken her tuşta istek atmamak için kısa bekleme.
             try? await Task.sleep(for: .milliseconds(350))
             guard !Task.isCancelled else { return }
@@ -52,16 +73,23 @@ struct SearchView: View {
         }
     }
 
+    /// Yazı ya da seçili konaklama değişince yeniden aranır.
+    private struct SearchKey: Equatable {
+        let query: String
+        let stay: StaySearch
+    }
+
     private func search() async {
         let text = query.trimmingCharacters(in: .whitespaces)
         guard text.count >= 2 else { state = nil; return }
-        state = .loading
+        if state?.value == nil { state = .loading } else { isReloading = true }
         do {
-            state = .loaded(try await api.hotels(query: text))
+            state = .loaded(try await api.hotels(query: text, stay: store.stay))
         } catch is CancellationError {
         } catch {
-            state = .failed(error.localizedDescription)
+            state = .failed(APIError(error))
         }
+        if !Task.isCancelled { isReloading = false }
     }
 }
 

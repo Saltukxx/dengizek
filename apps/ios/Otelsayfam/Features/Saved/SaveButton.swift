@@ -4,6 +4,7 @@ import SwiftUI
 /// Kalp düğmesi: oteli kaydeder ya da kayıttan çıkarır.
 struct SaveButton: View {
     @Environment(\.modelContext) private var context
+    @Environment(\.api) private var api
     @Query private var matches: [SavedHotel]
     let hotel: HotelSummary
     var style: Style = .overlay
@@ -20,8 +21,10 @@ struct SaveButton: View {
     private var isSaved: Bool { !matches.isEmpty }
 
     var body: some View {
-        Button(isSaved ? "Kayıttan çıkar" : "Kaydet", systemImage: isSaved ? "heart.fill" : "heart") {
+        Button(isSaved ? String(localized: "Kayıttan çıkar") : String(localized: "Kaydet"), systemImage: isSaved ? "heart.fill" : "heart") {
+            let willBeSaved = !isSaved
             withAnimation(.snappy) { HotelLibrary.toggleSaved(hotel, in: context) }
+            Task { await PriceAlerts.shared.hotelChanged(slug: hotel.slug, saved: willBeSaved, api: api) }
         }
         .labelStyle(.iconOnly)
         .symbolEffect(.bounce, value: isSaved)

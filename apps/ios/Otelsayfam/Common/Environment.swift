@@ -9,5 +9,9 @@ extension EnvironmentValues {
 enum Loadable<Value: Sendable>: Sendable {
     case loading
     case loaded(Value)
-    case failed(String)
+    case failed(APIError)
+
+    var value: Value? {
+        if case .loaded(let value) = self { value } else { nil }
+    }
 }

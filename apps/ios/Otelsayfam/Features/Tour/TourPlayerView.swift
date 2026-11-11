@@ -33,7 +33,7 @@ struct TourPlayerView: View {
         .onDisappear { model.stop() }
         .sheet(item: $presentedGuide) { guide in
             GuideView(model: guide) { question in
-                InquiryView(hotelSlug: model.hotelSlug, hotelName: model.title ?? "Otel", rooms: [], source: .tour, tourId: model.tourId, initialMessage: question)
+                InquiryView(hotelSlug: model.hotelSlug, hotelName: model.title ?? String(localized: "Otel"), rooms: [], source: .tour, tourId: model.tourId, initialMessage: question)
             }
                 .environment(\.theme, theme)
                 .presentationDetents([.medium, .large])
@@ -43,7 +43,7 @@ struct TourPlayerView: View {
 
     private func openGuide() {
         if guide == nil {
-            let guide = GuideModel(hotelSlug: model.hotelSlug, hotelName: model.title ?? "Bu otel", tourId: model.tourId, api: api)
+            let guide = GuideModel(hotelSlug: model.hotelSlug, hotelName: model.title ?? String(localized: "Bu otel"), tourId: model.tourId, api: api)
             guide.onNavigate = { [model] stepId in model.go(toStepId: stepId) }
             guide.tourPosition = { [model] in (model.machine.current?.stepId ?? "", model.seenStepIds) }
             self.guide = guide
@@ -119,7 +119,7 @@ struct TourPlayerView: View {
                     }
                 }
             } else {
-                Button(model.machine.isLastStep ? "Turu bitir" : "Devam", systemImage: "play.fill") { model.continueTour() }
+                Button(model.machine.isLastStep ? String(localized: "Turu bitir") : String(localized: "Devam"), systemImage: "play.fill") { model.continueTour() }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
             }

@@ -14,8 +14,8 @@ struct TourScreen: View {
             switch state {
             case .loading:
                 ProgressView().tint(.white)
-            case .failed(let message):
-                ErrorStateView(message: message) { await load() }
+            case .failed(let error):
+                ErrorStateView(subject: .tour, error: error) { await load() }
                     .environment(\.colorScheme, .dark)
             case .loaded(let model):
                 TourPlayerView(model: model)
@@ -25,6 +25,9 @@ struct TourScreen: View {
             if case .loaded = state {} else { closeButton }
         }
         .task { await load() }
+        // Tur boyunca telefon yatay çevrilebilir; kapanınca uygulama dikeye döner.
+        .onAppear { OrientationLock.setLandscapeAllowed(true) }
+        .onDisappear { OrientationLock.setLandscapeAllowed(false) }
     }
 
     private var closeButton: some View {
@@ -42,7 +45,7 @@ struct TourScreen: View {
             state = .loaded(TourPlayerModel(tour: tour, resolve: api.resolve))
         } catch is CancellationError {
         } catch {
-            state = .failed(error.localizedDescription)
+            state = .failed(APIError(error))
         }
     }
 }

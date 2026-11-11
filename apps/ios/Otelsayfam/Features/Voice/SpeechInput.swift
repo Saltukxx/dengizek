@@ -32,7 +32,7 @@ final class SpeechInput {
             return
         }
         guard await Self.requestPermissions() else {
-            status = .denied("Sesli soru için Ayarlar'dan mikrofon ve konuşma tanıma iznini açın.")
+            status = .denied(String(localized: "Sesli soru için Ayarlar'dan mikrofon ve konuşma tanıma iznini açın."))
             return
         }
 

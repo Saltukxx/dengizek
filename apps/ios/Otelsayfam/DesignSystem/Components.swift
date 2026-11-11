@@ -17,6 +17,11 @@ struct CardSurface: ViewModifier {
 
 extension View {
     func cardSurface(radius: CGFloat? = nil) -> some View { modifier(CardSurface(radius: radius)) }
+
+    /// Geniş ekranda (iPad) içerik okunabilir genişlikte ortalanır; telefonda etkisiz.
+    func readableWidth(_ width: CGFloat = 760) -> some View {
+        frame(maxWidth: width).frame(maxWidth: .infinity)
+    }
 }
 
 /// Vitrin banner zemini: koyu degrade + hafif hale (web .er-showcase / page-banner).
@@ -104,5 +109,101 @@ enum AmenityIcon {
             ("klima", "snowflake"), ("transfer", "bus"), ("engelli", "figure.roll"), ("bahçe", "leaf"),
         ]
         return table.first { key.contains($0.0) }?.1 ?? "checkmark.circle"
+    }
+}
+
+/// Gezinme çubuğu başlığı marka yazı tipiyle (sistem büyük başlığı yerine);
+/// otel sayfası, Ara ve Kaydedilenler aynı başlığı kullanır.
+struct BrandedNavigationTitle: ViewModifier {
+    @Environment(\.theme) private var theme
+    let title: String
+
+    func body(content: Content) -> some View {
+        content
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(theme.headerBackground, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(title)
+                        .font(theme.body(16, weight: 700, style: .headline))
+                        .foregroundStyle(theme.text)
+                        .lineLimit(1)
+                }
+            }
+    }
+}
+
+extension View {
+    func brandedNavigationTitle(_ title: String) -> some View { modifier(BrandedNavigationTitle(title: title)) }
+}
+
+/// Kart ve satırlar parmağın altında hafifçe küçülür (gerçek basma hissi).
+/// Gezinme bağlantılarında kullanılır; dokunuş yine bağlantıya gider.
+struct PressScaleButtonStyle: ButtonStyle {
+    var scale: CGFloat = 0.97
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? scale : 1)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == PressScaleButtonStyle {
+    static var pressScale: PressScaleButtonStyle { PressScaleButtonStyle() }
+    /// Geniş satırlar için daha az küçülme.
+    static var pressScaleRow: PressScaleButtonStyle { PressScaleButtonStyle(scale: 0.985) }
+}
+
+/// Liste öğeleri ekrana sırayla, hafifçe yükselerek girer. "Hareketi azalt"
+/// açıksa yalnız saydamlık değişir.
+struct StaggeredEntrance: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let index: Int
+    let appeared: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(appeared ? 1 : 0)
+            .offset(y: appeared || reduceMotion ? 0 : 14)
+            .animation(.spring(response: 0.5, dampingFraction: 0.82).delay(0.06 + Double(min(index, 8)) * 0.06), value: appeared)
+    }
+}
+
+extension View {
+    func staggeredEntrance(index: Int, appeared: Bool) -> some View {
+        modifier(StaggeredEntrance(index: index, appeared: appeared))
+    }
+}
+
+/// Tutar değişince (tarih değişince fiyat) yalnız rakamlar yuvarlanır; para
+/// birimi işareti yerinde durur, rakamlarla birlikte dönünce titriyordu.
+/// "Hareketi azalt" açıksa yaylanma yok, kısa bir geçiş.
+struct RollingAmount: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let minor: Int
+    let currency: String
+
+    var body: some View {
+        let text = Formatting.amount(minor, currency: currency)
+        let parts = Self.split(text)
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            Text(parts.prefix)
+            Text(parts.number)
+                .contentTransition(.numericText(value: Double(minor)))
+            Text(parts.suffix)
+        }
+        .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.4, dampingFraction: 0.65), value: minor)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(text)
+    }
+
+    /// "₺52.500" → ("₺", "52.500", ""); işaret sonda da olabilir ("52.500 €").
+    static func split(_ text: String) -> (prefix: String, number: String, suffix: String) {
+        guard let first = text.firstIndex(where: \.isNumber), let last = text.lastIndex(where: \.isNumber) else {
+            return ("", text, "")
+        }
+        return (String(text[..<first]), String(text[first...last]), String(text[text.index(after: last)...]))
     }
 }

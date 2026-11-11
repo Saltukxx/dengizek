@@ -71,6 +71,25 @@ enum HotelLibrary {
             context.insert(SavedHotel(slug: hotel.slug, name: hotel.name, city: hotel.city, imageUrl: hotel.imageUrl))
         }
         try? context.save()
+        publish(in: context)
+    }
+
+    /// Kaydedilen otellerin kısa adları (fiyat bildirimi kayıtları için).
+    static func savedSlugs(in context: ModelContext) -> [String] {
+        ((try? context.fetch(FetchDescriptor<SavedHotel>())) ?? []).map(\.slug)
+    }
+
+    /// Uygulama dışındaki yüzeyleri günceller: iPhone araması (kaydedilenler ve
+    /// son bakılanlar) ve ana ekran widget'ı (kaydedilenler, en yeni üstte).
+    static func publish(in context: ModelContext) {
+        guard SpotlightIndex.isEnabled || WidgetSync.isEnabled else { return }
+        let saved = ((try? context.fetch(FetchDescriptor<SavedHotel>(sortBy: [SortDescriptor(\.savedAt, order: .reverse)]))) ?? [])
+            .map { HotelSummary(slug: $0.slug, name: $0.name, city: $0.city, imageUrl: $0.imageUrl) }
+        let recent = ((try? context.fetch(FetchDescriptor<RecentHotel>())) ?? [])
+            .map { HotelSummary(slug: $0.slug, name: $0.name, city: $0.city, imageUrl: $0.imageUrl) }
+        var seen = Set<String>()
+        SpotlightIndex.replace(with: (saved + recent).filter { seen.insert($0.slug).inserted })
+        WidgetSync.update(with: saved)
     }
 
     static func recordView(_ hotel: HotelSummary, in context: ModelContext) {
@@ -88,5 +107,6 @@ enum HotelLibrary {
         let all = (try? context.fetch(FetchDescriptor<RecentHotel>(sortBy: [SortDescriptor(\.viewedAt, order: .reverse)]))) ?? []
         for old in all.dropFirst(recentLimit) { context.delete(old) }
         try? context.save()
+        publish(in: context)
     }
 }
