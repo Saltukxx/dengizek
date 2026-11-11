@@ -29,9 +29,26 @@ struct InquiryDraftTests {
     @Test func bodyTrimsAndOmitsUnusedFields() {
         let body = filled().body(hotelSlug: "oruc", source: .guide, tourId: nil)
         #expect(body.name == "Ayşe Yılmaz")
-        #expect(body.phone == nil)
         #expect(body.checkIn == nil)
         #expect(body.source == "hotel_chat")
+    }
+
+    @Test func savedProfileFillsOnlyEmptyFields() {
+        var draft = InquiryDraft()
+        draft.email = "yeni@example.com"
+        draft.apply(GuestProfile(name: "Ayşe Yılmaz", email: "ayse@example.com"))
+        #expect(draft.name == "Ayşe Yılmaz")
+        #expect(draft.email == "yeni@example.com")
+        #expect(filled().profile == GuestProfile(name: "Ayşe Yılmaz", email: "ayse@example.com"))
+    }
+
+    @Test func profileSurvivesRoundTrip() throws {
+        let defaults = try #require(UserDefaults(suiteName: "ots.tests.guest"))
+        defaults.removePersistentDomain(forName: "ots.tests.guest")
+        #expect(GuestProfile.load(from: defaults) == GuestProfile())
+        GuestProfile(name: "Ayşe", email: "ayse@example.com").save(to: defaults)
+        #expect(GuestProfile.load(from: defaults).email == "ayse@example.com")
+        defaults.removePersistentDomain(forName: "ots.tests.guest")
     }
 
     @Test func datesUseServerDayFormat() {

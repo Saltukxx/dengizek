@@ -18,6 +18,16 @@ struct PushCenterTests {
         #expect(center.pendingPage == nil)
     }
 
+    @Test func replyNotificationRecordsWhetherItWasOpened() {
+        let center = PushCenter()
+        center.received(inquiryId: "talep-1")
+        #expect(center.replyEvent?.inquiryId == "talep-1")
+        #expect(center.replyEvent?.opened == false)
+        center.open(userInfo: ["inquiryId": "talep-1", "portalUrl": "https://otelsayfam.com/inquiry/portal/abc"])
+        #expect(center.replyEvent?.opened == true)
+        #expect(center.pendingPage != nil)
+    }
+
     @Test func debugBuildsUseSandbox() {
         #expect(PushCenter.environment == "sandbox")
     }
