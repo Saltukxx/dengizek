@@ -16,7 +16,7 @@ settings:
     SWIFT_EMIT_LOC_STRINGS: YES
     LOCALIZATION_PREFERS_STRING_CATALOGS: YES
     MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "1"
+    CURRENT_PROJECT_VERSION: "3"
 targets:
   Otelsayfam:
     type: application
@@ -33,6 +33,8 @@ targets:
       path: Config/Info.plist
       properties:
         CFBundleDisplayName: Otelsayfam
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: tr
         CFBundleLocalizations: [tr, en, de, ru]
         # Yalnız HTTPS ve standart özet (SHA-256) kullanılır: ihracat belgesi gerekmez.
@@ -60,22 +62,24 @@ targets:
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
         OTSApiBaseURL: $(OTS_API_BASE_URL)
-    # Yalnız test (Debug) sürümü: önizleme sunucusu (http://64.226.108.21:8080)
-    # şifresiz. IP adresine ATS istisnası yazılamadığı için genel izin, derleme
-    # sırasında Debug'ın Info.plist'ine eklenir. Release'e girmez; alan adı +
-    # HTTPS gelince bu adım silinir. Widget'ın gömülmesinden sonra çalışır
-    # (önce çalışırsa Xcode derleme adımlarında döngü bildirir).
+    # Önizleme sunucusu (http://64.226.108.21:8080) şifresiz. IP adresine ATS
+    # istisnası yazılamadığı için genel izin derleme sırasında Info.plist'e
+    # eklenir. TestFlight (Release) derlemesi de bu sunucuya bağlandığından
+    # şimdilik her yapılandırmada çalışır; alan adı + HTTPS gelince bu adım
+    # silinir (App Store incelemesine bu izinle gidilmez). Widget'ın
+    # gömülmesinden sonra çalışır (önce çalışırsa Xcode derleme adımlarında
+    # döngü bildirir).
     postBuildScripts:
-      - name: "Debug: şifresiz bağlantı izni (önizleme sunucusu)"
+      - name: "Şifresiz bağlantı izni (önizleme sunucusu)"
         basedOnDependencyAnalysis: false
         inputFiles:
           - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
         script: |
-          if [ "$CONFIGURATION" = "Debug" ]; then
-            PLIST="$TARGET_BUILD_DIR/$INFOPLIST_PATH"
-            /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true" "$PLIST" 2>/dev/null \
-              || /usr/libexec/PlistBuddy -c "Set :NSAppTransportSecurity:NSAllowsArbitraryLoads true" "$PLIST"
-          fi
+          PLIST="$TARGET_BUILD_DIR/$INFOPLIST_PATH"
+          # NSAllowsLocalNetworking varken iOS genel izni yok sayar; ikisi birlikte olmaz.
+          /usr/libexec/PlistBuddy -c "Delete :NSAppTransportSecurity:NSAllowsLocalNetworking" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true" "$PLIST" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Set :NSAppTransportSecurity:NSAllowsArbitraryLoads true" "$PLIST"
     # Bildirimler (APNs): Xcode > Settings > Accounts'a Apple hesabı eklenince
     # aşağıdaki üç satırı açın; yoksa genel imza profili bu yetkiyi içermediği
     # için cihaz derlemesi başarısız olur. Sunucu tarafı APNS_* değişkenlerini ister.
@@ -86,6 +90,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gbsoft.otelsayfam
         GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # App Group (widget ile ortak klasör) şimdilik yalnız simülatörde açık:
         # cihaz derlemesi için grubun Apple hesabında tanımlı olması gerekir.
         # Hesap eklenince bu satır (uygulama ve widget'ta) koşulsuz
@@ -94,8 +99,9 @@ targets:
       configs:
         Debug:
           OTS_API_BASE_URL: http://localhost:3000
+        # TestFlight: alan adı gelene kadar önizleme sunucusu.
         Release:
-          OTS_API_BASE_URL: https://example.invalid
+          OTS_API_BASE_URL: http://64.226.108.21:8080
   OtelsayfamWidgets:
     type: app-extension
     platform: iOS
@@ -108,11 +114,14 @@ targets:
       path: Config/Widgets-Info.plist
       properties:
         CFBundleDisplayName: Otelsayfam
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
-        # Geliştirmede fiyatlar yerel sunucudan (localhost) tazelenir.
+        # Fiyatlar şifresiz önizleme sunucusundan (ya da localhost) tazelenir;
+        # alan adı + HTTPS gelince kaldırılır.
         NSAppTransportSecurity:
-          NSAllowsLocalNetworking: true
+          NSAllowsArbitraryLoads: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gbsoft.otelsayfam.widgets

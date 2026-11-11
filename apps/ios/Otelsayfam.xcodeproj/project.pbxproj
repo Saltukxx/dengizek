@@ -159,7 +159,7 @@
 				3301B0E7B9F8594F6E225CB5 /* Sources */,
 				60B0578F6BF7E706E2D45629 /* Resources */,
 				A865D7C2A36A55D1D17732FB /* Embed Foundation Extensions */,
-				AC49FD181D572C2BB30FF781 /* Debug: şifresiz bağlantı izni (önizleme sunucusu) */,
+				8E842095D282401794493AFD /* Şifresiz bağlantı izni (önizleme sunucusu) */,
 			);
 			buildRules = (
 			);
@@ -303,7 +303,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		AC49FD181D572C2BB30FF781 /* Debug: şifresiz bağlantı izni (önizleme sunucusu) */ = {
+		8E842095D282401794493AFD /* Şifresiz bağlantı izni (önizleme sunucusu) */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -314,14 +314,14 @@
 			inputPaths = (
 				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
 			);
-			name = "Debug: şifresiz bağlantı izni (önizleme sunucusu)";
+			name = "Şifresiz bağlantı izni (önizleme sunucusu)";
 			outputFileListPaths = (
 			);
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"$CONFIGURATION\" = \"Debug\" ]; then\n  PLIST=\"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n  /usr/libexec/PlistBuddy -c \"Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true\" \"$PLIST\" 2>/dev/null \\\n    || /usr/libexec/PlistBuddy -c \"Set :NSAppTransportSecurity:NSAllowsArbitraryLoads true\" \"$PLIST\"\nfi\n";
+			shellScript = "PLIST=\"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n# NSAllowsLocalNetworking varken iOS genel izni yok sayar; ikisi birlikte olmaz.\n/usr/libexec/PlistBuddy -c \"Delete :NSAppTransportSecurity:NSAllowsLocalNetworking\" \"$PLIST\" 2>/dev/null || true\n/usr/libexec/PlistBuddy -c \"Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true\" \"$PLIST\" 2>/dev/null \\\n  || /usr/libexec/PlistBuddy -c \"Set :NSAppTransportSecurity:NSAllowsArbitraryLoads true\" \"$PLIST\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -428,7 +428,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = KRQ4U9G63K;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -493,7 +493,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				OTS_API_BASE_URL = "https://example.invalid";
+				OTS_API_BASE_URL = "http://64.226.108.21:8080";
 				PRODUCT_BUNDLE_IDENTIFIER = com.gbsoft.otelsayfam;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -552,7 +552,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = KRQ4U9G63K;
 				ENABLE_NS_ASSERTIONS = NO;
