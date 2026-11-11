@@ -747,6 +747,27 @@ export const inquiryPushTargetsTable = pgTable("inquiry_push_targets", {
 }));
 
 // ---------------------------------------------------------------------------
+// price_alert_targets — iOS uygulamasında "fiyat düşünce haber ver" diyen
+// misafirin cihaz kimliği, kaydettiği otele bağlı. Hesap yok. Günlük cron
+// (/api/internal/price-alerts) fiyatı `lastPriceMinor` ile karşılaştırır.
+// ---------------------------------------------------------------------------
+
+export const priceAlertTargetsTable = pgTable("price_alert_targets", {
+  id:             uuid("id").defaultRandom().primaryKey(),
+  hotelId:        uuid("hotel_id").notNull().references(() => hotelsTable.id, { onDelete: "cascade" }),
+  deviceToken:    text("device_token").notNull(),
+  /** "sandbox" (Xcode/TestFlight geliştirme) | "production" (App Store) */
+  environment:    text("environment").notNull(),
+  /** Son görülen "gecelik başlayan" fiyat (kuruş); fiyat yoksa null. */
+  lastPriceMinor: integer("last_price_minor"),
+  lastNotifiedAt: timestamp("last_notified_at"),
+  createdAt:      timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  hotelTokenUnique: uniqueIndex("price_alert_targets_hotel_token_unique").on(table.hotelId, table.deviceToken),
+  tokenIdx: index("price_alert_targets_token_idx").on(table.deviceToken),
+}));
+
+// ---------------------------------------------------------------------------
 // reviews — misafir yorumları
 // ---------------------------------------------------------------------------
 
