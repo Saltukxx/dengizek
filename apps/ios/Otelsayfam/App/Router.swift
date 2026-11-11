@@ -10,6 +10,7 @@ final class Router {
 
     var tab: Tab = .explore
     var explorePath = NavigationPath()
+    var savedPath = NavigationPath()
 
     /// Bağlantı bir oteli gösteriyorsa Keşfet'te o otelin sayfasını açar.
     @discardableResult
@@ -23,6 +24,17 @@ final class Router {
         tab = .explore
         explorePath = NavigationPath([HotelSummary(slug: slug, name: "", city: nil, imageUrl: nil)])
     }
+
+    /// Kaydedilenler'de o talebin yazışmasını açar (cevap bildirimi).
+    func openInquiry(id: String) {
+        tab = .saved
+        savedPath = NavigationPath([InquiryRoute(id: id)])
+    }
+}
+
+/// Kaydedilenler yığınında talep yazışması.
+struct InquiryRoute: Hashable, Sendable {
+    let id: String
 }
 
 enum DeepLink {

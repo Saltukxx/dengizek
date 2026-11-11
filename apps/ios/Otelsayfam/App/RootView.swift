@@ -12,6 +12,7 @@ struct RootView: View {
     @State private var router = Router()
     @Environment(\.modelContext) private var context
     @Environment(\.api) private var api
+    @Environment(\.scenePhase) private var scenePhase
     @Query(filter: #Predicate<SentInquiry> { $0.hasUnreadReply }) private var unreadInquiries: [SentInquiry]
 
     private var theme: Theme { .forSeason(season) }
@@ -29,7 +30,7 @@ struct RootView: View {
                 }
             }
             Tab("Kaydedilenler", systemImage: "heart", value: Router.Tab.saved) {
-                NavigationStack {
+                NavigationStack(path: $router.savedPath) {
                     SavedView()
                 }
             }
@@ -55,13 +56,23 @@ struct RootView: View {
             HotelLibrary.publish(in: context)
             await PriceAlerts.shared.refresh(slugs: HotelLibrary.savedSlugs(in: context), api: api)
         }
+        // Uygulama öne gelince: bildirim izni olmasa da yeni cevap rozeti güncellenir.
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            await InquiryLog.checkReplies(in: context, api: api)
+        }
         .sheet(item: $push.pendingPage) { page in
             SafariView(url: page.url).ignoresSafeArea()
         }
-        // Cevap bildirimi: dokunulduysa yazışma açılır (okundu), yalnız göründüyse rozet kalır.
+        // Cevap bildirimi: dokunulduysa yazışma uygulamada açılır, yalnız
+        // göründüyse rozet kalır. Talep bu cihazda kayıtlı değilse (silinmiş,
+        // başka cihazdan gönderilmiş) bildirimin web sayfası açılır.
         .onChange(of: push.replyEvent, initial: true) { _, event in
             guard let event else { return }
             InquiryLog.markReply(inquiryId: event.inquiryId, unread: !event.opened, in: context)
+            guard event.opened, InquiryLog.find(event.inquiryId, in: context)?.portalToken != nil else { return }
+            push.pendingPage = nil
+            router.openInquiry(id: event.inquiryId)
         }
         .fullScreenCover(item: $debugTour) { target in
             TourScreen(hotelSlug: target.hotelSlug, tourId: target.tourId)

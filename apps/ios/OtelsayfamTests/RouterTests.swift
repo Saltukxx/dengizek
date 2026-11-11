@@ -57,3 +57,38 @@ struct ReviewTests {
         #expect(Formatting.rating(4.8) == "4,8")
     }
 }
+
+struct InquiryThreadTests {
+    @Test func decodesThreadAndCountsReplies() throws {
+        let json = Data(#"""
+        {"ok":true,"inquiry":{"id":"t1","name":"Deneme","status":"yanitlandi","hotelSlug":"oruc"},
+         "messages":[
+          {"id":"m1","senderRole":"guest","senderName":"Deneme","body":"Havuz açık mı?","createdAt":"2026-11-11T09:30:00.123Z","approvalStatus":"bekliyor"},
+          {"id":"m2","senderRole":"hotel","senderName":null,"body":"Evet, 22.00'ye kadar.","createdAt":"2026-11-11T10:00:00Z","approvalStatus":"onaylandi"}]}
+        """#.utf8)
+        let thread = try JSONDecoder().decode(InquiryThread.self, from: json)
+        #expect(thread.messages.count == 2)
+        #expect(thread.replyCount == 1)
+        #expect(thread.messages[0].isPending)
+        #expect(!thread.messages[1].isPending)
+        #expect(!thread.inquiry.isClosed)
+        #expect(thread.messages[1].createdAt.timeIntervalSince(thread.messages[0].createdAt) > 1700)
+    }
+
+    @Test func portalTokenComesFromPortalAddressOnly() {
+        func inquiry(_ url: String?) -> SentInquiry {
+            SentInquiry(id: "t", hotelSlug: "oruc", hotelName: "Oruçoğlu", imageUrl: nil, checkIn: nil, checkOut: nil, adults: 2, children: 0, message: "", portalUrl: url)
+        }
+        #expect(inquiry("https://otelsayfam.com/inquiry/portal/AbC_dEf-0123456789xyz").portalToken == "AbC_dEf-0123456789xyz")
+        #expect(inquiry("https://otelsayfam.com/hotels/AbC_dEf-0123456789xyz").portalToken == nil)
+        #expect(inquiry("javascript:alert(1)").portalToken == nil)
+        #expect(inquiry(nil).portalToken == nil)
+    }
+
+    @MainActor @Test func routerOpensInquiryInSavedTab() {
+        let router = Router()
+        router.openInquiry(id: "t1")
+        #expect(router.tab == .saved)
+        #expect(router.savedPath.count == 1)
+    }
+}

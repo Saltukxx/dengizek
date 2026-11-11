@@ -68,7 +68,18 @@ final class InquiryFlowUITests: XCTestCase {
         let row = app.buttons["inquiry-orucoglu-thermal-hotel"]
         XCTAssertTrue(row.waitForExistence(timeout: 5), "Gönderilen talep listede yok")
         XCTAssertTrue(row.isEnabled, "Yazışma bağlantısı gelmedi")
+
+        // Yazışma uygulamada açılır: ilk mesaj görünür, yeni mesaj gönderilir.
+        row.tap()
+        XCTAssertTrue(app.staticTexts["Arayuz testi: musaitlik var mi?"].waitForExistence(timeout: 10), "Yazışmada talep mesajı yok")
+        let input = app.descendants(matching: .any)["thread.input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 10), "Mesaj alanı yok")
+        input.tap()
+        input.typeText("Ek soru: otopark var mi?")
+        app.buttons["thread.send"].tap()
+        XCTAssertTrue(app.staticTexts["Ek soru: otopark var mi?"].waitForExistence(timeout: 10), "Gönderilen mesaj yazışmada görünmedi")
         let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "talep-yazismasi"
         shot.lifetime = .keepAlways
         add(shot)
     }

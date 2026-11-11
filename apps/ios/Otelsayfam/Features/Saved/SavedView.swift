@@ -9,7 +9,6 @@ struct SavedView: View {
     @Query(sort: \SavedHotel.savedAt, order: .reverse) private var saved: [SavedHotel]
     @Query(sort: \RecentHotel.viewedAt, order: .reverse) private var recent: [RecentHotel]
     @Query(sort: \SentInquiry.sentAt, order: .reverse) private var inquiries: [SentInquiry]
-    @State private var openPortal: WebPage?
 
     var body: some View {
         ScrollView {
@@ -25,9 +24,9 @@ struct SavedView: View {
                 if !inquiries.isEmpty {
                     SavedSectionTitle(String(localized: "Talepleriniz"), count: inquiries.count)
                     ForEach(inquiries) { inquiry in
-                        Button { open(inquiry) } label: { InquiryRow(inquiry: inquiry) }
+                        NavigationLink(value: InquiryRoute(id: inquiry.id)) { InquiryRow(inquiry: inquiry) }
                             .buttonStyle(.pressScaleRow)
-                            .disabled(inquiry.portalPage == nil)
+                            .disabled(inquiry.portalToken == nil)
                             .accessibilityIdentifier("inquiry-\(inquiry.hotelSlug)")
                             .contextMenu {
                                 Button("Listeden kaldır", systemImage: "trash", role: .destructive) {
@@ -73,8 +72,8 @@ struct SavedView: View {
         .navigationDestination(for: HotelSummary.self) { hotel in
             HotelDetailView(slug: hotel.slug, title: hotel.name)
         }
-        .sheet(item: $openPortal) { page in
-            SafariView(url: page.url).ignoresSafeArea()
+        .navigationDestination(for: InquiryRoute.self) { route in
+            InquiryThreadView(inquiryId: route.id)
         }
     }
 
@@ -116,13 +115,6 @@ struct SavedView: View {
         case .unavailable: String(localized: "Bildirim şu an açılamadı. Bağlantınızı kontrol edip tekrar deneyin.")
         }
     }
-
-    /// Yazışmayı (portal) açar; cevap rozeti kalkar.
-    private func open(_ inquiry: SentInquiry) {
-        guard let page = inquiry.portalPage else { return }
-        InquiryLog.markReply(inquiryId: inquiry.id, unread: false, in: context)
-        openPortal = page
-    }
 }
 
 /// Gönderilen talep: otel, tarih, ne zaman gönderildiği ve cevap durumu.
@@ -146,14 +138,14 @@ private struct InquiryRow: View {
                 status
             }
             Spacer(minLength: 0)
-            if inquiry.portalPage != nil {
+            if inquiry.portalToken != nil {
                 Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(theme.textDim)
             }
         }
         .padding(12)
         .cardSurface()
         .accessibilityElement(children: .combine)
-        .accessibilityHint(inquiry.portalPage == nil ? "" : String(localized: "Yazışmayı açar"))
+        .accessibilityHint(inquiry.portalToken == nil ? "" : String(localized: "Yazışmayı açar"))
     }
 
     @ViewBuilder private var status: some View {
@@ -161,7 +153,7 @@ private struct InquiryRow: View {
             Label("Yeni cevap", systemImage: "envelope.badge.fill")
                 .font(theme.body(13, weight: 700))
                 .foregroundStyle(theme.cta)
-        } else if inquiry.portalPage == nil {
+        } else if inquiry.portalToken == nil {
             Text("Cevap e-postanıza gelecek")
                 .font(theme.body(13, weight: 600))
                 .foregroundStyle(theme.textMuted)

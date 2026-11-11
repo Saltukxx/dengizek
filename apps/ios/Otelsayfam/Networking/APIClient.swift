@@ -103,6 +103,35 @@ struct APIClient: Sendable {
         return try JSONDecoder().decode(InquiryReceipt.self, from: data)
     }
 
+    /// Talep yazışması; bağlantı yoksa son kayıt (`isStale`). Bağlantının
+    /// süresi dolduysa ya da iptal edildiyse `APIError.notFound`.
+    func inquiryThread(token: String) async throws -> Fetched<InquiryThread> {
+        try await fetch("api/v1/inquiries/portal/\(token)/messages", staleOK: true)
+    }
+
+    /// Yazışmaya mesaj ekler. Sunucu doğrulama hatasını (ör. telefon/e-posta
+    /// içeren mesaj, kapatılmış talep) Türkçe açıklamayla döner.
+    func sendInquiryMessage(token: String, body: String) async throws -> InquiryMessage {
+        var request = URLRequest(url: baseURL.appending(path: "api/v1/inquiries/portal/\(token)/messages"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(["body": body])
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw APIError.unreachable
+        }
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if status == 404 { throw APIError.notFound }
+        guard (200..<300).contains(status) else {
+            let failure = try? JSONDecoder().decode(FailureResponse.self, from: data)
+            throw APIError.server(failure?.error ?? (status == 429 ? String(localized: "Çok fazla mesaj gönderdiniz, biraz sonra tekrar deneyin.") : String(localized: "Mesaj gönderilemedi.")))
+        }
+        return try JSONDecoder().decode(MessageResponse.self, from: data).message
+    }
+
     /// Cihazı talebe bağlar: yönetici cevap yazınca bildirim gelir.
     func registerPush(inquiryId: String, deviceToken: String) async throws {
         var request = URLRequest(url: baseURL.appending(path: "api/v1/push/register"))
@@ -234,4 +263,5 @@ private struct QuoteResponse: Decodable, Sendable {
     let quote: StayQuote?
     let error: String?
 }
+private struct MessageResponse: Decodable, Sendable { let message: InquiryMessage }
 private struct FailureResponse: Decodable { let error: String? }

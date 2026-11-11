@@ -233,6 +233,28 @@
         }
       }
     },
+    "%@ · Ekibimiz inceliyor": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · Wird von unserem Team geprüft"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · Under review by our team"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · На проверке у нашей команды"
+          }
+        }
+      }
+    },
     "%@ – %@ · %lld gece": {
       "localizations": {
         "de": {
@@ -2528,6 +2550,50 @@
         }
       }
     },
+    "Bu talebin yazışması bu cihazda yok. Cevaplar e-postanıza gelir.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Verlauf dieser Anfrage ist auf diesem Gerät nicht vorhanden. Antworten kommen per E-Mail."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This request’s conversation isn’t on this device. Replies arrive by email."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переписки по этому запросу нет на этом устройстве. Ответы приходят на электронную почту."
+          }
+        }
+      }
+    },
+    "Bu talep kapatıldı; yeni mesaj yazılamaz.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Anfrage ist geschlossen; neue Nachrichten sind nicht möglich."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This request is closed; new messages can’t be sent."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запрос закрыт; новые сообщения отправить нельзя."
+          }
+        }
+      }
+    },
     "Bu talep ve (isteğe bağlı) gelecek teklifler için benimle iletişime geçilmesini kabul ediyorum": {
       "localizations": {
         "de": {
@@ -2568,6 +2634,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "На эти даты минимальный срок проживания: %lld ноч."
+          }
+        }
+      }
+    },
+    "Bu yazışmanın bağlantısı artık geçerli değil.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Link zu diesem Verlauf ist nicht mehr gültig."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The link to this conversation is no longer valid."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ссылка на эту переписку больше не действует."
+          }
+        }
+      }
+    },
+    "Bu yazışmanın bağlantısı artık geçerli değil. Yeni bir sorunuz varsa otel sayfasından talep gönderebilirsiniz.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Link zu diesem Verlauf ist nicht mehr gültig. Bei einer neuen Frage senden Sie bitte eine Anfrage über die Hotelseite."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The link to this conversation is no longer valid. If you have a new question, send a request from the hotel page."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ссылка на эту переписку больше не действует. Если у вас новый вопрос, отправьте запрос со страницы отеля."
           }
         }
       }
@@ -2942,6 +3052,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Наша команда ответит на запрос по электронной почте."
+          }
+        }
+      }
+    },
+    "Ekibimiz talebinizi inceliyor. Cevap burada ve e-postanızda görünür.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unser Team prüft Ihre Anfrage. Die Antwort erscheint hier und in Ihrem E-Mail-Postfach."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Our team is reviewing your request. The reply will appear here and in your email."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Наша команда рассматривает ваш запрос. Ответ появится здесь и в вашей почте."
           }
         }
       }
@@ -4310,6 +4442,28 @@
         }
       }
     },
+    "Mesaj gönderilemedi.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Nachricht konnte nicht gesendet werden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The message couldn’t be sent."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось отправить сообщение."
+          }
+        }
+      }
+    },
     "Mesajınızı yazın.": {
       "localizations": {
         "de": {
@@ -4328,6 +4482,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Введите сообщение."
+          }
+        }
+      }
+    },
+    "Mesajınızı yazın…": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nachricht schreiben…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Write your message…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Напишите сообщение…"
           }
         }
       }
@@ -4758,6 +4934,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Пройдитесь по отелю ещё до поездки."
+          }
+        }
+      }
+    },
+    "Oteli gör": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hotel ansehen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View hotel"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть отель"
           }
         }
       }
@@ -5400,6 +5598,28 @@
         }
       }
     },
+    "Siz: %@, %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie: %1$@, %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You: %1$@, %2$@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вы: %1$@, %2$@"
+          }
+        }
+      }
+    },
     "Son baktıklarınız": {
       "localizations": {
         "de": {
@@ -5682,6 +5902,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Запрос получен"
+          }
+        }
+      }
+    },
+    "Talep": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anfrage"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Request"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запрос"
           }
         }
       }
@@ -6412,6 +6654,28 @@
         }
       }
     },
+    "Web'de aç": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Im Web öffnen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open on the web"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть на сайте"
+          }
+        }
+      }
+    },
     "Yakında yeni oteller eklenecek. Diğer sezonlara üstteki seçiciden bakabilirsiniz.": {
       "localizations": {
         "de": {
@@ -6584,6 +6848,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "Если не хотите печатать, нажмите на микрофон и произнесите вопрос."
+          }
+        }
+      }
+    },
+    "Yazışma bulunamadı": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verlauf nicht gefunden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conversation not found"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переписка не найдена"
+          }
+        }
+      }
+    },
+    "Yazışma kapandı": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verlauf geschlossen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conversation closed"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переписка закрыта"
           }
         }
       }
@@ -6936,6 +7244,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Дети: %lld"
+          }
+        }
+      }
+    },
+    "Çok fazla mesaj gönderdiniz, biraz sonra tekrar deneyin.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie haben zu viele Nachrichten gesendet; versuchen Sie es gleich noch einmal."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You’ve sent too many messages; try again shortly."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вы отправили слишком много сообщений; повторите попытку чуть позже."
           }
         }
       }
