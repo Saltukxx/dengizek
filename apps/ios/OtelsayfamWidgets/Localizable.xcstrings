@@ -1,0 +1,116 @@
+{
+  "sourceLanguage": "tr",
+  "strings": {
+    "Fiyat talep üzerine": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preis auf Anfrage"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Price on request"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цена по запросу"
+          }
+        }
+      }
+    },
+    "Kaydettikleriniz": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre gespeicherten Hotels"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your saved hotels"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваши сохранённые отели"
+          }
+        }
+      }
+    },
+    "Kaydettiğiniz oteller ve gecelik başlayan fiyatları.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre gespeicherten Hotels und deren Ab-Preise pro Nacht."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your saved hotels and their starting nightly prices."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваши сохранённые отели и минимальные цены за ночь."
+          }
+        }
+      }
+    },
+    "Otel kaydedin, burada görünsün.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speichern Sie ein Hotel, dann erscheint es hier."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save a hotel to see it here."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохраните отель, и он появится здесь."
+          }
+        }
+      }
+    },
+    "gecelik başlayan": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pro Nacht, ab"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "per night, from"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "за ночь, от"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

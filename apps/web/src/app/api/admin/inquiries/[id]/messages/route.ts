@@ -11,6 +11,7 @@ import { inquiriesTable, inquiryMessagesTable } from "@/lib/db/schema";
 import { inquiryMessageSchema } from "@/lib/schemas/hotel-panel";
 import { sendEmail } from "@/lib/email";
 import { rotateInquiryPortalToken } from "@/lib/inquiry-portal-token";
+import { notifyGuestReply } from "@/lib/push/notify-guest";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -73,9 +74,11 @@ export async function POST(req: Request, { params }: RouteParams) {
     const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/inquiry/portal/${token}`;
     await sendEmail({
       to: inquiry.email,
-      subject: "Tesisinizden yeni mesaj — Otelsayfam",
+      subject: "Otelsayfam ekibinden yeni mesaj",
       text: `Merhaba ${inquiry.name},\n\n${parsed.data.body}\n\nYanıtlamak için: ${portalUrl}`,
     });
+    // iOS uygulamasında bildirim isteyen misafire (varsa) aynı portal bağlantısı.
+    await notifyGuestReply(db, inquiry, portalUrl);
   }
 
   return NextResponse.json({ ok: true, message }, { status: 201 });

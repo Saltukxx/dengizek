@@ -10,14 +10,8 @@ import { HotelCard, EmptyState } from "@/components/marketing";
 import { amenitiesCatalog, normalizeAmenities } from "@/lib/amenities-catalog";
 import { pageWindow, paginate } from "@/lib/browse-pagination";
 import { StayFields } from "@/components/guest/stay-fields";
-import {
-  describeStay,
-  hasStaySearch,
-  overlapsClosedRange,
-  parseStaySearch,
-  roomCapacityFit,
-  withStayQuery,
-} from "@/lib/stay-search";
+import { filterBrowseHotels } from "@/lib/browse-filters";
+import { describeStay, hasStaySearch, parseStaySearch, withStayQuery } from "@/lib/stay-search";
 
 export interface BrowseAmenityOption {
   key: string;
@@ -122,62 +116,17 @@ export async function HotelBrowse({
   const allHotels = await getPublishedHotelsForBrowse({ q, season });
   // Aktarılan tesisler olanakları serbest metinle tutar; filtre anahtar üzerinden çalışır.
   const amenityKeysBySlug = new Map(allHotels.map((h) => [h.slug, new Set(normalizeAmenities(h.amenities))]));
-  let hotels = allHotels;
-  if (q) {
-    hotels = hotels.filter(
-      (h) =>
-        h.name.toLowerCase().includes(q) ||
-        (h.city ?? "").toLowerCase().includes(q) ||
-        (h.country ?? "").toLowerCase().includes(q),
-    );
-  }
-  if (minStars && minStars >= 1) {
-    hotels = hotels.filter((h) => (h.starRating ?? 0) >= minStars);
-  }
-  if (amenity) {
-    hotels = hotels.filter((h) => amenityKeysBySlug.get(h.slug)?.has(amenity));
-  }
-  if (tourOnly) {
-    hotels = hotels.filter((h) => h.tourId);
-  }
-  if (promoOnly) {
-    hotels = hotels.filter((h) => h.promotionBadge);
-  }
-  if (petsOnly) {
-    hotels = hotels.filter((h) => h.petsAllowed === true);
-  }
-  // Kişi sayısı: en az bir odası bu grubu alabilen tesisler kalır. Oda
-  // kapasitesi bilinmeyen tesis elenmez (otel talepte teyit eder).
-  if (stay.hasParty) {
-    hotels = hotels.filter(
-      (h) => !h.roomCapacities?.length || h.roomCapacities.some((room) => roomCapacityFit(room, stay) !== "no"),
-    );
-  }
-  // Tarih: otelin kapalı dönemine denk gelen konaklamalar elenir.
-  if (stay.checkIn && stay.checkOut) {
-    const { checkIn, checkOut } = stay;
-    hotels = hotels.filter((h) => !overlapsClosedRange(checkIn, checkOut, h.closedRanges ?? []));
-  }
-  if (priceBand === "budget") {
-    hotels = hotels.filter((h) => h.minPriceMinor != null && h.minPriceMinor < 300_000);
-  } else if (priceBand === "mid") {
-    hotels = hotels.filter(
-      (h) => h.minPriceMinor != null && h.minPriceMinor >= 300_000 && h.minPriceMinor < 800_000,
-    );
-  } else if (priceBand === "luxury") {
-    hotels = hotels.filter((h) => h.minPriceMinor != null && h.minPriceMinor >= 800_000);
-  }
-
-  if (sort === "recommended") {
-    // Önerilen: video turu olanlar önce (stabil sıralama, alfabetik sıra korunur).
-    hotels = [...hotels].sort((a, b) => Number(Boolean(b.tourId)) - Number(Boolean(a.tourId)));
-  } else if (sort === "price-asc") {
-    hotels = [...hotels].sort(
-      (a, b) => (a.minPriceMinor ?? Number.MAX_SAFE_INTEGER) - (b.minPriceMinor ?? Number.MAX_SAFE_INTEGER),
-    );
-  } else if (sort === "rating-desc") {
-    hotels = [...hotels].sort((a, b) => (b.reviewAverage ?? 0) - (a.reviewAverage ?? 0));
-  }
+  const hotels = filterBrowseHotels(allHotels, {
+    q,
+    minStars,
+    amenity,
+    petsOnly,
+    priceBand,
+    tourOnly,
+    promoOnly,
+    sort,
+    stay,
+  });
 
   const hasFilters = Boolean(q || minStars || amenity || petsOnly || priceBand || tourOnly || promoOnly || staySearched);
   const tourCount = allHotels.filter((h) => h.tourId).length;

@@ -1,0 +1,706 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		52FCE15E359C7CA675BC0658 /* OtelsayfamWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2178D92DD2DF55CE9D5F84A6 /* OtelsayfamWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		32A86436F045DAEFE51D1846 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C3B1730EAF37D39E53876E2B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 64FACB09045D1FCE26260A0D;
+			remoteInfo = OtelsayfamWidgets;
+		};
+		D3211D77FCAA53D31BBC9AB1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C3B1730EAF37D39E53876E2B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6F746183A5DBD24192CC18A6;
+			remoteInfo = Otelsayfam;
+		};
+		E22327ED2B4A19A8B2576716 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C3B1730EAF37D39E53876E2B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6F746183A5DBD24192CC18A6;
+			remoteInfo = Otelsayfam;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A865D7C2A36A55D1D17732FB /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				52FCE15E359C7CA675BC0658 /* OtelsayfamWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		1971652B23F451FF4D4A6EB7 /* Otelsayfam.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Otelsayfam.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2178D92DD2DF55CE9D5F84A6 /* OtelsayfamWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = OtelsayfamWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		6911D73E04D7AEDFD953C275 /* OtelsayfamTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = OtelsayfamTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B60E52861A33B7DDB19EDB95 /* OtelsayfamUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = OtelsayfamUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		6113DF98B214E9438AC69FE8 /* OtelsayfamTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = OtelsayfamTests;
+			sourceTree = "<group>";
+		};
+		67C1378770400E2ED4CE609D /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		6E790F32B19AA9E85F62F167 /* Otelsayfam */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Otelsayfam;
+			sourceTree = "<group>";
+		};
+		7B27538917DA50F621B7062D /* OtelsayfamWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = OtelsayfamWidgets;
+			sourceTree = "<group>";
+		};
+		97377B904E33171B9E5E8B26 /* OtelsayfamUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = OtelsayfamUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXGroup section */
+		CBCC4CB75BA582EE1F584DE3 = {
+			isa = PBXGroup;
+			children = (
+				6E790F32B19AA9E85F62F167 /* Otelsayfam */,
+				6113DF98B214E9438AC69FE8 /* OtelsayfamTests */,
+				97377B904E33171B9E5E8B26 /* OtelsayfamUITests */,
+				7B27538917DA50F621B7062D /* OtelsayfamWidgets */,
+				67C1378770400E2ED4CE609D /* Shared */,
+				D7EFB60404FDAA6693DB9242 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D7EFB60404FDAA6693DB9242 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				1971652B23F451FF4D4A6EB7 /* Otelsayfam.app */,
+				6911D73E04D7AEDFD953C275 /* OtelsayfamTests.xctest */,
+				B60E52861A33B7DDB19EDB95 /* OtelsayfamUITests.xctest */,
+				2178D92DD2DF55CE9D5F84A6 /* OtelsayfamWidgets.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		64FACB09045D1FCE26260A0D /* OtelsayfamWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 337E395E65ED6DAA8C91E78A /* Build configuration list for PBXNativeTarget "OtelsayfamWidgets" */;
+			buildPhases = (
+				F129D3AB48E85B68E479BD7D /* Sources */,
+				80A003587E83FDA68AB14212 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				7B27538917DA50F621B7062D /* OtelsayfamWidgets */,
+				67C1378770400E2ED4CE609D /* Shared */,
+			);
+			name = OtelsayfamWidgets;
+			packageProductDependencies = (
+			);
+			productName = OtelsayfamWidgets;
+			productReference = 2178D92DD2DF55CE9D5F84A6 /* OtelsayfamWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		6F746183A5DBD24192CC18A6 /* Otelsayfam */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 82147E9B24183B929AB5D3B9 /* Build configuration list for PBXNativeTarget "Otelsayfam" */;
+			buildPhases = (
+				3301B0E7B9F8594F6E225CB5 /* Sources */,
+				60B0578F6BF7E706E2D45629 /* Resources */,
+				A865D7C2A36A55D1D17732FB /* Embed Foundation Extensions */,
+				8E842095D282401794493AFD /* Şifresiz bağlantı izni (önizleme sunucusu) */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2A634AFC0ADA027F3D980BAA /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				6E790F32B19AA9E85F62F167 /* Otelsayfam */,
+				67C1378770400E2ED4CE609D /* Shared */,
+			);
+			name = Otelsayfam;
+			packageProductDependencies = (
+			);
+			productName = Otelsayfam;
+			productReference = 1971652B23F451FF4D4A6EB7 /* Otelsayfam.app */;
+			productType = "com.apple.product-type.application";
+		};
+		9545E749F4FE67D3FE7C3878 /* OtelsayfamTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B1D4B4F9E4B1A0A649840715 /* Build configuration list for PBXNativeTarget "OtelsayfamTests" */;
+			buildPhases = (
+				4084B0CED8FFB8F6C3F08EA2 /* Sources */,
+				D4B00394F1D4F739671A482A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E20E4752A6B43A72702629D2 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				6113DF98B214E9438AC69FE8 /* OtelsayfamTests */,
+			);
+			name = OtelsayfamTests;
+			packageProductDependencies = (
+			);
+			productName = OtelsayfamTests;
+			productReference = 6911D73E04D7AEDFD953C275 /* OtelsayfamTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		CD55F83EA17BFFFCC0ECC6FE /* OtelsayfamUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C8CDE1D8C489FF02436827B8 /* Build configuration list for PBXNativeTarget "OtelsayfamUITests" */;
+			buildPhases = (
+				339F9B7A68C4F3E77BD86CA3 /* Sources */,
+				218A5B426E4D0D435D534D1D /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1D5D23813E613CA875F20E86 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				97377B904E33171B9E5E8B26 /* OtelsayfamUITests */,
+			);
+			name = OtelsayfamUITests;
+			packageProductDependencies = (
+			);
+			productName = OtelsayfamUITests;
+			productReference = B60E52861A33B7DDB19EDB95 /* OtelsayfamUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		C3B1730EAF37D39E53876E2B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					64FACB09045D1FCE26260A0D = {
+						DevelopmentTeam = KRQ4U9G63K;
+						ProvisioningStyle = Automatic;
+					};
+					6F746183A5DBD24192CC18A6 = {
+						DevelopmentTeam = KRQ4U9G63K;
+						ProvisioningStyle = Automatic;
+					};
+					9545E749F4FE67D3FE7C3878 = {
+						DevelopmentTeam = KRQ4U9G63K;
+						ProvisioningStyle = Automatic;
+					};
+					CD55F83EA17BFFFCC0ECC6FE = {
+						DevelopmentTeam = KRQ4U9G63K;
+						ProvisioningStyle = Automatic;
+						TestTargetID = 6F746183A5DBD24192CC18A6;
+					};
+				};
+			};
+			buildConfigurationList = EA477A999D0FB0813B795ACE /* Build configuration list for PBXProject "Otelsayfam" */;
+			developmentRegion = tr;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				tr,
+			);
+			mainGroup = CBCC4CB75BA582EE1F584DE3;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = D7EFB60404FDAA6693DB9242 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				6F746183A5DBD24192CC18A6 /* Otelsayfam */,
+				64FACB09045D1FCE26260A0D /* OtelsayfamWidgets */,
+				9545E749F4FE67D3FE7C3878 /* OtelsayfamTests */,
+				CD55F83EA17BFFFCC0ECC6FE /* OtelsayfamUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		218A5B426E4D0D435D534D1D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		60B0578F6BF7E706E2D45629 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		80A003587E83FDA68AB14212 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D4B00394F1D4F739671A482A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		8E842095D282401794493AFD /* Şifresiz bağlantı izni (önizleme sunucusu) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Şifresiz bağlantı izni (önizleme sunucusu)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "PLIST=\"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n# NSAllowsLocalNetworking varken iOS genel izni yok sayar; ikisi birlikte olmaz.\n/usr/libexec/PlistBuddy -c \"Delete :NSAppTransportSecurity:NSAllowsLocalNetworking\" \"$PLIST\" 2>/dev/null || true\n/usr/libexec/PlistBuddy -c \"Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true\" \"$PLIST\" 2>/dev/null \\\n  || /usr/libexec/PlistBuddy -c \"Set :NSAppTransportSecurity:NSAllowsArbitraryLoads true\" \"$PLIST\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		3301B0E7B9F8594F6E225CB5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		339F9B7A68C4F3E77BD86CA3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4084B0CED8FFB8F6C3F08EA2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F129D3AB48E85B68E479BD7D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		1D5D23813E613CA875F20E86 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6F746183A5DBD24192CC18A6 /* Otelsayfam */;
+			targetProxy = E22327ED2B4A19A8B2576716 /* PBXContainerItemProxy */;
+		};
+		2A634AFC0ADA027F3D980BAA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 64FACB09045D1FCE26260A0D /* OtelsayfamWidgets */;
+			targetProxy = 32A86436F045DAEFE51D1846 /* PBXContainerItemProxy */;
+		};
+		E20E4752A6B43A72702629D2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6F746183A5DBD24192CC18A6 /* Otelsayfam */;
+			targetProxy = D3211D77FCAA53D31BBC9AB1 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		051C50935BC21C3AC14E8F1E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Config/AppGroup.entitlements;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/Widgets-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gbsoft.otelsayfam.widgets;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		1C07661EBFBEC31F79A25BD3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 3;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = KRQ4U9G63K;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		2B2B160535B3AFC787306478 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gbsoft.otelsayfam.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Otelsayfam;
+			};
+			name = Debug;
+		};
+		48D924C6B8683A8166D6115B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Config/AppGroup.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Config/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				OTS_API_BASE_URL = "http://64.226.108.21:8080";
+				PRODUCT_BUNDLE_IDENTIFIER = com.gbsoft.otelsayfam;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		54E7FFEA9A14BDF04FE27E21 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gbsoft.otelsayfam.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Otelsayfam.app/Otelsayfam";
+			};
+			name = Debug;
+		};
+		66FC3A59695138B5A33A3E7B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 3;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = KRQ4U9G63K;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		6C4C0C0F69C1309858CB7316 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Config/AppGroup.entitlements;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/Widgets-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gbsoft.otelsayfam.widgets;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		B3F7D3F053318CBCDB9BECD0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gbsoft.otelsayfam.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Otelsayfam;
+			};
+			name = Release;
+		};
+		C9D96EAEA1DE42ECC39592B0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Config/AppGroup.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Config/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				OTS_API_BASE_URL = "http://localhost:3000";
+				PRODUCT_BUNDLE_IDENTIFIER = com.gbsoft.otelsayfam;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		E32EE3F549B2F6A2AD3C620C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gbsoft.otelsayfam.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Otelsayfam.app/Otelsayfam";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		337E395E65ED6DAA8C91E78A /* Build configuration list for PBXNativeTarget "OtelsayfamWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				051C50935BC21C3AC14E8F1E /* Debug */,
+				6C4C0C0F69C1309858CB7316 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		82147E9B24183B929AB5D3B9 /* Build configuration list for PBXNativeTarget "Otelsayfam" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C9D96EAEA1DE42ECC39592B0 /* Debug */,
+				48D924C6B8683A8166D6115B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B1D4B4F9E4B1A0A649840715 /* Build configuration list for PBXNativeTarget "OtelsayfamTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				54E7FFEA9A14BDF04FE27E21 /* Debug */,
+				E32EE3F549B2F6A2AD3C620C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C8CDE1D8C489FF02436827B8 /* Build configuration list for PBXNativeTarget "OtelsayfamUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2B2B160535B3AFC787306478 /* Debug */,
+				B3F7D3F053318CBCDB9BECD0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		EA477A999D0FB0813B795ACE /* Build configuration list for PBXProject "Otelsayfam" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C07661EBFBEC31F79A25BD3 /* Debug */,
+				66FC3A59695138B5A33A3E7B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = C3B1730EAF37D39E53876E2B /* Project object */;
+}

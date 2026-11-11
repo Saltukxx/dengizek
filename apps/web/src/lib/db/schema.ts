@@ -730,6 +730,44 @@ export const inquiryMessagesTable = pgTable("inquiry_messages", {
 }));
 
 // ---------------------------------------------------------------------------
+// inquiry_push_targets — iOS uygulamasında "cevap gelince bildirim al" diyen
+// misafirin cihaz kimliği. Hesap yok: kayıt talebe bağlıdır, talep silinince
+// gider. Yönetici cevap yazınca bu cihazlara APNs bildirimi gönderilir.
+// ---------------------------------------------------------------------------
+
+export const inquiryPushTargetsTable = pgTable("inquiry_push_targets", {
+  id:          uuid("id").defaultRandom().primaryKey(),
+  inquiryId:   uuid("inquiry_id").notNull().references(() => inquiriesTable.id, { onDelete: "cascade" }),
+  deviceToken: text("device_token").notNull(),
+  /** "sandbox" (Xcode/TestFlight geliştirme) | "production" (App Store) */
+  environment: text("environment").notNull(),
+  createdAt:   timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  inquiryTokenUnique: uniqueIndex("inquiry_push_targets_inquiry_token_unique").on(table.inquiryId, table.deviceToken),
+}));
+
+// ---------------------------------------------------------------------------
+// price_alert_targets — iOS uygulamasında "fiyat düşünce haber ver" diyen
+// misafirin cihaz kimliği, kaydettiği otele bağlı. Hesap yok. Günlük cron
+// (/api/internal/price-alerts) fiyatı `lastPriceMinor` ile karşılaştırır.
+// ---------------------------------------------------------------------------
+
+export const priceAlertTargetsTable = pgTable("price_alert_targets", {
+  id:             uuid("id").defaultRandom().primaryKey(),
+  hotelId:        uuid("hotel_id").notNull().references(() => hotelsTable.id, { onDelete: "cascade" }),
+  deviceToken:    text("device_token").notNull(),
+  /** "sandbox" (Xcode/TestFlight geliştirme) | "production" (App Store) */
+  environment:    text("environment").notNull(),
+  /** Son görülen "gecelik başlayan" fiyat (kuruş); fiyat yoksa null. */
+  lastPriceMinor: integer("last_price_minor"),
+  lastNotifiedAt: timestamp("last_notified_at"),
+  createdAt:      timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  hotelTokenUnique: uniqueIndex("price_alert_targets_hotel_token_unique").on(table.hotelId, table.deviceToken),
+  tokenIdx: index("price_alert_targets_token_idx").on(table.deviceToken),
+}));
+
+// ---------------------------------------------------------------------------
 // reviews — misafir yorumları
 // ---------------------------------------------------------------------------
 

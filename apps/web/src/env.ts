@@ -41,6 +41,11 @@ const featureGroups: Array<{ flag: string; when: (env: NodeJS.ProcessEnv) => boo
     vars: ["R2_BUCKET_NAME", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_PUBLIC_URL"],
   },
   {
+    flag: "iOS bildirimleri (APNs)",
+    when: (env) => Boolean(env.APNS_KEY_ID || env.APNS_TEAM_ID || env.APNS_PRIVATE_KEY || env.APNS_BUNDLE_ID),
+    vars: ["APNS_KEY_ID", "APNS_TEAM_ID", "APNS_PRIVATE_KEY", "APNS_BUNDLE_ID"],
+  },
+  {
     flag: "Stripe (PAYMENTS_ENABLED=true)",
     when: (env) => env.PAYMENTS_ENABLED === "true",
     vars: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"],

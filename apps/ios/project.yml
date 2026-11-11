@@ -1,0 +1,165 @@
+name: Otelsayfam
+options:
+  bundleIdPrefix: com.gbsoft
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+  # Kaynak dil Türkçe; çeviriler String Catalog'da (en, de, ru).
+  developmentLanguage: tr
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    DEVELOPMENT_TEAM: KRQ4U9G63K
+    CODE_SIGN_STYLE: Automatic
+    TARGETED_DEVICE_FAMILY: "1,2"
+    SWIFT_EMIT_LOC_STRINGS: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "3"
+targets:
+  Otelsayfam:
+    type: application
+    platform: iOS
+    sources:
+      - path: Otelsayfam
+        type: syncedFolder
+      # Uygulama ile widget'ın ortak kodu.
+      - path: Shared
+        type: syncedFolder
+    dependencies:
+      - target: OtelsayfamWidgets
+    info:
+      path: Config/Info.plist
+      properties:
+        CFBundleDisplayName: Otelsayfam
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: tr
+        CFBundleLocalizations: [tr, en, de, ru]
+        # Yalnız HTTPS ve standart özet (SHA-256) kullanılır: ihracat belgesi gerekmez.
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen: {}
+        UIAppFonts: [Manrope.ttf, PlusJakartaSans.ttf, EBGaramond.ttf, HankenGrotesk.ttf]
+        NSLocalNetworkUsageDescription: Geliştirme sürümü, aynı ağdaki Otelsayfam test sunucusuna bağlanır.
+        NSMicrophoneUsageDescription: Rehbere sesli soru sorabilmeniz için mikrofon kullanılır.
+        NSSpeechRecognitionUsageDescription: Sesli sorunuz yazıya çevrilip rehbere gönderilir; cihaz destekliyorsa tanıma cihazda yapılır.
+        # iPhone'da yatay yalnız video turda açılır (OrientationLock); iPad her yönde.
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # Derin bağlantı: otelsayfam://hotel/{slug} (widget, bildirim, test).
+        CFBundleURLTypes:
+          - CFBundleURLName: com.gbsoft.otelsayfam
+            CFBundleURLSchemes: [otelsayfam]
+        # Alan adı + HTTPS gelene kadar yerel geliştirme sunucusuna (localhost) izin.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        OTSApiBaseURL: $(OTS_API_BASE_URL)
+    # Önizleme sunucusu (http://64.226.108.21:8080) şifresiz. IP adresine ATS
+    # istisnası yazılamadığı için genel izin derleme sırasında Info.plist'e
+    # eklenir. TestFlight (Release) derlemesi de bu sunucuya bağlandığından
+    # şimdilik her yapılandırmada çalışır; alan adı + HTTPS gelince bu adım
+    # silinir (App Store incelemesine bu izinle gidilmez). Widget'ın
+    # gömülmesinden sonra çalışır (önce çalışırsa Xcode derleme adımlarında
+    # döngü bildirir).
+    postBuildScripts:
+      - name: "Şifresiz bağlantı izni (önizleme sunucusu)"
+        basedOnDependencyAnalysis: false
+        inputFiles:
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+        script: |
+          PLIST="$TARGET_BUILD_DIR/$INFOPLIST_PATH"
+          # NSAllowsLocalNetworking varken iOS genel izni yok sayar; ikisi birlikte olmaz.
+          /usr/libexec/PlistBuddy -c "Delete :NSAppTransportSecurity:NSAllowsLocalNetworking" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true" "$PLIST" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Set :NSAppTransportSecurity:NSAllowsArbitraryLoads true" "$PLIST"
+    # Bildirimler (APNs): Xcode > Settings > Accounts'a Apple hesabı eklenince
+    # aşağıdaki üç satırı açın; yoksa genel imza profili bu yetkiyi içermediği
+    # için cihaz derlemesi başarısız olur. Sunucu tarafı APNS_* değişkenlerini ister.
+    # entitlements:
+    #   path: Config/Otelsayfam.entitlements
+    #   properties: { aps-environment: development }
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gbsoft.otelsayfam
+        GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # App Group (widget ile ortak klasör) şimdilik yalnız simülatörde açık:
+        # cihaz derlemesi için grubun Apple hesabında tanımlı olması gerekir.
+        # Hesap eklenince bu satır (uygulama ve widget'ta) koşulsuz
+        # CODE_SIGN_ENTITLEMENTS olur; o zamana kadar cihazda widget boş görünür.
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]": Config/AppGroup.entitlements
+      configs:
+        Debug:
+          OTS_API_BASE_URL: http://localhost:3000
+        # TestFlight: alan adı gelene kadar önizleme sunucusu.
+        Release:
+          OTS_API_BASE_URL: http://64.226.108.21:8080
+  OtelsayfamWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: OtelsayfamWidgets
+        type: syncedFolder
+      - path: Shared
+        type: syncedFolder
+    info:
+      path: Config/Widgets-Info.plist
+      properties:
+        CFBundleDisplayName: Otelsayfam
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        # Fiyatlar şifresiz önizleme sunucusundan (ya da localhost) tazelenir;
+        # alan adı + HTTPS gelince kaldırılır.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gbsoft.otelsayfam.widgets
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]": Config/AppGroup.entitlements
+  OtelsayfamTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: OtelsayfamTests
+        type: syncedFolder
+    dependencies:
+      - target: Otelsayfam
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.gbsoft.otelsayfam.tests
+  OtelsayfamUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: OtelsayfamUITests
+        type: syncedFolder
+    dependencies:
+      - target: Otelsayfam
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.gbsoft.otelsayfam.uitests
+schemes:
+  Otelsayfam:
+    build:
+      targets:
+        Otelsayfam: all
+        OtelsayfamTests: [test]
+    test:
+      # Testler Türkçe metinleri ve biçimleri doğrular; dil ve bölge sabit.
+      language: tr
+      region: TR
+      targets: [OtelsayfamTests, OtelsayfamUITests]

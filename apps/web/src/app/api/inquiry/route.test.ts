@@ -34,6 +34,7 @@ vi.mock("@/lib/inquiry-portal-token", () => ({
   portalTokenExpiry: mocks.portalTokenExpiry,
 }));
 
+import { handleInquiry } from "@/lib/inquiry-submit";
 import { POST } from "./route";
 
 const baseBody = {
@@ -216,6 +217,19 @@ describe("public inquiry API", () => {
       to: "ada@example.com",
       subject: "Talebiniz alındı — Otelsayfam",
       text: expect.stringContaining("https://dengizek.test/inquiry/portal/portal-secret"),
+    });
+  });
+
+  it("iOS uygulamasına (v1) portal bağlantısını yanıtta da döner; web yanıtında yoktur", async () => {
+    makeDb([[{ id: "hotel-db" }], [{ id: "room-db", slug: "dag-suiti" }]], [{ id: "inquiry-1" }]);
+
+    const res = await handleInquiry(request(), { includePortalUrl: true });
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      ok: true,
+      id: "inquiry-1",
+      portalUrl: "https://dengizek.test/inquiry/portal/portal-secret",
     });
   });
 

@@ -16,6 +16,10 @@ APP_URL=http://localhost
 # iCal senkronu — her 30 dakikada
 */30 * * * * curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" $APP_URL/api/internal/ical-sync >> /var/log/dengizek-cron.log 2>&1
 
+# iOS fiyat düşüşü bildirimleri — günde bir, 10:00 Europe/Istanbul (07:00 UTC;
+# sunucu saat dilimine göre ayarlayın). APNS_* ayarlı değilse bildirim gitmez.
+0 7 * * * curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" $APP_URL/api/internal/price-alerts >> /var/log/dengizek-cron.log 2>&1
+
 # Günlük Postgres yedeği → R2 — gece 03:00 (Europe/Istanbul; sunucu saat
 # dilimine göre ayarlayın)
 0 3 * * * /opt/dengizek/deploy/backup.sh >> /var/log/dengizek-backup.log 2>&1
