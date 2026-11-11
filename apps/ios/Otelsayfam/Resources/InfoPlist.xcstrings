@@ -1,0 +1,93 @@
+{
+  "sourceLanguage": "tr",
+  "strings": {
+    "NSLocalNetworkUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Entwicklungsversion verbindet sich mit dem Otelsayfam-Testserver im selben Netzwerk."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The development build connects to the Otelsayfam test server on the same network."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версия для разработки подключается к тестовому серверу Otelsayfam в той же сети."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geliştirme sürümü, aynı ağdaki Otelsayfam test sunucusuna bağlanır."
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Mikrofon wird verwendet, damit Sie dem Guide Fragen per Sprache stellen können."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The microphone is used so you can ask the guide questions by voice."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Микрофон используется, чтобы вы могли задавать вопросы гиду голосом."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rehbere sesli soru sorabilmeniz için mikrofon kullanılır."
+          }
+        }
+      }
+    },
+    "NSSpeechRecognitionUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre gesprochene Frage wird in Text umgewandelt und an den Guide gesendet; wenn möglich, erfolgt die Erkennung auf dem Gerät."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your spoken question is converted to text and sent to the guide; recognition happens on the device when supported."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваш голосовой вопрос преобразуется в текст и отправляется гиду; если устройство поддерживает, распознавание выполняется на нём."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sesli sorunuz yazıya çevrilip rehbere gönderilir; cihaz destekliyorsa tanıma cihazda yapılır."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}
