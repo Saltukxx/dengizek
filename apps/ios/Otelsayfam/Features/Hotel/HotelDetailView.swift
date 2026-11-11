@@ -63,6 +63,7 @@ private struct HotelDetailContent: View {
     @Environment(\.theme) private var theme
     @Environment(\.modelContext) private var context
     @Environment(StayStore.self) private var store
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let hotel: HotelDetail
     var isStale = false
     @State private var quoteState: QuoteState = .idle
@@ -228,26 +229,32 @@ private struct HotelDetailContent: View {
 
     /// Altta sabit çubuk: fiyat, rehber ve talep. Misafir sayfanın neresinde
     /// olursa olsun fiyatı görür, sorar ya da talep gönderir. Talep tek dolu düğme.
+    /// Erişilebilirlik yazı boyutlarında fiyat üstte kendi satırına geçer; yoksa
+    /// düğme bütün genişliği alır ve fiyat okunmaz.
     private var actionBar: some View {
-        HStack(spacing: 10) {
+        let stacked = dynamicTypeSize.isAccessibilitySize
+        let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 10))
+        return layout {
             priceSummary
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Button(action: openGuide) {
-                GuideAvatar(size: 28)
-                    .frame(width: 50, height: 50)
-                    .background(theme.surface, in: .rect(cornerRadius: theme.radius, style: .continuous))
-                    .overlay { RoundedRectangle(cornerRadius: theme.radius).strokeBorder(theme.lineStrong) }
+            HStack(spacing: 10) {
+                Button(action: openGuide) {
+                    GuideAvatar(size: 28)
+                        .frame(width: 50, height: 50)
+                        .background(theme.surface, in: .rect(cornerRadius: theme.radius, style: .continuous))
+                        .overlay { RoundedRectangle(cornerRadius: theme.radius).strokeBorder(theme.lineStrong) }
+                }
+                .buttonStyle(PressScaleButtonStyle(scale: 0.92))
+                .accessibilityLabel("Yapay zekâ rehberine sor")
+                .accessibilityIdentifier("hotel.guide")
+                Button { showsInquiry = true } label: {
+                    Text("Talep gönder")
+                }
+                .buttonStyle(.otsCTA)
+                .fixedSize(horizontal: !stacked, vertical: true)
+                .accessibilityHint("Ekibimiz talebinize e-postayla dönüş yapar.")
+                .accessibilityIdentifier("hotel.inquiry")
             }
-            .buttonStyle(PressScaleButtonStyle(scale: 0.92))
-            .accessibilityLabel("Yapay zekâ rehberine sor")
-            .accessibilityIdentifier("hotel.guide")
-            Button { showsInquiry = true } label: {
-                Text("Talep gönder")
-            }
-            .buttonStyle(.otsCTA)
-            .fixedSize()
-            .accessibilityHint("Ekibimiz talebinize e-postayla dönüş yapar.")
-            .accessibilityIdentifier("hotel.inquiry")
         }
         .padding(.horizontal, 16)
         .readableWidth()

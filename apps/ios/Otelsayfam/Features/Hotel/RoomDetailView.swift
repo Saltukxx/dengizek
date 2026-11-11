@@ -6,6 +6,7 @@ struct RoomDetailView: View {
     @Environment(\.api) private var api
     @Environment(\.theme) private var theme
     @Environment(StayStore.self) private var store
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let hotel: HotelDetail
     let room: Room
 
@@ -195,8 +196,11 @@ struct RoomDetailView: View {
 
     // MARK: Alt çubuk
 
+    /// Erişilebilirlik yazı boyutlarında özet üstte, düğme altta tam genişlikte durur.
     private var actionBar: some View {
-        HStack(spacing: 12) {
+        let stacked = dynamicTypeSize.isAccessibilitySize
+        let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 12))
+        return layout {
             VStack(alignment: .leading, spacing: 0) {
                 if let quote = quoteState.quote, let roomQuote, roomQuote.isBookable, let total = roomQuote.totalMinor {
                     RollingAmount(minor: total, currency: roomQuote.currency)
@@ -211,7 +215,7 @@ struct RoomDetailView: View {
                     Text(room.name)
                         .font(theme.body(15, weight: 700))
                         .foregroundStyle(theme.text)
-                        .lineLimit(1)
+                        .lineLimit(stacked ? 2 : 1)
                     Text(room.boardLabel)
                         .font(theme.body(12))
                         .foregroundStyle(theme.textDim)
@@ -221,7 +225,7 @@ struct RoomDetailView: View {
             .accessibilityElement(children: .combine)
             Button("Talep gönder") { showsInquiry = true }
                 .buttonStyle(.otsCTA)
-                .fixedSize()
+                .fixedSize(horizontal: !stacked, vertical: true)
                 .accessibilityIdentifier("room.inquiry")
         }
         .padding(.horizontal, 16)

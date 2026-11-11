@@ -120,13 +120,16 @@ struct SavedView: View {
 /// Gönderilen talep: otel, tarih, ne zaman gönderildiği ve cevap durumu.
 private struct InquiryRow: View {
     @Environment(\.theme) private var theme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let inquiry: SentInquiry
 
     var body: some View {
         HStack(spacing: 14) {
-            RemoteImage(path: inquiry.imageUrl)
-                .frame(width: 76, height: 76)
-                .clipShape(.rect(cornerRadius: theme.radius, style: .continuous))
+            if !dynamicTypeSize.isAccessibilitySize {
+                RemoteImage(path: inquiry.imageUrl)
+                    .frame(width: 76, height: 76)
+                    .clipShape(.rect(cornerRadius: theme.radius, style: .continuous))
+            }
             VStack(alignment: .leading, spacing: 4) {
                 Text(inquiry.hotelName)
                     .font(theme.display(18, style: .headline))

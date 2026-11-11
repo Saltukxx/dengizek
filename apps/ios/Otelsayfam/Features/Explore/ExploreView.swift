@@ -124,13 +124,20 @@ struct ExploreView: View {
 
     /// Web başlık çubuğu (.er-header): açık zemin, marka, sezon geçişi, altta renkli çizgi.
     /// Durum çubuğu bu açık zeminin üstünde kalır, her temada okunur.
+    /// Büyük yazıda marka ile sezon geçişi yan yana sığmazsa alt alta dizilir
+    /// (marka kelime ortasından bölünmesin).
     private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text("Otelsayfam")
-                .font(theme.display(26, style: .title2))
-                .foregroundStyle(theme.season == .yaz ? theme.navy : (theme.isDark ? theme.text : theme.primary))
-            Spacer()
-            SeasonSwitcher(season: $season)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline) {
+                brand
+                Spacer(minLength: 12)
+                SeasonSwitcher(season: $season)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                brand
+                SeasonSwitcher(season: $season)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 20)
         .padding(.top, 8)
@@ -139,6 +146,14 @@ struct ExploreView: View {
         .overlay(alignment: .bottom) {
             Rectangle().fill(theme.headerRule).frame(height: 2)
         }
+    }
+
+    private var brand: some View {
+        Text("Otelsayfam")
+            .font(theme.display(26, style: .title2))
+            .foregroundStyle(theme.season == .yaz ? theme.navy : (theme.isDark ? theme.text : theme.primary))
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
     }
 
     /// Vitrin banner'ı: kısa ve sıkı. İlk ekranda otel kartı da görünsün diye

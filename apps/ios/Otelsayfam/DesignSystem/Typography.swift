@@ -16,13 +16,16 @@ enum FontFamily: String, Sendable {
 enum Typography {
     private static let weightAxis = 0x7767_6874 // 'wght'
 
-    static func font(_ family: FontFamily, size: CGFloat, weight: CGFloat = 400, relativeTo style: UIFont.TextStyle = .body) -> Font {
+    /// `maxSize`: Dinamik Yazı ile büyürken aşılmayacak punto (gezinme çubuğu gibi
+    /// kendisi büyümeyen yerlerdeki metinler için).
+    static func font(_ family: FontFamily, size: CGFloat, weight: CGFloat = 400, relativeTo style: UIFont.TextStyle = .body, maxSize: CGFloat? = nil) -> Font {
         let descriptor = UIFontDescriptor(fontAttributes: [
             .name: family.rawValue,
             UIFontDescriptor.AttributeName(rawValue: kCTFontVariationAttribute as String): [weightAxis: weight],
         ])
         let base = UIFont(descriptor: descriptor, size: size)
-        return Font(UIFontMetrics(forTextStyle: style).scaledFont(for: base))
+        let metrics = UIFontMetrics(forTextStyle: style)
+        return Font(maxSize.map { metrics.scaledFont(for: base, maximumPointSize: $0) } ?? metrics.scaledFont(for: base))
     }
 }
 
@@ -33,7 +36,7 @@ extension Theme {
     }
 
     /// Gövde yazısı: yaz/termal Plus Jakarta Sans, kış Hanken Grotesk.
-    func body(_ size: CGFloat = 16, weight: CGFloat = 400, style: UIFont.TextStyle = .body) -> Font {
-        Typography.font(sansFamily, size: size, weight: weight, relativeTo: style)
+    func body(_ size: CGFloat = 16, weight: CGFloat = 400, style: UIFont.TextStyle = .body, maxSize: CGFloat? = nil) -> Font {
+        Typography.font(sansFamily, size: size, weight: weight, relativeTo: style, maxSize: maxSize)
     }
 }

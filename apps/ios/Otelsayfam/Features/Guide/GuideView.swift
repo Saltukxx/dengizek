@@ -49,8 +49,9 @@ struct GuideView: View {
                 ToolbarItem(placement: .principal) {
                     HStack(spacing: 8) {
                         GuideAvatar(size: 26)
+                        // Gezinme çubuğu büyümez: başlık sınırlı büyür, "Yapay Ze…" diye kesilmez.
                         Text("Yapay Zekâ Rehberi")
-                            .font(theme.body(16, weight: 700))
+                            .font(theme.body(16, weight: 700, maxSize: 17))
                             .foregroundStyle(theme.isDark ? theme.sand : theme.cta)
                     }
                 }

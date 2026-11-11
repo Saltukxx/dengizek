@@ -96,14 +96,18 @@ struct SearchView: View {
 /// Liste satırı: küçük görsel, serif/sans başlık, şehir, ek bilgi.
 struct HotelRow: View {
     @Environment(\.theme) private var theme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let summary: HotelSummary
     var detail: String = ""
 
     var body: some View {
         HStack(spacing: 14) {
-            RemoteImage(path: summary.imageUrl)
-                .frame(width: 76, height: 76)
-                .clipShape(.rect(cornerRadius: theme.radius, style: .continuous))
+            // Erişilebilirlik yazı boyutlarında görsel kalkar: ad ve şehir kelime ortasından bölünmesin.
+            if !dynamicTypeSize.isAccessibilitySize {
+                RemoteImage(path: summary.imageUrl)
+                    .frame(width: 76, height: 76)
+                    .clipShape(.rect(cornerRadius: theme.radius, style: .continuous))
+            }
             VStack(alignment: .leading, spacing: 4) {
                 Text(summary.name)
                     .font(theme.display(18, style: .headline))
